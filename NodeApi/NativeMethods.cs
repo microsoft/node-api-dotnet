@@ -7,6 +7,16 @@ namespace NodeApi;
 
 internal static class NativeMethods
 {
+	static NativeMethods()
+	{
+		// Node APIs are all imported from the main `node` executable. Overriding the import
+		// resolution is more efficient and avoids issues with library search paths and
+		// differences in the name of the executable.
+		NativeLibrary.SetDllImportResolver(
+			typeof(NativeMethods).Assembly,
+			(libraryName, assembly, searchPath) => NativeLibrary.GetMainProgramHandle());
+	}
+
 	// APIs defined here correspond to NAPI_VERSION 8.
 	public const int Version = 8;
 
@@ -38,9 +48,8 @@ internal static class NativeMethods
 		 public nint Data;
 	}
 
-	[DllImport("node.exe", EntryPoint = "napi_define_properties",
+	[DllImport("node", EntryPoint = "napi_define_properties",
 		CallingConvention = CallingConvention.Cdecl)]
-
 	public static extern Status DefineProperties(
 		nint env,
 		nint obj,
