@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<RootNamespace>NodeApi.Examples</RootNamespace>
+		<AssemblyName>example</AssemblyName>
+		<PublishAot>true</PublishAot>
+		<NativeLib>Shared</NativeLib>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\NodeApi\NodeApi.csproj" />
+		<ProjectReference Include="..\NodeApi\NodeApi.csproj"
+			OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	</ItemGroup>
+
+	<Target Name="CopyToDotNode" AfterTargets="LinkNative">
+		<ItemGroup>
+			<NativeBinary Include="$(NativeBinary)" />
+		</ItemGroup>
+		<Copy SourceFiles="@(NativeBinary)"
+			DestinationFiles="@(NativeBinary->Replace($(NativeBinaryExt), '.node'))" />
+	</Target>
+
+</Project>

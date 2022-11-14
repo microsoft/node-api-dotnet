@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+	<PropertyGroup>
+		<TargetFramework>net7.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+		<Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
+		<BaseOutputPath>$(MSBuildThisFileDirectory)out/</BaseOutputPath>
+		<OutputPath>$(BaseOutputPath)bin/$(Configuration)/$(MSBuildProjectName)/</OutputPath>
+		<PackageOutputPath>$(BaseOutputPath)pkg/</PackageOutputPath>
+		<SymbolsOutputPath>$(BaseOutputPath)sym/</SymbolsOutputPath>
+		<BaseIntermediateOutputPath>$(BaseOutputPath)obj/$(Configuration)/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+		<IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
+		<AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<CompilerVisibleProperty Include="BaseIntermediateOutputPath" /><!-- Used by NodeApi source generator. -->
+	</ItemGroup>
+</Project>

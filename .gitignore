@@ -1,0 +1,12 @@
+/out/
+
+*.suo
+*.user
+
+.vs/
+
+node_modules/
+
+/src/**/*.xml
+
+*.log

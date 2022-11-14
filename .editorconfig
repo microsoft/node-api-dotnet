@@ -1,0 +1,13 @@
+root = true
+
+[*]
+indent_style = tab
+indent_size = 3
+tab_width = 3
+tab_size = 3
+
+[*.{cs,ts}]
+trim_trailing_whitespace = true
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
