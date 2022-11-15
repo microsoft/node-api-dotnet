@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <Project>
 	<PropertyGroup>
 		<TargetFramework>net7.0</TargetFramework>
@@ -12,9 +11,14 @@
 		<BaseIntermediateOutputPath>$(BaseOutputPath)obj/$(Configuration)/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
 		<IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
 		<AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<CompilerVisibleProperty Include="BaseIntermediateOutputPath" /><!-- Used by NodeApi source generator. -->
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="All" />
 	</ItemGroup>
 </Project>
