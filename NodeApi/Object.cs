@@ -1,12 +1,24 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 
 namespace NodeApi;
 
-public class Object : Value
+public class Object : Value, IValue<Object>
 {
-	public Object() { }
+	public Object() : base() { }
 
-	public Object(nint env, nint value) : base(env, value) { }
+	public Object(nint value) : base(value) { }
+
+	internal Object(nint value, nint env) : base(value, env) { }
+
+	static Object IValue<Object>.From(nint value, nint env) => new Object(value, env);
+
+	public static implicit operator nint(Object v) => v.value;
+
+	public bool InstanceOf()
+	{
+		throw new NotImplementedException();
+	}
 
 	public Value this[int index]
 	{
@@ -117,12 +129,9 @@ public class Object : Value
 			nativeProperties[i] = new NativeMethods.PropertyDescriptor
 			{
 				Utf8Name = p.Name,
-				Method = p.Method == null ? null :
-					(env, info) => p.Method(new CallbackInfo(env, info)) ?? (nint)0,
-				Getter = p.Getter == null ? null :
-					(env, info) => p.Getter(new CallbackInfo(env, info)) ?? (nint)0,
-				Setter = p.Setter == null ? null :
-					(env, info) => p.Setter(new CallbackInfo(env, info)) ?? (nint)0,
+				Method = p.Method == null ? null : (env, args) => InvokeCallback(env, args, p.Method),
+				Getter = p.Getter == null ? null : (env, args) => InvokeCallback(env, args, p.Getter),
+				Setter = p.Setter == null ? null : (env, args) => InvokeCallback(env, args, p.Setter),
 				Attributes = p.Attributes,
 			};
 		}
@@ -132,65 +141,199 @@ public class Object : Value
 		NativeMethods.ThrowIfNotOK(status);
 	}
 
-	public bool InstanceOf()
+	public static Ref<Object> DefineClass<T>(
+		string name,
+		ConstructorCallback<T> constructor,
+		params PropertyDescriptor<T>[] properties) where T : class
 	{
-		throw new NotImplementedException();
+		var nativeProperties = new NativeMethods.PropertyDescriptor[properties.Length];
+		for (int i = 0; i < properties.Length; i++)
+		{
+			var p = properties[i];
+			ArgumentException.ThrowIfNullOrEmpty(p.Name, nameof(p.Name));
+			bool isStatic = p.Attributes.HasFlag(PropertyAttributes.Static);
+
+			nativeProperties[i] = new NativeMethods.PropertyDescriptor
+			{
+				Utf8Name = p.Name,
+				Method = p.Method == null ? null :
+					(env, args) => InvokeCallback(env, args, isStatic, p.Method),
+				Getter = p.Getter == null ? null :
+					(env, args) => InvokeCallback(env, args, isStatic, p.Getter),
+				Setter = p.Setter == null ? null :
+					(env, args) => InvokeCallback(env, args, isStatic, p.Setter),
+				Attributes = p.Attributes,
+			};
+		}
+
+		var env = Env.Current;
+		var status = NativeMethods.DefineClass(
+			env,
+			name,
+			(nuint)name.Length,
+			(env, args) => InvokeCallback(env, args, constructor),
+			default,
+			(nuint)nativeProperties.Length,
+			nativeProperties,
+			out var result);
+		NativeMethods.ThrowIfNotOK(status);
+
+
+		return Ref<Object>.Create(new Object(result, env));
 	}
 
-	public struct CallbackInfo
+	private static nint InvokeCallback(nint env, nint args, MethodCallback callback)
 	{
-		private readonly nint env;
-		private readonly nint info;
-
-		public CallbackInfo(nint env, nint info)
+		Env.Current = new Env(env);
+		try
 		{
-			this.env = env;
-			this.info = info;
+			var (thisArg, arguments) = GetArguments(args, env);
+			return callback.Invoke(thisArg, arguments) ?? (nint)0;
 		}
-
-		public Env Env => new Env(this.env);
-
-		public int Length
+		catch (Exception)
 		{
-			get
-			{
-				throw new NotImplementedException();
-			}
+			// TODO: throw JS exception.
+			return default;
 		}
+	}
 
-		public Value This
+	private static nint InvokeCallback(nint env, nint args, PropertyGetCallback callback)
+	{
+		Env.Current = new Env(env);
+		try
 		{
-			get
-			{
-				throw new NotImplementedException();
-			}
+			var (thisArg, arguments) = GetArguments(args, env);
+			return callback.Invoke(thisArg);
 		}
-
-		public Value this[int index]
+		catch (Exception)
 		{
-			get
-			{
-				throw new NotImplementedException();
-			}
+			// TODO: throw JS exception.
+			return default;
+		}
+	}
+
+	private static nint InvokeCallback(nint env, nint args, PropertySetCallback callback)
+	{
+		Env.Current = new Env(env);
+		try
+		{
+			var (thisArg, arguments) = GetArguments(args, env);
+			callback.Invoke(thisArg, arguments[0]);
+			return (nint)0;
+		}
+		catch (Exception)
+		{
+			// TODO: throw JS exception.
+			return default;
 		}
 	}
 
 
-	// TODO: Consider defining separate callback delegates for void methods, setters, etc.
-	public delegate Value? Callback(CallbackInfo info);
-
-	public struct PropertyDescriptor
+	private static nint InvokeCallback<T>(
+		nint env, nint args, ConstructorCallback<T> callback) where T : class
 	{
-		public string Name;
+		Env.Current = new Env(env);
+		try
+		{
+			var (thisArg, arguments) = GetArguments(args, env);
 
-		public Callback? Method;
-		public Callback? Getter;
-		public Callback? Setter;
+			var obj = callback.Invoke(arguments);
+			var objHandle = GCHandle.ToIntPtr(GCHandle.Alloc(obj));
+			var status = NativeMethods.Wrap(
+				env, thisArg, objHandle, default, default, default);
+			NativeMethods.ThrowIfNotOK(status);
+		}
+		catch (Exception)
+		{
+			// TODO: throw JS exception.
+			return default;
+		}
 
-		public nint Value;
+		return default;
+	}
 
-		public PropertyAttributes Attributes;
+	private static nint InvokeCallback<T>(
+		nint env, nint args, bool isStatic, MethodCallback<T> callback) where T : class
+	{
+		Env.Current = new Env(env);
+		try
+		{
+			var (thisArg, arguments) = GetArguments(args, env);
+			var instance = GetInstance<T>(env, thisArg, isStatic);
+			return callback.Invoke(instance, thisArg, arguments) ?? (nint)0;
+		}
+		catch (Exception)
+		{
+			// TODO: throw JS exception.
+			return default;
+		}
+	}
 
-		public nint Data;
+	private static nint InvokeCallback<T>(
+		nint env, nint args, bool isStatic, PropertyGetCallback<T> callback) where T : class
+	{
+		Env.Current = new Env(env);
+		try
+		{
+			var (thisArg, arguments) = GetArguments(args, env);
+			var instance = GetInstance<T>(env, thisArg, isStatic);
+			return callback.Invoke(instance, thisArg);
+		}
+		catch (Exception)
+		{
+			// TODO: throw JS exception.
+			return default;
+		}
+	}
+
+	private static nint InvokeCallback<T>(
+		nint env, nint args, bool isStatic, PropertySetCallback<T> callback) where T : class
+	{
+		Env.Current = new Env(env);
+		try
+		{
+			var (thisArg, arguments) = GetArguments(args, env);
+			var instance = GetInstance<T>(env, thisArg, isStatic);
+			callback.Invoke(instance, thisArg, arguments[0]);
+			return (nint)0;
+		}
+		catch (Exception)
+		{
+			// TODO: throw JS exception.
+			return default;
+		}
+	}
+
+	private static T? GetInstance<T>(nint env, nint thisArg, bool isStatic) where T : class
+	{
+		if (isStatic)
+		{
+			return null;
+		}
+
+		var status = NativeMethods.Unwrap(env, thisArg, out var objHandle);
+		NativeMethods.ThrowIfNotOK(status);
+		var instance = (T?)GCHandle.FromIntPtr(objHandle).Target;
+		return instance ?? throw new Exception("Failed to unwrap instance of class " + typeof(T).Name);
+	}
+
+	private static (Value This, Value[] Arguments) GetArguments(nint args, nint env)
+	{
+		nuint count = 0;
+		nint[] buf = Array.Empty<nint>();
+		var status = NativeMethods.GetArguments(env, args, ref count, buf, out _, out _);
+		NativeMethods.ThrowIfNotOK(status);
+
+		buf = new nint[count];
+		status = NativeMethods.GetArguments(env, args, ref count, buf, out var thisArg, out _);
+		NativeMethods.ThrowIfNotOK(status);
+
+		var arguments = new Value[buf.Length];
+		for (int i = 0; i < buf.Length; i++)
+		{
+			arguments[i] = new Value(buf[i], env);
+		}
+
+		return (new Value(thisArg, env), arguments);
 	}
 }

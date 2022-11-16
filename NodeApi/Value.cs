@@ -2,38 +2,33 @@
 
 namespace NodeApi;
 
-public class Value
+public interface IValue<T> where T : IValue<T>
 {
-	private nint env;
-	private nint value;
+	static abstract T From(nint value, nint env);
+	static abstract implicit operator nint(T v);
+}
+
+// TODO: Consider making this (and value subclasses) a struct.
+public class Value : IValue<Value>
+{
+	protected readonly nint value;
+	private readonly nint env;
 
 	public Value() { }
 
-	public Value(nint env, nint value)
+	public Value(nint value) : this(value, Env.Current) { }
+
+	internal Value(nint value, nint env)
 	{
-		this.env = env;
 		this.value = value;
+		this.env = env;
 	}
 
-	public static Value From(nint env, bool value)
-	{
-		throw new NotImplementedException();
-	}
+	static Value IValue<Value>.From(nint value, nint env) => new Value(value, env);
 
-	public static Value From(nint env, int value)
-	{
-		throw new NotImplementedException();
-	}
+	public static implicit operator nint(Value v) => v.value;
 
-	public static Value From(nint env, string value)
-	{
-		throw new NotImplementedException();
-	}
-
-	public static implicit operator nint(Value v)
-	{
-		return v.value;
-	}
+	public T As<T>() where T : IValue<T> => T.From(this.value, this.env);
 
 	public Env Env => new Env(this.env);
 
@@ -45,13 +40,5 @@ public class Value
 		{
 			throw new NotImplementedException();
 		}
-	}
-
-	public T As<T>() where T : Value, new()
-	{
-		var result = new T();
-		result.env = this.env;
-		result.value = this.value;
-		return result;
 	}
 }
