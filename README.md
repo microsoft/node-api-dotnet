@@ -13,49 +13,36 @@ This library uses a combination of [C# Source Generators](https://learn.microsof
 
 ### C# example code
 ```C#
-/// <summary>
-/// The [Module] attribute causes the class's public instance properties and methods to be
-/// exported as a Node.js addon module.
-/// </summary>
+// The [NodeApi.Module] attribute causes the class's public instance properties and methods to be
+// exported as a Node.js addon module.
 [NodeApi.Module]
 public class Example
 {
-	private string value;
+   private string value;
 
-	/// <summary>
-	/// A singleton instance of the class is instantiated when the module is loaded.
-	/// </summary>
-	public Example() {
-		...
-	}
+   // A singleton instance of the class is instantiated when the module is loaded.
+   public Example() { ... }
 
-	public NodeApi.Value ExampleProperty
-	{
-		get => NodeApi.String.From(this.value);
-		set => this.value = value.As<String>();
-	}
+   public NodeApi.Value ExampleProperty
+   {
+      get => NodeApi.String.From(this.value);
+      set => this.value = value.As<String>();
+   }
 
-	public NodeApi.Value ExampleMethod(NodeApi.Value[] args)
-	{
-		...
-	}
+   public NodeApi.Value ExampleMethod(NodeApi.Value[] args) { ... }
 
-	/// <summary>
-	/// Export additional classes from the module by declaring public properties of type `Type`.
-	/// </summary>
-	public Type Another => typeof(Another);
+   // Export additional classes from the module by declaring public properties of type `Type`.
+   public Type Another => typeof(Another);
 }
 
-/// <summary>
-/// Additional classes can export both static and instance properties and methods.
-/// </summary>
+// Additional classes can export both static and instance properties and methods.
 public class Another
 {
-	public Another(NodeApi.Value[] args) { ... }
-	public NodeApi.Value StaticProperty { get { ... } }
-	public NodeApi.Value InstanceProperty { get}
-	public static Value StaticMethod(Value[] args) { ... }
-	public Value InstanceMethod(Value[] args) { ... }
+   public Another(NodeApi.Value[] args) { ... }
+   public NodeApi.Value StaticProperty { get { ... } }
+   public NodeApi.Value InstanceProperty { get { ... } }
+   public static Value StaticMethod(NodeApi.Value[] args) { ... }
+   public Value InstanceMethod(NodeApi.Value[] args) { ... }
 }
 ```
 
