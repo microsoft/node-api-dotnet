@@ -1,4 +1,4 @@
-## Build Node.js addons in .NET
+## Build Node.js addons in C#
 
 **Status: Experimental**
 
