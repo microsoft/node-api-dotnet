@@ -1,19 +1,17 @@
 using System;
-using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
 public class JSException : Exception
 {
-  public override string Message { get; }
+  public override string Message => ErrorInfo.Message;
 
-  public unsafe JSException(napi_status status)
-  {
-    Message = status.ToString();
-  }
+  public JSErrorInfo ErrorInfo { get; }
+
+  public JSException(JSErrorInfo errorInfo) =>  ErrorInfo = errorInfo;
 
   public unsafe JSException(string message)
   {
-    Message = message;
+    ErrorInfo = new JSErrorInfo(message, JSStatus.GenericFailure);
   }
 }

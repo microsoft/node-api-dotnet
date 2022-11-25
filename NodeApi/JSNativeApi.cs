@@ -10,39 +10,73 @@ namespace NodeApi;
 // Node API managed wrappers
 public static partial class JSNativeApi
 {
-  public static void ThrowIfFailed(this napi_status status)
+  // Crash if we experience any errors while reading error info
+  private class ErrorReadingMode : IDisposable
   {
-    if (status != napi_status.napi_ok)
+    private bool _isDisposed = false;
+    [ThreadStatic] private static ErrorReadingMode? t_current = null;
+
+    public ErrorReadingMode()
     {
-      throw new JSException(status);
+      // Crash if we already in the error reading mode.
+      if (t_current != null)
+      {
+        //TODO: use napi_fatal_error
+        GCHandle.FromIntPtr(new IntPtr(0xDEADBEEF));
+      }
+
+      t_current = this;
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+      if (!_isDisposed)
+      {
+        if (disposing)
+        {
+          t_current = null;
+        }
+        _isDisposed = true;
+      }
+    }
+
+    public void Dispose()
+    {
+      Dispose(disposing: true);
+      GC.SuppressFinalize(this);
     }
   }
 
-  //public static void ThrowIfNotOK(this Status status)
-  //{
-  //  if (status != Status.OK)
-  //  {
-  //    string? message = null;
-  //    if (status == Status.PendingException)
-  //    {
-  //      var errorInfoStatus = GetLastErrorInfo(Env.Current, out var errorInfoPtr);
-  //      if (errorInfoStatus == Status.OK)
-  //      {
-  //        var errorInfo = Marshal.PtrToStructure<ExtendedErrorInfo>(errorInfoPtr);
-  //        message = errorInfo.Message;
-  //      }
-  //    }
+  public static void ThrowIfFailed(this napi_status status)
+  {
+    if (status == napi_status.napi_ok)
+    {
+      return;
+    }
 
-  //    if (string.IsNullOrEmpty(message))
-  //    {
-  //      message = "Node API returned status " + status;
-  //    }
+    // Crash on any error in this mode.
+    using var errorReadingMode = new ErrorReadingMode();
 
-  //    // TODO: Custom exception subclass.
-  //    throw new Exception(message);
-  //  }
-  //}
+    // We must retrieve the last error info before doing anything else because
+    // doing anything else will replace the last error info.
+    JSErrorInfo errorInfo = GetLastErrorInfo();
 
+    // A pending JS exception takes precedence over any internal error status.
+    if (IsExceptionPending())
+    {
+      JSValue jsError = GetAndClearLastException();
+      if (jsError.IsError())
+      {
+        JSValue message = jsError["message"];
+        if (message.TypeOf() == JSValueType.String)
+        {
+          errorInfo = new JSErrorInfo((string)message, errorInfo.Status);
+        }
+      }
+    }
+  
+    throw new JSException(errorInfo);
+  }
 
   public static unsafe JSErrorInfo GetLastErrorInfo()
   {
@@ -50,10 +84,11 @@ public static partial class JSNativeApi
     if (errorInfo->error_message != null)
     {
       string message = Encoding.UTF8.GetString(MemoryMarshal.CreateReadOnlySpanFromNullTerminated(errorInfo->error_message));
-      return new JSErrorInfo(message, errorInfo->error_code);
+      return new JSErrorInfo(message, (JSStatus)errorInfo->error_code);
     }
-    return new JSErrorInfo("Error", errorInfo->error_code);
+    return new JSErrorInfo("Error", (JSStatus)errorInfo->error_code);
   }
+
   public static JSValue GetUndefined()
   {
     napi_get_undefined(Env, out napi_value result).ThrowIfFailed();
