@@ -225,7 +225,7 @@ public class ModuleGenerator : ISourceGenerator
     // TODO: Check that the class has a public constructor that takes a JSCallbackArgs parameter.
 
     s += $".AddProperty(\"{property.Name}\", "
-      + $"new JSClassBuilder<{classType.Name}>(\"classType.Name\", args => new {classType.Name}(args))";
+      + $"new JSClassBuilder<{classType.Name}>(\"{classType.Name}\", args => new {classType.Name}(args))";
     s.IncreaseIndent();
     ExportClassMembers(context, s, classType);
     s += $".DefineClass())";
