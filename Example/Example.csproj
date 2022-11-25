@@ -5,6 +5,8 @@
 		<AssemblyName>example</AssemblyName>
 		<PublishAot>true</PublishAot>
 		<NativeLib>Shared</NativeLib>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>

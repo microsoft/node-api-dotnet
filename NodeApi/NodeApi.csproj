@@ -4,6 +4,8 @@
 		<RootNamespace>NodeApi</RootNamespace>
 		<AssemblyName>NodeApi</AssemblyName>
 		<IsPackable>true</IsPackable>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -6,7 +6,8 @@ const rid = require('os').platform().replace('32', '') + '-' + process.arch;
 const example = require(`../out/bin/Debug/Example/net7.0/${rid}/native/example`);
 
 // Call a method exported by the addon module.
-example.hello();
+example.helloNoParam();
+example.hello('World');
 
 // Check the properties that are on the module.
 console.log('example keys: ' + JSON.stringify(Object.keys(example)));

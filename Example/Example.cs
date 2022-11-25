@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace NodeApi.Examples;
 
@@ -6,7 +6,7 @@ namespace NodeApi.Examples;
 /// This class defines a Node.js addon module. Public instance properties and methods on a
 /// module class are automatically exported -- the equivalent of `module.exports`.
 /// </summary>
-[NodeApi.Module]
+[JSModule]
 public class Example
 {
 	private string value;
@@ -18,30 +18,35 @@ public class Example
 	public Example()
 	{
 		Console.WriteLine("Example()");
-		this.value = "hello";
+		value = "hello";
 	}
 
-	public void Hello(NodeApi.Value[] args)
+	public void HelloNoParam()
 	{
-		Console.WriteLine("Example.Hello()");
+		Console.WriteLine("Example.HelloNoParam()");
 	}
 
-	public NodeApi.Value Value
-	{
-		get
-		{
-			Console.WriteLine("Example.Value.get()");
-			return NodeApi.String.From(this.value);
-		}
-		set
-		{
-			this.value = value.As<String>();
-			Console.WriteLine($"Example.Value.set({this.value})");
-		}
-	}
+  public void Hello(JSCallbackArgs args)
+  {
+    Console.WriteLine($"Example.Hello({(string)args[0]})");
+  }
 
-	/// <summary>
-	/// Export additional classes from the module by declaring public properties of type `Type`.
-	/// </summary>
-	public Type Another => typeof(Another);
+  public JSValue Value
+  {
+    get
+    {
+      Console.WriteLine("Example.Value.get()");
+      return value;
+    }
+    set
+    {
+      this.value = (string)value;
+      Console.WriteLine($"Example.Value.set({this.value})");
+    }
+  }
+
+  /// <summary>
+  /// Export additional classes from the module by declaring public properties of type `Type`.
+  /// </summary>
+  public Type Another => typeof(Another);
 }
