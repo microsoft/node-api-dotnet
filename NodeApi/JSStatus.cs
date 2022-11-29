@@ -1,6 +1,6 @@
-﻿namespace NodeApi;
+namespace NodeApi;
 
-public enum Status : int
+public enum JSStatus : int
 {
 	OK = 0,
 	InvalidArg,

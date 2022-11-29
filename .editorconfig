@@ -1,10 +1,14 @@
 root = true
 
 [*]
-indent_style = tab
-indent_size = 3
-tab_width = 3
-tab_size = 3
+indent_size = 2
+tab_width = 2
+tab_size = 2
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+end_of_line = lf
 
 [*.{cs,ts}]
 trim_trailing_whitespace = true

@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Text;
 
@@ -31,12 +31,12 @@ internal class SourceBuilder : SourceText
 
 	public string Indent { get; }
 
-	private void IncreaseIndent()
+	public void IncreaseIndent()
 	{
 		this.currentIndent += Indent;
 	}
 
-	private void DecreaseIndent()
+	public void DecreaseIndent()
 	{
 		if (this.currentIndent.Length == 0)
 		{

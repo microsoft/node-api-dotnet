@@ -4,38 +4,38 @@ namespace NodeApi.Examples;
 
 public class Another
 {
-	public Another(NodeApi.Value[] args)
+	public Another(JSCallbackArgs _)
 	{
 		Console.WriteLine("Another()");
 	}
 
-	public static Value StaticValue
-	{
-		get
-		{
-			Console.WriteLine("Another.StaticValue.get()");
-			return String.From("static");
-		}
-	}
+  public static JSValue StaticValue
+  {
+    get
+    {
+      Console.WriteLine("Another.StaticValue.get()");
+      return "static";
+    }
+  }
 
-	public Value InstanceValue
-	{
-		get
-		{
-			Console.WriteLine("Another.InstanceValue.get()");
-			return String.From("instance");
-		}
-	}
+  public JSValue InstanceValue
+  {
+    get
+    {
+      Console.WriteLine("Another.InstanceValue.get()");
+      return "instance";
+    }
+  }
 
-	public static Value StaticMethod(Value[] args)
-	{
-		Console.WriteLine("Another.StaticMethod()");
-		return Boolean.From(true);
-	}
+  public static JSValue StaticMethod(JSCallbackArgs _)
+  {
+    Console.WriteLine("Another.StaticMethod()");
+    return true;
+  }
 
-	public Value InstanceMethod(Value[] args)
-	{
-		Console.WriteLine("Another.InstanceMethod()");
-		return Boolean.From(false);
-	}
+  public JSValue InstanceMethod(JSCallbackArgs _)
+  {
+    Console.WriteLine("Another.InstanceMethod()");
+    return false;
+  }
 }
