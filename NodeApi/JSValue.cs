@@ -35,7 +35,7 @@ public struct JSValue
   }
 
   public static JSValue Undefined => JSNativeApi.GetUndefined();
-  public static JSValue Null => JSNativeApi.GetUndefined();
+  public static JSValue Null => JSNativeApi.GetNull();
   public static JSValue Global => JSNativeApi.GetGlobal();
   public static JSValue True => JSNativeApi.GetBoolean(true);
   public static JSValue False => JSNativeApi.GetBoolean(false);

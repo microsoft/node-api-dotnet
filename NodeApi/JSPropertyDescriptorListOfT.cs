@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 namespace NodeApi;
 
+// TODO: Add interceptors for C# exceptions
+
 public class JSPropertyDescriptorList<TDerived, TObject>
   where TDerived : class, IJSObjectUnwrap<TObject>
   where TObject : class
@@ -106,6 +108,24 @@ public class JSPropertyDescriptorList<TDerived, TObject>
         if (TDerived.Unwrap(args) is TObject obj)
         {
           getMethod(obj).Invoke(args);
+        }
+        return JSValue.Undefined;
+      },
+      attributes);
+  }
+
+  public TDerived AddMethod(
+    string name,
+    Func<TObject, Action<JSValue>> getMethod,
+    JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
+  {
+    return AddMethod(
+      name,
+      args =>
+      {
+        if (TDerived.Unwrap(args) is TObject obj)
+        {
+          getMethod(obj).Invoke(args[0]);
         }
         return JSValue.Undefined;
       },

@@ -316,7 +316,9 @@ public class ModuleGenerator : ISourceGenerator
     // TODO: Marshal other parameter and return types.
     // TODO: Implement correct type matching
     if (!(method.Parameters.Length == 0 ||
-      (method.Parameters.Length == 1 && method.Parameters[0].Type.Name == nameof(JSCallbackArgs))))
+      (method.Parameters.Length == 1 &&
+        (method.Parameters[0].Type.Name == nameof(JSCallbackArgs) ||
+         method.Parameters[0].Type.Name == nameof(JSValue)))))
     {
       ReportError(
         context,
