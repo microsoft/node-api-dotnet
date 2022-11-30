@@ -1,13 +1,11 @@
 using System;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 
-namespace NodeApi;
+namespace NodeApi.Generator;
 
 [Generator]
 public class ModuleGenerator : ISourceGenerator
@@ -59,7 +57,7 @@ public class ModuleGenerator : ISourceGenerator
       .SelectMany((n) => context.Compilation.GetSymbolsWithName(n, SymbolFilter.Type))
       .OfType<ITypeSymbol>())
     {
-      if (type.GetAttributes().Any((a) => a.AttributeClass?.Name == nameof(JSModuleAttribute)))
+      if (type.GetAttributes().Any((a) => a.AttributeClass?.Name == "JSModuleAttribute"))
       {
         if (moduleType != null)
         {
@@ -317,27 +315,26 @@ public class ModuleGenerator : ISourceGenerator
     // TODO: Implement correct type matching
     if (!(method.Parameters.Length == 0 ||
       (method.Parameters.Length == 1 &&
-        (method.Parameters[0].Type.Name == nameof(JSCallbackArgs) ||
-         method.Parameters[0].Type.Name == nameof(JSValue)))))
+        (method.Parameters[0].Type.Name == "JSCallbackArgs" ||
+         method.Parameters[0].Type.Name == "JSValue"))))
     {
       ReportError(
         context,
         1001,
         $"Exported method {method.Name} has unsupported parameters.",
         "Exported methods must have either no parameters or a single parameter of type " +
-          $"{typeof(JSCallbackArgs).Namespace}.{nameof(JSCallbackArgs)}.",
+          $"{nameof(NodeApi)}.JSCallbackArgs.",
         method.Locations.Single());
       return;
     }
 
-    if (method.ReturnType.Name != "Void" && method.ReturnType.Name != nameof(JSValue))
+    if (method.ReturnType.Name != "Void" && method.ReturnType.Name != "JSValue")
     {
       ReportError(
         context,
         1002,
-        $"Exported method {method.Name} has unsupported return type.",
-        "Exported methods must have return type " +
-          $"{typeof(JSValue).Namespace}.{nameof(JSValue)} or void.",
+        $"Exported method {method.Name} has unsupported return type. ",
+        $"Exported methods must have return type {nameof(NodeApi)}.JSValue or void.",
         method.Locations.Single());
       return;
     }
@@ -347,14 +344,13 @@ public class ModuleGenerator : ISourceGenerator
     GeneratorExecutionContext context,
     IPropertySymbol property)
   {
-    if (property.Type.Name != nameof(JSValue))
+    if (property.Type.Name != "JSValue")
     {
       ReportError(
         context,
         1003,
         "Exported property has unsupported type.",
-        "Exported properties must have type " +
-          $"{typeof(JSValue).Namespace}.{nameof(JSValue)}.",
+        $"Exported properties must have type {nameof(NodeApi)}.JSValue.",
         property.Locations.Single());
       return;
     }

@@ -1,0 +1,11 @@
+<Project>
+  <!-- TODO: Put this in a .targets file that is automatically included via a package reference. -->
+	<Target Name="CopyToDotNode" AfterTargets="LinkNative">
+		<ItemGroup>
+			<NativeBinary Include="$(NativeBinary)" />
+		</ItemGroup>
+		<Copy SourceFiles="@(NativeBinary)"
+			DestinationFiles="@(NativeBinary->Replace($(NativeBinaryExt), '.node'))"
+      UseHardlinksIfPossible="true" />
+	</Target>
+</Project>

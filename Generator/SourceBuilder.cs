@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Text;
 
-namespace NodeApi;
+namespace NodeApi.Generator;
 
 internal class SourceBuilder : SourceText
 {

@@ -1,9 +1,5 @@
-// Construct a .NET runtime identifier from the current platform and CPU arch.
-// (This needs more logic to make it work across more platforms.)
-const rid = require('os').platform().replace('32', '') + '-' + process.arch;
-
 // Load the addon module.
-const example = require(`../out/bin/Debug/Example/net7.0/${rid}/native/example`);
+const example = require(process.env['TEST_NODE_API_MODULE_PATH']);
 
 // Call a method exported by the addon module.
 example.helloNoParam();
