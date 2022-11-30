@@ -1,6 +1,6 @@
-namespace NodeApi.Test;
-
 using Xunit;
+
+namespace NodeApi.Test;
 
 public class HostedClrTests
 {

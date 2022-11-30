@@ -1,56 +1,88 @@
-namespace NodeApi.Test;
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Threading.Tasks;
+using System.Linq;
 using Xunit;
+
+namespace NodeApi.Test;
+
+using static TestBuilder;
 
 public class NativeAotTests
 {
+  // JS code loads test modules via this environment variable:
+  //    require(process.env['TEST_NODE_API_MODULE_PATH'])
+  private const string modulePathEnvironmentVariableName = "TEST_NODE_API_MODULE_PATH";
+
+  private static readonly Dictionary<string, string?> builtTestModules = new();
 
   public static IEnumerable<object[]> ListTestCases()
   {
-    foreach (var dir in Directory.GetDirectories(TestBuilder.TestCasesDirectory))
+    foreach (var dir in Directory.GetDirectories(TestCasesDirectory))
     {
-      // TODO: Check that directory contains a project file and a JS/TS file?
-      var name = Path.GetFileName(dir);
-      yield return new[] { name };
+      var moduleName = Path.GetFileName(dir);
+
+      foreach (var jsFile in Directory.GetFiles(dir, "*.js")
+        .Concat(Directory.GetFiles(dir, "*.ts")))
+      {
+        var testCaseName = Path.GetFileNameWithoutExtension(jsFile);
+        yield return new[] { moduleName + "/" + testCaseName };
+      }
     }
   }
 
   [Theory()]
   [MemberData(nameof(ListTestCases))]
-  public async Task TestCase(string name)
+  public void Test(string id)
   {
-    await Task.CompletedTask;
-    Assert.NotEmpty(name);
+    var idParts = id.Split('/');
+    var moduleName = idParts[0];
+    var testCaseName = idParts[1];
 
-    var configuration = "Debug";
-    var moduleFilePath = BuildTestCaseCSharp(
-      name, configuration, TestBuilder.GetBuildLogFilePath(name, configuration));
-    var mainJsFilePath = BuildTestCaseTypeScript(name);
-    RunTestCase(mainJsFilePath, moduleFilePath, TestBuilder.GetRunLogFilePath(name, configuration));
+    var buildLogFilePath = GetBuildLogFilePath(moduleName);
+    if (!builtTestModules.TryGetValue(moduleName, out var moduleFilePath))
+    {
+      moduleFilePath = BuildTestModuleCSharp(moduleName, buildLogFilePath);
+
+      if (moduleFilePath != null)
+      {
+        BuildTestModuleTypeScript(moduleName);
+      }
+
+      builtTestModules.Add(moduleName, moduleFilePath);
+    }
+
+    if (moduleFilePath == null)
+    {
+      Assert.Fail("Build failed. Check the log for details: " + buildLogFilePath);
+    }
+
+    // TODO: Support compiling TS files to JS.
+    var jsFilePath = Path.Join(TestCasesDirectory, moduleName, testCaseName + ".js");
+
+    var runLogFilePath = GetRunLogFilePath(moduleName, testCaseName);
+    RunTestCase(jsFilePath, moduleFilePath, runLogFilePath);
   }
 
-  private static string BuildTestCaseCSharp(
+  private static string? BuildTestModuleCSharp(
     string testCaseName,
-    string configuration,
     string logFilePath)
   {
-    var projectFilePath =
-      Path.Join(TestBuilder.TestCasesDirectory, testCaseName, testCaseName + ".csproj");
-    Assert.True(File.Exists(projectFilePath), "Project file not found: " + projectFilePath);
+    var projectFilePath = Path.Join(TestCasesDirectory, testCaseName, testCaseName + ".csproj");
 
-    var runtimeIdentifier = "win-x64"; // TODO: Get the approriate RID for the current platform.
+    // Auto-generate an empty project file. All project info is inherited from
+    // TestCases/Directory.Build.{props,targets}
+    File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n</Project>\n");
+
+    var runtimeIdentifier = GetCurrentPlatformRuntimeIdentifier();
     var properties = new Dictionary<string, string>
     {
       ["RuntimeIdentifier"] = runtimeIdentifier,
-      ["Configuration"] = configuration,
+      ["Configuration"] = Configuration,
     };
 
-    var buildResult = TestBuilder.BuildProject(
+    var buildResult = BuildProject(
       projectFilePath,
       targets: new[] { "Restore", "Publish" },
       properties,
@@ -58,9 +90,10 @@ public class NativeAotTests
       logFilePath: logFilePath,
       verboseLog: false);
 
-    Assert.False(
-      string.IsNullOrEmpty(buildResult),
-      "Build failed. Check the log for details: " + logFilePath);
+    if (string.IsNullOrEmpty(buildResult))
+    {
+      return null;
+    }
 
     var moduleFilePath = buildResult.Replace(
       Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
@@ -69,24 +102,19 @@ public class NativeAotTests
     return moduleFilePath;
   }
 
-  private static string BuildTestCaseTypeScript(string testCaseName)
+  private static void BuildTestModuleTypeScript(string testCaseName)
   {
     // TODO: Compile TypeScript code, if the test uses TS.
     // Reference the generated type definitions from the C#?
-
-    var mainJsFilePath =
-      Path.Join(TestBuilder.TestCasesDirectory, testCaseName, testCaseName + ".js");
-    Assert.True(File.Exists(mainJsFilePath), "JS file not found: " + mainJsFilePath);
-    return mainJsFilePath;
   }
 
-  private const string modulePathEnvironmentVariableName = "TEST_NODE_API_MODULE_PATH";
-
   private static void RunTestCase(
-    string mainJsFilePath,
+    string jsFilePath,
     string moduleFilePath,
     string logFilePath)
   {
+    Assert.True(File.Exists(jsFilePath), "JS file not found: " + jsFilePath);
+
     Environment.SetEnvironmentVariable(modulePathEnvironmentVariableName, moduleFilePath);
 
     // This assumes the `node` executable is on the current PATH.
@@ -94,12 +122,12 @@ public class NativeAotTests
 
     var outputWriter = File.CreateText(logFilePath);
     outputWriter.WriteLine($"{modulePathEnvironmentVariableName}={moduleFilePath}");
-    outputWriter.WriteLine($"{nodeExe} {mainJsFilePath}");
+    outputWriter.WriteLine($"{nodeExe} {jsFilePath}");
     outputWriter.WriteLine();
     outputWriter.Flush();
     bool hasErrorOutput = false;
 
-    var startInfo = new ProcessStartInfo(nodeExe, mainJsFilePath)
+    var startInfo = new ProcessStartInfo(nodeExe, jsFilePath)
     {
       RedirectStandardOutput = true,
       RedirectStandardError = true,

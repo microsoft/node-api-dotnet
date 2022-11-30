@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Locator;
@@ -26,6 +27,13 @@ internal static class TestBuilder
       msbuildInitialized = true;
     }
   }
+
+  public static string Configuration { get; } =
+#if DEBUG
+  "Debug";
+#else
+    "Release";
+#endif
 
   public static string RepoRootDirectory { get; } = GetRootDirectory();
 
@@ -62,18 +70,38 @@ internal static class TestBuilder
     return testCasesDir;
   }
 
-  public static string GetBuildLogFilePath(string projectName, string configuration)
+  public static string GetBuildLogFilePath(string moduleName)
   {
-    var projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", configuration, projectName);
+    var projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
     Directory.CreateDirectory(projectObjDir);
     return Path.Join(projectObjDir, "build.log");
   }
 
-  public static string GetRunLogFilePath(string projectName, string configuration)
+  public static string GetRunLogFilePath(string moduleName, string testCaseName)
   {
-    var projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", configuration, projectName);
+    var projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
     Directory.CreateDirectory(projectObjDir);
-    return Path.Join(projectObjDir, "run.log");
+    return Path.Join(projectObjDir, testCaseName + ".log");
+  }
+
+  public static string GetCurrentPlatformRuntimeIdentifier()
+  {
+    var os = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "win" :
+      RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx" :
+      RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux" :
+      throw new PlatformNotSupportedException(
+        "Platform not supported: " + Environment.OSVersion.Platform);
+
+    var arch = RuntimeInformation.ProcessArchitecture switch
+    {
+      Architecture.X86 => "x86",
+      Architecture.X64 => "x64",
+      Architecture.Arm64 => "arm64",
+      _ => throw new PlatformNotSupportedException(
+        "CPU architecture not supported: " + RuntimeInformation.ProcessArchitecture),
+    };
+
+    return $"{os}-{arch}";
   }
 
   public static string? BuildProject(
