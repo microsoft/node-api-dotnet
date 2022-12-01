@@ -7,6 +7,7 @@
 			"type": "shell",
 			"args": [
 				"build",
+        "--nologo",
 				"--property:GenerateFullPaths=true",
 				"--consoleloggerparameters:NoSummary"
 			],
@@ -19,21 +20,22 @@
 			},
 			"problemMatcher": "$msCompile"
 		},
-		{
-			"label": "publish",
-			"command": "dotnet",
-			"type": "shell",
-			"args": [
-				"publish",
-				"--runtime:win-x64",
-				"--property:GenerateFullPaths=true",
-				"--consoleloggerparameters:NoSummary"
-			],
-			"group": "build",
+    {
+      "label": "test",
+      "command": "dotnet",
+      "type": "shell",
+      "args": [
+        "test",
+        "--nologo"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
 			"presentation": {
-				"reveal": "silent"
+				"reveal": "always"
 			},
 			"problemMatcher": "$msCompile"
-		}
+    }
 	]
 }
