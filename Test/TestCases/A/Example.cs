@@ -26,9 +26,10 @@ public class Example
 		Console.WriteLine("Example.HelloNoParam()");
 	}
 
-  public void Hello(JSValue arg)
+  public JSValue Hello(JSCallbackArgs args)
   {
-    Console.WriteLine($"Example.Hello({(string)arg})");
+    Console.WriteLine($"Example.Hello({(string)args[0]})");
+    return $"Hello {(string)args[0]}!";
   }
 
   public JSValue Value

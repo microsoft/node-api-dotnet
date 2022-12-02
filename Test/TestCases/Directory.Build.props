@@ -1,0 +1,19 @@
+<Project>
+    <Import Project="../../Directory.Build.props" />
+
+    <PropertyGroup>
+        <PublishAot>true</PublishAot>
+        <NativeLib>Shared</NativeLib>
+        <BaseIntermediateOutputPath>$(BaseOutputPath)obj/$(Configuration)/TestCases/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+        <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
+        <OutputPath>$(BaseOutputPath)bin/$(Configuration)/TestCases/$(MSBuildProjectName)/</OutputPath>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Runtime\NodeApi.Runtime.csproj" />
+      <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Generator\NodeApi.Generator.csproj"
+        OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>
