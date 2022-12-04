@@ -15,133 +15,133 @@ namespace NodeApi.Test;
 /// </summary>
 internal static class TestBuilder
 {
-  private static bool msbuildInitialized = false;
+    private static bool msbuildInitialized = false;
 
-  private static void InitializeMsbuild()
-  {
-    if (!msbuildInitialized)
+    private static void InitializeMsbuild()
     {
-      var msbuildInstance = MSBuildLocator.QueryVisualStudioInstances().OrderByDescending(
-        instance => instance.Version).First();
-      MSBuildLocator.RegisterInstance(msbuildInstance);
-      msbuildInitialized = true;
+        if (!msbuildInitialized)
+        {
+            var msbuildInstance = MSBuildLocator.QueryVisualStudioInstances().OrderByDescending(
+              instance => instance.Version).First();
+            MSBuildLocator.RegisterInstance(msbuildInstance);
+            msbuildInitialized = true;
+        }
     }
-  }
 
-  public static string Configuration { get; } =
+    public static string Configuration { get; } =
 #if DEBUG
-  "Debug";
+    "Debug";
 #else
     "Release";
 #endif
 
-  public static string RepoRootDirectory { get; } = GetRootDirectory();
+    public static string RepoRootDirectory { get; } = GetRootDirectory();
 
-  public static string TestCasesDirectory { get; } = GetTestCasesDirectory();
+    public static string TestCasesDirectory { get; } = GetTestCasesDirectory();
 
-  private static string GetRootDirectory()
-  {
-    var solutionDir = Path.GetDirectoryName(typeof(NativeAotTests).Assembly.Location)!;
-
-    // This assumes there is only a .SLN file at the root of the repo.
-    while (Directory.GetFiles(solutionDir, "*.sln").Length == 0)
+    private static string GetRootDirectory()
     {
-      solutionDir = Path.GetDirectoryName(solutionDir);
+        var solutionDir = Path.GetDirectoryName(typeof(NativeAotTests).Assembly.Location)!;
 
-      if (string.IsNullOrEmpty(solutionDir))
-      {
-        throw new DirectoryNotFoundException("Solution directory not found.");
-      }
+        // This assumes there is only a .SLN file at the root of the repo.
+        while (Directory.GetFiles(solutionDir, "*.sln").Length == 0)
+        {
+            solutionDir = Path.GetDirectoryName(solutionDir);
+
+            if (string.IsNullOrEmpty(solutionDir))
+            {
+                throw new DirectoryNotFoundException("Solution directory not found.");
+            }
+        }
+
+        return solutionDir;
     }
 
-    return solutionDir;
-  }
-
-  private static string GetTestCasesDirectory()
-  {
-    // This assumes tests are organized in this Test/TestCases directory structure.
-    var testCasesDir = Path.Join(GetRootDirectory(), "Test", "TestCases");
-
-    if (!Directory.Exists(testCasesDir))
+    private static string GetTestCasesDirectory()
     {
-      throw new DirectoryNotFoundException("Test cases directory not found.");
+        // This assumes tests are organized in this Test/TestCases directory structure.
+        var testCasesDir = Path.Join(GetRootDirectory(), "Test", "TestCases");
+
+        if (!Directory.Exists(testCasesDir))
+        {
+            throw new DirectoryNotFoundException("Test cases directory not found.");
+        }
+
+        return testCasesDir;
     }
 
-    return testCasesDir;
-  }
-
-  public static string GetBuildLogFilePath(string moduleName)
-  {
-    var projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
-    Directory.CreateDirectory(projectObjDir);
-    return Path.Join(projectObjDir, "build.log");
-  }
-
-  public static string GetRunLogFilePath(string moduleName, string testCaseName)
-  {
-    var projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
-    Directory.CreateDirectory(projectObjDir);
-    return Path.Join(projectObjDir, testCaseName + ".log");
-  }
-
-  public static string GetCurrentPlatformRuntimeIdentifier()
-  {
-    var os = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "win" :
-      RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx" :
-      RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux" :
-      throw new PlatformNotSupportedException(
-        "Platform not supported: " + Environment.OSVersion.Platform);
-
-    var arch = RuntimeInformation.ProcessArchitecture switch
+    public static string GetBuildLogFilePath(string moduleName)
     {
-      Architecture.X86 => "x86",
-      Architecture.X64 => "x64",
-      Architecture.Arm64 => "arm64",
-      _ => throw new PlatformNotSupportedException(
-        "CPU architecture not supported: " + RuntimeInformation.ProcessArchitecture),
-    };
-
-    return $"{os}-{arch}";
-  }
-
-  public static string? BuildProject(
-    string projectFilePath,
-    string[] targets,
-    IDictionary<string, string> properties,
-    string returnProperty,
-    string logFilePath,
-    bool verboseLog = false)
-  {
-    // MSBuild must be explicitly located & initialized before being loaded by the JIT,
-    // therefore any use of MSBuild types must be kept in separate methods called by this one.
-    InitializeMsbuild();
-
-    return BuildProjectInternal(
-      projectFilePath, targets, properties, returnProperty, logFilePath, verboseLog);
-  }
-
-  private static string? BuildProjectInternal(
-    string projectFilePath,
-    string[] targets,
-    IDictionary<string, string> properties,
-    string returnProperty,
-    string logFilePath,
-    bool verboseLog = false)
-  {
-    var logger = new FileLogger
-    {
-      Parameters = "LOGFILE=" + logFilePath,
-      Verbosity = verboseLog ? LoggerVerbosity.Diagnostic : LoggerVerbosity.Normal,
-    };
-
-    var project = new Project(projectFilePath, properties, toolsVersion: null);
-    var buildResult = project.Build(targets, new[] { logger });
-    if (!buildResult)
-    {
-      return null;
+        var projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
+        Directory.CreateDirectory(projectObjDir);
+        return Path.Join(projectObjDir, "build.log");
     }
 
-    var returnValue = project.GetPropertyValue(returnProperty);
-    return returnValue;
-  }
+    public static string GetRunLogFilePath(string moduleName, string testCaseName)
+    {
+        var projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
+        Directory.CreateDirectory(projectObjDir);
+        return Path.Join(projectObjDir, testCaseName + ".log");
+    }
+
+    public static string GetCurrentPlatformRuntimeIdentifier()
+    {
+        var os = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "win" :
+          RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx" :
+          RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux" :
+          throw new PlatformNotSupportedException(
+            "Platform not supported: " + Environment.OSVersion.Platform);
+
+        var arch = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X86 => "x86",
+            Architecture.X64 => "x64",
+            Architecture.Arm64 => "arm64",
+            _ => throw new PlatformNotSupportedException(
+              "CPU architecture not supported: " + RuntimeInformation.ProcessArchitecture),
+        };
+
+        return $"{os}-{arch}";
+    }
+
+    public static string? BuildProject(
+      string projectFilePath,
+      string[] targets,
+      IDictionary<string, string> properties,
+      string returnProperty,
+      string logFilePath,
+      bool verboseLog = false)
+    {
+        // MSBuild must be explicitly located & initialized before being loaded by the JIT,
+        // therefore any use of MSBuild types must be kept in separate methods called by this one.
+        InitializeMsbuild();
+
+        return BuildProjectInternal(
+          projectFilePath, targets, properties, returnProperty, logFilePath, verboseLog);
+    }
+
+    private static string? BuildProjectInternal(
+      string projectFilePath,
+      string[] targets,
+      IDictionary<string, string> properties,
+      string returnProperty,
+      string logFilePath,
+      bool verboseLog = false)
+    {
+        var logger = new FileLogger
+        {
+            Parameters = "LOGFILE=" + logFilePath,
+            Verbosity = verboseLog ? LoggerVerbosity.Diagnostic : LoggerVerbosity.Normal,
+        };
+
+        var project = new Project(projectFilePath, properties, toolsVersion: null);
+        var buildResult = project.Build(targets, new[] { logger });
+        if (!buildResult)
+        {
+            return null;
+        }
+
+        var returnValue = project.GetPropertyValue(returnProperty);
+        return returnValue;
+    }
 }

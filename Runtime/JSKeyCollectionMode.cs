@@ -2,6 +2,6 @@
 
 public enum JSKeyCollectionMode : int
 {
-  IncludePrototypes,
-  OwnOnly,
+    IncludePrototypes,
+    OwnOnly,
 }

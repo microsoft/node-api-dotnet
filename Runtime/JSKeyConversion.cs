@@ -2,6 +2,6 @@
 
 public enum JSKeyConversion : int
 {
-  KeepNumbers,
-  NumbersToStrings,
+    KeepNumbers,
+    NumbersToStrings,
 }
