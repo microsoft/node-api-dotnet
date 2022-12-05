@@ -44,13 +44,14 @@ jobs:
       run: dotnet pack --no-build --configuration Release
 
     - name: Test
-      run: dotnet test --no-build --configuration Release --logger trx --results-directory "TestResults-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
+      run: dotnet test --no-build --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
 
     - name: Publish test results
-      uses: actions/upload-artifact@v3
+      uses: dorny/test-reporter@v1
       with:
-        name: TestResults-${{ runner.os }}-dotnet${{ matrix.dotnet-version }}-node${{ matrix.node-version }}
-        path: TestResults-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}
+        name: test (${{ runner.os }}, dotnet${{ matrix.dotnet-version }}, node${{ matrix.node-version }})
+        path: test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}/*.trx
+        reporter: dotnet-trx
       if: ${{ always() }} # Run this step even when there are test failures
 
     # TODO: Publish packages
