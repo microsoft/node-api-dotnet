@@ -6,19 +6,18 @@ namespace NodeApi;
 public class JSValueScope : IDisposable
 {
     private napi_env _env;
-    private bool _isDisposed = false;
-    [ThreadStatic] private static JSValueScope? t_current = null;
+    [ThreadStatic] private static JSValueScope? s_current;
 
     public JSValueScope? ParentScope { get; }
 
     public JSValueScope(napi_env env)
     {
         _env = env;
-        ParentScope = t_current;
-        t_current = this;
+        ParentScope = s_current;
+        s_current = this;
     }
 
-    public static JSValueScope? Current { get { return t_current; } }
+    public static JSValueScope? Current => s_current;
 
     public void Close() => Dispose();
 
@@ -29,21 +28,19 @@ public class JSValueScope : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public bool IsInvalid => _isDisposed;
+    public bool IsDisposed { get; private set; } = false;
 
     public static explicit operator napi_env(JSValueScope? scope)
     {
-        if (scope != null)
-            return scope._env;
-        else
+        if (scope == null)
+        {
             throw new JSException("Out of scope!");
+        }
+        return scope._env;
     }
 
     protected virtual void Dispose(bool disposing)
     {
-        if (!_isDisposed)
-        {
-            _isDisposed = true;
-        }
+        IsDisposed = true;
     }
 }

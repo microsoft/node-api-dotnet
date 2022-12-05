@@ -2,6 +2,8 @@ using System;
 
 namespace NodeApi.Examples;
 
+#pragma warning disable CA1822 // Mark members as static
+
 public class Another
 {
     public Another(JSCallbackArgs _)

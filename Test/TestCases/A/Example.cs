@@ -2,6 +2,8 @@ using System;
 
 namespace NodeApi.Examples;
 
+#pragma warning disable CA1822 // Mark members as static
+
 /// <summary>
 /// This class defines a Node.js addon module. Public instance properties and methods on a
 /// module class are automatically exported -- the equivalent of `module.exports`.
@@ -9,7 +11,7 @@ namespace NodeApi.Examples;
 [JSModule]
 public class Example
 {
-    private string value;
+    private string _value;
 
     /// <summary>
     /// The module class must have a public constructor that takes no parameters.
@@ -17,8 +19,8 @@ public class Example
     /// </summary>
     public Example()
     {
+        _value = "hello";
         Console.WriteLine("Example()");
-        value = "hello";
     }
 
     public void HelloNoParam()
@@ -37,12 +39,12 @@ public class Example
         get
         {
             Console.WriteLine("Example.Value.get()");
-            return value;
+            return _value;
         }
         set
         {
-            this.value = (string)value;
-            Console.WriteLine($"Example.Value.set({this.value})");
+            _value = (string)value;
+            Console.WriteLine($"Example.Value.set({_value})");
         }
     }
 

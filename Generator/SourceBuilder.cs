@@ -6,44 +6,44 @@ namespace NodeApi.Generator;
 
 internal class SourceBuilder : SourceText
 {
-    private readonly StringBuilder s;
-    private string currentIndent = string.Empty;
+    private readonly StringBuilder _text;
+    private string _currentIndent = string.Empty;
 
     public SourceBuilder(string indent = "\t")
     {
-        this.s = new StringBuilder();
+        _text = new StringBuilder();
         Indent = indent;
     }
 
     public override Encoding? Encoding => Encoding.UTF8;
 
-    public override int Length => this.s.Length;
+    public override int Length => _text.Length;
 
-    public override char this[int position] => this.s[position];
+    public override char this[int position] => _text[position];
 
     public override void CopyTo(
         int sourceIndex, char[] destination, int destinationIndex, int count)
     {
-        this.s.CopyTo(sourceIndex, destination, destinationIndex, count);
+        _text.CopyTo(sourceIndex, destination, destinationIndex, count);
     }
 
-    public override string ToString() => this.s.ToString();
+    public override string ToString() => _text.ToString();
 
     public string Indent { get; }
 
     public void IncreaseIndent()
     {
-        this.currentIndent += Indent;
+        _currentIndent += Indent;
     }
 
     public void DecreaseIndent()
     {
-        if (this.currentIndent.Length == 0)
+        if (_currentIndent.Length == 0)
         {
             throw new InvalidOperationException("Imbalanced unindent.");
         }
 
-        this.currentIndent = this.currentIndent.Substring(0, this.currentIndent.Length - Indent.Length);
+        _currentIndent = _currentIndent.Substring(0, _currentIndent.Length - Indent.Length);
     }
 
     private void AppendLine(string line)
@@ -55,10 +55,10 @@ internal class SourceBuilder : SourceText
 
         if (line.Length > 0)
         {
-            line = currentIndent + line;
+            line = _currentIndent + line;
         }
 
-        this.s.AppendLine(line);
+        _text.AppendLine(line);
 
         if (line.EndsWith("{"))
         {

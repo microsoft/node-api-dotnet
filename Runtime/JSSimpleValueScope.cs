@@ -14,7 +14,7 @@ public sealed class JSSimpleValueScope : JSValueScope
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && !IsInvalid)
+        if (disposing && !IsDisposed)
         {
             napi_close_handle_scope((napi_env)this, _handleScope).ThrowIfFailed();
         }

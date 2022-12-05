@@ -182,204 +182,204 @@ public static partial class JSNativeApi
             public ulong upper;
         }
 
-        public struct c_bool
+        public readonly struct c_bool
         {
-            private readonly byte value;
+            private readonly byte _value;
 
-            public c_bool(bool value) => this.value = (byte)(value ? 1 : 0);
+            public c_bool(bool value) => _value = (byte)(value ? 1 : 0);
 
-            public static implicit operator c_bool(bool value) => new c_bool(value);
-            public static explicit operator bool(c_bool value) => value.value != 0;
+            public static implicit operator c_bool(bool value) => new(value);
+            public static explicit operator bool(c_bool value) => value._value != 0;
 
-            public static c_bool True = new c_bool(true);
-            public static c_bool False = new c_bool(false);
+            public static readonly c_bool True = new(true);
+            public static readonly c_bool False = new(false);
         }
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_last_error_info(napi_env env, out napi_extended_error_info* result);
+        internal static partial napi_status napi_get_last_error_info(napi_env env, out napi_extended_error_info* result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_undefined(napi_env env, out napi_value result);
+        internal static partial napi_status napi_get_undefined(napi_env env, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_null(napi_env env, out napi_value result);
+        internal static partial napi_status napi_get_null(napi_env env, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_global(napi_env env, out napi_value result);
+        internal static partial napi_status napi_get_global(napi_env env, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_boolean(napi_env env, c_bool value, out napi_value result);
+        internal static partial napi_status napi_get_boolean(napi_env env, c_bool value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_object(napi_env env, out napi_value result);
+        internal static partial napi_status napi_create_object(napi_env env, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_array(napi_env env, out napi_value result);
+        internal static partial napi_status napi_create_array(napi_env env, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_array_with_length(napi_env env, nuint length, out napi_value result);
+        internal static partial napi_status napi_create_array_with_length(napi_env env, nuint length, out napi_value result);
 
         // napi_status napi_create_double(napi_env env, double value, napi_value *result)
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_double(napi_env env, double value, out napi_value result);
+        internal static partial napi_status napi_create_double(napi_env env, double value, out napi_value result);
 
         // napi_status napi_create_int32(napi_env env, int32_t value, napi_value *result)
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_int32(napi_env env, int value, out napi_value result);
+        internal static partial napi_status napi_create_int32(napi_env env, int value, out napi_value result);
 
         // napi_status napi_create_uint32(napi_env env, uint32_t value, napi_value *result)
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_uint32(napi_env env, uint value, out napi_value result);
+        internal static partial napi_status napi_create_uint32(napi_env env, uint value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_int64(napi_env env, long value, out napi_value result);
+        internal static partial napi_status napi_create_int64(napi_env env, long value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_string_latin1(napi_env env, byte* str, nuint length, out napi_value result);
+        internal static partial napi_status napi_create_string_latin1(napi_env env, byte* str, nuint length, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_string_utf8(napi_env env, byte* str, nuint length, out napi_value result);
+        internal static partial napi_status napi_create_string_utf8(napi_env env, byte* str, nuint length, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_string_utf16(napi_env env, char* str, nuint length, out napi_value result);
+        internal static partial napi_status napi_create_string_utf16(napi_env env, char* str, nuint length, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_symbol(napi_env env, napi_value description, out napi_value result);
+        internal static partial napi_status napi_create_symbol(napi_env env, napi_value description, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_function(napi_env env, byte* utf8name, nuint length,
+        internal static partial napi_status napi_create_function(napi_env env, byte* utf8name, nuint length,
           napi_callback cb, nint data, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_error(napi_env env, napi_value code, napi_value msg, out napi_value result);
+        internal static partial napi_status napi_create_error(napi_env env, napi_value code, napi_value msg, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_type_error(napi_env env, napi_value code, napi_value msg, out napi_value result);
+        internal static partial napi_status napi_create_type_error(napi_env env, napi_value code, napi_value msg, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_range_error(napi_env env, napi_value code, napi_value msg, out napi_value result);
+        internal static partial napi_status napi_create_range_error(napi_env env, napi_value code, napi_value msg, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_typeof(napi_env env, napi_value value, out napi_valuetype result);
+        internal static partial napi_status napi_typeof(napi_env env, napi_value value, out napi_valuetype result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_double(napi_env env, napi_value value, out double result);
+        internal static partial napi_status napi_get_value_double(napi_env env, napi_value value, out double result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_int32(napi_env env, napi_value value, out int result);
+        internal static partial napi_status napi_get_value_int32(napi_env env, napi_value value, out int result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_uint32(napi_env env, napi_value value, out uint result);
+        internal static partial napi_status napi_get_value_uint32(napi_env env, napi_value value, out uint result);
 
         // napi_status napi_get_value_int64(napi_env env, napi_value value, int64_t *result)
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_int64(napi_env env, napi_value value, out long result);
+        internal static partial napi_status napi_get_value_int64(napi_env env, napi_value value, out long result);
 
         // napi_status napi_get_value_bool(napi_env env, napi_value value, bool *result)
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_bool(napi_env env, napi_value value, out c_bool result);
+        internal static partial napi_status napi_get_value_bool(napi_env env, napi_value value, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_string_latin1(napi_env env, napi_value value,
+        internal static partial napi_status napi_get_value_string_latin1(napi_env env, napi_value value,
            byte* buf, nuint bufsize, out nuint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_string_utf8(napi_env env, napi_value value,
+        internal static partial napi_status napi_get_value_string_utf8(napi_env env, napi_value value,
            byte* buf, nuint bufsize, out nuint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_string_utf16(napi_env env, napi_value value,
+        internal static partial napi_status napi_get_value_string_utf16(napi_env env, napi_value value,
            char* buf, nuint bufsize, out nuint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_coerce_to_bool(napi_env env, napi_value value, out napi_value result);
+        internal static partial napi_status napi_coerce_to_bool(napi_env env, napi_value value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_coerce_to_number(napi_env env, napi_value value, out napi_value result);
+        internal static partial napi_status napi_coerce_to_number(napi_env env, napi_value value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_coerce_to_object(napi_env env, napi_value value, out napi_value result);
+        internal static partial napi_status napi_coerce_to_object(napi_env env, napi_value value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_coerce_to_string(napi_env env, napi_value value, out napi_value result);
+        internal static partial napi_status napi_coerce_to_string(napi_env env, napi_value value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_prototype(napi_env env, napi_value @object, out napi_value result);
+        internal static partial napi_status napi_get_prototype(napi_env env, napi_value @object, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_property_names(napi_env env, napi_value @object, out napi_value result);
+        internal static partial napi_status napi_get_property_names(napi_env env, napi_value @object, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_set_property(napi_env env, napi_value @object, napi_value key, napi_value value);
+        internal static partial napi_status napi_set_property(napi_env env, napi_value @object, napi_value key, napi_value value);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_has_property(napi_env env, napi_value @object, napi_value key, out c_bool result);
+        internal static partial napi_status napi_has_property(napi_env env, napi_value @object, napi_value key, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_property(napi_env env, napi_value @object, napi_value key, out napi_value result);
+        internal static partial napi_status napi_get_property(napi_env env, napi_value @object, napi_value key, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_delete_property(napi_env env, napi_value @object, napi_value key, out c_bool result);
+        internal static partial napi_status napi_delete_property(napi_env env, napi_value @object, napi_value key, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_has_own_property(napi_env env, napi_value @object, napi_value key, out c_bool result);
+        internal static partial napi_status napi_has_own_property(napi_env env, napi_value @object, napi_value key, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_set_named_property(
+        internal static partial napi_status napi_set_named_property(
           napi_env env,
           napi_value @object,
           byte* utf8name,
           napi_value value);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_has_named_property(
+        internal static partial napi_status napi_has_named_property(
           napi_env env,
           napi_value @object,
           byte* utf8name,
           out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_named_property(
+        internal static partial napi_status napi_get_named_property(
           napi_env env,
           napi_value @object,
           byte* utf8name,
           out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_set_element(napi_env env, napi_value @object, uint index, napi_value value);
+        internal static partial napi_status napi_set_element(napi_env env, napi_value @object, uint index, napi_value value);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_has_element(napi_env env, napi_value @object, uint index, out c_bool result);
+        internal static partial napi_status napi_has_element(napi_env env, napi_value @object, uint index, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_element(napi_env env, napi_value @object, uint index, out napi_value result);
+        internal static partial napi_status napi_get_element(napi_env env, napi_value @object, uint index, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_delete_element(napi_env env, napi_value @object, uint index, out c_bool result);
+        internal static partial napi_status napi_delete_element(napi_env env, napi_value @object, uint index, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_define_properties(napi_env env, napi_value @object,
+        internal static partial napi_status napi_define_properties(napi_env env, napi_value @object,
            nuint property_count, napi_property_descriptor* properties);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_array(napi_env env, napi_value value, out c_bool result);
+        internal static partial napi_status napi_is_array(napi_env env, napi_value value, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_array_length(napi_env env, napi_value value, out uint result);
+        internal static partial napi_status napi_get_array_length(napi_env env, napi_value value, out uint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_strict_equals(napi_env env, napi_value lhs, napi_value rhs, out c_bool result);
+        internal static partial napi_status napi_strict_equals(napi_env env, napi_value lhs, napi_value rhs, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static unsafe partial napi_status napi_call_function(napi_env env, napi_value recv, napi_value func,
+        internal static unsafe partial napi_status napi_call_function(napi_env env, napi_value recv, napi_value func,
            nuint argc, napi_value* argv, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_new_instance(napi_env env, napi_value constructor,
+        internal static partial napi_status napi_new_instance(napi_env env, napi_value constructor,
            nuint argc, napi_value* argv, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_instanceof(napi_env env, napi_value @object, napi_value constructor, out c_bool result);
+        internal static partial napi_status napi_instanceof(napi_env env, napi_value @object, napi_value constructor, out c_bool result);
 
         // napi_status napi_get_cb_info(
         //     napi_env env,              // [in] NAPI environment handle
@@ -390,14 +390,14 @@ public static partial class JSNativeApi
         //     napi_value* this_arg,      // [out] Receives the JS 'this' arg for the call
         //     void** data)               // [out] Receives the data pointer for the callback.
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static unsafe partial napi_status napi_get_cb_info(napi_env env, napi_callback_info cbinfo,
+        internal static unsafe partial napi_status napi_get_cb_info(napi_env env, napi_callback_info cbinfo,
           nuint* argc, napi_value* argv, napi_value* this_arg, nint data);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_new_target(napi_env env, napi_callback_info cbinfo, out napi_value result);
+        internal static partial napi_status napi_get_new_target(napi_env env, napi_callback_info cbinfo, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_define_class(
+        internal static partial napi_status napi_define_class(
            napi_env env,
            byte* utf8name,
            nuint length,
@@ -408,7 +408,7 @@ public static partial class JSNativeApi
            out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_wrap(
+        internal static partial napi_status napi_wrap(
           napi_env env,
           napi_value js_object,
           nint native_object,
@@ -417,13 +417,13 @@ public static partial class JSNativeApi
           napi_ref* result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_unwrap(napi_env env, napi_value js_object, out nint result);
+        internal static partial napi_status napi_unwrap(napi_env env, napi_value js_object, out nint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_remove_wrap(napi_env env, napi_value js_object, out nint result);
+        internal static partial napi_status napi_remove_wrap(napi_env env, napi_value js_object, out nint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_external(
+        internal static partial napi_status napi_create_external(
           napi_env env,
           nint data,
           napi_finalize finalize_cb,
@@ -431,85 +431,85 @@ public static partial class JSNativeApi
           out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_external(napi_env env, napi_value value, out nint result);
+        internal static partial napi_status napi_get_value_external(napi_env env, napi_value value, out nint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_reference(napi_env env, napi_value value,
+        internal static partial napi_status napi_create_reference(napi_env env, napi_value value,
            uint initial_refcount, out napi_ref result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_delete_reference(napi_env env, napi_ref @ref);
+        internal static partial napi_status napi_delete_reference(napi_env env, napi_ref @ref);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_reference_ref(napi_env env, napi_ref @ref, nint result);
+        internal static partial napi_status napi_reference_ref(napi_env env, napi_ref @ref, nint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_reference_unref(napi_env env, napi_ref @ref, nint result);
+        internal static partial napi_status napi_reference_unref(napi_env env, napi_ref @ref, nint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_reference_value(napi_env env, napi_ref @ref, out napi_value result);
+        internal static partial napi_status napi_get_reference_value(napi_env env, napi_ref @ref, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_open_handle_scope(napi_env env, out napi_handle_scope result);
+        internal static partial napi_status napi_open_handle_scope(napi_env env, out napi_handle_scope result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_close_handle_scope(napi_env env, napi_handle_scope scope);
+        internal static partial napi_status napi_close_handle_scope(napi_env env, napi_handle_scope scope);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_open_escapable_handle_scope(napi_env env, out napi_escapable_handle_scope result);
+        internal static partial napi_status napi_open_escapable_handle_scope(napi_env env, out napi_escapable_handle_scope result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_close_escapable_handle_scope(napi_env env, napi_escapable_handle_scope scope);
+        internal static partial napi_status napi_close_escapable_handle_scope(napi_env env, napi_escapable_handle_scope scope);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_escape_handle(napi_env env, napi_escapable_handle_scope scope,
+        internal static partial napi_status napi_escape_handle(napi_env env, napi_escapable_handle_scope scope,
            napi_value escapee, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_throw(napi_env env, napi_value error);
+        internal static partial napi_status napi_throw(napi_env env, napi_value error);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_throw_error(napi_env env,
+        internal static partial napi_status napi_throw_error(napi_env env,
            [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_throw_type_error(napi_env env,
+        internal static partial napi_status napi_throw_type_error(napi_env env,
            [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_throw_range_error(napi_env env,
+        internal static partial napi_status napi_throw_range_error(napi_env env,
            [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_error(napi_env env, napi_value value, out c_bool result);
+        internal static partial napi_status napi_is_error(napi_env env, napi_value value, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_exception_pending(napi_env env, out c_bool result);
+        internal static partial napi_status napi_is_exception_pending(napi_env env, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_and_clear_last_exception(napi_env env, out napi_value result);
+        internal static partial napi_status napi_get_and_clear_last_exception(napi_env env, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_arraybuffer(napi_env env, napi_value value, out c_bool result);
+        internal static partial napi_status napi_is_arraybuffer(napi_env env, napi_value value, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_arraybuffer(napi_env env, nuint byte_length,
+        internal static partial napi_status napi_create_arraybuffer(napi_env env, nuint byte_length,
            out void* data, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_external_arraybuffer(napi_env env,
+        internal static partial napi_status napi_create_external_arraybuffer(napi_env env,
            void* external_data, nuint byte_length, napi_finalize finalize_cb,
            nint finalize_hint, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_arraybuffer_info(napi_env env, napi_value arraybuffer,
+        internal static partial napi_status napi_get_arraybuffer_info(napi_env env, napi_value arraybuffer,
            out void* data, out nuint byte_length);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_typedarray(napi_env env, napi_value value, out c_bool result);
+        internal static partial napi_status napi_is_typedarray(napi_env env, napi_value value, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_typedarray(
+        internal static partial napi_status napi_create_typedarray(
           napi_env env,
           napi_typedarray_type type,
           nuint length,
@@ -518,7 +518,7 @@ public static partial class JSNativeApi
           out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_typedarray_info(
+        internal static partial napi_status napi_get_typedarray_info(
           napi_env env,
           napi_value typedarray,
           out napi_typedarray_type type,
@@ -528,74 +528,74 @@ public static partial class JSNativeApi
           out nuint byte_offset);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_dataview(napi_env env, nuint length,
+        internal static partial napi_status napi_create_dataview(napi_env env, nuint length,
            napi_value arraybuffer, nuint byte_offset, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_dataview(napi_env env, napi_value value, out c_bool result);
+        internal static partial napi_status napi_is_dataview(napi_env env, napi_value value, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_dataview_info(napi_env env, napi_value dataview,
+        internal static partial napi_status napi_get_dataview_info(napi_env env, napi_value dataview,
            out nuint bytelength, out void* data, out napi_value arraybuffer, out nuint byte_offset);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_version(napi_env env, out uint result);
+        internal static partial napi_status napi_get_version(napi_env env, out uint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_promise(napi_env env, out napi_deferred deferred, out napi_value promise);
+        internal static partial napi_status napi_create_promise(napi_env env, out napi_deferred deferred, out napi_value promise);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_resolve_deferred(napi_env env, napi_deferred deferred, napi_value resolution);
+        internal static partial napi_status napi_resolve_deferred(napi_env env, napi_deferred deferred, napi_value resolution);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_reject_deferred(napi_env env, napi_deferred deferred, napi_value rejection);
+        internal static partial napi_status napi_reject_deferred(napi_env env, napi_deferred deferred, napi_value rejection);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_promise(napi_env env, napi_value value, out c_bool is_promise);
+        internal static partial napi_status napi_is_promise(napi_env env, napi_value value, out c_bool is_promise);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_run_script(napi_env env, napi_value script, out napi_value result);
+        internal static partial napi_status napi_run_script(napi_env env, napi_value script, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_adjust_external_memory(napi_env env, long change_in_bytes, out long adjusted_value);
+        internal static partial napi_status napi_adjust_external_memory(napi_env env, long change_in_bytes, out long adjusted_value);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_date(napi_env env, double time, out napi_value result);
+        internal static partial napi_status napi_create_date(napi_env env, double time, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_date(napi_env env, napi_value value, out c_bool is_date);
+        internal static partial napi_status napi_is_date(napi_env env, napi_value value, out c_bool is_date);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_date_value(napi_env env, napi_value value, out double result);
+        internal static partial napi_status napi_get_date_value(napi_env env, napi_value value, out double result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_add_finalizer(napi_env env, napi_value js_object,
+        internal static partial napi_status napi_add_finalizer(napi_env env, napi_value js_object,
            nint native_object, napi_finalize finalize_cb, nint finalize_hint, napi_ref* result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_bigint_int64(napi_env env, long value, out napi_value result);
+        internal static partial napi_status napi_create_bigint_int64(napi_env env, long value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_bigint_uint64(napi_env env, ulong value, out napi_value result);
+        internal static partial napi_status napi_create_bigint_uint64(napi_env env, ulong value, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_create_bigint_words(napi_env env, int sign_bit,
+        internal static partial napi_status napi_create_bigint_words(napi_env env, int sign_bit,
            nuint word_count, ulong* words, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_bigint_int64(napi_env env, napi_value value,
+        internal static partial napi_status napi_get_value_bigint_int64(napi_env env, napi_value value,
            out long result, out c_bool lossless);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_bigint_uint64(napi_env env, napi_value value,
+        internal static partial napi_status napi_get_value_bigint_uint64(napi_env env, napi_value value,
            out ulong result, out c_bool lossless);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_value_bigint_words(napi_env env, napi_value value,
+        internal static partial napi_status napi_get_value_bigint_words(napi_env env, napi_value value,
            out int sign_bit, out nuint word_count, ulong* words);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_all_property_names(
+        internal static partial napi_status napi_get_all_property_names(
           napi_env env,
           napi_value @object,
           napi_key_collection_mode key_mode,
@@ -604,32 +604,32 @@ public static partial class JSNativeApi
           out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_set_instance_data(
+        internal static partial napi_status napi_set_instance_data(
           napi_env env,
           nint data,
           napi_finalize finalize_cb,
           nint finalize_hint);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_get_instance_data(napi_env env, out nint data);
+        internal static partial napi_status napi_get_instance_data(napi_env env, out nint data);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_detach_arraybuffer(napi_env env, napi_value arraybuffer);
+        internal static partial napi_status napi_detach_arraybuffer(napi_env env, napi_value arraybuffer);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_is_detached_arraybuffer(napi_env env, napi_value value, out c_bool result);
+        internal static partial napi_status napi_is_detached_arraybuffer(napi_env env, napi_value value, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_type_tag_object(napi_env env, napi_value value, ref napi_type_tag type_tag);
+        internal static partial napi_status napi_type_tag_object(napi_env env, napi_value value, in napi_type_tag type_tag);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_check_object_type_tag(napi_env env, napi_value value,
+        internal static partial napi_status napi_check_object_type_tag(napi_env env, napi_value value,
            in napi_type_tag type_tag, out c_bool result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_object_freeze(napi_env env, napi_value @object);
+        internal static partial napi_status napi_object_freeze(napi_env env, napi_value @object);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static partial napi_status napi_object_seal(napi_env env, napi_value @object);
+        internal static partial napi_status napi_object_seal(napi_env env, napi_value @object);
     }
 }

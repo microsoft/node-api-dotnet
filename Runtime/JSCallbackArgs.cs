@@ -4,7 +4,7 @@ namespace NodeApi;
 
 public class JSCallbackArgs
 {
-    private JSValue[] _args;
+    private readonly JSValue[] _args;
 
     public JSValue this[int index] => _args[index];
 

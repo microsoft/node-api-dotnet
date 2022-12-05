@@ -30,18 +30,18 @@ public class ModuleGenerator : ISourceGenerator
 
     public void Execute(GeneratorExecutionContext context)
     {
-        var moduleType = GetModuleType(context);
+        ITypeSymbol? moduleType = GetModuleType(context);
         if (moduleType != null)
         {
-            var initializerSource = GenerateModuleInitializer(context, moduleType);
+            SourceText initializerSource = GenerateModuleInitializer(context, moduleType);
             context.AddSource($"{nameof(NodeApi)}.{ModuleInitializerClassName}", initializerSource);
 
             // Also write the generated code to a file under obj/ for diagnostics.
             // Depends on <CompilerVisibleProperty Include="BaseIntermediateOutputPath" />
             if (context.AnalyzerConfigOptions.GlobalOptions.TryGetValue(
-              "build_property.BaseIntermediateOutputPath", out var intermediateOutputPath))
+              "build_property.BaseIntermediateOutputPath", out string? intermediateOutputPath))
             {
-                var generatedSourcePath = Path.Combine(
+                string generatedSourcePath = Path.Combine(
                   intermediateOutputPath,
                   $"{nameof(NodeApi)}.{ModuleInitializerClassName}.cs");
                 File.WriteAllText(generatedSourcePath, initializerSource.ToString());
@@ -49,11 +49,11 @@ public class ModuleGenerator : ISourceGenerator
         }
     }
 
-    private ITypeSymbol? GetModuleType(GeneratorExecutionContext context)
+    private static ITypeSymbol? GetModuleType(GeneratorExecutionContext context)
     {
         ITypeSymbol? moduleType = null;
 
-        foreach (var type in context.Compilation.Assembly.TypeNames
+        foreach (ITypeSymbol type in context.Compilation.Assembly.TypeNames
           .SelectMany((n) => context.Compilation.GetSymbolsWithName(n, SymbolFilter.Type))
           .OfType<ITypeSymbol>())
         {
@@ -61,7 +61,7 @@ public class ModuleGenerator : ISourceGenerator
             {
                 if (moduleType != null)
                 {
-                    var title = "Multiple types have Node API module attributes.";
+                    string title = "Multiple types have Node API module attributes.";
                     var descriptor = new DiagnosticDescriptor(
                       id: DiagnosticPrefix + "1000",
                       title,
@@ -138,7 +138,7 @@ public class ModuleGenerator : ISourceGenerator
         s += $"new JSModuleBuilder<{moduleType.Name}>()";
         s.IncreaseIndent();
 
-        foreach (var member in moduleType.GetMembers()
+        foreach (ISymbol? member in moduleType.GetMembers()
           .Where((m) => m.DeclaredAccessibility == Accessibility.Public && !m.IsStatic))
         {
             if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
@@ -162,16 +162,16 @@ public class ModuleGenerator : ISourceGenerator
         s.DecreaseIndent();
     }
 
-    private void ExportModuleMethod(
+    private static void ExportModuleMethod(
       GeneratorExecutionContext context,
       SourceBuilder s,
       IMethodSymbol method)
     {
         ValidateExportedMethod(context, method);
-        s += $".AddMethod(\"{ToCamelCase(method.Name)}\", obj => obj.{method.Name})";
+        _ = s + $".AddMethod(\"{ToCamelCase(method.Name)}\", obj => obj.{method.Name})";
     }
 
-    private void ExportModuleProperty(
+    private static void ExportModuleProperty(
       GeneratorExecutionContext context,
       SourceBuilder s,
       IPropertySymbol property)
@@ -194,18 +194,18 @@ public class ModuleGenerator : ISourceGenerator
         s.DecreaseIndent();
     }
 
-    private void ExportModuleClass(
+    private static void ExportModuleClass(
       GeneratorExecutionContext context,
       SourceBuilder s,
       IPropertySymbol property)
     {
         // TODO: Allow the typeof() expression to include a namespace.
-        var expectedSource = $"typeof({property.Name})";
+        string expectedSource = $"typeof({property.Name})";
 
-        var location = property.GetMethod!.Locations.Single();
-        var sourceSpan = location.SourceSpan;
-        var sourceText = location.SourceTree!.ToString();
-        var getterSource = sourceText.Substring(sourceSpan.Start, sourceSpan.Length);
+        Location location = property.GetMethod!.Locations.Single();
+        TextSpan sourceSpan = location.SourceSpan;
+        string sourceText = location.SourceTree!.ToString();
+        string getterSource = sourceText.Substring(sourceSpan.Start, sourceSpan.Length);
         if (getterSource != expectedSource)
         {
             ReportError(
@@ -217,7 +217,7 @@ public class ModuleGenerator : ISourceGenerator
             return;
         }
 
-        var classType = context.Compilation.GetSymbolsWithName(property.Name, SymbolFilter.Type)
+        ITypeSymbol classType = context.Compilation.GetSymbolsWithName(property.Name, SymbolFilter.Type)
           .Cast<ITypeSymbol>().Single();
 
         // TODO: Check that the class has a public constructor that takes a JSCallbackArgs parameter.
@@ -230,14 +230,14 @@ public class ModuleGenerator : ISourceGenerator
         s.DecreaseIndent();
     }
 
-    private void ExportClassMembers(
+    private static void ExportClassMembers(
       GeneratorExecutionContext context,
       SourceBuilder s,
       ITypeSymbol classType)
     {
         // TODO: Also generate .d.ts?
 
-        foreach (var member in classType.GetMembers()
+        foreach (ISymbol? member in classType.GetMembers()
           .Where((m) => m.DeclaredAccessibility == Accessibility.Public))
         {
             if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
@@ -251,7 +251,7 @@ public class ModuleGenerator : ISourceGenerator
         }
     }
 
-    private void ExportClassMethod(
+    private static void ExportClassMethod(
       GeneratorExecutionContext context,
       SourceBuilder s,
       IMethodSymbol method)
@@ -259,16 +259,16 @@ public class ModuleGenerator : ISourceGenerator
         ValidateExportedMethod(context, method);
         if (method.IsStatic)
         {
-            var className = method.ContainingType.Name;
-            s += $".AddMethod(\"{ToCamelCase(method.Name)}\", () => {className}.{method.Name})";
+            string className = method.ContainingType.Name;
+            _ = s + $".AddMethod(\"{ToCamelCase(method.Name)}\", () => {className}.{method.Name})";
         }
         else
         {
-            s += $".AddMethod(\"{ToCamelCase(method.Name)}\", obj => obj.{method.Name})";
+            _ = s + $".AddMethod(\"{ToCamelCase(method.Name)}\", obj => obj.{method.Name})";
         }
     }
 
-    private void ExportClassProperty(
+    private static void ExportClassProperty(
       GeneratorExecutionContext context,
       SourceBuilder s,
       IPropertySymbol property)
@@ -279,7 +279,7 @@ public class ModuleGenerator : ISourceGenerator
         s.IncreaseIndent();
         if (property.IsStatic)
         {
-            var className = property.ContainingType.Name;
+            string className = property.ContainingType.Name;
             if (property.SetMethod?.DeclaredAccessibility == Accessibility.Public)
             {
                 s += $"getter: () => {className}.{property.Name},";
@@ -373,7 +373,7 @@ public class ModuleGenerator : ISourceGenerator
 
     private static void ReportDiagnostic(
       GeneratorExecutionContext context,
-      DiagnosticSeverity severity,
+      DiagnosticSeverity _ /*severity*/,
       int id,
       string title,
       string description,

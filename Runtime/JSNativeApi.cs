@@ -14,18 +14,18 @@ public static partial class JSNativeApi
     private class ErrorReadingMode : IDisposable
     {
         private bool _isDisposed = false;
-        [ThreadStatic] private static ErrorReadingMode? t_current = null;
+        [ThreadStatic] private static ErrorReadingMode? s_current;
 
         public ErrorReadingMode()
         {
             // Crash if we already in the error reading mode.
-            if (t_current != null)
+            if (s_current != null)
             {
                 //TODO: use napi_fatal_error
                 GCHandle.FromIntPtr(new IntPtr(0xDEADBEEF));
             }
 
-            t_current = this;
+            s_current = this;
         }
 
         protected virtual void Dispose(bool disposing)
@@ -34,7 +34,7 @@ public static partial class JSNativeApi
             {
                 if (disposing)
                 {
-                    t_current = null;
+                    s_current = null;
                 }
                 _isDisposed = true;
             }
@@ -366,8 +366,7 @@ public static partial class JSNativeApi
     }
     public static JSValue GetPrototype(this JSValue value)
     {
-        napi_value result;
-        napi_get_prototype(Env, (napi_value)value, out result).ThrowIfFailed();
+        napi_get_prototype(Env, (napi_value)value, out napi_value result).ThrowIfFailed();
         return result;
     }
 
@@ -458,7 +457,7 @@ public static partial class JSNativeApi
 
     public static void SetElement(this JSValue thisValue, int index, JSValue value)
     {
-        napi_set_element(Env, (napi_value)value, (uint)index, (napi_value)value).ThrowIfFailed();
+        napi_set_element(Env, (napi_value)thisValue, (uint)index, (napi_value)value).ThrowIfFailed();
     }
 
     public static bool HasElement(this JSValue thisValue, int index)
@@ -701,7 +700,7 @@ public static partial class JSNativeApi
 
     public static unsafe JSValue CreateExternalArrayBuffer(object external, ReadOnlyMemory<byte> memory)
     {
-        PinnedReadOnlyMemory pinnedMemory = new PinnedReadOnlyMemory(external, memory);
+        PinnedReadOnlyMemory pinnedMemory = new(external, memory);
         napi_create_external_arraybuffer(
           Env,
           pinnedMemory.Pointer,
@@ -921,25 +920,16 @@ public static partial class JSNativeApi
         return (bool)result;
     }
 
-    public static void SetObjectTypeTag(this JSValue thisValue, ref napi_type_tag typeTag)
+    public static void SetObjectTypeTag(this JSValue thisValue, in napi_type_tag typeTag)
     {
-        napi_type_tag_object(Env, (napi_value)thisValue, ref typeTag);
+        napi_type_tag_object(Env, (napi_value)thisValue, in typeTag);
     }
 
     public static unsafe void SetObjectTypeTag(this JSValue thisValue, ref Guid typeGuid)
     {
-        // TODO: simplify in .Net 7 by using MemoryMarshal.AsRef
-        napi_type_tag typeTag = new napi_type_tag { lower = 0, upper = 0 };
-
-        fixed (byte* source = &MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref typeGuid, 1))[0])
-        {
-            fixed (byte* dest = &MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref typeTag, 1))[0])
-            {
-                Buffer.MemoryCopy(source, dest, 16, 16);
-            }
-        }
-
-        thisValue.SetObjectTypeTag(ref typeTag);
+        ReadOnlySpan<Guid> guidSpan = MemoryMarshal.CreateReadOnlySpan(ref typeGuid, 1);
+        ReadOnlySpan<byte> guidBytes = MemoryMarshal.AsBytes(guidSpan);
+        thisValue.SetObjectTypeTag(MemoryMarshal.AsRef<napi_type_tag>(guidBytes));
     }
 
     public static bool CheckObjectTypeTag(this JSValue thisValue, in napi_type_tag typeTag)
@@ -971,7 +961,7 @@ public static partial class JSNativeApi
     private static unsafe napi_value InvokeJSCallback(napi_env env, napi_callback_info callbackInfo)
     {
         using var scope = new JSValueScope(env);
-        JSCallbackArgs args = new JSCallbackArgs(scope, callbackInfo);
+        JSCallbackArgs args = new(scope, callbackInfo);
         JSCallback callback = (JSCallback)GCHandle.FromIntPtr(args.Data).Target!;
         return (napi_value)callback(args);
     }
@@ -980,7 +970,7 @@ public static partial class JSNativeApi
     private static unsafe napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
     {
         using var scope = new JSValueScope(env);
-        JSCallbackArgs args = new JSCallbackArgs(scope, callbackInfo);
+        JSCallbackArgs args = new(scope, callbackInfo);
         JSPropertyDescriptor desc = (JSPropertyDescriptor)GCHandle.FromIntPtr(args.Data).Target!;
         return (napi_value)desc.Method!.Invoke(args);
     }
@@ -989,7 +979,7 @@ public static partial class JSNativeApi
     private static unsafe napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
     {
         using var scope = new JSValueScope(env);
-        JSCallbackArgs args = new JSCallbackArgs(scope, callbackInfo);
+        JSCallbackArgs args = new(scope, callbackInfo);
         JSPropertyDescriptor desc = (JSPropertyDescriptor)GCHandle.FromIntPtr(args.Data).Target!;
         return (napi_value)desc.Getter!.Invoke(args);
     }
@@ -1049,13 +1039,14 @@ public static partial class JSNativeApi
     private class PinnedReadOnlyMemory : IDisposable
     {
         private bool _disposedValue = false;
-        private object? _owner;
-        private ReadOnlyMemory<byte> _memory;
+        private readonly ReadOnlyMemory<byte> _memory;
         private MemoryHandle _memoryHandle;
+
+        public object? Owner { get; private set; }
 
         public PinnedReadOnlyMemory(object? owner, ReadOnlyMemory<byte> memory)
         {
-            _owner = owner;
+            Owner = owner;
             _memory = memory;
             _memoryHandle = _memory.Pin();
         }
@@ -1073,7 +1064,7 @@ public static partial class JSNativeApi
                     _memoryHandle.Dispose();
                 }
 
-                _owner = null;
+                Owner = null;
                 _disposedValue = true;
             }
         }

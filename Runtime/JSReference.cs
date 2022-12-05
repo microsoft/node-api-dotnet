@@ -7,7 +7,6 @@ public class JSReference : IDisposable
 {
     private napi_env _env;
     private napi_ref _handle;
-    private bool _isDisposed = false;
 
     public bool IsWeak { get; private set; }
 
@@ -41,7 +40,7 @@ public class JSReference : IDisposable
         return result;
     }
 
-    public bool IsInvalid => _isDisposed;
+    public bool IsDisposed { get; private set; } = false;
 
     public static explicit operator napi_ref(JSReference value) => value._handle;
 
@@ -56,13 +55,13 @@ public class JSReference : IDisposable
 
     protected virtual void Dispose(bool disposing)
     {
-        if (!_isDisposed)
+        if (!IsDisposed)
         {
             if (disposing)
             {
                 napi_delete_reference(_env, _handle).ThrowIfFailed();
             }
-            _isDisposed = true;
+            IsDisposed = true;
         }
     }
 }

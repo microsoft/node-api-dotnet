@@ -6,28 +6,27 @@ namespace NodeApi;
 
 public struct JSValue
 {
-    private JSValueScope _scope;
     private napi_value _handle;
 
-    public JSValueScope Scope => _scope;
+    public JSValueScope Scope { get; }
 
     public JSValue(JSValueScope scope, napi_value handle)
     {
         Contract.Requires(handle.Handle != nint.Zero, "handle must be not null");
-        _scope = scope;
+        Scope = scope;
         _handle = handle;
     }
 
     public JSValue(napi_value handle)
     {
         Contract.Requires(handle.Handle != nint.Zero, "handle must be not null");
-        _scope = JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
+        Scope = JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
         _handle = handle;
     }
 
     public napi_value GetCheckedHandle()
     {
-        if (_scope.IsInvalid)
+        if (Scope.IsDisposed)
         {
             throw new InvalidOperationException("The value handle is invalid because its scope is closed");
         }
@@ -89,6 +88,6 @@ public struct JSValue
     public static explicit operator napi_value(JSValue value) => value.GetCheckedHandle();
     public static explicit operator napi_value(JSValue? value) => value != null ? value.Value.GetCheckedHandle() : new napi_value(nint.Zero);
 
-    public static implicit operator JSValue(napi_value handle) => new JSValue(handle);
+    public static implicit operator JSValue(napi_value handle) => new(handle);
     public static implicit operator JSValue?(napi_value handle) => handle.Handle != nint.Zero ? new JSValue(handle) : (JSValue?)null;
 }
