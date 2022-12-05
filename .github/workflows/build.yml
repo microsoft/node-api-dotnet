@@ -32,11 +32,8 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    - name: Restore packages
-      run: dotnet restore --configuration Release
-
     - name: Build
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build --configuration Release
 
     # TODO: Check formatting
     # - name: Check formatting
@@ -58,4 +55,4 @@ jobs:
 
     # TODO: Publish packages
     # - name: Publish packages
-    #   run: dotnet nuget push out/packages/*.nupkg
+    #   run: dotnet nuget push out/pkg/*.nupkg
