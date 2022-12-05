@@ -1,0 +1,59 @@
+# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: napi-dotnet build and test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ windows-latest, macos-latest, ubuntu-latest ]
+        dotnet-version: [ 7.0.x ]
+        node-version: [ 18.x ]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET ${{ matrix.dotnet-version }}
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ matrix.dotnet-version }}
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Build
+      run: dotnet build --configuration Release
+
+    # TODO: Check formatting
+    # - name: Check formatting
+    #   run: dotnet format --no-restore --configuration Release --severity info --verbosity detailed --verify-no-changes
+    #   if: ${{ always() }} # Run this step even when there are build failures
+
+    - name: pack
+      run: dotnet pack --no-build --configuration Release
+
+    - name: Test
+      run: dotnet test --no-build --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
+
+    - name: Publish test results
+      uses: dorny/test-reporter@v1
+      with:
+        name: test (${{ runner.os }}, dotnet${{ matrix.dotnet-version }}, node${{ matrix.node-version }})
+        path: test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}/*.trx
+        reporter: dotnet-trx
+      if: ${{ always() }} # Run this step even when there are test failures
+
+    # TODO: Publish packages
+    # - name: Publish packages
+    #   run: dotnet nuget push out/pkg/*.nupkg
