@@ -7,10 +7,11 @@ root = true
 # A newline ending every file
 # Use 4 spaces as indentation
 [*]
-insert_final_newline = true
 indent_style = space
 indent_size = 4
+insert_final_newline = true
 trim_trailing_whitespace = true
+charset = utf-8
 
 # Generated code
 [*{_AssemblyInfo.cs,.notsupported.cs,AsmOffsets.cs}]
@@ -160,7 +161,7 @@ curly_bracket_next_line = true
 indent_brace_style = Allman
 
 # Xml project files
-[*.{csproj,vbproj,vcxproj,vcxproj.filters,proj,nativeproj,locproj}]
+[*.{csproj,vbproj,vcxproj,vcxproj.filters,vcxitems,vcxitems.filters,proj,nativeproj,locproj,njsproj}]
 indent_size = 2
 
 [*.{csproj,vbproj,proj,nativeproj,locproj}]
@@ -175,7 +176,7 @@ indent_size = 2
 indent_size = 2
 
 # Xml config files
-[*.{props,targets,config,nuspec}]
+[*.{msbuild,props,targets,config,nuspec}]
 indent_size = 2
 
 # YAML config files
@@ -185,5 +186,9 @@ indent_size = 2
 # Shell scripts
 [*.sh]
 end_of_line = lf
-[*.{cmd,bat}]
+[*.{cmd,bat,ps1}]
 end_of_line = crlf
+
+# JavaScript files
+[*.{json,js,jsx,ts,tsx}]
+indent_size = 2
