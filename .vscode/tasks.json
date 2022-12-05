@@ -2,24 +2,17 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "build",
-			"command": "dotnet",
-			"type": "shell",
-			"args": [
-				"build",
-        "--nologo",
-				"--property:GenerateFullPaths=true",
-				"--consoleloggerparameters:NoSummary"
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"presentation": {
-				"reveal": "silent"
-			},
-			"problemMatcher": "$msCompile"
-		},
+            "label": "build",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/Test/NodeApi.Test.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
     {
       "label": "test",
       "command": "dotnet",
@@ -36,6 +29,30 @@
 				"reveal": "always"
 			},
 			"problemMatcher": "$msCompile"
+    },
+    {
+        "label": "publish",
+        "command": "dotnet",
+        "type": "process",
+        "args": [
+            "publish",
+            "${workspaceFolder}/Test/NodeApi.Test.csproj",
+            "/property:GenerateFullPaths=true",
+            "/consoleloggerparameters:NoSummary"
+        ],
+        "problemMatcher": "$msCompile"
+    },
+    {
+        "label": "watch",
+        "command": "dotnet",
+        "type": "process",
+        "args": [
+            "watch",
+            "run",
+            "--project",
+            "${workspaceFolder}/Test/NodeApi.Test.csproj"
+        ],
+        "problemMatcher": "$msCompile"
     }
 	]
 }
