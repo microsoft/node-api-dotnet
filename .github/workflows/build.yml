@@ -49,7 +49,7 @@ jobs:
     - name: Publish test results
       uses: actions/upload-artifact@v3
       with:
-        name: TestResults-dotnet${{ matrix.dotnet-version }}-node${{ matrix.node-version }}-$RUNNER_OS
+        name: TestResults-${{ runner.os }}-dotnet${{ matrix.dotnet-version }}-node${{ matrix.node-version }}
         path: TestResults-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}
       if: ${{ always() }} # Run this step even when there are test failures
 
