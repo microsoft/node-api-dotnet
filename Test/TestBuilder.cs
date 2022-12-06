@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -7,6 +8,7 @@ using Microsoft.Build.Evaluation;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Locator;
 using Microsoft.Build.Logging;
+using Xunit;
 
 namespace NodeApi.Test;
 
@@ -15,6 +17,14 @@ namespace NodeApi.Test;
 /// </summary>
 internal static class TestBuilder
 {
+    // JS code loads test modules via these environment variables:
+    //     const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
+    //     const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
+    //     const test = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
+    // (A real module would choose between one or the other, so its require code would be simpler.)
+    public const string ModulePathEnvironmentVariableName = "TEST_DOTNET_MODULE_PATH";
+    public const string HostPathEnvironmentVariableName = "TEST_DOTNET_HOST_PATH";
+
     private static bool s_msbuildInitialized = false;
 
     private static void InitializeMsbuild()
@@ -70,18 +80,35 @@ internal static class TestBuilder
         return testCasesDir;
     }
 
-    public static string GetBuildLogFilePath(string moduleName)
+    public static IEnumerable<object[]> ListTestCases()
     {
-        string projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
-        Directory.CreateDirectory(projectObjDir);
-        return Path.Join(projectObjDir, "build.log");
+        foreach (string dir in Directory.GetDirectories(TestCasesDirectory))
+        {
+            string moduleName = Path.GetFileName(dir);
+
+            foreach (string? jsFile in Directory.GetFiles(dir, "*.js")
+              .Concat(Directory.GetFiles(dir, "*.ts")))
+            {
+                string testCaseName = Path.GetFileNameWithoutExtension(jsFile);
+                yield return new[] { moduleName + "/" + testCaseName };
+            }
+        }
     }
 
-    public static string GetRunLogFilePath(string moduleName, string testCaseName)
+    public static string GetBuildLogFilePath(string moduleName)
     {
-        string projectObjDir = Path.Join(RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
-        Directory.CreateDirectory(projectObjDir);
-        return Path.Join(projectObjDir, testCaseName + ".log");
+        string logDir = Path.Join(
+            RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
+        Directory.CreateDirectory(logDir);
+        return Path.Join(logDir, "build.log");
+    }
+
+    public static string GetRunLogFilePath(string prefix, string moduleName, string testCaseName)
+    {
+        string logDir = Path.Join(
+            RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
+        Directory.CreateDirectory(logDir);
+        return Path.Join(logDir, $"{prefix}-{testCaseName}.log");
     }
 
     public static string GetCurrentPlatformRuntimeIdentifier()
@@ -134,7 +161,9 @@ internal static class TestBuilder
             Verbosity = verboseLog ? LoggerVerbosity.Diagnostic : LoggerVerbosity.Normal,
         };
 
-        var project = new Project(projectFilePath, properties, toolsVersion: null);
+        using var projectCollection = new ProjectCollection();
+
+        var project = projectCollection.LoadProject(projectFilePath, properties, toolsVersion: null);
         bool buildResult = project.Build(targets, new[] { logger });
         if (!buildResult)
         {
@@ -143,5 +172,70 @@ internal static class TestBuilder
 
         string returnValue = project.GetPropertyValue(returnProperty);
         return returnValue;
+    }
+
+    public static void RunNodeTestCase(
+        string jsFilePath,
+        string logFilePath,
+        IDictionary<string, string> testEnvironmentVariables)
+    {
+        Assert.True(File.Exists(jsFilePath), "JS file not found: " + jsFilePath);
+
+        // This assumes the `node` executable is on the current PATH.
+        string nodeExe = "node";
+
+        StreamWriter outputWriter = File.CreateText(logFilePath);
+        bool hasErrorOutput = false;
+
+        var startInfo = new ProcessStartInfo(nodeExe, $"--expose-gc {jsFilePath}")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        foreach (var (name, value) in testEnvironmentVariables)
+        {
+            startInfo.Environment[name] = value;
+            outputWriter.WriteLine($"{name}={value}");
+        }
+
+        outputWriter.WriteLine($"{nodeExe} --expose-gc {jsFilePath}");
+        outputWriter.WriteLine();
+        outputWriter.Flush();
+
+        Process nodeProcess = Process.Start(startInfo)!;
+        nodeProcess.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+            {
+                outputWriter.WriteLine(e.Data);
+                outputWriter.Flush();
+            }
+        };
+        nodeProcess.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+            {
+                outputWriter.WriteLine(e.Data);
+                outputWriter.Flush();
+                hasErrorOutput = e.Data.Trim().Length > 0;
+            }
+        };
+        nodeProcess.BeginOutputReadLine();
+        nodeProcess.BeginErrorReadLine();
+
+        nodeProcess.WaitForExit();
+
+        if (nodeProcess.ExitCode != 0)
+        {
+            Assert.Fail("Node process exited with code: " + nodeProcess.ExitCode + ". " +
+                "Check the log for details: " + logFilePath);
+        }
+        else if (hasErrorOutput)
+        {
+            Assert.Fail("Node process produced error output. " +
+                "Check the log for details: " + logFilePath);
+        }
     }
 }

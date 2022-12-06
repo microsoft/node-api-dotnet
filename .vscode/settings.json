@@ -1,0 +1,4 @@
+{
+    // Don't show the "Required assets are missing..." dialog on startup. We'll manage tasks.json / launch.json manually.
+    "csharp.suppressBuildAssetsNotification": true
+}

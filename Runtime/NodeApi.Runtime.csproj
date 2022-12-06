@@ -1,10 +1,49 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<RootNamespace>NodeApi</RootNamespace>
-		<AssemblyName>NodeApi</AssemblyName>
-		<IsPackable>true</IsPackable>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	</PropertyGroup>
+  <PropertyGroup>
+    <RootNamespace>NodeApi</RootNamespace>
+    <AssemblyName>NodeApi</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)'=='Release' ">
+    <!-- These trimming options are not required, but reduce the native binary size by around 600 KB. -->
+    <InvariantGlobalization>true</InvariantGlobalization><!-- Trim globalization-specific code and data. -->
+    <UseSystemResourceKeys>true</UseSystemResourceKeys><!-- Trim detailed system exception messages. -->
+  </PropertyGroup>
+
+  <Target Name="SetRuntimeConfigValues" BeforeTargets="GenerateBuildRuntimeConfigurationFiles">
+    <ItemGroup>
+      <RuntimeHostConfigurationOption Include="System.Runtime.InteropServices.EnableConsumingManagedCodeFromNativeHosting" Value="true" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="RenameToDotNode" AfterTargets="CopyNativeBinary">
+    <PropertyGroup>
+      <ManagedTargetPath>$(PublishDir)$(TargetFileName)</ManagedTargetPath>
+      <NativeTargetPath>$(PublishDir)$(TargetName).node</NativeTargetPath>
+    </PropertyGroup>
+
+    <!-- Rename the native DLL (and its PDB) to have a .node extension. -->
+    <Move SourceFiles="$(PublishDir)$(TargetFileName)"
+      DestinationFiles="$(NativeTargetPath)" />
+    <Move SourceFiles="$(PublishDir)$(TargetName).pdb"
+      DestinationFiles="$(PublishDir)$(TargetName).node.pdb" />
+
+    <!-- Publish the runtimeconfig.json file required for CLR hosting. -->
+    <Copy SourceFiles="$(PublishDir)..\$(ProjectRuntimeConfigFileName)"
+      DestinationFiles="$(PublishDir)$(ProjectRuntimeConfigFileName)" />
+
+    <!-- Also publish the managed assembly (and its PDB). -->
+    <Copy SourceFiles="$(PublishDir)..\$(TargetFileName)"
+      DestinationFiles="$(ManagedTargetPath)" />
+    <Copy SourceFiles="$(PublishDir)..\$(TargetName).pdb"
+      DestinationFiles="$(PublishDir)$(TargetName).pdb" />
+  </Target>
 
 </Project>

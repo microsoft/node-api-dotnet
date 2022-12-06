@@ -11,8 +11,13 @@ public static partial class JSNativeApi
     [SuppressUnmanagedCodeSecurity]
     public static unsafe partial class Interop
     {
-        static Interop()
+        private static bool s_initialized;
+
+        public static void Initialize()
         {
+            if (s_initialized) return;
+            s_initialized = true;
+
             // Node APIs are all imported from the main `node` executable. Overriding the import
             // resolution is more efficient and avoids issues with library search paths and
             // differences in the name of the executable.
@@ -23,6 +28,9 @@ public static partial class JSNativeApi
                   return libraryName == nameof(NodeApi) ? NativeLibrary.GetMainProgramHandle() : default;
               });
         }
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate napi_value napi_register_module_v1(napi_env env, napi_value exports);
 
         //===========================================================================
         // Specialized pointer types
