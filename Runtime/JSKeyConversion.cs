@@ -1,7 +1,7 @@
-﻿namespace NodeApi;
+namespace NodeApi;
 
 public enum JSKeyConversion : int
 {
-  KeepNumbers,
-  NumbersToStrings,
+    KeepNumbers,
+    NumbersToStrings,
 }

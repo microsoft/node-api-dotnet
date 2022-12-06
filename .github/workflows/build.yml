@@ -8,6 +8,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  checks: write
+  pull-requests: write
+  statuses: write
+
 jobs:
   build:
 
@@ -35,10 +40,9 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release
 
-    # TODO: Check formatting
-    # - name: Check formatting
-    #   run: dotnet format --no-restore --configuration Release --severity info --verbosity detailed --verify-no-changes
-    #   if: ${{ always() }} # Run this step even when there are build failures
+    - name: Check formatting
+      run: dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
+      if: ${{ always() }} # Run this step even when there are build failures
 
     - name: pack
       run: dotnet pack --no-build --configuration Release
