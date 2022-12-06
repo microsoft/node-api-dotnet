@@ -17,6 +17,7 @@ public class ModuleGenerator : ISourceGenerator
     private const string ModuleInitializeMethodName = "Initialize";
     private const string ModuleRegisterFunctionName = "napi_register_module_v1";
 
+#pragma warning disable CA1822 // Mark members as static
     public void Initialize(GeneratorInitializationContext context)
     {
 #if DEBUG
@@ -27,6 +28,7 @@ public class ModuleGenerator : ISourceGenerator
         ////System.Diagnostics.Debugger.Launch();
 #endif
     }
+#pragma warning restore CA1822 // Mark members as static
 
     public void Execute(GeneratorExecutionContext context)
     {
