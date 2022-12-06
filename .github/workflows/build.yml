@@ -8,6 +8,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  checks: write
+  pull-requests: write
+  statuses: write
+
 jobs:
   build:
 
