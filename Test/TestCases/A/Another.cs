@@ -2,40 +2,42 @@ using System;
 
 namespace NodeApi.Examples;
 
+#pragma warning disable CA1822 // Mark members as static
+
 public class Another
 {
-	public Another(JSCallbackArgs _)
-	{
-		Console.WriteLine("Another()");
-	}
-
-  public static JSValue StaticValue
-  {
-    get
+    public Another(JSCallbackArgs _)
     {
-      Console.WriteLine("Another.StaticValue.get()");
-      return "static";
+        Console.WriteLine("Another()");
     }
-  }
 
-  public JSValue InstanceValue
-  {
-    get
+    public static JSValue StaticValue
     {
-      Console.WriteLine("Another.InstanceValue.get()");
-      return "instance";
+        get
+        {
+            Console.WriteLine("Another.StaticValue.get()");
+            return "static";
+        }
     }
-  }
 
-  public static JSValue StaticMethod(JSCallbackArgs _)
-  {
-    Console.WriteLine("Another.StaticMethod()");
-    return true;
-  }
+    public JSValue InstanceValue
+    {
+        get
+        {
+            Console.WriteLine("Another.InstanceValue.get()");
+            return "instance";
+        }
+    }
 
-  public JSValue InstanceMethod(JSCallbackArgs _)
-  {
-    Console.WriteLine("Another.InstanceMethod()");
-    return false;
-  }
+    public static JSValue StaticMethod(JSCallbackArgs _)
+    {
+        Console.WriteLine("Another.StaticMethod()");
+        return true;
+    }
+
+    public JSValue InstanceMethod(JSCallbackArgs _)
+    {
+        Console.WriteLine("Another.InstanceMethod()");
+        return false;
+    }
 }

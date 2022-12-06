@@ -1,7 +1,7 @@
-﻿namespace NodeApi;
+namespace NodeApi;
 
 public enum JSKeyCollectionMode : int
 {
-  IncludePrototypes,
-  OwnOnly,
+    IncludePrototypes,
+    OwnOnly,
 }

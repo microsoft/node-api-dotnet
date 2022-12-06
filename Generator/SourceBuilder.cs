@@ -1,80 +1,80 @@
-using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Text;
+using Microsoft.CodeAnalysis.Text;
 
 namespace NodeApi.Generator;
 
 internal class SourceBuilder : SourceText
 {
-	private readonly StringBuilder s;
-	private string currentIndent = string.Empty;
+    private readonly StringBuilder _text;
+    private string _currentIndent = string.Empty;
 
-	public SourceBuilder(string indent = "\t")
-	{
-		this.s = new StringBuilder();
-		Indent = indent;
-	}
+    public SourceBuilder(string indent = "\t")
+    {
+        _text = new StringBuilder();
+        Indent = indent;
+    }
 
-	public override Encoding? Encoding => Encoding.UTF8;
+    public override Encoding? Encoding => Encoding.UTF8;
 
-	public override int Length => this.s.Length;
+    public override int Length => _text.Length;
 
-	public override char this[int position] => this.s[position];
+    public override char this[int position] => _text[position];
 
-	public override void CopyTo(
-		int sourceIndex, char[] destination, int destinationIndex, int count)
-	{
-		this.s.CopyTo(sourceIndex, destination, destinationIndex, count);
-	}
+    public override void CopyTo(
+        int sourceIndex, char[] destination, int destinationIndex, int count)
+    {
+        _text.CopyTo(sourceIndex, destination, destinationIndex, count);
+    }
 
-	public override string ToString() => this.s.ToString();
+    public override string ToString() => _text.ToString();
 
-	public string Indent { get; }
+    public string Indent { get; }
 
-	public void IncreaseIndent()
-	{
-		this.currentIndent += Indent;
-	}
+    public void IncreaseIndent()
+    {
+        _currentIndent += Indent;
+    }
 
-	public void DecreaseIndent()
-	{
-		if (this.currentIndent.Length == 0)
-		{
-			throw new InvalidOperationException("Imbalanced unindent.");
-		}
+    public void DecreaseIndent()
+    {
+        if (_currentIndent.Length == 0)
+        {
+            throw new InvalidOperationException("Imbalanced unindent.");
+        }
 
-		this.currentIndent = this.currentIndent.Substring(0, this.currentIndent.Length - Indent.Length);
-	}
+        _currentIndent = _currentIndent.Substring(0, _currentIndent.Length - Indent.Length);
+    }
 
-	private void AppendLine(string line)
-	{
-		if (line.StartsWith("}"))
-		{
-			DecreaseIndent();
-		}
+    private void AppendLine(string line)
+    {
+        if (line.StartsWith("}"))
+        {
+            DecreaseIndent();
+        }
 
-		if (line.Length > 0)
-		{
-			line = currentIndent + line;
-		}
+        if (line.Length > 0)
+        {
+            line = _currentIndent + line;
+        }
 
-		this.s.AppendLine(line);
+        _text.AppendLine(line);
 
-		if (line.EndsWith("{"))
-		{
-			IncreaseIndent();
-		}
-	}
+        if (line.EndsWith("{"))
+        {
+            IncreaseIndent();
+        }
+    }
 
-	public static SourceBuilder operator +(SourceBuilder s, string line)
-	{
-		s.AppendLine(line);
-		return s;
-	}
+    public static SourceBuilder operator +(SourceBuilder s, string line)
+    {
+        s.AppendLine(line);
+        return s;
+    }
 
-	public static SourceBuilder operator ++(SourceBuilder s)
-	{
-		s.AppendLine(string.Empty);
-		return s;
-	}
+    public static SourceBuilder operator ++(SourceBuilder s)
+    {
+        s.AppendLine(string.Empty);
+        return s;
+    }
 }
