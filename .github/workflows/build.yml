@@ -23,6 +23,7 @@ jobs:
         os: [ windows-latest, ubuntu-latest ]
         dotnet-version: [ 7.0.x ]
         node-version: [ 18.x ]
+      fail-fast: false  # Don't cancel other jobs when one job fails
 
     steps:
     - uses: actions/checkout@v3

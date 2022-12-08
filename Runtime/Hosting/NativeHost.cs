@@ -133,6 +133,7 @@ internal class NativeHost : IDisposable
     private static unsafe string GetCurrentModuleFilePath()
     {
         // TODO: Use dladdr() on non-Windows systems to get the current module file path.
+        // Unfortunately Assembly.Location/Codebase doesn't work for an AOT compiled library.
 
         delegate* unmanaged[Cdecl]<napi_env, napi_value, napi_value> functionInModule =
             &InitializeModule;
