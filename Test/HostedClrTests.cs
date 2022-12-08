@@ -14,7 +14,7 @@ namespace NodeApi.Test;
 public class HostedClrTests
 {
     private static readonly Dictionary<string, string?> s_builtTestModules = new();
-    private static Lazy<string> s_builtHostModule = new Lazy<string>(() => BuildHostModule());
+    private static readonly Lazy<string> s_builtHostModule = new(() => BuildHostModule());
 
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases();
 

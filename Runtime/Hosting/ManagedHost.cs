@@ -13,7 +13,7 @@ namespace NodeApi.Hosting;
 [RequiresUnreferencedCode("Managed host is not used in trimmed assembly.")]
 public class ManagedHost
 {
-    private Dictionary<string, JSReference> _loadedModules = new();
+    private readonly Dictionary<string, JSReference> _loadedModules = new();
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static napi_value InitializeModule(napi_env env, napi_value exports)
@@ -25,14 +25,14 @@ public class ManagedHost
             JSNativeApi.Interop.Initialize();
 
             // Ensure references to this assembly can be resolved when loading other assemblies.
-            var nodeApiAssembly = typeof(JSValue).Assembly;
+            Assembly nodeApiAssembly = typeof(JSValue).Assembly;
             AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
                 e.Name.Split(',')[0] == nameof(NodeApi) ? nodeApiAssembly : null;
 
             using var scope = new JSValueScope(env);
             new JSModuleBuilder<ManagedHost>()
                 .AddMethod("require", (host) => host.LoadModule)
-                .AddMethod("loadAssembly", (host) => host.LoadAssembly)
+                .AddMethod("loadAssembly", (host) => LoadAssembly)
                 .ExportModule(new JSValue(scope, exports), new ManagedHost());
         }
         catch (Exception ex)
@@ -73,7 +73,7 @@ public class ManagedHost
             // A generated module initialize method was not found. Search for a
             // ModuleInitialize method on any public static class in the assembly.
             // (Static classes appear as abstract and sealed via reflection.)
-            foreach (var publicStaticClass in assembly.DefinedTypes
+            foreach (TypeInfo? publicStaticClass in assembly.DefinedTypes
                 .Where((t) => t.IsClass && t.IsPublic && t.IsAbstract && t.IsSealed))
             {
                 initializeMethod = GetInitializeMethod(publicStaticClass, "InitializeModule");
@@ -107,14 +107,14 @@ public class ManagedHost
         return exports;
     }
 
-    private MethodInfo? GetInitializeMethod(Type moduleClass, string methodName)
+    private static MethodInfo? GetInitializeMethod(Type moduleClass, string methodName)
     {
         MethodInfo? initializeMethod = moduleClass.GetMethod(
             methodName, BindingFlags.Public | BindingFlags.Static);
 
         if (initializeMethod != null)
         {
-            var parameters = initializeMethod.GetParameters();
+            ParameterInfo[] parameters = initializeMethod.GetParameters();
             if (parameters.Length == 2 &&
                 parameters[0].ParameterType == typeof(napi_env) ||
                 parameters[1].ParameterType == typeof(napi_value) ||
@@ -127,7 +127,7 @@ public class ManagedHost
         return null;
     }
 
-    public JSValue LoadAssembly(JSCallbackArgs args)
+    public static JSValue LoadAssembly(JSCallbackArgs args)
     {
         // TODO: This can be used to load an arbitrary .NET assembly that isn't designed specially
         // as a JS module. Then additional methods on the returned JS object can be used by JS code

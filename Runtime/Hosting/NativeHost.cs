@@ -9,7 +9,7 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi.Hosting;
 
-internal class NativeHost : IDisposable
+internal partial class NativeHost : IDisposable
 {
     private const string ManagedHostAssemblyName = nameof(NodeApi);
     private const string ManagedHostTypeName =
@@ -56,7 +56,7 @@ internal class NativeHost : IDisposable
         string runtimeConfigJsonPath = Path.Join(nodeApiHostDir, @"NodeApi.runtimeconfig.json");
         ////Console.WriteLine("CLR config: " + runtimeConfigJsonPath);
 
-        var managedHostAsssemblyPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
+        string managedHostAsssemblyPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
         ////Console.WriteLine("Managed host: " + managedHostAsssemblyPath);
 
         // Load the library that provides CLR hosting APIs.
@@ -139,7 +139,7 @@ internal class NativeHost : IDisposable
             &InitializeModule;
 
         const uint GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS = 0x00000004;
-        if (GetModuleHandleEx(
+        if (GetModuleHandleExW(
             GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
             (nint)functionInModule,
             out nint moduleHandle) == 0)
@@ -148,19 +148,25 @@ internal class NativeHost : IDisposable
         }
 
         StringBuilder filePathBuilder = new(255);
-        GetModuleFileName(moduleHandle, filePathBuilder, filePathBuilder.Capacity);
+        uint filePathLength = GetModuleFileName(
+            moduleHandle, filePathBuilder, filePathBuilder.Capacity);
+        if (filePathLength == 0)
+        {
+            throw new Exception("Failed to get current module file path.");
+        }
+
         return filePathBuilder.ToString();
     }
 
-    [DllImport("kernel32", SetLastError = true)]
-    private static extern uint GetModuleHandleEx(
-        [In] uint flags,
-        [In] nint moduleNameOrAddress,
+    [LibraryImport("kernel32", SetLastError = true)]
+    private static partial uint GetModuleHandleExW(
+        uint flags,
+        nint moduleNameOrAddress,
         out nint moduleHandle);
 
-    [DllImport("kernel32", SetLastError = true)]
+    [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern uint GetModuleFileName(
-        [In] nint moduleHandle,
+        nint moduleHandle,
         [Out] StringBuilder moduleFileName,
-        [In] [MarshalAs(UnmanagedType.U4)] int nSize);
+        [MarshalAs(UnmanagedType.U4)] int nSize);
 }

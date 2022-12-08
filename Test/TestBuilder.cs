@@ -163,7 +163,7 @@ internal static class TestBuilder
 
         using var projectCollection = new ProjectCollection();
 
-        var project = projectCollection.LoadProject(projectFilePath, properties, toolsVersion: null);
+        Project project = projectCollection.LoadProject(projectFilePath, properties, toolsVersion: null);
         bool buildResult = project.Build(targets, new[] { logger });
         if (!buildResult)
         {
@@ -194,7 +194,7 @@ internal static class TestBuilder
             UseShellExecute = false,
         };
 
-        foreach (var (name, value) in testEnvironmentVariables)
+        foreach ((string name, string value) in testEnvironmentVariables)
         {
             startInfo.Environment[name] = value;
             outputWriter.WriteLine($"{name}={value}");
