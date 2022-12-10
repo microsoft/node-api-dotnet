@@ -127,7 +127,7 @@ internal partial class NativeHost : IDisposable
                 managedHostTypeName,
                 new Span<byte>(managedHostTypeNameBytes, managedHostTypeNameCapacity));
 
-            int methodNameCapacity = nameof(InitializeModule).Length + 2;
+            int methodNameCapacity = encoding.GetByteCount(nameof(InitializeModule)) + 2;
             byte* methodNameBytes = stackalloc byte[methodNameCapacity];
             encoding.GetBytes(
                 nameof(InitializeModule), new Span<byte>(methodNameBytes, methodNameCapacity));
