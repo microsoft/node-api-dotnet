@@ -49,7 +49,7 @@ public class HostedClrTests
         // TODO: Support compiling TS files to JS.
         string jsFilePath = Path.Join(TestCasesDirectory, moduleName, testCaseName + ".js");
 
-        string runLogFilePath = GetRunLogFilePath("aot", moduleName, testCaseName);
+        string runLogFilePath = GetRunLogFilePath("hosted", moduleName, testCaseName);
         RunNodeTestCase(jsFilePath, runLogFilePath, new Dictionary<string, string>
         {
             [ModulePathEnvironmentVariableName] = moduleFilePath,

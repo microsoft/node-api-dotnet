@@ -24,6 +24,7 @@ internal partial class NativeHost : IDisposable
     {
         ////Console.WriteLine("> NativeHost.InitializeModule()");
 
+        ResolveImports();
         try
         {
             using var scope = new JSValueScope(env);
@@ -47,26 +48,57 @@ internal partial class NativeHost : IDisposable
         return exports;
     }
 
+    private static void ResolveImports()
+    {
+        NativeLibrary.SetDllImportResolver(
+            typeof(HostFxr).Assembly,
+            (libraryName, _, _) =>
+            {
+                return libraryName switch
+                {
+                    nameof(HostFxr) => HostFxr.Handle,
+                    nameof(NodeApi) => NativeLibrary.GetMainProgramHandle(),
+                    _ => default,
+                };
+            });
+    }
+
     public NativeHost(napi_env env, napi_value exports)
     {
         string currentModuleFilePath = GetCurrentModuleFilePath();
         ////Console.WriteLine("Current module path: " + currentModuleFilePath);
         string nodeApiHostDir = Path.GetDirectoryName(currentModuleFilePath)!;
+        InitializeManagedHost(env, exports, nodeApiHostDir);
+    }
 
-        string runtimeConfigJsonPath = Path.Join(nodeApiHostDir, @"NodeApi.runtimeconfig.json");
-        ////Console.WriteLine("CLR config: " + runtimeConfigJsonPath);
+    private unsafe void InitializeManagedHost(
+        napi_env env,
+        napi_value exports,
+        string nodeApiHostDir)
+    {
+        string runtimeConfigPath = Path.Join(nodeApiHostDir, @"NodeApi.runtimeconfig.json");
+        ////Console.WriteLine("CLR config: " + runtimeConfigPath);
 
-        string managedHostAsssemblyPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
-        ////Console.WriteLine("Managed host: " + managedHostAsssemblyPath);
+        string managedHostPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
+        ////Console.WriteLine("Managed host: " + managedHostPath);
 
         // Load the library that provides CLR hosting APIs.
         HostFxr.Initialize();
 
         // https://github.com/vmoroz/napi-cs/blob/dev/NodeApi.Sdk.CLR/Build/nativehost.cpp
 
+        // HostFxr APIs use UTF-16 on Windows, UTF-8 elsewhere.
+        Encoding encoding = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ?
+            Encoding.Unicode : Encoding.UTF8;
+
+        int runtimeConfigPathCapacity = encoding.GetByteCount(runtimeConfigPath) + 2;
+        byte* runtimeConfigPathBytes = stackalloc byte[runtimeConfigPathCapacity];
+        encoding.GetBytes(
+            runtimeConfigPath, new Span<byte>(runtimeConfigPathBytes, runtimeConfigPathCapacity));
+
         // Initialize the CLR with configuration from runtimeconfig.json.
         hostfxr_status status = hostfxr_initialize_for_runtime_config(
-            runtimeConfigJsonPath, initializeParameters: default, out _hostContextHandle);
+            runtimeConfigPathBytes, initializeParameters: default, out _hostContextHandle);
         CheckStatus(status, "Failed to inialize CLR host.");
 
         try
@@ -79,16 +111,32 @@ internal partial class NativeHost : IDisposable
             CheckStatus(status, "Failed to get CLR load-assembly function.");
 
             // TODO Get the correct assembly version (and publickeytoken) somehow.
-            string managedHostTypeAssemblyQualifiedName =
-                $"{ManagedHostTypeName}, {ManagedHostAssemblyName}, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
+            string managedHostTypeName = $"{ManagedHostTypeName}, {ManagedHostAssemblyName}" +
+                ", Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
 
             ////Console.WriteLine("Loading managed host type: " + managedHostTypeAssemblyQualifiedName);
 
+            int managedHostPathCapacity = encoding.GetByteCount(managedHostPath) + 2;
+            byte* managedHostPathBytes = stackalloc byte[managedHostPathCapacity];
+            encoding.GetBytes(
+                managedHostPath, new Span<byte>(managedHostPathBytes, managedHostPathCapacity));
+
+            int managedHostTypeNameCapacity = encoding.GetByteCount(managedHostTypeName) + 2;
+            byte* managedHostTypeNameBytes = stackalloc byte[managedHostTypeNameCapacity];
+            encoding.GetBytes(
+                managedHostTypeName,
+                new Span<byte>(managedHostTypeNameBytes, managedHostTypeNameCapacity));
+
+            int methodNameCapacity = nameof(InitializeModule).Length + 2;
+            byte* methodNameBytes = stackalloc byte[methodNameCapacity];
+            encoding.GetBytes(
+                nameof(InitializeModule), new Span<byte>(methodNameBytes, methodNameCapacity));
+
             // Load the managed host assembly and get a pointer to its module initialize method.
             status = loadAssembly(
-                managedHostAsssemblyPath,
-                managedHostTypeAssemblyQualifiedName,
-                nameof(InitializeModule),
+                managedHostPathBytes,
+                managedHostTypeNameBytes,
+                methodNameBytes,
                 delegateType: -1 /* UNMANAGEDCALLERSONLY_METHOD */,
                 reserved: default,
                 out nint initializeModulePointer);
@@ -138,35 +186,60 @@ internal partial class NativeHost : IDisposable
         delegate* unmanaged[Cdecl]<napi_env, napi_value, napi_value> functionInModule =
             &InitializeModule;
 
-        const uint GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS = 0x00000004;
-        if (GetModuleHandleExW(
-            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-            (nint)functionInModule,
-            out nint moduleHandle) == 0)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            throw new Exception("Failed to get current module handle.");
-        }
+            const uint GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS = 0x00000004;
+            if (GetModuleHandleExW(
+                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                functionInModule,
+                out nint moduleHandle) == 0)
+            {
+                throw new Exception("Failed to get current module handle.");
+            }
 
-        StringBuilder filePathBuilder = new(255);
-        uint filePathLength = GetModuleFileName(
-            moduleHandle, filePathBuilder, filePathBuilder.Capacity);
-        if (filePathLength == 0)
+            uint filePathCapacity = 255;
+            char* filePathChars = stackalloc char[(int)filePathCapacity];
+            uint filePathLength = GetModuleFileNameW(
+                moduleHandle, filePathChars, filePathCapacity);
+            if (filePathLength == 0)
+            {
+                throw new Exception("Failed to get current module file path.");
+            }
+
+            return new string(filePathChars);
+        }
+        else
         {
-            throw new Exception("Failed to get current module file path.");
-        }
+            // Technically the dladdr() output argument returns a struct with several fields,
+            // but the first field is a pointer to the file path, that is all that's needed.
+            if (dladdr(functionInModule, out sbyte* filePathChars) == 0)
+            {
+                throw new Exception("Failed to get current module file path.");
+            }
 
-        return filePathBuilder.ToString();
+            // Find the length of the null-terminated C-string.
+            int filePathLength = 0;
+            while (filePathChars[filePathLength] != 0)
+            {
+                filePathLength++;
+            }
+
+            return new string(filePathChars, 0, filePathLength, Encoding.UTF8);
+        }
     }
 
     [LibraryImport("kernel32", SetLastError = true)]
-    private static partial uint GetModuleHandleExW(
+    private static unsafe partial uint GetModuleHandleExW(
         uint flags,
-        nint moduleNameOrAddress,
+        void* moduleNameOrAddress,
         out nint moduleHandle);
 
-    [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern uint GetModuleFileName(
+    [LibraryImport("kernel32", SetLastError = true)]
+    private static unsafe partial uint GetModuleFileNameW(
         nint moduleHandle,
-        [Out] StringBuilder moduleFileName,
-        [MarshalAs(UnmanagedType.U4)] int nSize);
+        char* moduleFileName,
+        uint nSize);
+
+    [LibraryImport(nameof(NodeApi))] // Not really a node API, but a function in the main process module.
+    private static unsafe partial int dladdr(void* addr, out sbyte* filePath);
 }

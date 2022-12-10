@@ -29,10 +29,11 @@
       <NativeTargetPath>$(PublishDir)$(TargetName).node</NativeTargetPath>
     </PropertyGroup>
 
-    <!-- Rename the native DLL (and its PDB) to have a .node extension. -->
-    <Move SourceFiles="$(PublishDir)$(TargetFileName)"
+    <!-- Rename the native library (and its PDB) to have a .node extension. -->
+    <Move SourceFiles="$(PublishDir)$(TargetName)$(NativeBinaryExt)"
       DestinationFiles="$(NativeTargetPath)" />
-    <Move SourceFiles="$(PublishDir)$(TargetName).pdb"
+    <Move Condition="Exists('$(PublishDir)$(TargetName).pdb')"
+      SourceFiles="$(PublishDir)$(TargetName).pdb"
       DestinationFiles="$(PublishDir)$(TargetName).node.pdb" />
 
     <!-- Publish the runtimeconfig.json file required for CLR hosting. -->

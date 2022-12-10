@@ -12,27 +12,14 @@ namespace NodeApi.Hosting;
 /// </summary>
 internal static partial class HostFxr
 {
-    private static nint s_libraryHandle;
+    public static nint Handle { get; private set; }
 
     public static void Initialize()
     {
-        if (s_libraryHandle == default)
+        if (Handle == default)
         {
             string hostfxrPath = GetHostFxrPath();
-            s_libraryHandle = NativeLibrary.Load(hostfxrPath);
-
-            // Register a callback to use hostfxr from the specific path, not regular search paths.
-            NativeLibrary.SetDllImportResolver(
-              typeof(HostFxr).Assembly,
-              (libraryName, _, _) =>
-              {
-                  return libraryName switch
-                  {
-                      nameof(HostFxr) => s_libraryHandle,
-                      nameof(NodeApi) => NativeLibrary.GetMainProgramHandle(),
-                      _ => default,
-                  };
-              });
+            Handle = NativeLibrary.Load(hostfxrPath);
         }
     }
 
@@ -41,10 +28,26 @@ internal static partial class HostFxr
         // TODO: Port logic to find hostfxr path from
         // https://github.com/dotnet/runtime/blob/main/src/native/corehost/nethost/nethost.cpp
 
-        string hostfxrPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            @"dotnet\host\fxr\7.0.0\hostfxr.dll");
-        return hostfxrPath;
+        const string dotnetVersion = "7.0.0";
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            string hostfxrPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                $@"dotnet\host\fxr\{dotnetVersion}\hostfxr.dll");
+            return hostfxrPath;
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return $"/usr/share/dotnet/host/fxr/{dotnetVersion}/libhostfxr.so";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return $"/usr/share/dotnet/host/fxr/{dotnetVersion}/libhostfxr.dylib";
+        }
+        else
+        {
+            throw new PlatformNotSupportedException();
+        }
     }
 
     public record struct hostfxr_handle(nint Handle);
@@ -60,24 +63,22 @@ internal static partial class HostFxr
         get_function_pointer,
     }
 
-    // TODO: String marshalling below needs to be UFTF16 on Windows but UTF8 on non-Windows!
-
     // Note this is CORECLR_DELEGATE_CALLTYPE, which is stdcall on Windows.
     // See https://github.com/dotnet/runtime/blob/main/src/native/corehost/coreclr_delegates.h
     // The returned function pointer must be converted to a specific delegate via
     // Marshal.GetDelegateForFunctionPointer().
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate hostfxr_status load_assembly_and_get_function_pointer(
-        [MarshalAs(UnmanagedType.LPWStr)] string assemblyPath,
-        [MarshalAs(UnmanagedType.LPWStr)] string typeName,
-        [MarshalAs(UnmanagedType.LPWStr)] string methodName,
+    public unsafe delegate hostfxr_status load_assembly_and_get_function_pointer(
+        byte* assemblyPath, // UTF-16 on Windows, UTF-8 elsewhere
+        byte* typeName,     // UTF-16 on Windows, UTF-8 elsewhere
+        byte* methodName,   // UTF-16 on Windows, UTF-8 elsewhere
         nint delegateType,
         nint reserved,
         out nint functionPointer);
 
     [LibraryImport(nameof(HostFxr)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    public static partial hostfxr_status hostfxr_initialize_for_runtime_config(
-        [MarshalAs(UnmanagedType.LPWStr)] string runtimeConfigPath,
+    public static unsafe partial hostfxr_status hostfxr_initialize_for_runtime_config(
+        byte* runtimeConfigPath, // UTF-16 on Windows, UTF-8 elsewhere
         nint initializeParameters,
         out hostfxr_handle hostContextHandle);
 
