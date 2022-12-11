@@ -25,6 +25,7 @@ internal static partial class HostFxr
 
             if (!File.Exists(hostfxrPath))
             {
+                NativeHost.Trace("    HostFxr not found!");
                 throw new FileNotFoundException(
                     ".NET runtime host library not found.", hostfxrPath);
             }
