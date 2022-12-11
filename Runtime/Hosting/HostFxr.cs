@@ -18,8 +18,20 @@ internal static partial class HostFxr
     {
         if (Handle == default)
         {
+            NativeHost.Trace("> HostFxr.Initialize()");
+
             string hostfxrPath = GetHostFxrPath();
+            NativeHost.Trace("    HostFxr path: ");
+
+            if (!File.Exists(hostfxrPath))
+            {
+                throw new FileNotFoundException(
+                    ".NET runtime host library not found.", hostfxrPath);
+            }
+
             Handle = NativeLibrary.Load(hostfxrPath);
+
+            NativeHost.Trace("> HostFxr.Initialize()");
         }
     }
 
