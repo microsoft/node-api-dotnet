@@ -15,14 +15,26 @@ internal partial class NativeHost : IDisposable
     private const string ManagedHostTypeName =
         $"{nameof(NodeApi)}.{nameof(NodeApi.Hosting)}.ManagedHost";
 
+    private static readonly bool _enableTracing =
+        Environment.GetEnvironmentVariable("NODE_API_DOTNET_TRACE") == "1";
+
     private hostfxr_handle _hostContextHandle;
+
+    private static void Trace(string msg)
+    {
+        if (_enableTracing)
+        {
+            Console.WriteLine(msg);
+            Console.Out.Flush();
+        }
+    }
 
     [UnmanagedCallersOnly(
         EntryPoint = nameof(napi_register_module_v1),
         CallConvs = new[] { typeof(CallConvCdecl) })]
     public static napi_value InitializeModule(napi_env env, napi_value exports)
     {
-        ////Console.WriteLine("> NativeHost.InitializeModule()");
+        Trace("> NativeHost.InitializeModule()");
 
         ResolveImports();
         try
@@ -43,7 +55,7 @@ internal partial class NativeHost : IDisposable
             Console.Error.WriteLine($"Failed to load CLR native host module: {ex}");
         }
 
-        ////Console.WriteLine("< NativeHost.InitializeModule()");
+        Trace("< NativeHost.InitializeModule()");
 
         return exports;
     }
@@ -66,7 +78,7 @@ internal partial class NativeHost : IDisposable
     public NativeHost(napi_env env, napi_value exports)
     {
         string currentModuleFilePath = GetCurrentModuleFilePath();
-        ////Console.WriteLine("Current module path: " + currentModuleFilePath);
+        Trace("    Current module path: " + currentModuleFilePath);
         string nodeApiHostDir = Path.GetDirectoryName(currentModuleFilePath)!;
         InitializeManagedHost(env, exports, nodeApiHostDir);
     }
@@ -76,11 +88,13 @@ internal partial class NativeHost : IDisposable
         napi_value exports,
         string nodeApiHostDir)
     {
+        Trace("> NativeHost.InitializeManagedHost()");
+
         string runtimeConfigPath = Path.Join(nodeApiHostDir, @"NodeApi.runtimeconfig.json");
-        ////Console.WriteLine("CLR config: " + runtimeConfigPath);
+        Trace("    CLR config: " + runtimeConfigPath);
 
         string managedHostPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
-        ////Console.WriteLine("Managed host: " + managedHostPath);
+        Trace("    Managed host: " + managedHostPath);
 
         // Load the library that provides CLR hosting APIs.
         HostFxr.Initialize();
@@ -101,6 +115,8 @@ internal partial class NativeHost : IDisposable
             runtimeConfigPathBytes, initializeParameters: default, out _hostContextHandle);
         CheckStatus(status, "Failed to inialize CLR host.");
 
+        Trace("    Initialized runtime...");
+
         try
         {
             // Get a CLR function that can load an assembly.
@@ -110,11 +126,13 @@ internal partial class NativeHost : IDisposable
                 out load_assembly_and_get_function_pointer loadAssembly);
             CheckStatus(status, "Failed to get CLR load-assembly function.");
 
+            Trace("    Got load-assembly function...");
+
             // TODO Get the correct assembly version (and publickeytoken) somehow.
             string managedHostTypeName = $"{ManagedHostTypeName}, {ManagedHostAssemblyName}" +
                 ", Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
 
-            ////Console.WriteLine("Loading managed host type: " + managedHostTypeAssemblyQualifiedName);
+            Trace("    Loading managed host type: " + managedHostTypeName);
 
             int managedHostPathCapacity = encoding.GetByteCount(managedHostPath) + 2;
             byte* managedHostPathBytes = stackalloc byte[managedHostPathCapacity];
@@ -142,12 +160,16 @@ internal partial class NativeHost : IDisposable
                 out nint initializeModulePointer);
             CheckStatus(status, "Failed to load managed host assembly.");
 
+            Trace("    Invoking managed host method: " + nameof(InitializeModule));
+
             // Invoke the managed host initialize method.
             // (It will define some properties on the exports object passed in.)
             napi_register_module_v1 initializeModule =
                 Marshal.GetDelegateForFunctionPointer<napi_register_module_v1>(
                     initializeModulePointer);
             initializeModule(env, exports);
+
+            Trace("< NativeHost.InitializeManagedHost()");
         }
         catch
         {
@@ -180,7 +202,8 @@ internal partial class NativeHost : IDisposable
 
     private static unsafe string GetCurrentModuleFilePath()
     {
-        // TODO: Use dladdr() on non-Windows systems to get the current module file path.
+        Trace("> NativeHost.GetCurrentModuleFilePath()");
+
         // Unfortunately Assembly.Location/Codebase doesn't work for an AOT compiled library.
 
         delegate* unmanaged[Cdecl]<napi_env, napi_value, napi_value> functionInModule =
@@ -217,6 +240,8 @@ internal partial class NativeHost : IDisposable
                 throw new Exception("Failed to get current module file path.");
             }
 
+            Trace("    Reading current module file path result.");
+
             // Find the length of the null-terminated C-string.
             int filePathLength = 0;
             while (filePathChars[filePathLength] != 0)
@@ -224,6 +249,7 @@ internal partial class NativeHost : IDisposable
                 filePathLength++;
             }
 
+            Trace("< NativeHost.GetCurrentModuleFilePath()");
             return new string(filePathChars, 0, filePathLength, Encoding.UTF8);
         }
     }

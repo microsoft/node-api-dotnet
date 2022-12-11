@@ -50,6 +50,8 @@ jobs:
       run: dotnet pack --no-build --configuration Release
 
     - name: Test
+      env:
+        NODE_API_DOTNET_TRACE: 1
       run: dotnet test --no-build --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
 
     - name: Upload test logs
