@@ -15,14 +15,14 @@ internal partial class NativeHost : IDisposable
     private const string ManagedHostTypeName =
         $"{nameof(NodeApi)}.{nameof(NodeApi.Hosting)}.ManagedHost";
 
-    private static readonly bool _enableTracing =
+    private static readonly bool s_enableTracing =
         Environment.GetEnvironmentVariable("NODE_API_DOTNET_TRACE") == "1";
 
     private hostfxr_handle _hostContextHandle;
 
     private static void Trace(string msg)
     {
-        if (_enableTracing)
+        if (s_enableTracing)
         {
             Console.WriteLine(msg);
             Console.Out.Flush();
