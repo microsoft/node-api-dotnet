@@ -21,7 +21,7 @@ internal static partial class HostFxr
             NativeHost.Trace("> HostFxr.Initialize()");
 
             string hostfxrPath = GetHostFxrPath();
-            NativeHost.Trace("    HostFxr path: ");
+            NativeHost.Trace("    HostFxr path: " + hostfxrPath);
 
             if (!File.Exists(hostfxrPath))
             {
@@ -31,7 +31,7 @@ internal static partial class HostFxr
 
             Handle = NativeLibrary.Load(hostfxrPath);
 
-            NativeHost.Trace("> HostFxr.Initialize()");
+            NativeHost.Trace("< HostFxr.Initialize()");
         }
     }
 

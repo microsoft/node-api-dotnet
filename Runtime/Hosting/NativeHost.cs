@@ -91,7 +91,7 @@ internal partial class NativeHost : IDisposable
         Trace("> NativeHost.InitializeManagedHost()");
 
         string runtimeConfigPath = Path.Join(nodeApiHostDir, @"NodeApi.runtimeconfig.json");
-        Trace("    CLR config: " + runtimeConfigPath);
+        Trace("    Runtime config: " + runtimeConfigPath);
 
         string managedHostPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
         Trace("    Managed host: " + managedHostPath);
@@ -99,56 +99,52 @@ internal partial class NativeHost : IDisposable
         // Load the library that provides CLR hosting APIs.
         HostFxr.Initialize();
 
-        // https://github.com/vmoroz/napi-cs/blob/dev/NodeApi.Sdk.CLR/Build/nativehost.cpp
-
         // HostFxr APIs use UTF-16 on Windows, UTF-8 elsewhere.
         Encoding encoding = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ?
             Encoding.Unicode : Encoding.UTF8;
 
+        Trace("    Encoding runtime config path");
         int runtimeConfigPathCapacity = encoding.GetByteCount(runtimeConfigPath) + 2;
         byte* runtimeConfigPathBytes = stackalloc byte[runtimeConfigPathCapacity];
-        encoding.GetBytes(
-            runtimeConfigPath, new Span<byte>(runtimeConfigPathBytes, runtimeConfigPathCapacity));
+        Encode(encoding, runtimeConfigPath, runtimeConfigPathBytes, runtimeConfigPathCapacity);
 
         // Initialize the CLR with configuration from runtimeconfig.json.
+        Trace("    Initializing runtime...");
         hostfxr_status status = hostfxr_initialize_for_runtime_config(
             runtimeConfigPathBytes, initializeParameters: default, out _hostContextHandle);
         CheckStatus(status, "Failed to inialize CLR host.");
 
-        Trace("    Initialized runtime...");
 
         try
         {
             // Get a CLR function that can load an assembly.
+            Trace("    Getting runtime load-assembly delegate...");
             status = hostfxr_get_runtime_delegate(
                 _hostContextHandle,
                 hostfxr_delegate_type.load_assembly_and_get_function_pointer,
                 out load_assembly_and_get_function_pointer loadAssembly);
             CheckStatus(status, "Failed to get CLR load-assembly function.");
 
-            Trace("    Got load-assembly function...");
-
             // TODO Get the correct assembly version (and publickeytoken) somehow.
             string managedHostTypeName = $"{ManagedHostTypeName}, {ManagedHostAssemblyName}" +
                 ", Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
-
             Trace("    Loading managed host type: " + managedHostTypeName);
 
             int managedHostPathCapacity = encoding.GetByteCount(managedHostPath) + 2;
             byte* managedHostPathBytes = stackalloc byte[managedHostPathCapacity];
-            encoding.GetBytes(
-                managedHostPath, new Span<byte>(managedHostPathBytes, managedHostPathCapacity));
+            Encode(encoding, managedHostPath, managedHostPathBytes, managedHostPathCapacity);
 
             int managedHostTypeNameCapacity = encoding.GetByteCount(managedHostTypeName) + 2;
             byte* managedHostTypeNameBytes = stackalloc byte[managedHostTypeNameCapacity];
-            encoding.GetBytes(
+            Encode(
+                encoding,
                 managedHostTypeName,
-                new Span<byte>(managedHostTypeNameBytes, managedHostTypeNameCapacity));
+                managedHostTypeNameBytes,
+                managedHostTypeNameCapacity);
 
             int methodNameCapacity = encoding.GetByteCount(nameof(InitializeModule)) + 2;
             byte* methodNameBytes = stackalloc byte[methodNameCapacity];
-            encoding.GetBytes(
-                nameof(InitializeModule), new Span<byte>(methodNameBytes, methodNameCapacity));
+            Encode(encoding, nameof(InitializeModule), methodNameBytes, methodNameCapacity);
 
             // Load the managed host assembly and get a pointer to its module initialize method.
             status = loadAssembly(
@@ -177,6 +173,13 @@ internal partial class NativeHost : IDisposable
             _hostContextHandle = default;
             throw;
         }
+    }
+
+    private static unsafe void Encode(Encoding encoding, string str, byte* bytes, int capacity)
+    {
+        var span = new Span<byte>(bytes, capacity);
+        int encodedCount = encoding.GetBytes(str, span);
+        span.Slice(encodedCount, capacity - encodedCount).Clear();
     }
 
     public void Dispose()
