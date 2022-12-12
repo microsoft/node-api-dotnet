@@ -17,6 +17,13 @@ public class JSReference : IDisposable
         IsWeak = isWeak;
     }
 
+    public JSReference(napi_ref handle, bool isWeak = false)
+    {
+        _env = (napi_env)JSSimpleValueScope.Current;
+        _handle = handle;
+        IsWeak = isWeak;
+    }
+
     public void MakeWeak()
     {
         if (!IsWeak)
@@ -36,7 +43,7 @@ public class JSReference : IDisposable
 
     public JSValue? GetValue()
     {
-        napi_get_reference_value(_env, _handle, out napi_value result);
+        napi_get_reference_value(_env, _handle, out napi_value result).ThrowIfFailed();
         return result;
     }
 

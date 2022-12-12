@@ -121,12 +121,12 @@ public class NativeAotTests
 
         StreamWriter outputWriter = File.CreateText(logFilePath);
         outputWriter.WriteLine($"{ModulePathEnvironmentVariableName}={moduleFilePath}");
-        outputWriter.WriteLine($"{nodeExe} {jsFilePath}");
+        outputWriter.WriteLine($"{nodeExe} --expose-gc {jsFilePath}");
         outputWriter.WriteLine();
         outputWriter.Flush();
         bool hasErrorOutput = false;
 
-        var startInfo = new ProcessStartInfo(nodeExe, jsFilePath)
+        var startInfo = new ProcessStartInfo(nodeExe, $"--expose-gc {jsFilePath}")
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,

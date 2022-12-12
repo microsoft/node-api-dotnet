@@ -18,7 +18,7 @@ public class JSPropertyDescriptorList<TDerived, TObject>
       JSValue value,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
-        Properties.Add(new JSPropertyDescriptor(name, value, attributes));
+        Properties.Add(JSPropertyDescriptor.ForValue(name, value, attributes));
         return (TDerived)(object)this;
     }
 
@@ -28,7 +28,7 @@ public class JSPropertyDescriptorList<TDerived, TObject>
       JSCallback? setter,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
-        Properties.Add(new JSPropertyDescriptor(name, getter, setter, attributes));
+        Properties.Add(JSPropertyDescriptor.Accessor(name, getter, setter, attributes));
         return (TDerived)(object)this;
     }
 
@@ -74,7 +74,7 @@ public class JSPropertyDescriptorList<TDerived, TObject>
       JSCallback callback,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
     {
-        Properties.Add(new JSPropertyDescriptor(name, callback, attributes));
+        Properties.Add(JSPropertyDescriptor.Function(name, callback, attributes));
         return (TDerived)(object)this;
     }
 

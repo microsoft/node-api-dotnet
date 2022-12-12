@@ -22,7 +22,7 @@ public static partial class JSNativeApi
             if (s_current != null)
             {
                 //TODO: use napi_fatal_error
-                GCHandle.FromIntPtr(new IntPtr(0xDEADBEEF));
+                GCHandle.FromIntPtr(new nint(0xDEADBEEF));
             }
 
             s_current = this;
@@ -205,7 +205,7 @@ public static partial class JSNativeApi
     {
         GCHandle callbackHandle = GCHandle.Alloc(callback);
         JSValue func = CreateFunction(utf8Name, new napi_callback(&InvokeJSCallback), (nint)callbackHandle);
-        func.AddHandleFinalizer((nint)callbackHandle);
+        func.AddGCHandleFinalizer((nint)callbackHandle);
         return func;
     }
 
@@ -214,11 +214,11 @@ public static partial class JSNativeApi
         return CreateFunction(Encoding.UTF8.GetBytes(name), callback);
     }
 
-    public static unsafe void AddHandleFinalizer(this JSValue thisValue, nint handle)
+    public static unsafe void AddGCHandleFinalizer(this JSValue thisValue, nint handle)
     {
         if (handle != nint.Zero)
         {
-            napi_add_finalizer(Env, (napi_value)thisValue, handle, new napi_finalize(&FinalizeHandle), nint.Zero, null).ThrowIfFailed();
+            napi_add_finalizer(Env, (napi_value)thisValue, handle, new napi_finalize(&FinalizeGCHandle), nint.Zero, null).ThrowIfFailed();
         }
     }
 
@@ -294,6 +294,8 @@ public static partial class JSNativeApi
         int length = GetValueStringLatin1(value, Span<byte>.Empty);
         byte[] result = new byte[length + 1];
         GetValueStringLatin1(value, new Span<byte>(result));
+        // Remove the zero terminating character
+        Array.Resize(ref result, length);
         return result;
     }
 
@@ -316,6 +318,8 @@ public static partial class JSNativeApi
         int length = GetValueStringUtf8(value, Span<byte>.Empty);
         byte[] result = new byte[length + 1];
         GetValueStringUtf8(value, new Span<byte>(result));
+        // Remove the zero terminating character
+        Array.Resize(ref result, length);
         return result;
     }
 
@@ -333,12 +337,19 @@ public static partial class JSNativeApi
         }
     }
 
-    public static string GetValueStringUtf16(this JSValue value)
+    public static char[] GetValueStringUtf16AsCharArray(this JSValue value)
     {
         int length = GetValueStringUtf16(value, Span<char>.Empty);
         char[] result = new char[length + 1];
         GetValueStringUtf16(value, new Span<char>(result));
-        return new string(result, 0, length);
+        // Remove the zero terminating character
+        Array.Resize(ref result, length);
+        return result;
+    }
+
+    public static string GetValueStringUtf16(this JSValue value)
+    {
+        return new string(GetValueStringUtf16AsCharArray(value));
     }
 
     public static JSValue CoerceToBoolean(this JSValue value)
@@ -405,56 +416,6 @@ public static partial class JSNativeApi
         return (bool)result;
     }
 
-    public static unsafe void SetProperty(this JSValue thisValue, byte* utf8Name, JSValue value)
-    {
-        napi_set_named_property(Env, (napi_value)thisValue, utf8Name, (napi_value)value).ThrowIfFailed();
-    }
-
-    public static unsafe void SetProperty(this JSValue thisValue, ReadOnlySpan<byte> utf8Name, JSValue value)
-    {
-        byte* utf8NameBytes = stackalloc byte[utf8Name.Length + 1];
-        utf8NameBytes[utf8Name.Length] = 0;
-        fixed (byte* namePtr = utf8Name)
-        {
-            Buffer.MemoryCopy(namePtr, utf8NameBytes, utf8Name.Length, utf8Name.Length);
-        }
-        SetProperty(thisValue, utf8NameBytes, value);
-    }
-
-    public static unsafe bool HasProperty(this JSValue thisValue, byte* utf8Name)
-    {
-        napi_has_named_property(Env, (napi_value)thisValue, utf8Name, out c_bool result).ThrowIfFailed();
-        return (bool)result;
-    }
-
-    public static unsafe bool HasProperty(this JSValue thisValue, ReadOnlySpan<byte> utf8Name)
-    {
-        byte* utf8NameBytes = stackalloc byte[utf8Name.Length + 1];
-        utf8NameBytes[utf8Name.Length] = 0;
-        fixed (byte* namePtr = utf8Name)
-        {
-            Buffer.MemoryCopy(namePtr, utf8NameBytes, utf8Name.Length, utf8Name.Length);
-        }
-        return HasProperty(thisValue, utf8NameBytes);
-    }
-
-    public static unsafe JSValue GetProperty(this JSValue thisValue, byte* utf8Name)
-    {
-        napi_get_named_property(Env, (napi_value)thisValue, utf8Name, out napi_value result).ThrowIfFailed();
-        return result;
-    }
-
-    public static unsafe JSValue GetProperty(this JSValue thisValue, ReadOnlySpan<byte> utf8Name)
-    {
-        byte* utf8NameBytes = stackalloc byte[utf8Name.Length + 1];
-        utf8NameBytes[utf8Name.Length] = 0;
-        fixed (byte* namePtr = utf8Name)
-        {
-            Buffer.MemoryCopy(namePtr, utf8NameBytes, utf8Name.Length, utf8Name.Length);
-        }
-        return GetProperty(thisValue, utf8NameBytes);
-    }
-
     public static void SetElement(this JSValue thisValue, int index, JSValue value)
     {
         napi_set_element(Env, (napi_value)thisValue, (uint)index, (napi_value)value).ThrowIfFailed();
@@ -482,7 +443,7 @@ public static partial class JSNativeApi
     {
         nint[] handles = ToUnmanagedPropertyDescriptors(ReadOnlySpan<byte>.Empty, descriptors, (_, count, descriptorsPtr) =>
           napi_define_properties(Env, (napi_value)thisValue, count, descriptorsPtr).ThrowIfFailed());
-        Array.ForEach(handles, handle => thisValue.AddHandleFinalizer(handle));
+        Array.ForEach(handles, handle => thisValue.AddGCHandleFinalizer(handle));
     }
 
     public static bool IsArray(this JSValue thisValue)
@@ -595,8 +556,8 @@ public static partial class JSNativeApi
         {
             func = DefineClass(name, new napi_callback(&InvokeJSCallback), (nint)callbackHandle, count, descriptorsPtr);
         });
-        func!.Value.AddHandleFinalizer((nint)callbackHandle);
-        Array.ForEach(handles, handle => func!.Value.AddHandleFinalizer(handle));
+        func!.Value.AddGCHandleFinalizer((nint)callbackHandle);
+        Array.ForEach(handles, handle => func!.Value.AddGCHandleFinalizer(handle));
         return func!.Value;
     }
 
@@ -608,7 +569,7 @@ public static partial class JSNativeApi
     public static unsafe JSValue Wrap(this JSValue thisValue, object value)
     {
         GCHandle valueHandle = GCHandle.Alloc(value);
-        napi_wrap(Env, (napi_value)thisValue, (nint)valueHandle, new napi_finalize(&FinalizeHandle), nint.Zero, null).ThrowIfFailed();
+        napi_wrap(Env, (napi_value)thisValue, (nint)valueHandle, new napi_finalize(&FinalizeGCHandle), nint.Zero, null).ThrowIfFailed();
         return thisValue;
     }
 
@@ -627,7 +588,7 @@ public static partial class JSNativeApi
     public static unsafe JSValue CreateExternal(object value)
     {
         GCHandle valueHandle = GCHandle.Alloc(value);
-        napi_create_external(Env, (nint)valueHandle, new napi_finalize(&FinalizeHandle), nint.Zero, out napi_value result).ThrowIfFailed();
+        napi_create_external(Env, (nint)valueHandle, new napi_finalize(&FinalizeGCHandle), nint.Zero, out napi_value result).ThrowIfFailed();
         return result;
     }
 
@@ -826,6 +787,20 @@ public static partial class JSNativeApi
         return result;
     }
 
+    public static unsafe void AddFinalizer(this JSValue thisValue, Action finalize)
+    {
+        GCHandle finalizeHandle = GCHandle.Alloc(finalize);
+        napi_add_finalizer(Env, (napi_value)thisValue, (nint)finalizeHandle, new napi_finalize(&CallFinalizeAction), nint.Zero, null).ThrowIfFailed();
+    }
+
+    public static unsafe void AddFinalizer(this JSValue thisValue, Action finalize, out JSReference finalizerRef)
+    {
+        GCHandle finalizeHandle = GCHandle.Alloc(finalize);
+        napi_ref reference;
+        napi_add_finalizer(Env, (napi_value)thisValue, (nint)finalizeHandle, new napi_finalize(&CallFinalizeAction), nint.Zero, &reference).ThrowIfFailed();
+        finalizerRef = new JSReference(reference, isWeak: true);
+    }
+
     public static JSValue CreateBigInt(long value)
     {
         napi_create_bigint_int64(Env, value, out napi_value result).ThrowIfFailed();
@@ -898,7 +873,7 @@ public static partial class JSNativeApi
             napi_set_instance_data(
               Env,
               (nint)handle,
-              new napi_finalize(&FinalizeHandle),
+              new napi_finalize(&FinalizeGCHandle),
               nint.Zero).ThrowIfFailed();
         }
     }
@@ -945,12 +920,12 @@ public static partial class JSNativeApi
         return thisValue.CheckObjectTypeTag(MemoryMarshal.AsRef<napi_type_tag>(guidBytes));
     }
 
-    public static void FreezeObject(this JSValue thisValue)
+    public static void Freeze(this JSValue thisValue)
     {
         napi_object_freeze(Env, (napi_value)thisValue).ThrowIfFailed();
     }
 
-    public static void SealObject(this JSValue thisValue)
+    public static void Seal(this JSValue thisValue)
     {
         napi_object_seal(Env, (napi_value)thisValue).ThrowIfFailed();
     }
@@ -961,9 +936,18 @@ public static partial class JSNativeApi
     private static unsafe napi_value InvokeJSCallback(napi_env env, napi_callback_info callbackInfo)
     {
         using var scope = new JSValueScope(env);
-        JSCallbackArgs args = new(scope, callbackInfo);
-        JSCallback callback = (JSCallback)GCHandle.FromIntPtr(args.Data).Target!;
-        return (napi_value)callback(args);
+        try
+        {
+            JSCallbackArgs args = new(scope, callbackInfo);
+            JSCallback callback = (JSCallback)args.Data!;
+            return (napi_value)callback(args);
+        }
+        catch (JSException ex)
+        {
+            //TODO: [vmoroz] Make JSException to wrap up the original error object instead.
+            ThrowError("", ex.Message);
+            return new napi_value(nint.Zero);
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -971,7 +955,8 @@ public static partial class JSNativeApi
     {
         using var scope = new JSValueScope(env);
         JSCallbackArgs args = new(scope, callbackInfo);
-        JSPropertyDescriptor desc = (JSPropertyDescriptor)GCHandle.FromIntPtr(args.Data).Target!;
+        JSPropertyDescriptor desc = (JSPropertyDescriptor)args.Data!;
+        args.Data = desc.Data;
         return (napi_value)desc.Method!.Invoke(args);
     }
 
@@ -980,7 +965,8 @@ public static partial class JSNativeApi
     {
         using var scope = new JSValueScope(env);
         JSCallbackArgs args = new(scope, callbackInfo);
-        JSPropertyDescriptor desc = (JSPropertyDescriptor)GCHandle.FromIntPtr(args.Data).Target!;
+        JSPropertyDescriptor desc = (JSPropertyDescriptor)args.Data!;
+        args.Data = desc.Data;
         return (napi_value)desc.Getter!.Invoke(args);
     }
 
@@ -989,12 +975,13 @@ public static partial class JSNativeApi
     {
         using var scope = new JSValueScope(env);
         JSCallbackArgs args = new(scope, callbackInfo);
-        JSPropertyDescriptor desc = (JSPropertyDescriptor)GCHandle.FromIntPtr(args.Data).Target!;
+        JSPropertyDescriptor desc = (JSPropertyDescriptor)args.Data!;
+        args.Data = desc.Data;
         return (napi_value)desc.Setter!.Invoke(args);
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static unsafe void FinalizeHandle(napi_env env, nint data, nint hint)
+    private static unsafe void FinalizeGCHandle(napi_env env, nint data, nint hint)
     {
         GCHandle.FromIntPtr(data).Free();
     }
@@ -1003,6 +990,24 @@ public static partial class JSNativeApi
     private static unsafe void FinalizeHintHandle(napi_env env, nint data, nint hint)
     {
         GCHandle.FromIntPtr(hint).Free();
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe void CallFinalizeAction(napi_env env, nint data, nint hint)
+    {
+        GCHandle gcHandle = GCHandle.FromIntPtr(data);
+        try
+        {
+            // TODO: [vmoroz] In future we will be not allowed to run JS in finalizers.
+            // We must remove creation of the scope.
+            using JSSimpleValueScope scope = new(env);
+            ((Action)gcHandle.Target!)();
+        }
+        finally
+        {
+            gcHandle.Free();
+
+        }
     }
 
     private static unsafe nint[] ToUnmanagedPropertyDescriptors(ReadOnlySpan<byte> name, JSPropertyDescriptor[] descriptors, UseUnmanagedDescriptors action)
@@ -1021,7 +1026,7 @@ public static partial class JSNativeApi
             descriptorPtr->setter = new napi_callback(descriptor.Setter != null ? &InvokeJSSetter : null);
             descriptorPtr->value = (napi_value)descriptor.Value;
             descriptorPtr->attributes = (napi_property_attributes)descriptor.Attributes;
-            if (descriptor.Method != null || descriptor.Getter != null || descriptor.Setter != null)
+            if (descriptor.Data != null || descriptor.Method != null || descriptor.Getter != null || descriptor.Setter != null)
             {
                 handlesToFinalize[i] = descriptorPtr->data = (nint)GCHandle.Alloc(descriptor);
             }
