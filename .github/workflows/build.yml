@@ -50,6 +50,13 @@ jobs:
     - name: Test
       run: dotnet test --no-build --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
 
+    - name: Upload test logs
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-logs-${{ runner.os }}-dotnet${{ matrix.dotnet-version }}-node${{ matrix.node-version }}
+        path: out/obj/Release/**/*.log
+      if: ${{ always() }}
+
     - name: Publish test results
       uses: dorny/test-reporter@v1
       with:
