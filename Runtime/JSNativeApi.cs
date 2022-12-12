@@ -1000,13 +1000,12 @@ public static partial class JSNativeApi
         {
             // TODO: [vmoroz] In future we will be not allowed to run JS in finalizers.
             // We must remove creation of the scope.
-            using JSSimpleValueScope scope = new(env);
+            using var scope = new JSValueScope(env);
             ((Action)gcHandle.Target!)();
         }
         finally
         {
             gcHandle.Free();
-
         }
     }
 
