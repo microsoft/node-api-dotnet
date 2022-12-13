@@ -55,7 +55,7 @@ internal static partial class HostFxr
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            return $"/usr/share/dotnet/host/fxr/{dotnetVersion}/libhostfxr.dylib";
+            return $"/usr/local/share/dotnet/host/fxr/{dotnetVersion}/libhostfxr.dylib";
         }
         else
         {
