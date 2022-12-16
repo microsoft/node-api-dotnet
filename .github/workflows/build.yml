@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ windows-latest, macos-latest, ubuntu-latest ]
+        os: [ windows-latest, ubuntu-latest ]
         dotnet-version: [ 7.0.x ]
         node-version: [ 18.x ]
 
