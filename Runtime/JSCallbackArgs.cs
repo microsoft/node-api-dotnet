@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
@@ -12,7 +13,7 @@ public class JSCallbackArgs
 
     public JSValue ThisArg { get; }
 
-    public nint Data { get; }
+    public object? Data { get; set; } = null;
 
     public JSValue GetNewTarget()
     {
@@ -44,7 +45,7 @@ public class JSCallbackArgs
             }
 
             ThisArg = thisArg;
-            Data = data;
+            Data = data != nint.Zero ? GCHandle.FromIntPtr(data).Target : null;
         }
     }
 }

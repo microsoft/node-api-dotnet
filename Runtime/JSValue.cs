@@ -1,10 +1,12 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public struct JSValue
+public struct JSValue : IEnumerable<(JSValue name, JSValue value)>
 {
     private napi_value _handle;
 
@@ -40,6 +42,19 @@ public struct JSValue
     public static JSValue False => JSNativeApi.GetBoolean(false);
     public static JSValue GetBoolean(bool value) => JSNativeApi.GetBoolean(value);
 
+    public IEnumerator<(JSValue name, JSValue value)> GetEnumerator()
+    {
+        JSValue names = JSNativeApi.GetPropertyNames(this);
+        int size = JSNativeApi.GetArrayLength(names);
+        for (int i = 0; i < size; ++i)
+        {
+            JSValue name = names[i];
+            yield return (name, this[name]);
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => throw new NotImplementedException();
+
     public static implicit operator JSValue(bool value) => JSNativeApi.GetBoolean(value);
     public static implicit operator JSValue(sbyte value) => JSNativeApi.CreateNumber(value);
     public static implicit operator JSValue(byte value) => JSNativeApi.CreateNumber(value);
@@ -52,6 +67,8 @@ public struct JSValue
     public static implicit operator JSValue(float value) => JSNativeApi.CreateNumber(value);
     public static implicit operator JSValue(double value) => JSNativeApi.CreateNumber(value);
     public static implicit operator JSValue(string value) => JSNativeApi.CreateStringUtf16(value);
+    public static implicit operator JSValue(ReadOnlySpan<byte> value) => JSNativeApi.CreateStringUtf8(value);
+    public static implicit operator JSValue(byte[] value) => JSNativeApi.CreateStringUtf8(value);
     public static implicit operator JSValue(JSCallback callback) => JSNativeApi.CreateFunction("Unknown", callback);
 
     public static explicit operator bool(JSValue value) => value.GetValueBool();
