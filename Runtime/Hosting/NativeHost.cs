@@ -34,7 +34,7 @@ internal partial class NativeHost : IDisposable
         CallConvs = new[] { typeof(CallConvCdecl) })]
     public static napi_value InitializeModule(napi_env env, napi_value exports)
     {
-        Trace("> NativeHost.InitializeModule()");
+        Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
 
         ResolveImports();
         try
@@ -80,22 +80,27 @@ internal partial class NativeHost : IDisposable
     {
         string currentModuleFilePath = GetCurrentModuleFilePath();
         Trace("    Current module path: " + currentModuleFilePath);
+
         string nodeApiHostDir = Path.GetDirectoryName(currentModuleFilePath)!;
-        InitializeManagedHost(env, exports, nodeApiHostDir);
+
+        _hostContextHandle = InitializeManagedRuntime(nodeApiHostDir);
+        try
+        {
+            InitializeManagedHost(_hostContextHandle, env, exports, nodeApiHostDir);
+        }
+        catch
+        {
+            hostfxr_close(_hostContextHandle);
+            throw;
+        }
     }
 
-    private unsafe void InitializeManagedHost(
-        napi_env env,
-        napi_value exports,
-        string nodeApiHostDir)
+    private static unsafe hostfxr_handle InitializeManagedRuntime(string nodeApiHostDir)
     {
-        Trace("> NativeHost.InitializeManagedHost()");
+        Trace("> NativeHost.InitializeManagedRuntime()");
 
         string runtimeConfigPath = Path.Join(nodeApiHostDir, @"NodeApi.runtimeconfig.json");
         Trace("    Runtime config: " + runtimeConfigPath);
-
-        string managedHostPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
-        Trace("    Managed host: " + managedHostPath);
 
         string hostfxrPath = HostFxr.GetHostFxrPath();
         string dotnetRoot = Path.GetDirectoryName(
@@ -105,109 +110,90 @@ internal partial class NativeHost : IDisposable
         // Load the library that provides CLR hosting APIs.
         HostFxr.Initialize();
 
-        // HostFxr APIs use UTF-16 on Windows, UTF-8 elsewhere.
-        Encoding encoding = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ?
-            Encoding.Unicode : Encoding.UTF8;
-
-        Trace("    Encoding runtime path parameters");
-        int runtimeConfigPathCapacity = encoding.GetByteCount(runtimeConfigPath) + 2;
-        int hostfxrPathCapacity = encoding.GetByteCount(hostfxrPath) + 2;
-        int dotnetRootCapacity = encoding.GetByteCount(dotnetRoot) + 2;
+        int runtimeConfigPathCapacity = HostFxr.Encoding.GetByteCount(runtimeConfigPath) + 2;
 
         hostfxr_status status;
-        fixed (byte*
-            runtimeConfigPathBytes = new byte[runtimeConfigPathCapacity],
-            hostfxrPathBytes = new byte[hostfxrPathCapacity],
-            dotnetRootBytes = new byte[dotnetRootCapacity])
+        hostfxr_handle hostContextHandle;
+        fixed (byte* runtimeConfigPathBytes = new byte[runtimeConfigPathCapacity])
         {
-            Encode(encoding, runtimeConfigPath, runtimeConfigPathBytes, runtimeConfigPathCapacity);
-            Encode(encoding, hostfxrPath, hostfxrPathBytes, hostfxrPathCapacity);
-            Encode(encoding, dotnetRoot, dotnetRootBytes, dotnetRootCapacity);
-
-            var initializeParameters = new hostfxr_initialize_parameters
-            {
-                size = (nuint)sizeof(hostfxr_initialize_parameters),
-                host_path = hostfxrPathBytes,
-                dotnet_root = dotnetRootBytes,
-            };
+            Encode(runtimeConfigPath, runtimeConfigPathBytes, runtimeConfigPathCapacity);
 
             // Initialize the CLR with configuration from runtimeconfig.json.
             Trace("    Initializing runtime...");
+
             status = hostfxr_initialize_for_runtime_config(
-                runtimeConfigPath, null/*&initializeParameters*/, out _hostContextHandle);
+                runtimeConfigPathBytes, initializeParameters: null, out hostContextHandle);
         }
 
         CheckStatus(status, "Failed to inialize CLR host.");
 
-        try
-        {
-            // Get a CLR function that can load an assembly.
-            Trace("    Getting runtime load-assembly delegate...");
-            status = hostfxr_get_runtime_delegate(
-                _hostContextHandle,
-                hostfxr_delegate_type.load_assembly_and_get_function_pointer,
-                out load_assembly_and_get_function_pointer loadAssembly);
-            CheckStatus(status, "Failed to get CLR load-assembly function.");
-
-            // TODO Get the correct assembly version (and publickeytoken) somehow.
-            string managedHostTypeName = $"{ManagedHostTypeName}, {ManagedHostAssemblyName}" +
-                ", Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
-            Trace("    Loading managed host type: " + managedHostTypeName);
-
-            int managedHostPathCapacity = encoding.GetByteCount(managedHostPath) + 2;
-            int managedHostTypeNameCapacity = encoding.GetByteCount(managedHostTypeName) + 2;
-            int methodNameCapacity = encoding.GetByteCount(nameof(InitializeModule)) + 2;
-
-            nint initializeModulePointer;
-            fixed (byte*
-                managedHostPathBytes = new byte[managedHostPathCapacity],
-                methodNameBytes = new byte[methodNameCapacity],
-                managedHostTypeNameBytes = new byte[managedHostTypeNameCapacity])
-            {
-                Encode(encoding, managedHostPath, managedHostPathBytes, managedHostPathCapacity);
-                Encode(
-                    encoding,
-                    managedHostTypeName,
-                    managedHostTypeNameBytes,
-                    managedHostTypeNameCapacity);
-                Encode(encoding, nameof(InitializeModule), methodNameBytes, methodNameCapacity);
-
-                // Load the managed host assembly and get a pointer to its module initialize method.
-                status = loadAssembly(
-                    managedHostPathBytes,
-                    managedHostTypeNameBytes,
-                    methodNameBytes,
-                    delegateType: -1 /* UNMANAGEDCALLERSONLY_METHOD */,
-                    reserved: default,
-                    out initializeModulePointer);
-            }
-
-            CheckStatus(status, "Failed to load managed host assembly.");
-
-            Trace("    Invoking managed host method: " + nameof(InitializeModule));
-
-            // Invoke the managed host initialize method.
-            // (It will define some properties on the exports object passed in.)
-            napi_register_module_v1 initializeModule =
-                Marshal.GetDelegateForFunctionPointer<napi_register_module_v1>(
-                    initializeModulePointer);
-            initializeModule(env, exports);
-
-            Trace("< NativeHost.InitializeManagedHost()");
-        }
-        catch
-        {
-            hostfxr_close(_hostContextHandle);
-            _hostContextHandle = default;
-            throw;
-        }
+        Trace("< NativeHost.InitializeManagedRuntime()");
+        return hostContextHandle;
     }
 
-    private static unsafe void Encode(Encoding encoding, string str, byte* bytes, int capacity)
+    private static unsafe void InitializeManagedHost(
+        hostfxr_handle hostContextHandle,
+        napi_env env,
+        napi_value exports,
+        string nodeApiHostDir)
     {
-        var span = new Span<byte>(bytes, capacity);
-        int encodedCount = encoding.GetBytes(str, span);
-        span.Slice(encodedCount, capacity - encodedCount).Clear();
+        Trace($"> NativeHost.InitializeManagedHost({env.Handle:X8}, {exports.Handle:X8})");
+
+        string managedHostPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
+        Trace("    Managed host: " + managedHostPath);
+
+        // Get a CLR function that can load an assembly.
+        Trace("    Getting runtime load-assembly delegate...");
+        hostfxr_status status = hostfxr_get_runtime_delegate(
+            hostContextHandle,
+            hostfxr_delegate_type.load_assembly_and_get_function_pointer,
+            out load_assembly_and_get_function_pointer loadAssembly);
+        CheckStatus(status, "Failed to get CLR load-assembly function.");
+
+        // TODO Get the correct assembly version (and publickeytoken) somehow.
+        string managedHostTypeName = $"{ManagedHostTypeName}, {ManagedHostAssemblyName}" +
+            ", Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
+        Trace("    Loading managed host type: " + managedHostTypeName);
+
+        int managedHostPathCapacity = HostFxr.Encoding.GetByteCount(managedHostPath) + 2;
+        int managedHostTypeNameCapacity = HostFxr.Encoding.GetByteCount(managedHostTypeName) + 2;
+        int methodNameCapacity = HostFxr.Encoding.GetByteCount(nameof(InitializeModule)) + 2;
+
+        nint initializeModulePointer;
+        fixed (byte*
+            managedHostPathBytes = new byte[managedHostPathCapacity],
+            methodNameBytes = new byte[methodNameCapacity],
+            managedHostTypeNameBytes = new byte[managedHostTypeNameCapacity])
+        {
+            Encode(managedHostPath, managedHostPathBytes, managedHostPathCapacity);
+            Encode(
+                managedHostTypeName,
+                managedHostTypeNameBytes,
+                managedHostTypeNameCapacity);
+            Encode(nameof(InitializeModule), methodNameBytes, methodNameCapacity);
+
+            // Load the managed host assembly and get a pointer to its module initialize method.
+            status = loadAssembly(
+                managedHostPathBytes,
+                managedHostTypeNameBytes,
+                methodNameBytes,
+                delegateType: -1 /* UNMANAGEDCALLERSONLY_METHOD */,
+                reserved: default,
+                out initializeModulePointer);
+        }
+
+        CheckStatus(status, "Failed to load managed host assembly.");
+
+        Trace("    Invoking managed host method: " + nameof(InitializeModule));
+
+        // Invoke the managed host initialize method.
+        // (It will define some properties on the exports object passed in.)
+        napi_register_module_v1 initializeModule =
+            Marshal.GetDelegateForFunctionPointer<napi_register_module_v1>(
+                initializeModulePointer);
+        initializeModule(env, exports);
+
+        Trace("< NativeHost.InitializeManagedHost()");
     }
 
     public void Dispose()
@@ -264,24 +250,20 @@ internal partial class NativeHost : IDisposable
         }
         else
         {
-            // Technically the dladdr() output argument returns a struct with several fields,
-            // but the first field is a pointer to the file path, that is all that's needed.
-            if (dladdr(functionInModule, out sbyte* filePathChars) == 0)
+            if (dladdr(functionInModule, out DLInfo dlinfo) == 0)
             {
                 throw new Exception("Failed to get current module file path.");
             }
 
-            Trace("    Reading current module file path result.");
-
             // Find the length of the null-terminated C-string.
             int filePathLength = 0;
-            while (filePathChars[filePathLength] != 0)
+            while (dlinfo.fileName[filePathLength] != 0)
             {
                 filePathLength++;
             }
 
             Trace("< NativeHost.GetCurrentModuleFilePath()");
-            return new string(filePathChars, 0, filePathLength, Encoding.UTF8);
+            return new string(dlinfo.fileName, 0, filePathLength, System.Text.Encoding.UTF8);
         }
     }
 
@@ -298,5 +280,13 @@ internal partial class NativeHost : IDisposable
         uint nSize);
 
     [LibraryImport(nameof(NodeApi))] // Not really a node API, but a function in the main process module.
-    private static unsafe partial int dladdr(void* addr, out sbyte* filePath);
+    private static unsafe partial int dladdr(void* addr, out DLInfo dlinfo);
+
+    private unsafe struct DLInfo
+    {
+        public sbyte* fileName;
+        public void* baseAddress;
+        public sbyte* symbolName;
+        public void* symbolAddress;
+    }
 }

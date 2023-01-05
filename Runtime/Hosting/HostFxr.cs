@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace NodeApi.Hosting;
 
@@ -36,31 +37,62 @@ internal static partial class HostFxr
         }
     }
 
+    // HostFxr APIs use UTF-16 on Windows, UTF-8 elsewhere.
+    public static Encoding Encoding { get; } =
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? Encoding.Unicode : Encoding.UTF8;
+
+    public static unsafe void Encode(string str, byte* bytes, int capacity)
+    {
+        var span = new Span<byte>(bytes, capacity);
+        int encodedCount = HostFxr.Encoding.GetBytes(str, span);
+        span.Slice(encodedCount, capacity - encodedCount).Clear();
+    }
+
     public static string GetHostFxrPath()
     {
-        // TODO: Port logic to find hostfxr path from
+        // TODO: Port more of the logic to find hostfxr path from
         // https://github.com/dotnet/runtime/blob/main/src/native/corehost/nethost/nethost.cpp
+        //  - Select correct architecture.
+        //  - Select latest version.
 
-        const string dotnetVersion = "7.0.0";
+        string defaultRoot;
+        string libraryName;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            string hostfxrPath = Path.Combine(
+            defaultRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                $@"dotnet\host\fxr\{dotnetVersion}\hostfxr.dll");
-            return hostfxrPath;
+                "dotnet");
+            libraryName = "hostfxr.dll";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return $"/usr/share/dotnet/host/fxr/{dotnetVersion}/libhostfxr.so";
+            defaultRoot = "/usr/share/dotnet";
+            libraryName = "libhostfxr.so";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            return $"/usr/local/share/dotnet/host/fxr/{dotnetVersion}/libhostfxr.dylib";
+            defaultRoot = "/usr/local/share/dotnet";
+            libraryName = "libhostfxr.dylib";
         }
         else
         {
             throw new PlatformNotSupportedException();
         }
+
+        string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        if (string.IsNullOrEmpty(dotnetRoot))
+        {
+            dotnetRoot = defaultRoot;
+        }
+
+        if (!Directory.Exists(dotnetRoot))
+        {
+            throw new DirectoryNotFoundException(".NET installation not found at " + dotnetRoot);
+        }
+
+        const string dotnetVersion = "7.0.0";
+        string hostfxrPath = Path.Combine(dotnetRoot, "host", "fxr", dotnetVersion, libraryName);
+        return hostfxrPath;
     }
 
     public record struct hostfxr_handle(nint Handle);
@@ -78,9 +110,12 @@ internal static partial class HostFxr
 
     public unsafe struct hostfxr_initialize_parameters
     {
+        // Not used.
+        /*
         public nuint size;
         public byte* host_path;
         public byte* dotnet_root;
+        */
     }
 
     // Note this is CORECLR_DELEGATE_CALLTYPE, which is stdcall on Windows.
@@ -96,23 +131,23 @@ internal static partial class HostFxr
         nint reserved,
         out nint functionPointer);
 
-#pragma warning disable SYSLIB1054 // Use LibraryImport instead of DllImport
-#pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
-
-    [DllImport(nameof(HostFxr), CallingConvention = CallingConvention.Cdecl)]
-    public static extern unsafe hostfxr_status hostfxr_initialize_for_runtime_config(
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string runtimeConfigPath, // UTF-16 on Windows, UTF-8 elsewhere
+    [LibraryImport(nameof(HostFxr))]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(CallConvCdecl) })]
+    public static unsafe partial hostfxr_status hostfxr_initialize_for_runtime_config(
+        byte* runtimeConfigPath, // UTF-16 on Windows, UTF-8 elsewhere
         hostfxr_initialize_parameters* initializeParameters,
         out hostfxr_handle hostContextHandle);
 
-    [DllImport(nameof(HostFxr), CallingConvention = CallingConvention.Cdecl)]
-    public static extern hostfxr_status hostfxr_get_runtime_delegate(
+    [LibraryImport(nameof(HostFxr))]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(CallConvCdecl) })]
+    public static partial hostfxr_status hostfxr_get_runtime_delegate(
         hostfxr_handle hostContextHandle,
         hostfxr_delegate_type delegateType,
         [MarshalAs(UnmanagedType.FunctionPtr)] out load_assembly_and_get_function_pointer function);
 
-    [DllImport(nameof(HostFxr), CallingConvention = CallingConvention.Cdecl)]
-    public static extern hostfxr_status hostfxr_close(hostfxr_handle hostContextHandle);
+    [LibraryImport(nameof(HostFxr))]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(CallConvCdecl) })]
+    public static partial hostfxr_status hostfxr_close(hostfxr_handle hostContextHandle);
 
     public enum hostfxr_status : uint
     {

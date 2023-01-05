@@ -15,10 +15,22 @@ public class ManagedHost
 {
     private readonly Dictionary<string, JSReference> _loadedModules = new();
 
+    public static bool IsTracingEnabled { get; } =
+        Environment.GetEnvironmentVariable("NODE_API_DOTNET_TRACE") == "1";
+
+    public static void Trace(string msg)
+    {
+        if (IsTracingEnabled)
+        {
+            Console.WriteLine(msg);
+            Console.Out.Flush();
+        }
+    }
+
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static napi_value InitializeModule(napi_env env, napi_value exports)
     {
-        ////Console.WriteLine("> ManagedHost.InitializeModule()");
+        Trace($"> ManagedHost.InitializeModule({env.Handle:X8})");
 
         try
         {
@@ -40,7 +52,7 @@ public class ManagedHost
             Console.Error.WriteLine($"Failed to load CLR managed host module: {ex}");
         }
 
-        ////Console.WriteLine("< ManagedHost.InitializeModule()");
+        Trace("< ManagedHost.InitializeModule()");
 
         return exports;
     }
@@ -54,7 +66,7 @@ public class ManagedHost
             return exportsRef.GetValue()!.Value;
         }
 
-        ////Console.WriteLine($"> ManagedHost.LoadModule({assemblyFilePath})");
+        Trace($"> ManagedHost.LoadModule({assemblyFilePath})");
 
         var assembly = Assembly.LoadFile(assemblyFilePath);
 
@@ -102,7 +114,7 @@ public class ManagedHost
         exportsRef = JSNativeApi.CreateReference(exports);
         _loadedModules.Add(assemblyFilePath, exportsRef);
 
-        ////Console.WriteLine("< ManagedHost.LoadModule()");
+        Trace("< ManagedHost.LoadModule()");
 
         return exports;
     }
