@@ -96,20 +96,20 @@ internal static partial class HostFxr
         nint reserved,
         out nint functionPointer);
 
-    [LibraryImport(nameof(HostFxr)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    public static unsafe partial hostfxr_status hostfxr_initialize_for_runtime_config(
+    [DllImport(nameof(HostFxr), CallingConvention = CallingConvention.Cdecl)]
+    public static unsafe extern hostfxr_status hostfxr_initialize_for_runtime_config(
         byte* runtimeConfigPath, // UTF-16 on Windows, UTF-8 elsewhere
         hostfxr_initialize_parameters* initializeParameters,
         out hostfxr_handle hostContextHandle);
 
-    [LibraryImport(nameof(HostFxr)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    public static partial hostfxr_status hostfxr_get_runtime_delegate(
+    [DllImport(nameof(HostFxr), CallingConvention = CallingConvention.Cdecl)]
+    public static extern hostfxr_status hostfxr_get_runtime_delegate(
         hostfxr_handle hostContextHandle,
         hostfxr_delegate_type delegateType,
         [MarshalAs(UnmanagedType.FunctionPtr)] out load_assembly_and_get_function_pointer function);
 
-    [LibraryImport(nameof(HostFxr)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    public static partial hostfxr_status hostfxr_close(hostfxr_handle hostContextHandle);
+    [DllImport(nameof(HostFxr), CallingConvention = CallingConvention.Cdecl)]
+    public static extern hostfxr_status hostfxr_close(hostfxr_handle hostContextHandle);
 
     public enum hostfxr_status : uint
     {
