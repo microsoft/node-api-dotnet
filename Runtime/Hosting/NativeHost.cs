@@ -97,6 +97,11 @@ internal partial class NativeHost : IDisposable
         string managedHostPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
         Trace("    Managed host: " + managedHostPath);
 
+        var hostfxrPath = HostFxr.GetHostFxrPath();
+        var dotnetRoot = Path.GetDirectoryName(
+            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(hostfxrPath)))) !;
+        Trace("    .NET root: " + dotnetRoot);
+
         // Load the library that provides CLR hosting APIs.
         HostFxr.Initialize();
 
@@ -104,18 +109,32 @@ internal partial class NativeHost : IDisposable
         Encoding encoding = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ?
             Encoding.Unicode : Encoding.UTF8;
 
-        Trace("    Encoding runtime config path");
+        Trace("    Encoding runtime path parameters");
         int runtimeConfigPathCapacity = encoding.GetByteCount(runtimeConfigPath) + 2;
+        var hostfxrPathCapacity = encoding.GetByteCount(hostfxrPath) + 2;
+        var dotnetRootCapacity = encoding.GetByteCount(dotnetRoot) + 2;
 
         hostfxr_status status;
-        fixed (byte* runtimeConfigPathBytes = new byte[runtimeConfigPathCapacity])
+        fixed (byte*
+            runtimeConfigPathBytes = new byte[runtimeConfigPathCapacity],
+            hostfxrPathBytes = new byte[hostfxrPathCapacity],
+            dotnetRootBytes = new byte[dotnetRootCapacity])
         {
             Encode(encoding, runtimeConfigPath, runtimeConfigPathBytes, runtimeConfigPathCapacity);
+            Encode(encoding, hostfxrPath, hostfxrPathBytes, hostfxrPathCapacity);
+            Encode(encoding, dotnetRoot, dotnetRootBytes, dotnetRootCapacity);
+
+            var initializeParameters = new hostfxr_initialize_parameters
+            {
+                size = (nuint)sizeof(hostfxr_initialize_parameters),
+                host_path = hostfxrPathBytes,
+                dotnet_root = dotnetRootBytes,
+            };
 
             // Initialize the CLR with configuration from runtimeconfig.json.
             Trace("    Initializing runtime...");
             status = hostfxr_initialize_for_runtime_config(
-                runtimeConfigPathBytes, initializeParameters: default, out _hostContextHandle);
+                runtimeConfigPathBytes, &initializeParameters, out _hostContextHandle);
         }
 
         CheckStatus(status, "Failed to inialize CLR host.");

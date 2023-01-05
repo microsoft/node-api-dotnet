@@ -76,6 +76,13 @@ internal static partial class HostFxr
         get_function_pointer,
     }
 
+    public unsafe struct hostfxr_initialize_parameters
+    {
+        public nuint size;
+        public byte* host_path;
+        public byte* dotnet_root;
+    }
+
     // Note this is CORECLR_DELEGATE_CALLTYPE, which is stdcall on Windows.
     // See https://github.com/dotnet/runtime/blob/main/src/native/corehost/coreclr_delegates.h
     // The returned function pointer must be converted to a specific delegate via
@@ -92,7 +99,7 @@ internal static partial class HostFxr
     [LibraryImport(nameof(HostFxr)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static unsafe partial hostfxr_status hostfxr_initialize_for_runtime_config(
         byte* runtimeConfigPath, // UTF-16 on Windows, UTF-8 elsewhere
-        nint initializeParameters,
+        hostfxr_initialize_parameters* initializeParameters,
         out hostfxr_handle hostContextHandle);
 
     [LibraryImport(nameof(HostFxr)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
