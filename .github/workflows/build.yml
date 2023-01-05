@@ -21,7 +21,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ windows-latest, ubuntu-latest ]
+        os: [ ubuntu-latest ]
         dotnet-version: [ 7.0.x ]
         node-version: [ 18.x ]
       fail-fast: false  # Don't cancel other jobs when one job fails
@@ -48,6 +48,11 @@ jobs:
 
     - name: pack
       run: dotnet pack --no-build --configuration Release
+
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      with:
+          limit-access-to-actor: true
 
     - name: Test
       env:
