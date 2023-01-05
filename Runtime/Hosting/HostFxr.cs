@@ -96,8 +96,10 @@ internal static partial class HostFxr
         nint reserved,
         out nint functionPointer);
 
+#pragma warning disable SYSLIB1054 // Use LibraryImport instead of DllImport
+
     [DllImport(nameof(HostFxr), CallingConvention = CallingConvention.Cdecl)]
-    public static unsafe extern hostfxr_status hostfxr_initialize_for_runtime_config(
+    public static extern unsafe hostfxr_status hostfxr_initialize_for_runtime_config(
         byte* runtimeConfigPath, // UTF-16 on Windows, UTF-8 elsewhere
         hostfxr_initialize_parameters* initializeParameters,
         out hostfxr_handle hostContextHandle);
