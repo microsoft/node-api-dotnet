@@ -106,15 +106,19 @@ internal partial class NativeHost : IDisposable
 
         Trace("    Encoding runtime config path");
         int runtimeConfigPathCapacity = encoding.GetByteCount(runtimeConfigPath) + 2;
-        byte* runtimeConfigPathBytes = stackalloc byte[runtimeConfigPathCapacity];
-        Encode(encoding, runtimeConfigPath, runtimeConfigPathBytes, runtimeConfigPathCapacity);
 
-        // Initialize the CLR with configuration from runtimeconfig.json.
-        Trace("    Initializing runtime...");
-        hostfxr_status status = hostfxr_initialize_for_runtime_config(
-            runtimeConfigPathBytes, initializeParameters: default, out _hostContextHandle);
+        hostfxr_status status;
+        fixed (byte* runtimeConfigPathBytes = new byte[runtimeConfigPathCapacity])
+        {
+            Encode(encoding, runtimeConfigPath, runtimeConfigPathBytes, runtimeConfigPathCapacity);
+
+            // Initialize the CLR with configuration from runtimeconfig.json.
+            Trace("    Initializing runtime...");
+            status = hostfxr_initialize_for_runtime_config(
+                runtimeConfigPathBytes, initializeParameters: default, out _hostContextHandle);
+        }
+
         CheckStatus(status, "Failed to inialize CLR host.");
-
 
         try
         {
@@ -132,29 +136,33 @@ internal partial class NativeHost : IDisposable
             Trace("    Loading managed host type: " + managedHostTypeName);
 
             int managedHostPathCapacity = encoding.GetByteCount(managedHostPath) + 2;
-            byte* managedHostPathBytes = stackalloc byte[managedHostPathCapacity];
-            Encode(encoding, managedHostPath, managedHostPathBytes, managedHostPathCapacity);
-
             int managedHostTypeNameCapacity = encoding.GetByteCount(managedHostTypeName) + 2;
-            byte* managedHostTypeNameBytes = stackalloc byte[managedHostTypeNameCapacity];
-            Encode(
-                encoding,
-                managedHostTypeName,
-                managedHostTypeNameBytes,
-                managedHostTypeNameCapacity);
-
             int methodNameCapacity = encoding.GetByteCount(nameof(InitializeModule)) + 2;
-            byte* methodNameBytes = stackalloc byte[methodNameCapacity];
-            Encode(encoding, nameof(InitializeModule), methodNameBytes, methodNameCapacity);
 
-            // Load the managed host assembly and get a pointer to its module initialize method.
-            status = loadAssembly(
-                managedHostPathBytes,
-                managedHostTypeNameBytes,
-                methodNameBytes,
-                delegateType: -1 /* UNMANAGEDCALLERSONLY_METHOD */,
-                reserved: default,
-                out nint initializeModulePointer);
+            nint initializeModulePointer;
+            fixed (byte*
+                managedHostPathBytes = new byte[managedHostPathCapacity],
+                methodNameBytes = new byte[methodNameCapacity],
+                managedHostTypeNameBytes = new byte[managedHostTypeNameCapacity])
+            {
+                Encode(encoding, managedHostPath, managedHostPathBytes, managedHostPathCapacity);
+                Encode(
+                    encoding,
+                    managedHostTypeName,
+                    managedHostTypeNameBytes,
+                    managedHostTypeNameCapacity);
+                Encode(encoding, nameof(InitializeModule), methodNameBytes, methodNameCapacity);
+
+                // Load the managed host assembly and get a pointer to its module initialize method.
+                status = loadAssembly(
+                    managedHostPathBytes,
+                    managedHostTypeNameBytes,
+                    methodNameBytes,
+                    delegateType: -1 /* UNMANAGEDCALLERSONLY_METHOD */,
+                    reserved: default,
+                    out initializeModulePointer);
+            }
+
             CheckStatus(status, "Failed to load managed host assembly.");
 
             Trace("    Invoking managed host method: " + nameof(InitializeModule));
