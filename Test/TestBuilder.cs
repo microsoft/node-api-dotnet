@@ -209,17 +209,23 @@ internal static class TestBuilder
         {
             if (e.Data != null)
             {
-                outputWriter.WriteLine(e.Data);
-                outputWriter.Flush();
+                lock (outputWriter)
+                {
+                    outputWriter.WriteLine(e.Data);
+                    outputWriter.Flush();
+                }
             }
         };
         nodeProcess.ErrorDataReceived += (_, e) =>
         {
             if (e.Data != null)
             {
-                outputWriter.WriteLine(e.Data);
-                outputWriter.Flush();
-                hasErrorOutput = e.Data.Trim().Length > 0;
+                lock (outputWriter)
+                {
+                    outputWriter.WriteLine(e.Data);
+                    outputWriter.Flush();
+                    hasErrorOutput = e.Data.Trim().Length > 0;
+                }
             }
         };
         nodeProcess.BeginOutputReadLine();
