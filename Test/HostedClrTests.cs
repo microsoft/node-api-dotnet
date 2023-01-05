@@ -54,6 +54,10 @@ public class HostedClrTests
         {
             [ModulePathEnvironmentVariableName] = moduleFilePath,
             [HostPathEnvironmentVariableName] = hostFilePath,
+
+            // CLR host tracing (very verbose).
+            // This will cause the test to always fail because tracing writes to stderr.
+            ["COREHOST_TRACE"] = "1",
         });
     }
 
