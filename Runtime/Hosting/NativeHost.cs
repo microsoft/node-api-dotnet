@@ -134,7 +134,7 @@ internal partial class NativeHost : IDisposable
             // Initialize the CLR with configuration from runtimeconfig.json.
             Trace("    Initializing runtime...");
             status = hostfxr_initialize_for_runtime_config(
-                runtimeConfigPathBytes, null/*&initializeParameters*/, out _hostContextHandle);
+                runtimeConfigPath, null/*&initializeParameters*/, out _hostContextHandle);
         }
 
         CheckStatus(status, "Failed to inialize CLR host.");
