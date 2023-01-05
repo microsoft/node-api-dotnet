@@ -99,7 +99,7 @@ internal partial class NativeHost : IDisposable
 
         string hostfxrPath = HostFxr.GetHostFxrPath();
         string dotnetRoot = Path.GetDirectoryName(
-            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(hostfxrPath)))) !;
+            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(hostfxrPath))))!;
         Trace("    .NET root: " + dotnetRoot);
 
         // Load the library that provides CLR hosting APIs.
