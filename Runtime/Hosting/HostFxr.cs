@@ -97,6 +97,7 @@ internal static partial class HostFxr
         out nint functionPointer);
 
 #pragma warning disable SYSLIB1054 // Use LibraryImport instead of DllImport
+#pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
 
     [DllImport(nameof(HostFxr), CallingConvention = CallingConvention.Cdecl)]
     public static extern unsafe hostfxr_status hostfxr_initialize_for_runtime_config(
