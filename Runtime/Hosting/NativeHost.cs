@@ -97,8 +97,8 @@ internal partial class NativeHost : IDisposable
         string managedHostPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
         Trace("    Managed host: " + managedHostPath);
 
-        var hostfxrPath = HostFxr.GetHostFxrPath();
-        var dotnetRoot = Path.GetDirectoryName(
+        string hostfxrPath = HostFxr.GetHostFxrPath();
+        string dotnetRoot = Path.GetDirectoryName(
             Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(hostfxrPath)))) !;
         Trace("    .NET root: " + dotnetRoot);
 
@@ -111,8 +111,8 @@ internal partial class NativeHost : IDisposable
 
         Trace("    Encoding runtime path parameters");
         int runtimeConfigPathCapacity = encoding.GetByteCount(runtimeConfigPath) + 2;
-        var hostfxrPathCapacity = encoding.GetByteCount(hostfxrPath) + 2;
-        var dotnetRootCapacity = encoding.GetByteCount(dotnetRoot) + 2;
+        int hostfxrPathCapacity = encoding.GetByteCount(hostfxrPath) + 2;
+        int dotnetRootCapacity = encoding.GetByteCount(dotnetRoot) + 2;
 
         hostfxr_status status;
         fixed (byte*
