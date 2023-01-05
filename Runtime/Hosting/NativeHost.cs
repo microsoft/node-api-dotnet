@@ -11,6 +11,8 @@ namespace NodeApi.Hosting;
 
 internal partial class NativeHost : IDisposable
 {
+    private static Version MinimumDotnetVersion { get; } = new(7, 0, 0);
+
     private const string ManagedHostAssemblyName = nameof(NodeApi);
     private const string ManagedHostTypeName =
         $"{nameof(NodeApi)}.{nameof(NodeApi.Hosting)}.ManagedHost";
@@ -102,13 +104,13 @@ internal partial class NativeHost : IDisposable
         string runtimeConfigPath = Path.Join(nodeApiHostDir, @"NodeApi.runtimeconfig.json");
         Trace("    Runtime config: " + runtimeConfigPath);
 
-        string hostfxrPath = HostFxr.GetHostFxrPath();
+        string hostfxrPath = HostFxr.GetHostFxrPath(MinimumDotnetVersion);
         string dotnetRoot = Path.GetDirectoryName(
             Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(hostfxrPath))))!;
         Trace("    .NET root: " + dotnetRoot);
 
         // Load the library that provides CLR hosting APIs.
-        HostFxr.Initialize();
+        HostFxr.Initialize(MinimumDotnetVersion);
 
         int runtimeConfigPathCapacity = HostFxr.Encoding.GetByteCount(runtimeConfigPath) + 2;
 

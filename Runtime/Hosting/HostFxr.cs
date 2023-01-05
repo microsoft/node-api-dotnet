@@ -15,13 +15,13 @@ internal static partial class HostFxr
 {
     public static nint Handle { get; private set; }
 
-    public static void Initialize()
+    public static void Initialize(Version minVersion)
     {
         if (Handle == default)
         {
             NativeHost.Trace("> HostFxr.Initialize()");
 
-            string hostfxrPath = GetHostFxrPath();
+            string hostfxrPath = GetHostFxrPath(minVersion);
             NativeHost.Trace("    HostFxr path: " + hostfxrPath);
 
             if (!File.Exists(hostfxrPath))
@@ -48,12 +48,11 @@ internal static partial class HostFxr
         span.Slice(encodedCount, capacity - encodedCount).Clear();
     }
 
-    public static string GetHostFxrPath()
+    public static string GetHostFxrPath(Version minVersion)
     {
         // TODO: Port more of the logic to find hostfxr path from
         // https://github.com/dotnet/runtime/blob/main/src/native/corehost/nethost/nethost.cpp
-        //  - Select correct architecture.
-        //  - Select latest version.
+        // (Select the correct architecture.)
 
         string defaultRoot;
         string libraryName;
@@ -90,9 +89,35 @@ internal static partial class HostFxr
             throw new DirectoryNotFoundException(".NET installation not found at " + dotnetRoot);
         }
 
-        const string dotnetVersion = "7.0.0";
-        string hostfxrPath = Path.Combine(dotnetRoot, "host", "fxr", dotnetVersion, libraryName);
-        return hostfxrPath;
+        string fxrDir = Path.Combine(dotnetRoot, "host", "fxr");
+        if (!Directory.Exists(fxrDir))
+        {
+            throw new DirectoryNotFoundException(".NET HostFXR not found at " + fxrDir);
+        }
+
+        string[] versionDirs = Directory.GetDirectories(fxrDir);
+        Array.Sort(versionDirs);
+        for (int i = versionDirs.Length - 1; i >= 0; i--)
+        {
+            if (!Version.TryParse(Path.GetFileName(versionDirs[i]), out Version? version))
+            {
+                continue;
+            }
+
+            if (version >= minVersion)
+            {
+                string hostfxrPath = Path.Combine(versionDirs[i], libraryName);
+                return hostfxrPath;
+            }
+            else
+            {
+                throw new Exception(
+                    $"The latest .NET version found ({version}) " +
+                    $"does not meet the minimum requirement ({minVersion}).");
+            }
+        }
+
+        throw new Exception(".NET HostFXR directory does not contain any versions: " + fxrDir);
     }
 
     public record struct hostfxr_handle(nint Handle);
