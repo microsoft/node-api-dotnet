@@ -7,6 +7,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch: # Enable manually starting a build
 
 permissions:
   checks: write
@@ -20,9 +21,10 @@ jobs:
 
     strategy:
       matrix:
-        os: [ windows-latest, ubuntu-latest ]
+        os: [ windows-latest, macos-latest, ubuntu-latest ]
         dotnet-version: [ 7.0.x ]
         node-version: [ 18.x ]
+      fail-fast: false  # Don't cancel other jobs when one job fails
 
     steps:
     - uses: actions/checkout@v3
@@ -47,7 +49,15 @@ jobs:
     - name: pack
       run: dotnet pack --no-build --configuration Release
 
+    # Uncomment to enable an SSH session for debugging
+    # - name: Setup tmate session
+    #  uses: mxschmitt/action-tmate@v3
+    #  with:
+    #      limit-access-to-actor: true
+
     - name: Test
+      env:
+        NODE_API_DOTNET_TRACE: 1
       run: dotnet test --no-build --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
 
     - name: Upload test logs

@@ -105,10 +105,15 @@ public class ModuleGenerator : ISourceGenerator
         s += "{";
 
         s += $"[UnmanagedCallersOnly(EntryPoint = \"{ModuleRegisterFunctionName}\")]";
+        s += $"public static napi_value _{ModuleInitializeMethodName}(napi_env env, napi_value exports)";
+        s += $"{s.Indent}=> Initialize(env, exports);";
+        s += "";
         s += $"public static napi_value {ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += "{";
         s += "try";
         s += "{";
+        s += "JSNativeApi.Interop.Initialize();";
+        s += "";
         s += "using var scope = new JSValueScope(env);";
         s += "var exportsValue = new JSValue(scope, exports);";
         s++;
