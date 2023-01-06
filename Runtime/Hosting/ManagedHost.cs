@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Loader;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi.Hosting;
@@ -13,6 +14,12 @@ namespace NodeApi.Hosting;
 [RequiresUnreferencedCode("Managed host is not used in trimmed assembly.")]
 public class ManagedHost
 {
+    /// <summary>
+    /// Each instance of a managed host uses a separate assembly load context.
+    /// That way, static data is not shared across multiple host instanances.
+    /// </summary>
+    private readonly AssemblyLoadContext _loadContext = new(name: default);
+
     private readonly Dictionary<string, JSReference> _loadedModules = new();
 
     public static bool IsTracingEnabled { get; } =
@@ -68,7 +75,7 @@ public class ManagedHost
 
         Trace($"> ManagedHost.LoadModule({assemblyFilePath})");
 
-        var assembly = Assembly.LoadFile(assemblyFilePath);
+        Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 
         MethodInfo? initializeMethod = null;
 
@@ -101,7 +108,6 @@ public class ManagedHost
                     "Failed to load module. A module initialize method was not found.");
             }
         }
-
 
         JSValue exports = JSValue.CreateObject();
 
