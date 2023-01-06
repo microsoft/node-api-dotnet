@@ -1,0 +1,33 @@
+const assert = require('assert');
+const { Worker, isMainThread, parentPort } = require('worker_threads');
+
+// Load the addon module, using either hosted or native AOT mode.
+const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
+const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
+const binding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
+
+if (isMainThread) {
+  // Increment the static counter to 2.
+  const count1 = binding.Counter.count();
+  assert.strictEqual(count1, 1);
+  assert.strictEqual(binding.Counter.count(), 2);
+
+  // Delete the cached binding.
+  // TODO: With CLR hosting, there should be a way to delete one .NET module.
+  delete require.cache[dotnetHost];
+  delete require.cache[dotnetModule];
+
+  const rebinding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
+
+  // The static counter should be reinitialized after rebinding.
+  const count2 = rebinding.Counter.count();
+  assert.notStrictEqual(binding.Counter, rebinding.Counter);
+  assert.strictEqual(count2, 1);
+
+  // The static counter should be reinitialized in a worker.
+  const worker = new Worker(__filename);
+  worker.on('message', (count3) => assert.strictEqual(count3, 1));
+} else {
+  const count3 = binding.Counter.count();
+  parentPort.postMessage(count3)
+}

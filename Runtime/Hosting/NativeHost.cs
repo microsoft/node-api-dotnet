@@ -63,8 +63,13 @@ internal partial class NativeHost : IDisposable
         return exports;
     }
 
+    private static bool setResolver = false;
+
     private static void ResolveImports()
     {
+        if (setResolver) return;
+        setResolver = true;
+
         NativeLibrary.SetDllImportResolver(
             typeof(HostFxr).Assembly,
             (libraryName, _, _) =>
