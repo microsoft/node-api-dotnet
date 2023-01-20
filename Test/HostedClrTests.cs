@@ -18,13 +18,13 @@ public class HostedClrTests
 
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases();
 
-    [Theory()]
+    [Theory]
     [MemberData(nameof(TestCases))]
     public void Test(string id)
     {
-        string[] idParts = id.Split('/');
-        string moduleName = idParts[0];
-        string testCaseName = idParts[1];
+        string moduleName = id.Substring(0, id.IndexOf('/'));
+        string testCaseName = id.Substring(id.IndexOf('/') + 1);
+        string testCasePath = testCaseName.Replace('/', Path.DirectorySeparatorChar);
 
         string hostFilePath = s_builtHostModule.Value;
 
@@ -47,9 +47,9 @@ public class HostedClrTests
         }
 
         // TODO: Support compiling TS files to JS.
-        string jsFilePath = Path.Join(TestCasesDirectory, moduleName, testCaseName + ".js");
+        string jsFilePath = Path.Join(TestCasesDirectory, moduleName, testCasePath + ".js");
 
-        string runLogFilePath = GetRunLogFilePath("hosted", moduleName, testCaseName);
+        string runLogFilePath = GetRunLogFilePath("hosted", moduleName, testCasePath);
         RunNodeTestCase(jsFilePath, runLogFilePath, new Dictionary<string, string>
         {
             [ModulePathEnvironmentVariableName] = moduleFilePath,
@@ -99,11 +99,11 @@ public class HostedClrTests
     }
 
     private static string? BuildTestModuleCSharp(
-      string testCaseName,
+      string moduleName,
       string logFilePath)
     {
         string projectFilePath = Path.Join(
-            TestCasesDirectory, testCaseName, testCaseName + ".csproj");
+            TestCasesDirectory, moduleName, moduleName + ".csproj");
 
         // Auto-generate an empty project file. All project info is inherited from
         // TestCases/Directory.Build.{props,targets}

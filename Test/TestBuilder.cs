@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -82,11 +83,25 @@ internal static class TestBuilder
 
     public static IEnumerable<object[]> ListTestCases()
     {
-        foreach (string dir in Directory.GetDirectories(TestCasesDirectory))
+        var dirQueue = new Queue<string>();
+        dirQueue.Enqueue(TestCasesDirectory);
+        while (dirQueue.Count > 0)
         {
-            string moduleName = Path.GetFileName(dir);
+            string dir = dirQueue.Dequeue();
+            foreach (string subDir in Directory.GetDirectories(dir))
+            {
+                dirQueue.Enqueue(subDir);
+            }
 
-            foreach (string? jsFile in Directory.GetFiles(dir, "*.js")
+            string moduleName = Path.GetRelativePath(TestCasesDirectory, dir);
+            if (string.IsNullOrEmpty(moduleName))
+            {
+                continue;
+            }
+
+            moduleName = moduleName.Replace(Path.DirectorySeparatorChar, '/');
+
+            foreach (string jsFile in Directory.GetFiles(dir, "*.js")
               .Concat(Directory.GetFiles(dir, "*.ts")))
             {
                 string testCaseName = Path.GetFileNameWithoutExtension(jsFile);
@@ -103,12 +118,12 @@ internal static class TestBuilder
         return Path.Join(logDir, "build.log");
     }
 
-    public static string GetRunLogFilePath(string prefix, string moduleName, string testCaseName)
+    public static string GetRunLogFilePath(string prefix, string moduleName, string testCasePath)
     {
         string logDir = Path.Join(
-            RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
+            RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName, Path.GetDirectoryName(testCasePath));
         Directory.CreateDirectory(logDir);
-        return Path.Join(logDir, $"{prefix}-{testCaseName}.log");
+        return Path.Join(logDir, $"{prefix}-{Path.GetFileName(testCasePath)}.log");
     }
 
     public static string GetCurrentPlatformRuntimeIdentifier()

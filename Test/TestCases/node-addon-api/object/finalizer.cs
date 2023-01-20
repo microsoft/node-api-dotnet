@@ -6,7 +6,7 @@ public partial class TestObject
 {
     private static JSValue AddFinalizer(JSCallbackArgs args)
     {
-        JSValue result = JSNativeApi.CreateObject();
+        JSValue result = JSValue.CreateObject();
         JSReference objRef = new(result);
         args[0].AddFinalizer(() =>
         {

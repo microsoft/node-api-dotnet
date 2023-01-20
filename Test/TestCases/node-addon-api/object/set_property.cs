@@ -28,7 +28,7 @@ public partial class TestObject
         JSValue obj = args[0];
         JSValue key = args[1];
         JSValue value = args[2];
-        obj.SetProperty(JSNativeApi.CreateStringLatin1(key.GetValueStringLatin1()), value);
+        obj.SetProperty(JSValue.CreateStringLatin1(key.GetValueStringLatin1()), value);
         return JSValue.Undefined;
     }
 

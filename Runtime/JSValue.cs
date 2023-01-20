@@ -1,12 +1,12 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.Contracts;
+using System.Runtime.InteropServices;
+using System.Text;
+using static NodeApi.JSNativeApi;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public struct JSValue : IEnumerable<(JSValue name, JSValue value)>
+public struct JSValue
 {
     private napi_value _handle;
 
@@ -14,62 +14,249 @@ public struct JSValue : IEnumerable<(JSValue name, JSValue value)>
 
     public JSValue(JSValueScope scope, napi_value handle)
     {
-        Contract.Requires(handle.Handle != nint.Zero, "handle must be not null");
+        if (handle.Handle == nint.Zero)
+        {
+            throw new ArgumentException($"{nameof(handle)} must not be null.");
+        }
         Scope = scope;
         _handle = handle;
     }
 
     public JSValue(napi_value handle)
     {
-        Contract.Requires(handle.Handle != nint.Zero, "handle must be not null");
+        if (handle.Handle == nint.Zero)
+        {
+            throw new ArgumentException($"{nameof(handle)} must not be null.");
+        }
         Scope = JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
         _handle = handle;
     }
 
+    public napi_value? Handle => !Scope.IsDisposed ? _handle : null;
+
     public napi_value GetCheckedHandle()
+        => Handle ?? throw new InvalidOperationException("The value handle is invalid because its scope is closed");
+
+    private static napi_env Env => (napi_env)JSValueScope.Current;
+
+    public static JSValue Undefined => napi_get_undefined(Env, out napi_value result).ThrowIfFailed(result);
+    public static JSValue Null => napi_get_null(Env, out napi_value result).ThrowIfFailed(result);
+    public static JSValue Global => napi_get_global(Env, out napi_value result).ThrowIfFailed(result);
+    public static JSValue True => GetBoolean(true);
+    public static JSValue False => GetBoolean(false);
+    public static JSValue GetBoolean(bool value) => napi_get_boolean(Env, value, out napi_value result).ThrowIfFailed(result);
+
+    public JSObject Properties => (JSObject)this;
+
+    public JSArray Items => (JSArray)this;
+
+    public JSValue this[JSValue name]
     {
-        if (Scope.IsDisposed)
-        {
-            throw new InvalidOperationException("The value handle is invalid because its scope is closed");
-        }
-        return _handle;
+        get => this.GetProperty(name);
+        set => this.SetProperty(name, value);
     }
 
-    public static JSValue Undefined => JSNativeApi.GetUndefined();
-    public static JSValue Null => JSNativeApi.GetNull();
-    public static JSValue Global => JSNativeApi.GetGlobal();
-    public static JSValue True => JSNativeApi.GetBoolean(true);
-    public static JSValue False => JSNativeApi.GetBoolean(false);
-    public static JSValue GetBoolean(bool value) => JSNativeApi.GetBoolean(value);
-
-    public IEnumerator<(JSValue name, JSValue value)> GetEnumerator()
+    public JSValue this[string name]
     {
-        JSValue names = JSNativeApi.GetPropertyNames(this);
-        int size = JSNativeApi.GetArrayLength(names);
-        for (int i = 0; i < size; ++i)
+        get => this.GetProperty(name);
+        set => this.SetProperty(name, value);
+    }
+
+    public JSValue this[int index]
+    {
+        get => this.GetElement(index);
+        set => this.SetElement(index, value);
+    }
+
+    public static JSValue CreateObject()
+        => napi_create_object(Env, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateArray()
+        => napi_create_array(Env, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateArray(int length)
+        => napi_create_array_with_length(Env, (nuint)length, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateNumber(double value)
+        => napi_create_double(Env, value, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateNumber(int value)
+        => napi_create_int32(Env, value, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateNumber(uint value)
+        => napi_create_uint32(Env, value, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateNumber(long value)
+        => napi_create_int64(Env, value, out napi_value result).ThrowIfFailed(result);
+
+    public static unsafe JSValue CreateStringLatin1(ReadOnlySpan<byte> value)
+    {
+        fixed (byte* spanPtr = value)
         {
-            JSValue name = names[i];
-            yield return (name, this[name]);
+            return napi_create_string_latin1(Env, spanPtr, (nuint)value.Length, out napi_value result).ThrowIfFailed(result);
         }
     }
 
-    IEnumerator IEnumerable.GetEnumerator() => throw new NotImplementedException();
+    public static unsafe JSValue CreateStringUtf8(ReadOnlySpan<byte> value)
+    {
+        fixed (byte* spanPtr = value)
+        {
+            return napi_create_string_utf8(Env, spanPtr, (nuint)value.Length, out napi_value result).ThrowIfFailed(result);
+        }
+    }
 
-    public static implicit operator JSValue(bool value) => JSNativeApi.GetBoolean(value);
-    public static implicit operator JSValue(sbyte value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(byte value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(short value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(ushort value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(int value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(uint value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(long value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(ulong value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(float value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(double value) => JSNativeApi.CreateNumber(value);
-    public static implicit operator JSValue(string value) => JSNativeApi.CreateStringUtf16(value);
-    public static implicit operator JSValue(ReadOnlySpan<byte> value) => JSNativeApi.CreateStringUtf8(value);
-    public static implicit operator JSValue(byte[] value) => JSNativeApi.CreateStringUtf8(value);
-    public static implicit operator JSValue(JSCallback callback) => JSNativeApi.CreateFunction("Unknown", callback);
+    public static unsafe JSValue CreateStringUtf16(ReadOnlySpan<char> value)
+    {
+        fixed (char* spanPtr = value)
+        {
+            return napi_create_string_utf16(Env, spanPtr, (nuint)value.Length, out napi_value result).ThrowIfFailed(result);
+        }
+    }
+
+    public static JSValue CreateSymbol(JSValue description)
+        => napi_create_symbol(Env, (napi_value)description, out napi_value result).ThrowIfFailed(result);
+
+    public static unsafe JSValue SymbolFor(ReadOnlySpan<byte> utf8Name)
+    {
+        fixed (byte* name = utf8Name)
+        {
+            return node_api_symbol_for(Env, name, (nuint)utf8Name.Length, out napi_value result).ThrowIfFailed(result);
+        }
+    }
+
+    public static unsafe JSValue CreateFunction(
+        ReadOnlySpan<byte> utf8Name,
+        napi_callback callback,
+        nint data)
+    {
+        fixed (byte* namePtr = utf8Name)
+        {
+            return napi_create_function(
+                Env,
+                namePtr,
+                (nuint)utf8Name.Length,
+                callback,
+                data,
+                out napi_value result).ThrowIfFailed(result);
+        }
+    }
+
+    public static unsafe JSValue CreateFunction(ReadOnlySpan<byte> utf8Name, JSCallback callback)
+    {
+        GCHandle callbackHandle = GCHandle.Alloc(callback);
+        JSValue func = CreateFunction(utf8Name, new napi_callback(&InvokeJSCallback), (nint)callbackHandle);
+        func.AddGCHandleFinalizer((nint)callbackHandle);
+        return func;
+    }
+
+    public static JSValue CreateFunction(string name, JSCallback callback)
+    {
+        int byteCount = Encoding.UTF8.GetByteCount(name);
+        Span<byte> utf8Name = stackalloc byte[byteCount];
+        Encoding.UTF8.GetBytes(name, utf8Name);
+        return CreateFunction(utf8Name, callback);
+    }
+
+    public static JSValue CreateError(JSValue code, JSValue message)
+        => napi_create_error(Env, (napi_value)code, (napi_value)message, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateTypeError(JSValue code, JSValue message)
+        => napi_create_type_error(Env, (napi_value)code, (napi_value)message, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateRangeError(JSValue code, JSValue message)
+        => napi_create_range_error(Env, (napi_value)code, (napi_value)message, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateSyntaxError(JSValue code, JSValue message)
+        => node_api_create_syntax_error(Env, (napi_value)code, (napi_value)message, out napi_value result).ThrowIfFailed(result);
+
+    public static unsafe JSValue CreateExternal(object value)
+    {
+        GCHandle valueHandle = GCHandle.Alloc(value);
+        return napi_create_external(Env, (nint)valueHandle, new napi_finalize(&FinalizeGCHandle), nint.Zero, out napi_value result).ThrowIfFailed(result);
+    }
+
+    public static unsafe JSValue CreateArrayBuffer(int byteLength)
+    {
+        napi_create_arraybuffer(Env, (nuint)byteLength, out void* buffer, out napi_value result).ThrowIfFailed();
+        return result;
+    }
+
+    public static unsafe JSValue CreateArrayBuffer(ReadOnlySpan<byte> data)
+    {
+        napi_create_arraybuffer(Env, (nuint)data.Length, out void* buffer, out napi_value result).ThrowIfFailed();
+        data.CopyTo(new Span<byte>(buffer, data.Length));
+        return result;
+    }
+
+    public static unsafe JSValue CreateExternalArrayBuffer(object? external, ReadOnlyMemory<byte> memory)
+    {
+        var pinnedMemory = new PinnedReadOnlyMemory(external, memory);
+        return napi_create_external_arraybuffer(
+            Env,
+            pinnedMemory.Pointer,
+            (nuint)pinnedMemory.Length,
+            new napi_finalize(&FinalizeHintHandle), // We pass object to finalize as a hint parameter
+            (nint)GCHandle.Alloc(pinnedMemory),
+            out napi_value result)
+            .ThrowIfFailed(result);
+    }
+
+    public static JSValue CreateDataView(int length, JSValue arrayBuffer, int byteOffset)
+        => napi_create_dataview(Env, (nuint)length, (napi_value)arrayBuffer, (nuint)byteOffset, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateTypedArray(JSTypedArrayType type, int length, JSValue arrayBuffer, int byteOffset)
+        => napi_create_typedarray(
+            Env,
+            (napi_typedarray_type)type,
+            (nuint)length,
+            (napi_value)arrayBuffer,
+            (nuint)byteOffset,
+            out napi_value result)
+            .ThrowIfFailed(result);
+
+    public static JSValue CreatePromise(out JSDeferred deferred)
+    {
+        napi_create_promise(Env, out napi_deferred deferred_, out napi_value promise).ThrowIfFailed();
+        deferred = new JSDeferred(deferred_);
+        return promise;
+    }
+
+    public static JSValue CreateDate(double time)
+        => napi_create_date(Env, time, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateBigInt(long value)
+        => napi_create_bigint_int64(Env, value, out napi_value result).ThrowIfFailed(result);
+
+    public static JSValue CreateBigInt(ulong value)
+        => napi_create_bigint_uint64(Env, value, out napi_value result).ThrowIfFailed(result);
+
+    public static unsafe JSValue CreateBigInt(int signBit, ReadOnlySpan<ulong> words)
+    {
+        fixed (ulong* wordPtr = words)
+        {
+            return napi_create_bigint_words(Env, signBit, (nuint)words.Length, wordPtr, out napi_value result).ThrowIfFailed(result);
+        }
+    }
+
+    public static implicit operator JSValue(bool value) => GetBoolean(value);
+    public static implicit operator JSValue(sbyte value) => CreateNumber(value);
+    public static implicit operator JSValue(byte value) => CreateNumber(value);
+    public static implicit operator JSValue(short value) => CreateNumber(value);
+    public static implicit operator JSValue(ushort value) => CreateNumber(value);
+    public static implicit operator JSValue(int value) => CreateNumber(value);
+    public static implicit operator JSValue(uint value) => CreateNumber(value);
+    public static implicit operator JSValue(long value) => CreateNumber(value);
+    public static implicit operator JSValue(ulong value) => CreateNumber(value);
+    public static implicit operator JSValue(float value) => CreateNumber(value);
+    public static implicit operator JSValue(double value) => CreateNumber(value);
+    public static implicit operator JSValue(string value) => CreateStringUtf16(value);
+    public static implicit operator JSValue(char[] value) => CreateStringUtf16(value);
+    public static implicit operator JSValue(Span<char> value) => CreateStringUtf16(value);
+    public static implicit operator JSValue(ReadOnlySpan<char> value) => CreateStringUtf16(value);
+    public static implicit operator JSValue(byte[] value) => CreateStringUtf8(value);
+    public static implicit operator JSValue(Span<byte> value) => CreateStringUtf8(value);
+    public static implicit operator JSValue(ReadOnlySpan<byte> value) => CreateStringUtf8(value);
+    public static implicit operator JSValue(JSCallback callback) => CreateFunction("Unknown", callback);
 
     public static explicit operator bool(JSValue value) => value.GetValueBool();
     public static explicit operator sbyte(JSValue value) => (sbyte)value.GetValueInt32();
@@ -83,28 +270,12 @@ public struct JSValue : IEnumerable<(JSValue name, JSValue value)>
     public static explicit operator float(JSValue value) => (float)value.GetValueDouble();
     public static explicit operator double(JSValue value) => value.GetValueDouble();
     public static explicit operator string(JSValue value) => value.GetValueStringUtf16();
-
-    public JSValue this[JSValue name]
-    {
-        get => this.GetProperty(name);
-        set => this.SetProperty(name, value);
-    }
-
-    public JSValue this[string name]
-    {
-        get => this.GetProperty(name);
-        set { this.SetProperty(name, value); }
-    }
-
-    public JSValue this[int index]
-    {
-        get { return this.GetElement(index); }
-        set { this.SetElement(index, value); }
-    }
+    public static explicit operator char[](JSValue value) => value.GetValueStringUtf16AsCharArray();
+    public static explicit operator byte[](JSValue value) => value.GetValueStringUtf8();
 
     public static explicit operator napi_value(JSValue value) => value.GetCheckedHandle();
-    public static explicit operator napi_value(JSValue? value) => value != null ? value.Value.GetCheckedHandle() : new napi_value(nint.Zero);
-
     public static implicit operator JSValue(napi_value handle) => new(handle);
-    public static implicit operator JSValue?(napi_value handle) => handle.Handle != nint.Zero ? new JSValue(handle) : (JSValue?)null;
+
+    public static explicit operator napi_value(JSValue? value) => value?.Handle ?? new napi_value(nint.Zero);
+    public static implicit operator JSValue?(napi_value handle) => handle.Handle != nint.Zero ? new JSValue?(new JSValue(handle)) : null;
 }

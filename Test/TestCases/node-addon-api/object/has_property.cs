@@ -22,7 +22,7 @@ public partial class TestObject
     {
         JSValue obj = args[0];
         JSValue key = args[1];
-        return obj.HasProperty(JSNativeApi.CreateStringLatin1(key.GetValueStringLatin1()));
+        return obj.HasProperty(JSValue.CreateStringLatin1(key.GetValueStringLatin1()));
     }
 
     private static JSValue HasPropertyWithUtf8StyleString(JSCallbackArgs args)

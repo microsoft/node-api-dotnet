@@ -103,7 +103,7 @@ public class ManagedHost
         }
 
 
-        JSValue exports = JSNativeApi.CreateObject();
+        JSValue exports = JSValue.CreateObject();
 
         using var childScope = new JSSimpleValueScope((napi_env)args.Scope);
 

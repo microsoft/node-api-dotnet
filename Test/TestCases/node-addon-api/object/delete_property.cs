@@ -23,7 +23,7 @@ public partial class TestObject
     {
         JSValue obj = args[0];
         JSValue key = args[1];
-        return obj.DeleteProperty(JSNativeApi.CreateStringLatin1(key.GetValueStringLatin1()));
+        return obj.DeleteProperty(JSValue.CreateStringLatin1(key.GetValueStringLatin1()));
     }
 
     private static JSValue DeletePropertyWithUtf8StyleString(JSCallbackArgs args)

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using NodeApi;
 
 namespace NodeApiTest;
@@ -6,9 +8,54 @@ namespace NodeApiTest;
 [JSModule]
 public class Binding
 {
-    private readonly Lazy<JSReference> _testObject = new(() => new JSReference(TestObject.Init()));
-    private readonly Lazy<JSReference> _testObjectFreezeSeal = new(() => new JSReference(TestObjectFreezeSeal.Init()));
+    private readonly Dictionary<Type, JSReference> _testObjects = new();
 
-    public JSValue Object => _testObject.Value.GetValue() ?? JSValue.Undefined;
-    public JSValue ObjectFreezeSeal => _testObjectFreezeSeal.Value.GetValue() ?? JSValue.Undefined;
+    public JSValue ArrayBuffer => GetOrCreate<TestArrayBuffer>();
+    public JSValue BasicTypesArray => GetOrCreate<TestBasicTypesArray>();
+    public JSValue BasicTypesBoolean => GetOrCreate<TestBasicTypesBoolean>();
+    public JSValue BasicTypesNumber => GetOrCreate<TestBasicTypesNumber>();
+    public JSValue BasicTypesValue => GetOrCreate<TestBasicTypesValue>();
+    public JSValue Object => GetOrCreate<TestObject>();
+    public JSValue ObjectFreezeSeal => GetOrCreate<TestObjectFreezeSeal>();
+
+    private JSValue GetOrCreate<T>() where T : class, ITestObject
+    {
+        if (_testObjects.TryGetValue(typeof(T), out JSReference? testRef))
+        {
+            return testRef.GetValue() ?? JSValue.Undefined;
+        }
+
+        JSValue obj = T.Init();
+        _testObjects.Add(typeof(T), new JSReference(obj));
+        return obj;
+    }
+}
+
+public interface ITestObject
+{
+    static abstract JSObject Init();
+}
+
+public abstract class TestHelper
+{
+    public static (JSValue Key, JSValue Value) Method(
+        JSCallback callback,
+        [CallerArgumentExpression(nameof(callback))] string? callbackName = null)
+    {
+        string name = callbackName ?? string.Empty;
+        name = name.Substring(name.IndexOf('.') + 1);
+        return (ToCamelCase(name), callback);
+    }
+
+    public static string ToCamelCase(string value)
+    {
+        if (string.IsNullOrEmpty(value) || char.IsLower(value[0]))
+        {
+            return value;
+        }
+
+        char[] chars = value.ToCharArray();
+        chars[0] = char.ToLower(chars[0]);
+        return new string(chars);
+    }
 }
