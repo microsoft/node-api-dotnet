@@ -732,7 +732,7 @@ public static partial class JSNativeApi
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static unsafe void FinalizeHintHandle(napi_env env, nint data, nint hint)
+    internal static unsafe void FinalizeHintHandle(napi_env _1, nint _2, nint hint)
     {
         GCHandle.FromIntPtr(hint).Free();
     }

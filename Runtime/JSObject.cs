@@ -1,11 +1,16 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public struct JSObject : IEnumerable<(JSValue name, JSValue value)>, IEnumerable
+public partial struct JSObject : IDictionary<JSValue, JSValue>
 {
     private JSValue _value;
+
+    public int Count => throw new System.NotImplementedException();
+
+    public bool IsReadOnly => throw new System.NotImplementedException();
 
     public static explicit operator JSObject(JSValue value) => new() { _value = value };
     public static implicit operator JSValue(JSObject obj) => obj._value;
@@ -27,15 +32,46 @@ public struct JSObject : IEnumerable<(JSValue name, JSValue value)>, IEnumerable
         set => _value.SetProperty(name, value);
     }
 
-    public void Add(JSValue name, JSValue value)
-        => _value.SetProperty(name, value);
+    public void Add(JSValue key, JSValue value) => _value.SetProperty(key, value);
 
-    public void Add((JSValue Key, JSValue Value) entry)
-        => _value.SetProperty(entry.Key, entry.Value);
+    public bool ContainsKey(JSValue key) => _value.HasProperty(key);
 
-    public JSObjectPropertyEnumerator GetEnumerator() => new(_value);
+    public bool Remove(JSValue key) => _value.DeleteProperty(key);
 
-    IEnumerator<(JSValue name, JSValue value)> IEnumerable<(JSValue name, JSValue value)>.GetEnumerator() => GetEnumerator();
+    public bool TryGetValue(JSValue key, [MaybeNullWhen(false)] out JSValue value)
+    {
+        value = _value.GetProperty(key);
+        return !value.IsUndefined();
+    }
+
+    public void Add(KeyValuePair<JSValue, JSValue> item) => _value.SetProperty(item.Key, item.Value);
+
+    public bool Contains(KeyValuePair<JSValue, JSValue> item) => _value.HasProperty(item.Key);
+
+    public void CopyTo(KeyValuePair<JSValue, JSValue>[] array, int arrayIndex)
+    {
+        int index = arrayIndex;
+        int maxIndex = array.Length - 1;
+        foreach (KeyValuePair<JSValue, JSValue> entry in this)
+        {
+            if (index <= maxIndex)
+            {
+                array[index] = entry;
+            }
+        }
+    }
+
+    public bool Remove(KeyValuePair<JSValue, JSValue> item) => _value.DeleteProperty(item.Key);
+
+    public Enumerator GetEnumerator() => new(_value);
+
+    ICollection<JSValue> IDictionary<JSValue, JSValue>.Keys => throw new System.NotImplementedException();
+
+    ICollection<JSValue> IDictionary<JSValue, JSValue>.Values => throw new System.NotImplementedException();
+
+    void ICollection<KeyValuePair<JSValue, JSValue>>.Clear() => throw new System.NotImplementedException();
+
+    IEnumerator<KeyValuePair<JSValue, JSValue>> IEnumerable<KeyValuePair<JSValue, JSValue>>.GetEnumerator() => GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

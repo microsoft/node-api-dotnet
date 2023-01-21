@@ -10,7 +10,6 @@ public class Binding
 {
     private readonly Dictionary<Type, JSReference> _testObjects = new();
 
-    public JSValue ArrayBuffer => GetOrCreate<TestArrayBuffer>();
     public JSValue BasicTypesArray => GetOrCreate<TestBasicTypesArray>();
     public JSValue BasicTypesBoolean => GetOrCreate<TestBasicTypesBoolean>();
     public JSValue BasicTypesNumber => GetOrCreate<TestBasicTypesNumber>();
@@ -38,13 +37,13 @@ public interface ITestObject
 
 public abstract class TestHelper
 {
-    public static (JSValue Key, JSValue Value) Method(
+    public static KeyValuePair<JSValue, JSValue> Method(
         JSCallback callback,
         [CallerArgumentExpression(nameof(callback))] string? callbackName = null)
     {
         string name = callbackName ?? string.Empty;
         name = name.Substring(name.IndexOf('.') + 1);
-        return (ToCamelCase(name), callback);
+        return new KeyValuePair<JSValue, JSValue>(ToCamelCase(name), callback);
     }
 
     public static string ToCamelCase(string value)

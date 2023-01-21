@@ -177,7 +177,7 @@ public struct JSValue
 
     public static unsafe JSValue CreateArrayBuffer(int byteLength)
     {
-        napi_create_arraybuffer(Env, (nuint)byteLength, out void* buffer, out napi_value result).ThrowIfFailed();
+        napi_create_arraybuffer(Env, (nuint)byteLength, out void* _, out napi_value result).ThrowIfFailed();
         return result;
     }
 

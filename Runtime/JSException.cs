@@ -19,9 +19,6 @@ public class JSException : Exception
         ErrorInfo = new JSErrorInfo(message, JSStatus.GenericFailure);
     }
 
-    [DoesNotReturn]
-    public static void Fatal(string message, string location)
-        => napi_fatal_error(location, NAPI_AUTO_LENGTH, message, NAPI_AUTO_LENGTH);
 
     [DoesNotReturn]
     public static void Fatal(
@@ -52,7 +49,7 @@ public static partial class JSNativeApi
 
         if (string.IsNullOrEmpty(message))
         {
-            message= status.ToString();
+            message = status.ToString();
         }
 
         JSException.Fatal(message, memberName, sourceFilePath, sourceLineNumber);
