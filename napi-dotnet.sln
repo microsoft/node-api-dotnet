@@ -9,6 +9,23 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi.Runtime", "Runtime\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi.Generator", "Generator\NodeApi.Generator.csproj", "{BCD164BC-9F26-4E44-888E-52B18C6670FD}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Top Level Files", "Top Level Files", "{56FAAFF0-3EFF-4925-A9B6-5C9760D780DA}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		.gitignore = .gitignore
+		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
+		LICENSE = LICENSE
+		NuGet.config = NuGet.config
+		README.md = README.md
+		version.json = version.json
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub Workflows", "GitHub Workflows", "{87D98CCE-CB6A-41C6-851D-9783CE6F96D9}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\build.yml = .github\workflows\build.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,6 +47,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{87D98CCE-CB6A-41C6-851D-9783CE6F96D9} = {56FAAFF0-3EFF-4925-A9B6-5C9760D780DA}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {253A5A43-B567-4C99-A00A-15993A323FCB}

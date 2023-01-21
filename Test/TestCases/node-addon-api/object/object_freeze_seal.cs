@@ -2,7 +2,7 @@ using NodeApi;
 
 namespace NodeApiTest;
 
-public partial class TestObjectFreezeSeal
+public partial class TestObjectFreezeSeal : TestHelper, ITestObject
 {
     private static JSValue Freeze(JSCallbackArgs args)
     {
@@ -18,11 +18,9 @@ public partial class TestObjectFreezeSeal
         return true;
     }
 
-    public static JSValue Init()
+    public static JSObject Init() => new()
     {
-        JSValue exports = JSNativeApi.CreateObject();
-        exports["freeze"] = (JSCallback)Freeze;
-        exports["seal"] = (JSCallback)Seal;
-        return exports;
-    }
+        Method(Freeze),
+        Method(Seal),
+    };
 }

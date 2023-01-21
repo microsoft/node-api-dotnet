@@ -1,3 +1,5 @@
+// Definitions from Node.JS js_native_api.h and js_native_api_types.h
+
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -31,6 +33,8 @@ public static partial class JSNativeApi
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate napi_value napi_register_module_v1(napi_env env, napi_value exports);
+
+        public static readonly nuint NAPI_AUTO_LENGTH = nuint.MaxValue;
 
         //===========================================================================
         // Specialized pointer types
@@ -255,6 +259,9 @@ public static partial class JSNativeApi
         internal static partial napi_status napi_create_symbol(napi_env env, napi_value description, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+        internal static partial napi_status node_api_symbol_for(napi_env env, byte* utf8name, nuint length, out napi_value result);
+
+        [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_create_function(napi_env env, byte* utf8name, nuint length,
           napi_callback cb, nint data, out napi_value result);
 
@@ -266,6 +273,9 @@ public static partial class JSNativeApi
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_create_range_error(napi_env env, napi_value code, napi_value msg, out napi_value result);
+
+        [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+        internal static partial napi_status node_api_create_syntax_error(napi_env env, napi_value code, napi_value msg, out napi_value result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_typeof(napi_env env, napi_value value, out napi_valuetype result);
@@ -487,6 +497,10 @@ public static partial class JSNativeApi
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_throw_range_error(napi_env env,
            [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
+
+        [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+        internal static partial napi_status node_api_throw_syntax_error(napi_env env,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_is_error(napi_env env, napi_value value, out c_bool result);

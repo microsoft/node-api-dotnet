@@ -8,7 +8,7 @@ public partial class TestObject
     {
         JSValue obj = args[0];
         byte[] key = args[1].GetValueStringLatin1();
-        return obj[JSNativeApi.CreateStringLatin1(key)];
+        return obj[JSValue.CreateStringLatin1(key)];
     }
 
     private static JSValue SubscriptGetWithUtf8StyleString(JSCallbackArgs args)
@@ -37,7 +37,7 @@ public partial class TestObject
         JSValue obj = args[0];
         byte[] key = args[1].GetValueStringLatin1();
         JSValue value = args[2];
-        obj[JSNativeApi.CreateStringLatin1(key)] = value;
+        obj[JSValue.CreateStringLatin1(key)] = value;
         return JSValue.Undefined;
     }
 

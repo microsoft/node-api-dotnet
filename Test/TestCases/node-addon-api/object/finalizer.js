@@ -1,9 +1,9 @@
 'use strict';
 
 const assert = require('assert');
-const testUtil = require('./testUtil');
+const testUtil = require('../testUtil');
 
-module.exports = require('./common').runTest(test);
+module.exports = require('../common').runTest(test);
 
 function createWeakRef (binding, bindingToTest) {
   return binding.object[bindingToTest]({});

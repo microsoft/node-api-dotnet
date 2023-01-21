@@ -41,6 +41,10 @@ public class JSValueScope : IDisposable
 
     protected virtual void Dispose(bool disposing)
     {
-        IsDisposed = true;
+        if (!IsDisposed)
+        {
+            IsDisposed = true;
+            s_current = ParentScope;
+        }
     }
 }

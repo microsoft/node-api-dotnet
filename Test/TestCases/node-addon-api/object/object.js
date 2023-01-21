@@ -2,7 +2,7 @@
 
 const assert = require('assert');
 
-module.exports = require('./common').runTest(test);
+module.exports = require('../common').runTest(test);
 
 function test(binding) {
 
@@ -87,7 +87,7 @@ function test(binding) {
   {
     const testSym = Symbol('testSym');
     const obj = { one: 1, two: 2, three: 3, [testSym]: 4 };
-    const arr = binding.object.GetPropertyNames(obj);
+    const arr = binding.object.getPropertyNames(obj);
     assert.deepStrictEqual(arr, ['one', 'two', 'three']);
   }
 
