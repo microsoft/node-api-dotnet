@@ -22,11 +22,17 @@ if (isMainThread) {
   // The static counter should be reinitialized after rebinding.
   const count2 = rebinding.Counter.count();
   assert.notStrictEqual(binding.Counter, rebinding.Counter);
-  assert.strictEqual(count2, 1);
 
-  // The static counter should be reinitialized in a worker.
-  const worker = new Worker(__filename);
-  worker.on('message', (count3) => assert.strictEqual(count3, 1));
+  // AOT modules do not get reloaded when the node module is rebound, so their static data is
+  // not isolated. But .NET hosted modules do get reloaded, with isolated static data, so the
+  // following assertions only pass for that type of module.
+  if (dotnetHost) {
+    assert.strictEqual(count2, 1);
+
+    // The static counter should be reinitialized in a worker.
+    const worker = new Worker(__filename);
+    worker.on('message', (count3) => assert.strictEqual(count3, 1));
+  }
 } else {
   const count3 = binding.Counter.count();
   parentPort.postMessage(count3)
