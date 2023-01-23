@@ -40,7 +40,10 @@ public class JSPropertyDescriptorList<TDerived, TObject>
     {
         return AddProperty(
           name,
-          getter == null ? null : args => (TDerived.Unwrap(args) is TObject obj) ? getter(obj) : JSValue.Undefined,
+          getter == null ? null : args =>
+          {
+              return (TDerived.Unwrap(args) is TObject obj) ? getter(obj) : JSValue.Undefined;
+          },
           setter == null ? null : args =>
           {
               if (TDerived.Unwrap(args) is TObject obj)

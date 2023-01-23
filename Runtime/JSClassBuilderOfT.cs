@@ -11,9 +11,9 @@ public class JSClassBuilder<T>
 
     public string ClassName { get; }
 
-    public ConstructorDelegate Constructor { get; }
+    public ConstructorDelegate? Constructor { get; }
 
-    public JSClassBuilder(string className, ConstructorDelegate constructor)
+    public JSClassBuilder(string className, ConstructorDelegate? constructor = null)
     {
         ClassName = className;
         Constructor = constructor;
@@ -26,6 +26,19 @@ public class JSClassBuilder<T>
 
     public JSValue DefineClass()
     {
-        return JSNativeApi.DefineClass(ClassName, args => args.ThisArg.Wrap(Constructor(args)), Properties.ToArray());
+        if (Constructor != null)
+        {
+            return JSNativeApi.DefineClass(
+                ClassName,
+                (args) => args.ThisArg.Wrap(Constructor(args)),
+                Properties.ToArray());
+        }
+        else
+        {
+            // Static class (no constructor).
+            var obj = JSValue.CreateObject();
+            obj.DefineProperties(Properties.ToArray());
+            return obj;
+        }
     }
 }

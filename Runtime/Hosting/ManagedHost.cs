@@ -52,7 +52,7 @@ public class ManagedHost
             new JSModuleBuilder<ManagedHost>()
                 .AddMethod("require", (host) => host.LoadModule)
                 .AddMethod("loadAssembly", (host) => LoadAssembly)
-                .ExportModule(new JSValue(scope, exports), new ManagedHost());
+                .ExportModule((JSObject)new JSValue(scope, exports), new ManagedHost());
         }
         catch (Exception ex)
         {
@@ -111,14 +111,19 @@ public class ManagedHost
 
         JSValue exports = JSValue.CreateObject();
 
-        using var childScope = new JSSimpleValueScope((napi_env)args.Scope);
+        var result = (napi_value?)initializeMethod.Invoke(
+            null, new object[] { (napi_env)args.Scope, (napi_value)exports });
 
-        // TODO: Return the module initialize result? Can it be different from the exports object?
-        object? result = initializeMethod.Invoke(
-            null, new object[] { (napi_env)childScope, (napi_value)exports });
+        if (result != null && result.Value != default)
+        {
+            exports = new JSValue(args.Scope, result.Value);
+        }
 
-        exportsRef = JSNativeApi.CreateReference(exports);
-        _loadedModules.Add(assemblyFilePath, exportsRef);
+        if (exports.IsObject())
+        {
+            exportsRef = JSNativeApi.CreateReference(exports);
+            _loadedModules.Add(assemblyFilePath, exportsRef);
+        }
 
         Trace("< ManagedHost.LoadModule()");
 
