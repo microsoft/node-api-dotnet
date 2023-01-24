@@ -52,4 +52,6 @@ public class Example
     /// Export additional classes from the module by declaring public properties of type `Type`.
     /// </summary>
     public Type Another => typeof(Another);
+
+    public Type Counter => typeof(Counter);
 }

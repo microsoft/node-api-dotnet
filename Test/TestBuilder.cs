@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -32,8 +31,15 @@ internal static class TestBuilder
     {
         if (!s_msbuildInitialized)
         {
-            VisualStudioInstance msbuildInstance = MSBuildLocator.QueryVisualStudioInstances().OrderByDescending(
-              instance => instance.Version).First();
+            // Find an istalled instance of MSBuild that matches the current runtime major version
+            // and is not a preview.
+            VisualStudioInstance[] msbuildInstances =
+                MSBuildLocator.QueryVisualStudioInstances().ToArray();
+            VisualStudioInstance msbuildInstance = msbuildInstances
+                .Where((instance) => instance.Version.Major == Environment.Version.Major &&
+                    !instance.MSBuildPath.Contains("preview"))
+                .OrderByDescending(instance => instance.Version)
+                .First();
             MSBuildLocator.RegisterInstance(msbuildInstance);
             s_msbuildInitialized = true;
         }
