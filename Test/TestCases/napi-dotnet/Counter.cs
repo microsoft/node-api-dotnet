@@ -1,8 +1,9 @@
 using System;
 using System.Threading;
 
-namespace NodeApi.Examples;
+namespace NodeApi.TestCases;
 
+[JSExport]
 public class Counter
 {
     // TODO: Support exporting static classes without a constructor.

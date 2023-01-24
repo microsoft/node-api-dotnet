@@ -20,6 +20,11 @@ public partial struct JSObject : IDictionary<JSValue, JSValue>
         _value = JSValue.CreateObject();
     }
 
+    public void DefineProperties(params JSPropertyDescriptor[] descriptors)
+    {
+        _value.DefineProperties(descriptors);
+    }
+
     public JSValue this[JSValue name]
     {
         get => _value.GetProperty(name);

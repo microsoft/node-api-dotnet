@@ -12,7 +12,7 @@ public class JSModuleBuilder<T>
         return (T?)JSNativeApi.GetInstanceData();
     }
 
-    public JSValue ExportModule(JSValue exports, T obj)
+    public JSValue ExportModule(JSObject exports, T obj)
     {
         JSNativeApi.SetInstanceData(obj);
         exports.DefineProperties(Properties.ToArray());

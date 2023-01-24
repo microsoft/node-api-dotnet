@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,11 +18,24 @@ public class ModuleGenerator : ISourceGenerator
     private const string ModuleInitializeMethodName = "Initialize";
     private const string ModuleRegisterFunctionName = "napi_register_module_v1";
 
+    private enum DiagnosticId
+    {
+        MultipleModuleAttributes = 1001,
+        InvalidModuleInitializer,
+        ModuleInitializerIsNotPublic,
+        ModuleInitializerIsNotStatic,
+        ExportIsNotPublic,
+        ExportIsNotStatic,
+        UnsupportedPropertyType,
+        UnsupportedMethodParameterType,
+        UnsupportedMethodReturnType,
+    }
+
 #pragma warning disable CA1822 // Mark members as static
     public void Initialize(GeneratorInitializationContext context)
     {
 #if DEBUG
-        // Note source generators re not covered by normal debugging,
+        // Note source generators are not covered by normal debugging,
         // because the generator runs at build time, not at application run-time.
         // Un-comment the line below to enable debugging at build time.
 
@@ -32,28 +46,28 @@ public class ModuleGenerator : ISourceGenerator
 
     public void Execute(GeneratorExecutionContext context)
     {
-        ITypeSymbol? moduleType = GetModuleType(context);
-        if (moduleType != null)
-        {
-            SourceText initializerSource = GenerateModuleInitializer(context, moduleType);
-            context.AddSource($"{nameof(NodeApi)}.{ModuleInitializerClassName}", initializerSource);
+        ISymbol? moduleInitializer = GetModuleInitializer(context);
+        IEnumerable<ISymbol> exportItems = GetModuleExportItems(context);
 
-            // Also write the generated code to a file under obj/ for diagnostics.
-            // Depends on <CompilerVisibleProperty Include="BaseIntermediateOutputPath" />
-            if (context.AnalyzerConfigOptions.GlobalOptions.TryGetValue(
-              "build_property.BaseIntermediateOutputPath", out string? intermediateOutputPath))
-            {
-                string generatedSourcePath = Path.Combine(
-                  intermediateOutputPath,
-                  $"{nameof(NodeApi)}.{ModuleInitializerClassName}.cs");
-                File.WriteAllText(generatedSourcePath, initializerSource.ToString());
-            }
+        SourceText initializerSource = GenerateModuleInitializer(
+            context, moduleInitializer, exportItems);
+        context.AddSource($"{nameof(NodeApi)}.{ModuleInitializerClassName}", initializerSource);
+
+        // Also write the generated code to a file under obj/ for diagnostics.
+        // Depends on <CompilerVisibleProperty Include="BaseIntermediateOutputPath" />
+        if (context.AnalyzerConfigOptions.GlobalOptions.TryGetValue(
+            "build_property.BaseIntermediateOutputPath", out string? intermediateOutputPath))
+        {
+            string generatedSourcePath = Path.Combine(
+                intermediateOutputPath,
+                $"{nameof(NodeApi)}.{ModuleInitializerClassName}.cs");
+            File.WriteAllText(generatedSourcePath, initializerSource.ToString());
         }
     }
 
-    private static ITypeSymbol? GetModuleType(GeneratorExecutionContext context)
+    private static ISymbol? GetModuleInitializer(GeneratorExecutionContext context)
     {
-        ITypeSymbol? moduleType = null;
+        List<ISymbol> moduleInitializers = new();
 
         foreach (ITypeSymbol type in context.Compilation.Assembly.TypeNames
           .SelectMany((n) => context.Compilation.GetSymbolsWithName(n, SymbolFilter.Type))
@@ -61,42 +75,159 @@ public class ModuleGenerator : ISourceGenerator
         {
             if (type.GetAttributes().Any((a) => a.AttributeClass?.Name == "JSModuleAttribute"))
             {
-                if (moduleType != null)
+                if (type.TypeKind != TypeKind.Class)
                 {
-                    string title = "Multiple types have Node API module attributes.";
-                    var descriptor = new DiagnosticDescriptor(
-                      id: DiagnosticPrefix + "1000",
-                      title,
-                      messageFormat: title + " Only a single class can represent the module exports.",
-                      DiagnosticCategory,
-                      DiagnosticSeverity.Error,
-                      isEnabledByDefault: true);
-                    context.ReportDiagnostic(
-                      Diagnostic.Create(descriptor, type.Locations.Single()));
-                    return null;
+                    ReportError(
+                        context,
+                        DiagnosticId.InvalidModuleInitializer,
+                        type,
+                        "[JSModule] attribute must be applied to a class.");
+                }
+                else if (type.DeclaredAccessibility != Accessibility.Public)
+                {
+                    ReportError(
+                        context,
+                        DiagnosticId.ModuleInitializerIsNotPublic,
+                        type,
+                        "Module class must have public visibility.");
                 }
 
-                moduleType = type;
+
+                moduleInitializers.Add(type);
+            }
+            else if (type.TypeKind == TypeKind.Class)
+            {
+                foreach (ISymbol? member in type.GetMembers())
+                {
+                    if (member.GetAttributes().Any(
+                        (a) => a.AttributeClass?.Name == "JSModuleAttribute"))
+                    {
+                        // TODO: Check method parameter and return types.
+                        if (member is not IMethodSymbol)
+                        {
+                            ReportError(
+                                context,
+                                DiagnosticId.InvalidModuleInitializer,
+                                member,
+                                "[JSModule] attribute must be applied to a method.");
+                        }
+                        else if (!member.IsStatic)
+                        {
+                            ReportError(
+                                context,
+                                DiagnosticId.ModuleInitializerIsNotStatic,
+                                member,
+                                "Module initialize method must be static.");
+                        }
+                        else if (type.DeclaredAccessibility != Accessibility.Public)
+                        {
+                            ReportError(
+                                context,
+                                DiagnosticId.ModuleInitializerIsNotPublic,
+                                member,
+                                "Containing type of module initialize method must be public.");
+                        }
+                        else if (member.DeclaredAccessibility != Accessibility.Public)
+                        {
+                            ReportError(
+                                context,
+                                DiagnosticId.ModuleInitializerIsNotPublic,
+                                member,
+                                "Module initialize method must be public.");
+                        }
+
+                        moduleInitializers.Add(member);
+                    }
+                }
             }
         }
 
-        return moduleType;
+        if (moduleInitializers.Count > 1)
+        {
+            foreach (ISymbol initializer in moduleInitializers)
+            {
+                ReportError(
+                    context,
+                    DiagnosticId.MultipleModuleAttributes,
+                    initializer,
+                    "Multiple [JSModule] attributes found.",
+                    "Designate a single class or static method to handle module initialization.");
+            }
+
+            return null;
+        }
+
+        return moduleInitializers.SingleOrDefault();
     }
 
-    private SourceText GenerateModuleInitializer(
+    private static IEnumerable<ISymbol> GetModuleExportItems(GeneratorExecutionContext context)
+    {
+        foreach (ITypeSymbol type in context.Compilation.Assembly.TypeNames
+          .SelectMany((n) => context.Compilation.GetSymbolsWithName(n, SymbolFilter.Type))
+          .OfType<ITypeSymbol>())
+        {
+            if (type.GetAttributes().Any((a) => a.AttributeClass?.Name == "JSExportAttribute"))
+            {
+                if (type.DeclaredAccessibility != Accessibility.Public)
+                {
+                    ReportError(
+                        context,
+                        DiagnosticId.ExportIsNotPublic,
+                        type,
+                        "Exported type must be public.");
+                }
+
+                yield return type;
+            }
+            else if (type.TypeKind == TypeKind.Class)
+            {
+                foreach (ISymbol? member in type.GetMembers())
+                {
+                    if (member.GetAttributes().Any(
+                        (a) => a.AttributeClass?.Name == "JSExportAttribute"))
+                    {
+                        if (type.DeclaredAccessibility != Accessibility.Public)
+                        {
+                            ReportError(
+                                context,
+                                DiagnosticId.ExportIsNotPublic,
+                                member,
+                                "Containing type of exported member must be public.");
+                        }
+                        else if (member.DeclaredAccessibility != Accessibility.Public)
+                        {
+                            ReportError(
+                                context,
+                                DiagnosticId.ExportIsNotPublic,
+                                member,
+                                "Exported member must be public.");
+                        }
+                        else if (!(member.IsStatic))
+                        {
+                            ReportError(
+                                context,
+                                DiagnosticId.ExportIsNotStatic,
+                                member,
+                                "Exported member must be static.");
+                        }
+
+                        yield return member;
+                    }
+                }
+            }
+        }
+    }
+
+    private static SourceText GenerateModuleInitializer(
       GeneratorExecutionContext context,
-      ITypeSymbol moduleType)
+      ISymbol? moduleInitializer,
+      IEnumerable<ISymbol> exportItems)
     {
         var s = new SourceBuilder();
 
         s += "using System.Collections.Generic;";
         s += "using System.Runtime.InteropServices;";
         s += "using static NodeApi.JSNativeApi.Interop;";
-
-        if (moduleType.ContainingNamespace != null)
-        {
-            s += $"using {moduleType.ContainingNamespace};";
-        }
 
         s++;
         s += "namespace NodeApi.Generated;";
@@ -114,130 +245,128 @@ public class ModuleGenerator : ISourceGenerator
         s += "{";
         s += "JSNativeApi.Interop.Initialize();";
         s += "";
-        s += "using var scope = new JSValueScope(env);";
-        s += "var exportsValue = new JSValue(scope, exports);";
+        s += "using JSValueScope scope = new(env);";
+        s += "JSValue exportsValue = new(scope, exports);";
         s++;
 
-        ExportModuleMembers(context, s, moduleType);
+        if (moduleInitializer is IMethodSymbol moduleInitializerMethod)
+        {
+            if (exportItems.Any())
+            {
+                ReportError(
+                    context,
+                    DiagnosticId.InvalidModuleInitializer,
+                    moduleInitializerMethod,
+                    "[JSExport] attributes cannot be used with custom init method.");
+            }
+
+            string ns = GetNamespace(moduleInitializerMethod);
+            string className = moduleInitializerMethod.ContainingType.Name;
+            string methodName = moduleInitializerMethod.Name;
+            s += $"return {ns}.{className}.{methodName}((JSObject)exportsValue)";
+            s += "\t.GetCheckedHandle();";
+        }
+        else
+        {
+            ExportModule(context, s, moduleInitializer as ITypeSymbol, exportItems);
+            s++;
+            s += "return exportsValue.GetCheckedHandle();";
+        }
 
         s += "}";
         s += "catch (System.Exception ex)";
         s += "{";
         s += "System.Console.Error.WriteLine($\"Failed to export module: {ex}\");";
-        s += "}";
-
-        s++;
         s += "return exports;";
         s += "}";
-
+        s += "}";
         s += "}";
 
         return s;
     }
 
-    private void ExportModuleMembers(
+    private static void ExportModule(
       GeneratorExecutionContext context,
       SourceBuilder s,
-      ITypeSymbol moduleType)
+      ITypeSymbol? moduleType,
+      IEnumerable<ISymbol> exportItems)
     {
         // TODO: Also generate .d.ts?
 
-        s += $"new JSModuleBuilder<{moduleType.Name}>()";
-        s.IncreaseIndent();
-
-        foreach (ISymbol? member in moduleType.GetMembers()
-          .Where((m) => m.DeclaredAccessibility == Accessibility.Public && !m.IsStatic))
+        if (moduleType != null)
         {
-            if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
+            string ns = GetNamespace(moduleType);
+            s += $"exportsValue = new JSModuleBuilder<{ns}.{moduleType.Name}>()";
+            s.IncreaseIndent();
+
+            // Export non-static members of the module class.
+            foreach (ISymbol? member in moduleType.GetMembers()
+              .Where((m) => m.DeclaredAccessibility == Accessibility.Public && !m.IsStatic))
             {
-                ExportModuleMethod(context, s, method);
-            }
-            else if (member is IPropertySymbol property)
-            {
-                if (property.Type.Name == nameof(Type) && property.IsReadOnly)
+                if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
                 {
-                    ExportModuleClass(context, s, property);
+                    ExportMethod(context, s, method);
                 }
-                else
+                else if (member is IPropertySymbol property)
                 {
-                    ExportModuleProperty(context, s, property);
+                    ExportProperty(context, s, property);
                 }
             }
-        }
-
-        s += $".ExportModule(exportsValue, new {moduleType.Name}());";
-        s.DecreaseIndent();
-    }
-
-    private static void ExportModuleMethod(
-      GeneratorExecutionContext context,
-      SourceBuilder s,
-      IMethodSymbol method)
-    {
-        ValidateExportedMethod(context, method);
-        _ = s + $".AddMethod(\"{ToCamelCase(method.Name)}\", obj => obj.{method.Name})";
-    }
-
-    private static void ExportModuleProperty(
-      GeneratorExecutionContext context,
-      SourceBuilder s,
-      IPropertySymbol property)
-    {
-        ValidateExportedProperty(context, property);
-
-        s += $".AddProperty(\"{ToCamelCase(property.Name)}\",";
-        s.IncreaseIndent();
-
-        if (property.SetMethod?.DeclaredAccessibility == Accessibility.Public)
-        {
-            s += $"getter: obj => obj.{property.Name},";
-            s += $"setter: (obj, value) => obj.{property.Name} = value)";
         }
         else
         {
-            s += $"getter: obj => obj.{property.Name},";
-            s += $"setter: null)";
+            s += $"exportsValue = new JSModuleBuilder<System.Object>()";
+            s.IncreaseIndent();
         }
-        s.DecreaseIndent();
-    }
 
-    private static void ExportModuleClass(
-      GeneratorExecutionContext context,
-      SourceBuilder s,
-      IPropertySymbol property)
-    {
-        // TODO: Allow the typeof() expression to include a namespace.
-        string expectedSource = $"typeof({property.Name})";
-
-        Location location = property.GetMethod!.Locations.Single();
-        TextSpan sourceSpan = location.SourceSpan;
-        string sourceText = location.SourceTree!.ToString();
-        string getterSource = sourceText.Substring(sourceSpan.Start, sourceSpan.Length);
-        if (getterSource != expectedSource)
+        // Export static items tagged with [JSExport]
+        foreach (ISymbol exportItem in exportItems)
         {
-            ReportError(
-              context,
-              1004,
-              "Exported class has unsupported getter code.",
-              $"Getter for property {property.Name} must return {expectedSource}.",
-              property.Locations.Single());
-            return;
+            string exportName = GetExportName(exportItem);
+            if (exportItem is ITypeSymbol exportType)
+            {
+                s += $".AddProperty(\"{exportName}\",";
+                s.IncreaseIndent();
+
+                string ns = GetNamespace(exportType);
+                if (exportType.IsStatic)
+                {
+                    s += $"new JSClassBuilder<{ns}.{exportType.Name}>(\"{exportName}\")";
+                }
+                else
+                {
+                    s += $"new JSClassBuilder<{ns}.{exportType.Name}>(\"{exportName}\",";
+                    s += $"\t(args) => new {ns}.{exportType.Name}(args))";
+                }
+
+                ExportMembers(context, s, exportType);
+                s += ".DefineClass())";
+                s.DecreaseIndent();
+            }
+            else if (exportItem is IPropertySymbol exportProperty)
+            {
+                ExportProperty(context, s, exportProperty, exportName);
+            }
+            else if (exportItem is IMethodSymbol exportMethod)
+            {
+                ExportMethod(context, s, exportMethod, exportName);
+            }
         }
 
-        ITypeSymbol classType = context.Compilation.GetSymbolsWithName(property.Name, SymbolFilter.Type)
-          .Cast<ITypeSymbol>().Single();
+        if (moduleType != null)
+        {
+            string ns = GetNamespace(moduleType);
+            s += $".ExportModule((JSObject)exportsValue, new {ns}.{moduleType.Name}());";
+        }
+        else
+        {
+            s += $".ExportModule((JSObject)exportsValue, null);";
+        }
 
-        // TODO: Check that the class has a public constructor that takes a JSCallbackArgs parameter.
-
-        s += $".AddProperty(\"{property.Name}\", "
-          + $"new JSClassBuilder<{classType.Name}>(\"{classType.Name}\", args => new {classType.Name}(args))";
-        s.IncreaseIndent();
-        ExportClassMembers(context, s, classType);
-        s += $".DefineClass())";
         s.DecreaseIndent();
     }
 
-    private static void ExportClassMembers(
+    private static void ExportMembers(
       GeneratorExecutionContext context,
       SourceBuilder s,
       ITypeSymbol classType)
@@ -249,65 +378,70 @@ public class ModuleGenerator : ISourceGenerator
         {
             if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
             {
-                ExportClassMethod(context, s, method);
+                ExportMethod(context, s, method);
             }
             else if (member is IPropertySymbol property)
             {
-                ExportClassProperty(context, s, property);
+                ExportProperty(context, s, property);
             }
         }
     }
 
-    private static void ExportClassMethod(
+    private static void ExportMethod(
       GeneratorExecutionContext context,
       SourceBuilder s,
-      IMethodSymbol method)
+      IMethodSymbol method,
+      string? exportName = null)
     {
         ValidateExportedMethod(context, method);
+        exportName ??= ToCamelCase(method.Name);
+
         if (method.IsStatic)
         {
+            string ns = GetNamespace(method);
             string className = method.ContainingType.Name;
-            _ = s + $".AddMethod(\"{ToCamelCase(method.Name)}\", () => {className}.{method.Name})";
+            _ = s + $".AddMethod(\"{exportName}\", () => {ns}.{className}.{method.Name})";
         }
         else
         {
-            _ = s + $".AddMethod(\"{ToCamelCase(method.Name)}\", obj => obj.{method.Name})";
+            _ = s + $".AddMethod(\"{exportName}\", (obj) => obj.{method.Name})";
         }
     }
 
-    private static void ExportClassProperty(
+    private static void ExportProperty(
       GeneratorExecutionContext context,
       SourceBuilder s,
-      IPropertySymbol property)
+      IPropertySymbol property,
+      string? exportName = null)
     {
         ValidateExportedProperty(context, property);
+        exportName ??= ToCamelCase(property.Name);
 
-        s += $".AddProperty(\"{ToCamelCase(property.Name)}\",";
+        s += $".AddProperty(\"{exportName}\",";
         s.IncreaseIndent();
         if (property.IsStatic)
         {
+            string ns = GetNamespace(property);
             string className = property.ContainingType.Name;
+            s += $"getter: () => {ns}.{className}.{property.Name},";
             if (property.SetMethod?.DeclaredAccessibility == Accessibility.Public)
             {
-                s += $"getter: () => {className}.{property.Name},";
-                s += $"setter: value => {className}.{property.Name} = value)";
+                s += $"setter: (value) => {ns}.{className}.{property.Name} = value)";
             }
             else
             {
-                s += $"getter: () => {className}.{property.Name},";
                 s += $"setter: null)";
             }
         }
         else
         {
+            s += $"getter: (obj) => obj.{property.Name},";
             if (property.SetMethod?.DeclaredAccessibility == Accessibility.Public)
             {
-                s += $"getter: obj => obj.{property.Name},";
                 s += $"setter: (obj, value) => obj.{property.Name} = value)";
             }
             else
             {
-                s += $"getter: obj => obj.{property.Name},";
                 s += $"setter: null)";
             }
         }
@@ -327,11 +461,11 @@ public class ModuleGenerator : ISourceGenerator
         {
             ReportError(
               context,
-              1001,
+              DiagnosticId.UnsupportedMethodParameterType,
+              method,
               $"Exported method {method.Name} has unsupported parameters.",
               "Exported methods must have either no parameters or a single parameter of type " +
-                $"{nameof(NodeApi)}.JSCallbackArgs.",
-              method.Locations.Single());
+                  $"{nameof(NodeApi)}.JSCallbackArgs.");
             return;
         }
 
@@ -339,10 +473,10 @@ public class ModuleGenerator : ISourceGenerator
         {
             ReportError(
               context,
-              1002,
+              DiagnosticId.UnsupportedMethodReturnType,
+              method,
               $"Exported method {method.Name} has unsupported return type. ",
-              $"Exported methods must have return type {nameof(NodeApi)}.JSValue or void.",
-              method.Locations.Single());
+              $"Exported methods must have return type {nameof(NodeApi)}.JSValue or void.");
             return;
         }
     }
@@ -355,12 +489,36 @@ public class ModuleGenerator : ISourceGenerator
         {
             ReportError(
               context,
-              1003,
+              DiagnosticId.UnsupportedPropertyType,
+              property,
               "Exported property has unsupported type.",
-              $"Exported properties must have type {nameof(NodeApi)}.JSValue.",
-              property.Locations.Single());
+              $"Exported properties must have type {nameof(NodeApi)}.JSValue.");
             return;
         }
+    }
+
+    private static string GetExportName(ISymbol symbol)
+    {
+        AttributeData? exportAttribute = symbol.GetAttributes().SingleOrDefault(
+            (a) => a.AttributeClass?.Name == "JSExportAttribute");
+        if (exportAttribute?.ConstructorArguments.SingleOrDefault().Value is string exportName)
+        {
+            return exportName;
+        }
+
+        return symbol is ITypeSymbol ? symbol.Name : ToCamelCase(symbol.Name);
+    }
+
+    private static string GetNamespace(ISymbol symbol)
+    {
+        string ns = string.Empty;
+        for (INamespaceSymbol s = symbol.ContainingNamespace;
+            !s.IsGlobalNamespace;
+            s = s.ContainingNamespace)
+        {
+            ns = s.Name + (ns.Length > 0 ? "." + ns : string.Empty);
+        }
+        return ns;
     }
 
     private static string ToCamelCase(string name)
@@ -372,19 +530,25 @@ public class ModuleGenerator : ISourceGenerator
 
     private static void ReportError(
       GeneratorExecutionContext context,
-      int id,
+      DiagnosticId id,
+      ISymbol symbol,
       string title,
-      string description,
-      Location location) =>
-      ReportDiagnostic(context, DiagnosticSeverity.Error, id, title, description, location);
+      string? description = null) =>
+      ReportDiagnostic(
+          context,
+          DiagnosticSeverity.Error,
+          id,
+          symbol.Locations.Single(),
+          title,
+          description);
 
     private static void ReportDiagnostic(
       GeneratorExecutionContext context,
-      DiagnosticSeverity _ /*severity*/,
-      int id,
+      DiagnosticSeverity severity,
+      DiagnosticId id,
+      Location location,
       string title,
-      string description,
-      Location location)
+      string? description = null)
     {
         var descriptor = new DiagnosticDescriptor(
           id: DiagnosticPrefix + id,
@@ -392,7 +556,7 @@ public class ModuleGenerator : ISourceGenerator
           messageFormat: title +
             (!string.IsNullOrEmpty(description) ? " " + description : string.Empty),
           DiagnosticCategory,
-          DiagnosticSeverity.Error,
+          severity,
           isEnabledByDefault: true);
         context.ReportDiagnostic(
           Diagnostic.Create(descriptor, location));
