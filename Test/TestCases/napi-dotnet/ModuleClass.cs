@@ -26,15 +26,15 @@ public class ModuleClass : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public JSValue ModuleProperty
+    public string ModuleProperty
     {
         get => _value;
-        set => _value = (string)value;
+        set => _value = value;
     }
 
-    public JSValue ModuleMethod(JSCallbackArgs args)
+    public string ModuleMethod(string greeter)
     {
-        string stringValue = (string)args[0];
+        string stringValue = greeter;
         return $"Hello {stringValue}!";
     }
 }
