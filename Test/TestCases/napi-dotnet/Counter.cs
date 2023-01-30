@@ -3,6 +3,9 @@ using System.Threading;
 
 namespace NodeApi.TestCases;
 
+/// <summary>
+/// Enables testing static state.
+/// </summary>
 [JSExport]
 public static class Counter
 {

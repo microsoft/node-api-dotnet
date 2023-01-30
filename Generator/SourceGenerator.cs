@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 
 namespace NodeApi.Generator;
@@ -13,6 +15,8 @@ public abstract class SourceGenerator
 {
     private const string DiagnosticPrefix = "NAPI";
     private const string DiagnosticCategory = "NodeApi";
+
+    private static readonly Regex s_paragraphBreakRegex = new(@" *\<para */\> *");
 
     public enum DiagnosticId
     {
@@ -85,5 +89,42 @@ public abstract class SourceGenerator
             isEnabledByDefault: true);
         Context.ReportDiagnostic(
             Diagnostic.Create(descriptor, location));
+    }
+
+    protected static IEnumerable<string> WrapComment(string comment, int wrapColumn)
+    {
+        bool isFirst = true;
+        foreach (string paragraph in s_paragraphBreakRegex.Split(comment))
+        {
+            if (isFirst)
+            {
+                isFirst = false;
+            }
+            else
+            {
+                // Insert a blank line between paragraphs.
+                yield return string.Empty;
+            }
+
+            comment = paragraph;
+            while (comment.Length > wrapColumn)
+            {
+                int i = wrapColumn;
+                while (i > 0 && comment[i] != ' ')
+                {
+                    i--;
+                }
+
+                if (i == 0)
+                {
+                    i = comment.IndexOf(' ');
+                }
+
+                yield return comment.Substring(0, i).TrimEnd();
+                comment = comment.Substring(i + 1);
+            }
+
+            yield return comment.TrimEnd();
+        }
     }
 }

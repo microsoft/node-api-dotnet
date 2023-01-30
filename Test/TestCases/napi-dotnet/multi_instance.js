@@ -4,6 +4,9 @@ const { Worker, isMainThread, parentPort } = require('worker_threads');
 // Load the addon module, using either hosted or native AOT mode.
 const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
 const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
+
+/** @typedef {import('./napi-dotnet')} Binding */
+/** @type Binding */
 const binding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
 
 if (isMainThread) {
@@ -17,6 +20,7 @@ if (isMainThread) {
   delete require.cache[dotnetHost];
   delete require.cache[dotnetModule];
 
+  /** @type Binding */
   const rebinding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
 
   // The static counter should be reinitialized after rebinding.

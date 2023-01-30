@@ -35,6 +35,7 @@ public class HostedClrTests
 
             if (moduleFilePath != null)
             {
+                CopyTypeDefinitions(moduleName, moduleFilePath);
                 BuildTestModuleTypeScript(moduleName);
             }
 
