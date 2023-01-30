@@ -42,10 +42,6 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release
 
-    - name: Check formatting
-      run: dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
-      if: ${{ always() }} # Run this step even when there are build failures
-
     - name: pack
       run: dotnet pack --no-build --configuration Release
 
@@ -74,6 +70,10 @@ jobs:
         path: test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}/*.trx
         reporter: dotnet-trx
       if: ${{ always() }} # Run this step even when there are test failures
+
+    - name: Check formatting
+      run: dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
+      if: ${{ always() }} # Run this step even when there are build failures
 
     # TODO: Publish packages
     # - name: Publish packages
