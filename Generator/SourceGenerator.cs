@@ -51,13 +51,13 @@ public abstract class SourceGenerator
         return sb.ToString();
     }
 
-// An analyzer bug results in incorrect reports of CA1822 against this method. (It can't be static.)
+    // An analyzer bug results in incorrect reports of CA1822 against this method. (It can't be static.)
 #pragma warning disable CA1822 // Mark members as static
     public void ReportError(
-      DiagnosticId id,
-      ISymbol? symbol,
-      string title,
-      string? description = null)
+        DiagnosticId id,
+        ISymbol? symbol,
+        string title,
+        string? description = null)
     {
         ReportDiagnostic(
             DiagnosticSeverity.Error,
@@ -69,11 +69,11 @@ public abstract class SourceGenerator
 #pragma warning restore CA1822 // Mark members as static
 
     public void ReportDiagnostic(
-      DiagnosticSeverity severity,
-      DiagnosticId id,
-      Location? location,
-      string title,
-      string? description = null)
+        DiagnosticSeverity severity,
+        DiagnosticId id,
+        Location? location,
+        string title,
+        string? description = null)
     {
         var descriptor = new DiagnosticDescriptor(
             id: DiagnosticPrefix + id,
