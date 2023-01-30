@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -10,10 +10,10 @@ namespace NodeApi.Generator;
 /// </summary>
 internal class AdapterGenerator : SourceGenerator
 {
-    private const string adapterPrefix = "__";
-    private const string adapterGetPrefix = adapterPrefix + "get_";
-    private const string adapterSetPrefix = adapterPrefix + "set_";
-    private const string adapterConstructorPrefix = adapterPrefix + "new_";
+    private const string AdapterPrefix = "__";
+    private const string AdapterGetPrefix = AdapterPrefix + "get_";
+    private const string AdapterSetPrefix = AdapterPrefix + "set_";
+    private const string AdapterConstructorPrefix = AdapterPrefix + "new_";
 
     private readonly List<KeyValuePair<string, ISymbol>> _adaptedSymbols = new();
 
@@ -30,7 +30,7 @@ internal class AdapterGenerator : SourceGenerator
 
     internal string? GetConstructorAdapterName(ITypeSymbol type)
     {
-        var constructors = type.GetMembers().OfType<IMethodSymbol>()
+        IMethodSymbol[] constructors = type.GetMembers().OfType<IMethodSymbol>()
             .Where((m) => m.MethodKind == MethodKind.Constructor)
             .ToArray();
         if (!constructors.Any() || constructors.Any((c) => c.Parameters.Length == 0 ||
@@ -40,7 +40,7 @@ internal class AdapterGenerator : SourceGenerator
         }
 
         // TODO: Look for [JSExport] attribute among multiple constructors?
-        if (constructors.Count() > 1)
+        if (constructors.Length > 1)
         {
             ReportError(
                 DiagnosticId.UnsupportedOverloads,
@@ -48,10 +48,10 @@ internal class AdapterGenerator : SourceGenerator
                 "Exported class must cannot have an overloaded constructor.");
         }
 
-        var constructor = constructors.Single();
+        IMethodSymbol constructor = constructors.Single();
         string ns = GetNamespace(constructor);
         string className = type.Name;
-        string adapterName = $"{adapterConstructorPrefix}{ns.Replace('.', '_')}_{className}";
+        string adapterName = $"{AdapterConstructorPrefix}{ns.Replace('.', '_')}_{className}";
         _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(adapterName, constructor));
         return adapterName;
     }
@@ -81,7 +81,7 @@ internal class AdapterGenerator : SourceGenerator
 
         string ns = GetNamespace(method);
         string className = method.ContainingType.Name;
-        string adapterName = $"{adapterPrefix}{ns.Replace('.', '_')}_{className}_{method.Name}";
+        string adapterName = $"{AdapterPrefix}{ns.Replace('.', '_')}_{className}_{method.Name}";
         _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(adapterName, method));
         return adapterName;
     }
@@ -100,14 +100,14 @@ internal class AdapterGenerator : SourceGenerator
         string? getAdapterName = null;
         if (property?.GetMethod?.DeclaredAccessibility == Accessibility.Public)
         {
-            getAdapterName = $"{adapterGetPrefix}{ns.Replace('.', '_')}_{className}_{property.Name}";
+            getAdapterName = $"{AdapterGetPrefix}{ns.Replace('.', '_')}_{className}_{property.Name}";
             _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(getAdapterName, property));
         }
 
         string? setAdapterName = null;
         if (property?.SetMethod?.DeclaredAccessibility == Accessibility.Public)
         {
-            setAdapterName = $"{adapterSetPrefix}{ns.Replace('.', '_')}_{className}_{property.Name}";
+            setAdapterName = $"{AdapterSetPrefix}{ns.Replace('.', '_')}_{className}_{property.Name}";
             _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(setAdapterName, property));
         }
 
@@ -126,22 +126,22 @@ internal class AdapterGenerator : SourceGenerator
             {
                 if (method.MethodKind == MethodKind.Constructor)
                 {
-                    GenerateConstructorAdapter(s, adapterName, method);
+                    GenerateConstructorAdapter(ref s, adapterName, method);
                 }
                 else
                 {
-                    GenerateMethodAdapter(s, adapterName, method);
+                    GenerateMethodAdapter(ref s, adapterName, method);
                 }
             }
             else
             {
-                GeneratePropertyAdapter(s, adapterName, (IPropertySymbol)symbol);
+                GeneratePropertyAdapter(ref s, adapterName, (IPropertySymbol)symbol);
             }
         }
     }
 
-    private void GenerateConstructorAdapter(
-        SourceBuilder s,
+    private static void GenerateConstructorAdapter(
+        ref SourceBuilder s,
         string adapterName,
         IMethodSymbol constructor)
     {
@@ -151,10 +151,10 @@ internal class AdapterGenerator : SourceGenerator
         s += $"private static {ns}.{className} {adapterName}(JSCallbackArgs __args)";
         s += "{";
 
-        var parameters = constructor.Parameters;
-        for (int i = 0; i < parameters.Length; i++)
+        IReadOnlyList<IParameterSymbol> parameters = constructor.Parameters;
+        for (int i = 0; i < parameters.Count; i++)
         {
-            AdaptArgument(s, parameters[i].Type, parameters[i].Name, i);
+            AdaptArgument(ref s, parameters[i].Type, parameters[i].Name, i);
         }
 
         string argumentList = string.Join(", ", parameters.Select((p) => p.Name));
@@ -163,8 +163,8 @@ internal class AdapterGenerator : SourceGenerator
         s += "}";
     }
 
-    private void GenerateMethodAdapter(
-        SourceBuilder s,
+    private static void GenerateMethodAdapter(
+        ref SourceBuilder s,
         string adapterName,
         IMethodSymbol method)
     {
@@ -173,13 +173,13 @@ internal class AdapterGenerator : SourceGenerator
 
         if (!method.IsStatic)
         {
-            AdaptThisArg(s, method);
+            AdaptThisArg(ref s, method);
         }
 
-        var parameters = method.Parameters;
-        for (int i = 0; i < parameters.Length; i++)
+        IReadOnlyList<IParameterSymbol> parameters = method.Parameters;
+        for (int i = 0; i < parameters.Count; i++)
         {
-            AdaptArgument(s, parameters[i].Type, parameters[i].Name, i);
+            AdaptArgument(ref s, parameters[i].Type, parameters[i].Name, i);
         }
 
         string argumentList = string.Join(", ", parameters.Select((p) => p.Name));
@@ -187,7 +187,7 @@ internal class AdapterGenerator : SourceGenerator
 
         string ns = GetNamespace(method);
         string className = method.ContainingType.Name;
-        
+
         if (method.IsStatic)
         {
             s += $"{returnAssignment}{ns}.{className}.{method.Name}({argumentList});";
@@ -203,21 +203,21 @@ internal class AdapterGenerator : SourceGenerator
         }
         else
         {
-            AdaptReturnValue(s, method.ReturnType);
+            AdaptReturnValue(ref s, method.ReturnType);
         }
 
         s += "}";
     }
 
-    private void GeneratePropertyAdapter(
-        SourceBuilder s,
+    private static void GeneratePropertyAdapter(
+        ref SourceBuilder s,
         string adapterName,
         IPropertySymbol property)
     {
         string ns = GetNamespace(property);
         string className = property.ContainingType.Name;
 
-        if (adapterName.StartsWith(adapterGetPrefix))
+        if (adapterName.StartsWith(AdapterGetPrefix))
         {
             s += $"private static JSValue {adapterName}(JSCallbackArgs __args)";
             s += "{";
@@ -228,11 +228,11 @@ internal class AdapterGenerator : SourceGenerator
             }
             else
             {
-                AdaptThisArg(s, property);
+                AdaptThisArg(ref s, property);
                 s += $"var __result = __obj.{property.Name};";
             }
 
-            AdaptReturnValue(s, property.Type);
+            AdaptReturnValue(ref s, property.Type);
             s += "}";
         }
         else
@@ -242,13 +242,13 @@ internal class AdapterGenerator : SourceGenerator
 
             if (property.IsStatic)
             {
-                AdaptArgument(s, property.Type, "__value", 0);
+                AdaptArgument(ref s, property.Type, "__value", 0);
                 s += $"{ns}.{className}.{property.Name} = __value;";
             }
             else
             {
-                AdaptThisArg(s, property);
-                AdaptArgument(s, property.Type, "__value", 0);
+                AdaptThisArg(ref s, property);
+                AdaptArgument(ref s, property.Type, "__value", 0);
                 s += $"__obj.{property.Name} = __value;";
             }
 
@@ -257,7 +257,7 @@ internal class AdapterGenerator : SourceGenerator
         }
     }
 
-    private void AdaptThisArg(SourceBuilder s, ISymbol symbol)
+    private static void AdaptThisArg(ref SourceBuilder s, ISymbol symbol)
     {
 
         string ns = GetNamespace(symbol);
@@ -282,8 +282,8 @@ internal class AdapterGenerator : SourceGenerator
         }
     }
 
-    private void AdaptArgument(
-        SourceBuilder s,
+    private static void AdaptArgument(
+        ref SourceBuilder s,
         ITypeSymbol parameterType,
         string parameterName,
         int index)
@@ -291,7 +291,7 @@ internal class AdapterGenerator : SourceGenerator
         s += $"var {parameterName} = ({parameterType})__args[{index}];";
     }
 
-    private void AdaptReturnValue(SourceBuilder s, ITypeSymbol returnType)
+    private static void AdaptReturnValue(ref SourceBuilder s, ITypeSymbol _/*returnType*/)
     {
         s += $"return (JSValue)__result;";
     }

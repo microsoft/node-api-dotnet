@@ -277,7 +277,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         else
         {
-            ExportModule(s, moduleInitializer as ITypeSymbol, exportItems, adapterGenerator);
+            ExportModule(ref s, moduleInitializer as ITypeSymbol, exportItems, adapterGenerator);
             s++;
             s += "return exportsValue.GetCheckedHandle();";
         }
@@ -297,8 +297,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         return s;
     }
 
-    private void ExportModule(
-      SourceBuilder s,
+    private static void ExportModule(
+      ref SourceBuilder s,
       ITypeSymbol? moduleType,
       IEnumerable<ISymbol> exportItems,
       AdapterGenerator adapterGenerator)
@@ -317,11 +317,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
                 {
-                    ExportMethod(s, method, adapterGenerator);
+                    ExportMethod(ref s, method, adapterGenerator);
                 }
                 else if (member is IPropertySymbol property)
                 {
-                    ExportProperty(s, property, adapterGenerator);
+                    ExportProperty(ref s, property, adapterGenerator);
                 }
             }
         }
@@ -349,7 +349,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 {
                     s += $"new JSClassBuilder<{ns}.{exportType.Name}>(\"{exportName}\",";
 
-                    var constructorAdapterName =
+                    string? constructorAdapterName =
                         adapterGenerator.GetConstructorAdapterName(exportType);
                     if (constructorAdapterName != null)
                     {
@@ -365,17 +365,17 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     }
                 }
 
-                ExportMembers(s, exportType, adapterGenerator);
+                ExportMembers(ref s, exportType, adapterGenerator);
                 s += ".DefineClass())";
                 s.DecreaseIndent();
             }
             else if (exportItem is IPropertySymbol exportProperty)
             {
-                ExportProperty(s, exportProperty, adapterGenerator, exportName);
+                ExportProperty(ref s, exportProperty, adapterGenerator, exportName);
             }
             else if (exportItem is IMethodSymbol exportMethod)
             {
-                ExportMethod(s, exportMethod, adapterGenerator, exportName);
+                ExportMethod(ref s, exportMethod, adapterGenerator, exportName);
             }
         }
 
@@ -392,8 +392,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s.DecreaseIndent();
     }
 
-    private void ExportMembers(
-      SourceBuilder s,
+    private static void ExportMembers(
+      ref SourceBuilder s,
       ITypeSymbol classType,
       AdapterGenerator adapterGenerator)
     {
@@ -404,17 +404,17 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         {
             if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
             {
-                ExportMethod(s, method, adapterGenerator);
+                ExportMethod(ref s, method, adapterGenerator);
             }
             else if (member is IPropertySymbol property)
             {
-                ExportProperty(s, property, adapterGenerator);
+                ExportProperty(ref s, property, adapterGenerator);
             }
         }
     }
 
-    private void ExportMethod(
-      SourceBuilder s,
+    private static void ExportMethod(
+      ref SourceBuilder s,
       IMethodSymbol method,
       AdapterGenerator adapterGenerator,
       string? exportName = null)
@@ -438,8 +438,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
     }
 
-    private void ExportProperty(
-      SourceBuilder s,
+    private static void ExportProperty(
+      ref SourceBuilder s,
       IPropertySymbol property,
       AdapterGenerator adapterGenerator,
       string? exportName = null)

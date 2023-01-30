@@ -10,8 +10,8 @@ public class JSClassBuilder<T>
 {
     public string ClassName { get; }
 
-    private Func<T>? _constructor;
-    private Func<JSCallbackArgs, T>? _constructorWithArgs;
+    private readonly Func<T>? _constructor;
+    private readonly Func<JSCallbackArgs, T>? _constructorWithArgs;
 
     public JSClassBuilder(string className, Func<T>? constructor = null)
     {

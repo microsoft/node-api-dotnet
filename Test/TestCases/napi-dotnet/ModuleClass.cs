@@ -12,8 +12,6 @@ namespace NodeApi.TestCases;
 [JSModule]
 public class ModuleClass : IDisposable
 {
-    private string _value = "test";
-
     /// <summary>
     /// The module class must have a public constructor that takes no parameters.
     /// </summary>
@@ -26,11 +24,7 @@ public class ModuleClass : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public string ModuleProperty
-    {
-        get => _value;
-        set => _value = value;
-    }
+    public string ModuleProperty { get; set; } = "test";
 
     public string ModuleMethod(string greeter)
     {
