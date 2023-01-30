@@ -154,6 +154,29 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         {
             if (type.GetAttributes().Any((a) => a.AttributeClass?.Name == "JSExportAttribute"))
             {
+                if (type.TypeKind == TypeKind.Delegate)
+                {
+                    ReportError(
+                        DiagnosticId.UnsupportedTypeKind,
+                        type,
+                        "Exporting delegates is not currently supported.");
+                }
+                else if (type.TypeKind == TypeKind.Interface)
+                {
+                    ReportError(
+                        DiagnosticId.UnsupportedTypeKind,
+                        type,
+                        "Exporting interfaces is not currently supported.");
+                }
+                else if (type.TypeKind != TypeKind.Class)
+                {
+                    ReportError(
+                        DiagnosticId.UnsupportedTypeKind,
+                        type,
+                        "Exporting value types is not currently supported.");
+                }
+
+
                 if (type.DeclaredAccessibility != Accessibility.Public)
                 {
                     ReportError(
@@ -196,27 +219,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         yield return member;
                     }
                 }
-            }
-            else if (type.TypeKind == TypeKind.Delegate)
-            {
-                ReportError(
-                    DiagnosticId.UnsupportedTypeKind,
-                    type,
-                    "Exporting delegates is not currently supported.");
-            }
-            else if (type.TypeKind == TypeKind.Interface)
-            {
-                ReportError(
-                    DiagnosticId.UnsupportedTypeKind,
-                    type,
-                    "Exporting interfaces is not currently supported.");
-            }
-            else
-            {
-                ReportError(
-                    DiagnosticId.UnsupportedTypeKind,
-                    type,
-                    "Exporting value types is not currently supported.");
             }
         }
     }
