@@ -17,17 +17,22 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private const string ModuleInitializeMethodName = "Initialize";
     private const string ModuleRegisterFunctionName = "napi_register_module_v1";
 
-    void ISourceGenerator.Initialize(GeneratorInitializationContext context) { }
-
-    public void Execute(GeneratorExecutionContext context)
+#pragma warning disable CA1822 // Mark members as static
+    public void Initialize(GeneratorInitializationContext context)
     {
-        Context = context;
 #if DEBUG
         // Note source generators are not covered by normal debugging,
         // because the generator runs at build time, not at application run-time.
         // Un-comment the line below to enable debugging at build time.
+
         ////System.Diagnostics.Debugger.Launch();
 #endif
+    }
+#pragma warning restore CA1822 // Mark members as static
+
+    public void Execute(GeneratorExecutionContext context)
+    {
+        Context = context;
 
         try
         {

@@ -55,13 +55,15 @@ public abstract class SourceGenerator
       DiagnosticId id,
       ISymbol? symbol,
       string title,
-      string? description = null) =>
-      ReportDiagnostic(
-          DiagnosticSeverity.Error,
-          id,
-          symbol?.Locations.Single(),
-          title,
-          description);
+      string? description = null)
+    {
+        ReportDiagnostic(
+            DiagnosticSeverity.Error,
+            id,
+            symbol?.Locations.Single(),
+            title,
+            description);
+    }
 
     public void ReportDiagnostic(
       DiagnosticSeverity severity,
