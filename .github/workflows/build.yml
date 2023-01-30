@@ -72,7 +72,9 @@ jobs:
       if: ${{ always() }} # Run this step even when there are test failures
 
     - name: Check formatting
-      run: dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
+      run: |
+        dotnet tool install -g dotnet-format --version "7.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/index.json
+        dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
       if: ${{ always() }} # Run this step even when there are build failures
 
     # TODO: Publish packages
