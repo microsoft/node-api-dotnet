@@ -6,14 +6,13 @@ using Microsoft.CodeAnalysis;
 namespace NodeApi.Generator;
 
 /// <summary>
-/// Generates C# <-> JavaScript adapter code for C# members exported to JavaScript.
+/// Generates adapter methods for C# members exported to JavaScript.
 /// </summary>
 internal class AdapterGenerator : SourceGenerator
 {
-    private const string AdapterPrefix = "__";
-    private const string AdapterGetPrefix = AdapterPrefix + "get_";
-    private const string AdapterSetPrefix = AdapterPrefix + "set_";
-    private const string AdapterConstructorPrefix = AdapterPrefix + "new_";
+    private const string AdapterGetPrefix = "get_";
+    private const string AdapterSetPrefix = "set_";
+    private const string AdapterConstructorPrefix = "new_";
 
     private readonly List<KeyValuePair<string, ISymbol>> _adaptedSymbols = new();
 
@@ -81,7 +80,7 @@ internal class AdapterGenerator : SourceGenerator
 
         string ns = GetNamespace(method);
         string className = method.ContainingType.Name;
-        string adapterName = $"{AdapterPrefix}{ns.Replace('.', '_')}_{className}_{method.Name}";
+        string adapterName = $"{ns.Replace('.', '_')}_{className}_{method.Name}";
         _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(adapterName, method));
         return adapterName;
     }
