@@ -4,17 +4,11 @@ using System.Threading;
 namespace NodeApi.TestCases;
 
 [JSExport]
-public class Counter
+public static class Counter
 {
-    // TODO: Support exporting static classes without a constructor.
-    public Counter(JSCallbackArgs _)
-    {
-        Console.WriteLine("Counter()");
-    }
-
     private static uint s_count;
 
-    public static JSValue Count(JSCallbackArgs _)
+    public static uint Count()
     {
         uint result = Interlocked.Increment(ref s_count);
 

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 namespace NodeApi;
@@ -7,16 +8,21 @@ public class JSClassBuilder<T>
   , IJSObjectUnwrap<T>
   where T : class
 {
-    public delegate T ConstructorDelegate(JSCallbackArgs args);
-
     public string ClassName { get; }
 
-    public ConstructorDelegate? Constructor { get; }
+    private readonly Func<T>? _constructor;
+    private readonly Func<JSCallbackArgs, T>? _constructorWithArgs;
 
-    public JSClassBuilder(string className, ConstructorDelegate? constructor = null)
+    public JSClassBuilder(string className, Func<T>? constructor = null)
     {
         ClassName = className;
-        Constructor = constructor;
+        _constructor = constructor;
+    }
+
+    public JSClassBuilder(string className, Func<JSCallbackArgs, T> constructor)
+    {
+        ClassName = className;
+        _constructorWithArgs = constructor;
     }
 
     static T? IJSObjectUnwrap<T>.Unwrap(JSCallbackArgs args)
@@ -26,11 +32,18 @@ public class JSClassBuilder<T>
 
     public JSValue DefineClass()
     {
-        if (Constructor != null)
+        if (_constructor != null)
         {
             return JSNativeApi.DefineClass(
                 ClassName,
-                (args) => args.ThisArg.Wrap(Constructor(args)),
+                (args) => args.ThisArg.Wrap(_constructor()),
+                Properties.ToArray());
+        }
+        else if (_constructorWithArgs != null)
+        {
+            return JSNativeApi.DefineClass(
+                ClassName,
+                (args) => args.ThisArg.Wrap(_constructorWithArgs(args)),
                 Properties.ToArray());
         }
         else

@@ -7,12 +7,12 @@ namespace NodeApi.TestCases;
 [JSExport]
 public class Another
 {
-    public Another(JSCallbackArgs _)
+    public Another()
     {
-        Console.WriteLine("Another()");
+        Console.WriteLine("Another({init})");
     }
 
-    public static JSValue StaticValue
+    public static string StaticValue
     {
         get
         {
@@ -21,7 +21,7 @@ public class Another
         }
     }
 
-    public JSValue InstanceValue
+    public string InstanceValue
     {
         get
         {
@@ -30,15 +30,15 @@ public class Another
         }
     }
 
-    public static JSValue StaticMethod(JSCallbackArgs _)
+    public static bool StaticMethod(bool arg1, int arg2)
     {
-        Console.WriteLine("Another.StaticMethod()");
+        Console.WriteLine($"Another.StaticMethod({arg1}, {arg2})");
         return true;
     }
 
-    public JSValue InstanceMethod(JSCallbackArgs _)
+    public bool InstanceMethod(string arg)
     {
-        Console.WriteLine("Another.InstanceMethod()");
+        Console.WriteLine($"Another.InstanceMethod({arg})");
         return false;
     }
 }
