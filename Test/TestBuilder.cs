@@ -110,6 +110,7 @@ internal static class TestBuilder
             foreach (string jsFile in Directory.GetFiles(dir, "*.js")
               .Concat(Directory.GetFiles(dir, "*.ts")))
             {
+                if (jsFile.EndsWith(".d.ts")) continue;
                 string testCaseName = Path.GetFileNameWithoutExtension(jsFile);
                 yield return new[] { moduleName + "/" + testCaseName };
             }
@@ -193,6 +194,20 @@ internal static class TestBuilder
 
         string returnValue = project.GetPropertyValue(returnProperty);
         return returnValue;
+    }
+
+    public static void CopyTypeDefinitions(string moduleName, string moduleFilePath)
+    {
+        string sourceFilePath = Path.ChangeExtension(moduleFilePath, ".d.ts");
+        string destFilePath = Path.Join(TestCasesDirectory, moduleName, moduleName + ".d.ts");
+        try
+        {
+            File.Copy(sourceFilePath, destFilePath, true);
+        }
+        catch (FileNotFoundException)
+        {
+            File.Delete(destFilePath);
+        }
     }
 
     public static void RunNodeTestCase(

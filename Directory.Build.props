@@ -16,6 +16,7 @@
 
 	<ItemGroup>
 		<CompilerVisibleProperty Include="BaseIntermediateOutputPath" /><!-- Used by NodeApi source generator. -->
+		<CompilerVisibleProperty Include="TargetPath" /><!-- Used by NodeApi TS source generator. -->
 	</ItemGroup>
 
 	<ItemGroup>

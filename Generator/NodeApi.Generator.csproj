@@ -4,6 +4,7 @@
     <RootNamespace>NodeApi.Generator</RootNamespace>
     <AssemblyName>NodeApi.Generator</AssemblyName>
     <IsPackable>true</IsPackable>
+    <NoWarn>$(NoWarn);SYSLIB1045</NoWarn><!-- Use GeneratedRegexAttribute -->
   </PropertyGroup>
 
   <ItemGroup>

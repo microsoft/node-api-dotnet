@@ -53,6 +53,20 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     $"{nameof(NodeApi)}.{ModuleInitializerClassName}.cs");
                 File.WriteAllText(generatedSourcePath, initializerSource.ToString());
             }
+
+            // No type definitions are generated when using a custom init function.
+            if (moduleInitializer is not IMethodSymbol)
+            {
+                SourceText typeDefinitions = TypeDefinitionsGenerator.GenerateTypeDefinitions(
+                    exportItems);
+                if (context.AnalyzerConfigOptions.GlobalOptions.TryGetValue(
+                    "build_property.TargetPath", out string? targetPath))
+                {
+                    string typeDefinitionsPath = Path.ChangeExtension(targetPath, ".d.ts");
+                    File.WriteAllText(typeDefinitionsPath, typeDefinitions.ToString());
+                }
+            }
+
         }
         catch (Exception ex)
         {
@@ -552,5 +566,4 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         return symbol is ITypeSymbol ? symbol.Name : ToCamelCase(symbol.Name);
     }
-
 }
