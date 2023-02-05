@@ -187,14 +187,13 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         type,
                         "Exporting interfaces is not currently supported.");
                 }
-                else if (type.TypeKind != TypeKind.Class)
+                else if (type.TypeKind != TypeKind.Class && type.TypeKind != TypeKind.Struct)
                 {
                     ReportError(
                         DiagnosticId.UnsupportedTypeKind,
                         type,
-                        "Exporting value types is not currently supported.");
+                        $"Exporting {type.TypeKind} types is not supported.");
                 }
-
 
                 if (type.DeclaredAccessibility != Accessibility.Public)
                 {
@@ -354,38 +353,52 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         foreach (ISymbol exportItem in exportItems)
         {
             string exportName = GetExportName(exportItem);
-            if (exportItem is ITypeSymbol exportType && exportType.TypeKind == TypeKind.Class)
+            if (exportItem is ITypeSymbol exportClass &&
+                exportClass.TypeKind == TypeKind.Class)
             {
                 s += $".AddProperty(\"{exportName}\",";
                 s.IncreaseIndent();
 
-                string ns = GetNamespace(exportType);
-                if (exportType.IsStatic)
+                string ns = GetNamespace(exportClass);
+                if (exportClass.IsStatic)
                 {
                     s += $"new JSClassBuilder<object>(\"{exportName}\")";
                 }
                 else
                 {
-                    s += $"new JSClassBuilder<{ns}.{exportType.Name}>(\"{exportName}\",";
+                    s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(\"{exportName}\",";
 
                     string? constructorAdapterName =
-                        adapterGenerator.GetConstructorAdapterName(exportType);
+                        adapterGenerator.GetConstructorAdapterName(exportClass);
                     if (constructorAdapterName != null)
                     {
                         s += $"\t{constructorAdapterName})";
                     }
-                    else if (AdapterGenerator.HasNoArgsConstructor(exportType))
+                    else if (AdapterGenerator.HasNoArgsConstructor(exportClass))
                     {
-                        s += $"\t() => new {ns}.{exportType.Name}())";
+                        s += $"\t() => new {ns}.{exportClass.Name}())";
                     }
                     else
                     {
-                        s += $"\t(args) => new {ns}.{exportType.Name}(args))";
+                        s += $"\t(args) => new {ns}.{exportClass.Name}(args))";
                     }
                 }
 
-                ExportMembers(ref s, exportType, adapterGenerator);
+                ExportMembers(ref s, exportClass, adapterGenerator);
                 s += ".DefineClass())";
+                s.DecreaseIndent();
+            }
+            else if (exportItem is ITypeSymbol exportStruct &&
+                exportStruct.TypeKind == TypeKind.Struct)
+            {
+                s += $".AddProperty(\"{exportName}\",";
+                s.IncreaseIndent();
+
+                string ns = GetNamespace(exportStruct);
+                s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(\"{exportName}\")";
+
+                ExportMembers(ref s, exportStruct, adapterGenerator);
+                s += ".DefineStruct())";
                 s.DecreaseIndent();
             }
             else if (exportItem is IPropertySymbol exportProperty)
@@ -467,6 +480,14 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         (string? getterAdapterName, string? setterAdapterName) =
             adapterGenerator.GetPropertyAdapterNames(property);
+
+        if (property.ContainingType.TypeKind == TypeKind.Struct)
+        {
+            // Struct properties are not backed by getter/setter methods.
+            // The entire struct is always passed by value.
+            s += $".AddProperty(\"{exportName}\"{(property.IsStatic ? ", isStatic: true" : "")})";
+            return;
+        }
 
         s += $".AddProperty(\"{exportName}\",";
         s.IncreaseIndent();
@@ -557,13 +578,18 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
     public static string GetExportName(ISymbol symbol)
     {
-        AttributeData? exportAttribute = symbol.GetAttributes().SingleOrDefault(
-            (a) => a.AttributeClass?.Name == "JSExportAttribute");
-        if (exportAttribute?.ConstructorArguments.SingleOrDefault().Value is string exportName)
+        if (GetJSExportAttribute(symbol)?.ConstructorArguments.SingleOrDefault().Value
+            is string exportName)
         {
             return exportName;
         }
 
         return symbol is ITypeSymbol ? symbol.Name : ToCamelCase(symbol.Name);
+    }
+
+    public static AttributeData? GetJSExportAttribute(ISymbol symbol)
+    {
+        return symbol.GetAttributes().SingleOrDefault(
+            (a) => a.AttributeClass?.Name == "JSExportAttribute");
     }
 }

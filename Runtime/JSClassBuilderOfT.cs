@@ -34,17 +34,45 @@ public class JSClassBuilder<T>
     {
         if (_constructor != null)
         {
-            return JSNativeApi.DefineClass(
+            return ObjectMap.RegisterClass<T>(JSNativeApi.DefineClass(
                 ClassName,
-                (args) => args.ThisArg.Wrap(_constructor()),
-                Properties.ToArray());
+                (args) =>
+                {
+                    T instance;
+                    if (args.Length == 1 && args[0].IsExternal())
+                    {
+                        // Constructing a JS instance to wrap a pre-existing C# instance.
+                        instance = (T)args[0].GetValueExternal();
+                    }
+                    else
+                    {
+                        instance = _constructor();
+                    }
+
+                    return ObjectMap.InitializeObjectWrapper(args.ThisArg, instance);
+                },
+                Properties.ToArray()));
         }
         else if (_constructorWithArgs != null)
         {
-            return JSNativeApi.DefineClass(
+            return ObjectMap.RegisterClass<T>(JSNativeApi.DefineClass(
                 ClassName,
-                (args) => args.ThisArg.Wrap(_constructorWithArgs(args)),
-                Properties.ToArray());
+                (args) =>
+                {
+                    T instance;
+                    if (args.Length == 1 && args[0].IsExternal())
+                    {
+                        // Constructing a JS instance to wrap a pre-existing C# instance.
+                        instance = (T)args[0].GetValueExternal();
+                    }
+                    else
+                    {
+                        instance = _constructorWithArgs(args);
+                    }
+
+                    return ObjectMap.InitializeObjectWrapper(args.ThisArg, instance);
+                },
+                Properties.ToArray()));
         }
         else
         {

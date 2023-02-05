@@ -114,6 +114,13 @@ public static partial class JSNativeApi
     public static unsafe bool IsNull(this JSValue value)
         => value.TypeOf() == JSValueType.Null;
 
+    public static unsafe bool IsNullOrUndefined(this JSValue value) => value.TypeOf() switch
+    {
+        JSValueType.Null => true,
+        JSValueType.Undefined => true,
+        _ => false,
+    };
+
     public static unsafe bool IsBoolean(this JSValue value)
         => value.TypeOf() == JSValueType.Boolean;
 
@@ -382,7 +389,7 @@ public static partial class JSNativeApi
     }
 
     public static JSValue CallMethod(this JSValue thisValue, JSValue methodName)
-    => thisValue.GetProperty(methodName).Call(thisValue);
+        => thisValue.GetProperty(methodName).Call(thisValue);
 
     public static JSValue CallMethod(this JSValue thisValue, JSValue methodName, JSValue arg0)
         => thisValue.GetProperty(methodName).Call(thisValue, arg0);
@@ -446,11 +453,17 @@ public static partial class JSNativeApi
         return DefineClass(Encoding.UTF8.GetBytes(name), callback, descriptors);
     }
 
-    public static unsafe JSValue Wrap(this JSValue thisValue, object value)
+    public static JSValue CreateStruct<T>() where T : struct
+        => ObjectMap.CreateStructWrapper<T>();
+
+    public static JSValue Wrap<T>(T obj) where T : class
+        => ObjectMap.GetOrCreateObjectWrapper(obj);
+
+    public static unsafe JSValue Wrap(this JSValue wrapper, object value)
     {
         GCHandle valueHandle = GCHandle.Alloc(value);
-        napi_wrap(Env, (napi_value)thisValue, (nint)valueHandle, new napi_finalize(&FinalizeGCHandle), nint.Zero, null).ThrowIfFailed();
-        return thisValue;
+        napi_wrap(Env, (napi_value)wrapper, (nint)valueHandle, new napi_finalize(&FinalizeGCHandle), nint.Zero, null).ThrowIfFailed();
+        return wrapper;
     }
 
     public static object? Unwrap(this JSValue thisValue)

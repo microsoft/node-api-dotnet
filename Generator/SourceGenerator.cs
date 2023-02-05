@@ -32,6 +32,7 @@ public abstract class SourceGenerator
         UnsupportedMethodParameterType,
         UnsupportedMethodReturnType,
         UnsupportedOverloads,
+        ReferenedTypeNotExported,
     }
 
     public GeneratorExecutionContext Context { get; protected set; }

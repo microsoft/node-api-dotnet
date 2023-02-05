@@ -5,13 +5,13 @@ namespace NodeApi;
 
 // TODO: Add interceptors for C# exceptions
 
-public class JSPropertyDescriptorList<TDerived, TObject>
+public abstract class JSPropertyDescriptorList<TDerived, TObject>
   where TDerived : class, IJSObjectUnwrap<TObject>
   where TObject : class
 {
     public IList<JSPropertyDescriptor> Properties { get; } = new List<JSPropertyDescriptor>();
 
-    public JSPropertyDescriptorList() { }
+    protected JSPropertyDescriptorList() { }
 
     public TDerived AddProperty(
       string name,
