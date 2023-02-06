@@ -18,9 +18,9 @@ internal static class ObjectMap
     // static `JSConstructor` property and an instance `JSWrapper` property to the class.
     // (The dictionary mappings could still be used to export external/non-partial classes.)
 
-    private static ConcurrentDictionary<Type, JSReference> s_classMap = new();
-    private static ConcurrentDictionary<object, JSReference> s_objectMap = new();
-    private static ConcurrentDictionary<Type, JSReference> s_structMap = new();
+    private static readonly ConcurrentDictionary<Type, JSReference> s_classMap = new();
+    private static readonly ConcurrentDictionary<object, JSReference> s_objectMap = new();
+    private static readonly ConcurrentDictionary<Type, JSReference> s_structMap = new();
 
     /// <summary>
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.

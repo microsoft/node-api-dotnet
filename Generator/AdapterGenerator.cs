@@ -5,6 +5,9 @@ using Microsoft.CodeAnalysis;
 
 namespace NodeApi.Generator;
 
+// An analyzer bug results in incorrect reports of CA1822 against methods in this class.
+#pragma warning disable CA1822 // Mark members as static
+
 /// <summary>
 /// Generates adapter methods for C# members exported to JavaScript.
 /// </summary>
