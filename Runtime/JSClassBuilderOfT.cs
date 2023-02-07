@@ -8,19 +8,23 @@ public class JSClassBuilder<T>
   , IJSObjectUnwrap<T>
   where T : class
 {
+    public JSContext Context { get; }
+
     public string ClassName { get; }
 
     private readonly Func<T>? _constructor;
     private readonly Func<JSCallbackArgs, T>? _constructorWithArgs;
 
-    public JSClassBuilder(string className, Func<T>? constructor = null)
+    public JSClassBuilder(JSContext context, string className, Func<T>? constructor = null)
     {
+        Context = context;
         ClassName = className;
         _constructor = constructor;
     }
 
-    public JSClassBuilder(string className, Func<JSCallbackArgs, T> constructor)
+    public JSClassBuilder(JSContext context, string className, Func<JSCallbackArgs, T> constructor)
     {
+        Context = context;
         ClassName = className;
         _constructorWithArgs = constructor;
     }
@@ -34,17 +38,45 @@ public class JSClassBuilder<T>
     {
         if (_constructor != null)
         {
-            return JSNativeApi.DefineClass(
+            return Context.RegisterClass<T>(JSNativeApi.DefineClass(
                 ClassName,
-                (args) => args.ThisArg.Wrap(_constructor()),
-                Properties.ToArray());
+                (args) =>
+                {
+                    T instance;
+                    if (args.Length == 1 && args[0].IsExternal())
+                    {
+                        // Constructing a JS instance to wrap a pre-existing C# instance.
+                        instance = (T)args[0].GetValueExternal();
+                    }
+                    else
+                    {
+                        instance = _constructor();
+                    }
+
+                    return Context.InitializeObjectWrapper(args.ThisArg, instance);
+                },
+                Properties.ToArray()));
         }
         else if (_constructorWithArgs != null)
         {
-            return JSNativeApi.DefineClass(
+            return Context.RegisterClass<T>(JSNativeApi.DefineClass(
                 ClassName,
-                (args) => args.ThisArg.Wrap(_constructorWithArgs(args)),
-                Properties.ToArray());
+                (args) =>
+                {
+                    T instance;
+                    if (args.Length == 1 && args[0].IsExternal())
+                    {
+                        // Constructing a JS instance to wrap a pre-existing C# instance.
+                        instance = (T)args[0].GetValueExternal();
+                    }
+                    else
+                    {
+                        instance = _constructorWithArgs(args);
+                    }
+
+                    return Context.InitializeObjectWrapper(args.ThisArg, instance);
+                },
+                Properties.ToArray()));
         }
         else
         {

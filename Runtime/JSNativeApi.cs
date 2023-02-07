@@ -10,6 +10,12 @@ namespace NodeApi;
 // Node API managed wrappers
 public static partial class JSNativeApi
 {
+    /// <summary>
+    /// Hint to a finalizer callback that indicates the object referenced by the handle should be
+    /// disposed when finalizing.
+    /// </summary>
+    private const nint DisposeHint = (nint)1;
+
     // Crash if we experience any errors while reading error info
     private class ErrorReadingMode : IDisposable
     {
@@ -113,6 +119,13 @@ public static partial class JSNativeApi
 
     public static unsafe bool IsNull(this JSValue value)
         => value.TypeOf() == JSValueType.Null;
+
+    public static unsafe bool IsNullOrUndefined(this JSValue value) => value.TypeOf() switch
+    {
+        JSValueType.Null => true,
+        JSValueType.Undefined => true,
+        _ => false,
+    };
 
     public static unsafe bool IsBoolean(this JSValue value)
         => value.TypeOf() == JSValueType.Boolean;
@@ -382,7 +395,7 @@ public static partial class JSNativeApi
     }
 
     public static JSValue CallMethod(this JSValue thisValue, JSValue methodName)
-    => thisValue.GetProperty(methodName).Call(thisValue);
+        => thisValue.GetProperty(methodName).Call(thisValue);
 
     public static JSValue CallMethod(this JSValue thisValue, JSValue methodName, JSValue arg0)
         => thisValue.GetProperty(methodName).Call(thisValue, arg0);
@@ -446,12 +459,49 @@ public static partial class JSNativeApi
         return DefineClass(Encoding.UTF8.GetBytes(name), callback, descriptors);
     }
 
-    public static unsafe JSValue Wrap(this JSValue thisValue, object value)
+    /// <summary>
+    /// Attaches an object to a JS wrapper.
+    /// </summary>
+    /// <param name="wrapper">The JS wrapper value, typically the 'this' argument to a class
+    /// constructor callback.</param>
+    /// <param name="value">The object to be wrapped.</param>
+    /// <returns>The JS wrapper.</returns>
+    public static unsafe JSValue Wrap(this JSValue wrapper, object value)
     {
         GCHandle valueHandle = GCHandle.Alloc(value);
-        napi_wrap(Env, (napi_value)thisValue, (nint)valueHandle, new napi_finalize(&FinalizeGCHandle), nint.Zero, null).ThrowIfFailed();
-        return thisValue;
+        napi_wrap(
+            Env,
+            (napi_value)wrapper,
+            (nint)valueHandle,
+            new napi_finalize(&FinalizeGCHandle),
+            nint.Zero,
+            null).ThrowIfFailed();
+        return wrapper;
     }
+
+    /// <summary>
+    /// Attaches an object to a JS wrapper.
+    /// </summary>
+    /// <param name="wrapper">The JS wrapper value, typically the 'this' argument to a class
+    /// constructor callback.</param>
+    /// <param name="value">The object to be wrapped.</param>
+    /// <param name="wrapperWeakRef">Returns a weak reference to the JS wrapper.</param>
+    /// <returns>The JS wrapper.</returns>
+    public static unsafe JSValue Wrap(this JSValue wrapper, object value, out JSReference wrapperWeakRef)
+    {
+        GCHandle valueHandle = GCHandle.Alloc(value);
+        napi_ref weakRef;
+        napi_wrap(
+            Env,
+            (napi_value)wrapper,
+            (nint)valueHandle,
+            new napi_finalize(&FinalizeGCHandle),
+            nint.Zero,
+            &weakRef).ThrowIfFailed();
+        wrapperWeakRef = new JSReference(weakRef, isWeak: true);
+        return wrapper;
+    }
+
 
     public static object? Unwrap(this JSValue thisValue)
     {
@@ -622,7 +672,9 @@ public static partial class JSNativeApi
         napi_get_instance_data(Env, out nint handlePtr).ThrowIfFailed();
         if (handlePtr != nint.Zero)
         {
-            GCHandle.FromIntPtr(handlePtr).Free();
+            GCHandle handle = GCHandle.FromIntPtr(handlePtr);
+            (handle.Target as IDisposable)?.Dispose();
+            handle.Free();
         }
 
         if (data != null)
@@ -632,7 +684,7 @@ public static partial class JSNativeApi
               Env,
               (nint)handle,
               new napi_finalize(&FinalizeGCHandle),
-              nint.Zero).ThrowIfFailed();
+              DisposeHint).ThrowIfFailed();
         }
     }
 
@@ -728,7 +780,14 @@ public static partial class JSNativeApi
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe void FinalizeGCHandle(napi_env env, nint data, nint hint)
     {
-        GCHandle.FromIntPtr(data).Free();
+        GCHandle handle = GCHandle.FromIntPtr(data);
+
+        if (hint == DisposeHint)
+        {
+            (handle.Target as IDisposable)?.Dispose();
+        }
+
+        handle.Free();
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]

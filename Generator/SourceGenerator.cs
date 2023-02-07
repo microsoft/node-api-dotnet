@@ -7,6 +7,9 @@ using Microsoft.CodeAnalysis;
 
 namespace NodeApi.Generator;
 
+// An analyzer bug results in incorrect reports of CA1822 against methods in this class.
+#pragma warning disable CA1822 // Mark members as static
+
 /// <summary>
 /// Base class for source generators for C# APIs exported to JS.
 /// Contains shared definitions and utility methods.
@@ -32,6 +35,7 @@ public abstract class SourceGenerator
         UnsupportedMethodParameterType,
         UnsupportedMethodReturnType,
         UnsupportedOverloads,
+        ReferenedTypeNotExported,
     }
 
     public GeneratorExecutionContext Context { get; protected set; }
@@ -55,8 +59,6 @@ public abstract class SourceGenerator
         return sb.ToString();
     }
 
-    // An analyzer bug results in incorrect reports of CA1822 against this method. (It can't be static.)
-#pragma warning disable CA1822 // Mark members as static
     public void ReportError(
         DiagnosticId id,
         ISymbol? symbol,

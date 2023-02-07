@@ -12,8 +12,15 @@ using static NodeApi.JSNativeApi.Interop;
 namespace NodeApi.Hosting;
 
 [RequiresUnreferencedCode("Managed host is not used in trimmed assembly.")]
-public class ManagedHost
+public class ManagedHost : IDisposable
 {
+    private ManagedHost(JSContext context)
+    {
+        Context = context;
+    }
+
+    public JSContext Context { get; }
+
     /// <summary>
     /// Each instance of a managed host uses a separate assembly load context.
     /// That way, static data is not shared across multiple host instanances.
@@ -41,7 +48,7 @@ public class ManagedHost
 
         try
         {
-            JSNativeApi.Interop.Initialize();
+            JSContext context = new();
 
             // Ensure references to this assembly can be resolved when loading other assemblies.
             Assembly nodeApiAssembly = typeof(JSValue).Assembly;
@@ -49,10 +56,11 @@ public class ManagedHost
                 e.Name.Split(',')[0] == nameof(NodeApi) ? nodeApiAssembly : null;
 
             using var scope = new JSValueScope(env);
+            var exportsValue = new JSValue(scope, exports);
             new JSModuleBuilder<ManagedHost>()
                 .AddMethod("require", (host) => host.LoadModule)
                 .AddMethod("loadAssembly", (host) => LoadAssembly)
-                .ExportModule((JSObject)new JSValue(scope, exports), new ManagedHost());
+                .ExportModule(new ManagedHost(context), (JSObject)exportsValue);
         }
         catch (Exception ex)
         {
@@ -156,5 +164,19 @@ public class ManagedHost
         // as a JS module. Then additional methods on the returned JS object can be used by JS code
         // to "reflect" on the loaded assembly and invoke members.
         return default;
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            Context.Dispose();
+        }
     }
 }

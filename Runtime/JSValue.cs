@@ -249,6 +249,17 @@ public struct JSValue
     public static implicit operator JSValue(ulong value) => CreateNumber(value);
     public static implicit operator JSValue(float value) => CreateNumber(value);
     public static implicit operator JSValue(double value) => CreateNumber(value);
+    public static implicit operator JSValue(bool? value) => ValueOrNull(value, value => GetBoolean(value));
+    public static implicit operator JSValue(sbyte? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(byte? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(short? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(ushort? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(int? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(uint? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(long? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(ulong? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(float? value) => ValueOrNull(value, value => CreateNumber(value));
+    public static implicit operator JSValue(double? value) => ValueOrNull(value, value => CreateNumber(value));
     public static implicit operator JSValue(string value) => CreateStringUtf16(value);
     public static implicit operator JSValue(char[] value) => CreateStringUtf16(value);
     public static implicit operator JSValue(Span<char> value) => CreateStringUtf16(value);
@@ -272,10 +283,27 @@ public struct JSValue
     public static explicit operator string(JSValue value) => value.GetValueStringUtf16();
     public static explicit operator char[](JSValue value) => value.GetValueStringUtf16AsCharArray();
     public static explicit operator byte[](JSValue value) => value.GetValueStringUtf8();
+    public static explicit operator bool?(JSValue value) => ValueOrNull(value, value => value.GetValueBool());
+    public static explicit operator sbyte?(JSValue value) => ValueOrNull(value, value => (sbyte)value.GetValueInt32());
+    public static explicit operator byte?(JSValue value) => ValueOrNull(value, value => (byte)value.GetValueUInt32());
+    public static explicit operator short?(JSValue value) => ValueOrNull(value, value => (short)value.GetValueInt32());
+    public static explicit operator ushort?(JSValue value) => ValueOrNull(value, value => (ushort)value.GetValueUInt32());
+    public static explicit operator int?(JSValue value) => ValueOrNull(value, value => value.GetValueInt32());
+    public static explicit operator uint?(JSValue value) => ValueOrNull(value, value => value.GetValueUInt32());
+    public static explicit operator long?(JSValue value) => ValueOrNull(value, value => value.GetValueInt64());
+    public static explicit operator ulong?(JSValue value) => ValueOrNull(value, value => (ulong)value.GetValueInt64());
+    public static explicit operator float?(JSValue value) => ValueOrNull(value, value => (float)value.GetValueDouble());
+    public static explicit operator double?(JSValue value) => ValueOrNull(value, value => value.GetValueDouble());
 
     public static explicit operator napi_value(JSValue value) => value.GetCheckedHandle();
     public static implicit operator JSValue(napi_value handle) => new(handle);
 
     public static explicit operator napi_value(JSValue? value) => value?.Handle ?? new napi_value(nint.Zero);
     public static implicit operator JSValue?(napi_value handle) => handle.Handle != nint.Zero ? new JSValue?(new JSValue(handle)) : null;
+
+    private static JSValue ValueOrNull<T>(T? value, Func<T, JSValue> convert) where T : struct
+        => value.HasValue ? convert(value.Value) : JSValue.Null;
+
+    private static T? ValueOrNull<T>(JSValue value, Func<JSValue, T> convert) where T : struct
+        => value.IsNullOrUndefined() ? null : convert(value);
 }

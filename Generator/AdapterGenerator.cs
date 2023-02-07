@@ -5,6 +5,9 @@ using Microsoft.CodeAnalysis;
 
 namespace NodeApi.Generator;
 
+// An analyzer bug results in incorrect reports of CA1822 against methods in this class.
+#pragma warning disable CA1822 // Mark members as static
+
 /// <summary>
 /// Generates adapter methods for C# members exported to JavaScript.
 /// </summary>
@@ -13,8 +16,11 @@ internal class AdapterGenerator : SourceGenerator
     private const string AdapterGetPrefix = "get_";
     private const string AdapterSetPrefix = "set_";
     private const string AdapterConstructorPrefix = "new_";
+    private const string AdapterFromPrefix = "from_";
+    private const string AdapterToPrefix = "to_";
 
-    private readonly List<KeyValuePair<string, ISymbol>> _adaptedSymbols = new();
+    private readonly Dictionary<string, ISymbol> _adaptedMembers = new();
+    private readonly Dictionary<string, ITypeSymbol> _adaptedStructs = new();
 
     internal AdapterGenerator(GeneratorExecutionContext context)
     {
@@ -51,7 +57,7 @@ internal class AdapterGenerator : SourceGenerator
         string ns = GetNamespace(constructor);
         string className = type.Name;
         string adapterName = $"{AdapterConstructorPrefix}{ns.Replace('.', '_')}_{className}";
-        _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(adapterName, constructor));
+        _adaptedMembers.Add(adapterName, constructor);
         return adapterName;
     }
 
@@ -81,7 +87,20 @@ internal class AdapterGenerator : SourceGenerator
         string ns = GetNamespace(method);
         string className = method.ContainingType.Name;
         string adapterName = $"{ns.Replace('.', '_')}_{className}_{method.Name}";
-        _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(adapterName, method));
+        _adaptedMembers.Add(adapterName, method);
+        return adapterName;
+    }
+
+    private string GetStructAdapterName(ITypeSymbol structType, bool toJS)
+    {
+        string ns = GetNamespace(structType);
+        string structName = structType.Name;
+        string prefix = toJS ? AdapterFromPrefix : AdapterToPrefix;
+        string adapterName = $"{prefix}{ns.Replace('.', '_')}_{structName}";
+        if (!_adaptedStructs.ContainsKey(adapterName))
+        {
+            _adaptedStructs.Add(adapterName, structType);
+        }
         return adapterName;
     }
 
@@ -100,14 +119,14 @@ internal class AdapterGenerator : SourceGenerator
         if (property?.GetMethod?.DeclaredAccessibility == Accessibility.Public)
         {
             getAdapterName = $"{AdapterGetPrefix}{ns.Replace('.', '_')}_{className}_{property.Name}";
-            _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(getAdapterName, property));
+            _adaptedMembers.Add(getAdapterName, property);
         }
 
         string? setAdapterName = null;
         if (property?.SetMethod?.DeclaredAccessibility == Accessibility.Public)
         {
             setAdapterName = $"{AdapterSetPrefix}{ns.Replace('.', '_')}_{className}_{property.Name}";
-            _adaptedSymbols.Add(new KeyValuePair<string, ISymbol>(setAdapterName, property));
+            _adaptedMembers.Add(setAdapterName, property);
         }
 
         return (getAdapterName, setAdapterName);
@@ -115,7 +134,7 @@ internal class AdapterGenerator : SourceGenerator
 
     internal void GenerateAdapters(SourceBuilder s)
     {
-        foreach (KeyValuePair<string, ISymbol> nameAndSymbol in _adaptedSymbols)
+        foreach (KeyValuePair<string, ISymbol> nameAndSymbol in _adaptedMembers)
         {
             s++;
 
@@ -137,9 +156,17 @@ internal class AdapterGenerator : SourceGenerator
                 GeneratePropertyAdapter(ref s, adapterName, (IPropertySymbol)symbol);
             }
         }
+
+        foreach (KeyValuePair<string, ITypeSymbol> nameAndSymbol in _adaptedStructs)
+        {
+            s++;
+            string adapterName = nameAndSymbol.Key;
+            ITypeSymbol structSymbol = nameAndSymbol.Value;
+            GenerateStructAdapter(ref s, adapterName, structSymbol);
+        }
     }
 
-    private static void GenerateConstructorAdapter(
+    private void GenerateConstructorAdapter(
         ref SourceBuilder s,
         string adapterName,
         IMethodSymbol constructor)
@@ -162,7 +189,7 @@ internal class AdapterGenerator : SourceGenerator
         s += "}";
     }
 
-    private static void GenerateMethodAdapter(
+    private void GenerateMethodAdapter(
         ref SourceBuilder s,
         string adapterName,
         IMethodSymbol method)
@@ -208,7 +235,7 @@ internal class AdapterGenerator : SourceGenerator
         s += "}";
     }
 
-    private static void GeneratePropertyAdapter(
+    private void GeneratePropertyAdapter(
         ref SourceBuilder s,
         string adapterName,
         IPropertySymbol property)
@@ -256,42 +283,278 @@ internal class AdapterGenerator : SourceGenerator
         }
     }
 
-    private static void AdaptThisArg(ref SourceBuilder s, ISymbol symbol)
+    private void GenerateStructAdapter(
+        ref SourceBuilder s,
+        string adapterName,
+        ITypeSymbol structType)
+    {
+        List<ISymbol> copyableProperties = new();
+        foreach (ISymbol member in structType.GetMembers()
+            .Where((m) => !m.IsStatic && m.DeclaredAccessibility == Accessibility.Public))
+        {
+            if (member.Kind == SymbolKind.Property &&
+                ((IPropertySymbol)member).GetMethod?.DeclaredAccessibility == Accessibility.Public &&
+                ((IPropertySymbol)member).SetMethod?.DeclaredAccessibility == Accessibility.Public)
+            {
+                copyableProperties.Add(member);
+            }
+            else if (member.Kind == SymbolKind.Field &&
+                !((IFieldSymbol)member).IsConst &&
+                !((IFieldSymbol)member).IsReadOnly)
+            {
+                copyableProperties.Add(member);
+            }
+        }
+
+        string ns = GetNamespace(structType);
+        string structName = structType.Name;
+
+        if (adapterName.StartsWith(AdapterFromPrefix))
+        {
+            s += $"private static JSValue {adapterName}({ns}.{structName} value)";
+            s += "{";
+            s += $"JSValue jsValue = Context.CreateStruct<{ns}.{structName}>();";
+
+            foreach (ISymbol property in copyableProperties)
+            {
+                ITypeSymbol propertyType = (property as IPropertySymbol)?.Type ??
+                    ((IFieldSymbol)property).Type;
+                s += $"jsValue[\"{ToCamelCase(property.Name)}\"] = " +
+                    $"{Convert($"value.{property.Name}", propertyType, null)};";
+            }
+
+            s += "return jsValue;";
+            s += "}";
+        }
+        else
+        {
+            s += $"private static {ns}.{structName} {adapterName}(JSValue jsValue)";
+            s += "{";
+            s += $"{ns}.{structName} value = new();";
+
+            foreach (ISymbol property in copyableProperties)
+            {
+                ITypeSymbol propertyType = (property as IPropertySymbol)?.Type ??
+                    ((IFieldSymbol)property).Type;
+                s += $"value.{property.Name} = " +
+                    $"{Convert($"jsValue[\"{ToCamelCase(property.Name)}\"]", null, propertyType)};";
+            }
+
+            s += "return value;";
+            s += "}";
+        }
+    }
+
+    private void AdaptThisArg(ref SourceBuilder s, ISymbol symbol)
     {
 
         string ns = GetNamespace(symbol);
-        string className = symbol.ContainingType.Name;
+        string typeName = symbol.ContainingType.Name;
 
         // For a method on a module class, the .NET object handle is stored in
         // module instance data instead of the JS object.
         if (symbol.ContainingType.GetAttributes().Any(
             (a) => a.AttributeClass?.Name == "JSModuleAttribute"))
         {
-            s += $"if (!(JSNativeApi.GetInstanceData() is {ns}.{className} __obj))";
+            s += $"if (!(JSNativeApi.GetInstanceData() is {ns}.{typeName} __obj))";
             s += "{";
             s += "return JSValue.Undefined;";
             s += "}";
         }
-        else
+        else if (symbol.ContainingType.TypeKind == TypeKind.Class)
         {
-            s += $"if (!(__args.ThisArg.Unwrap() is {ns}.{className} __obj))";
+            s += $"if (!(__args.ThisArg.Unwrap() is {ns}.{typeName} __obj))";
             s += "{";
             s += "return JSValue.Undefined;";
             s += "}";
+        }
+        else if (symbol.ContainingType.TypeKind == TypeKind.Struct)
+        {
+            // Structs are not wrapped; they are passed by value via an adapter method.
+            string adapterName = GetStructAdapterName(symbol.ContainingType, toJS: false);
+            s += $"{ns}.{typeName} __obj = {adapterName}(__args.ThisArg);";
         }
     }
 
-    private static void AdaptArgument(
+    private void AdaptArgument(
         ref SourceBuilder s,
         ITypeSymbol parameterType,
         string parameterName,
         int index)
     {
-        s += $"var {parameterName} = ({parameterType})__args[{index}];";
+        s += $"var {parameterName} = {Convert($"__args[{index}]", null, parameterType)};";
     }
 
-    private static void AdaptReturnValue(ref SourceBuilder s, ITypeSymbol _/*returnType*/)
+    private void AdaptReturnValue(ref SourceBuilder s, ITypeSymbol returnType)
     {
-        s += $"return (JSValue)__result;";
+        s += $"return {Convert("__result", returnType, null)};";
+    }
+
+    private string Convert(string fromExpression, ITypeSymbol? fromType, ITypeSymbol? toType)
+    {
+        if (fromType == null)
+        {
+            // Convert from JSValue to a C# type.
+            (toType, bool isNullable) = SplitNullable(toType!);
+            if (CanCast(toType!))
+            {
+                if (isNullable)
+                {
+                    return $"({fromExpression}).IsNullOrUndefined() ? null : " +
+                        $"({toType}?)({fromExpression})";
+                }
+                else
+                {
+                    return $"({toType})({fromExpression})";
+                }
+            }
+            else if (toType.TypeKind == TypeKind.Class)
+            {
+                VerifyReferencedTypeIsExported(toType);
+
+                if (isNullable)
+                {
+                    return $"({fromExpression}).IsNullOrUndefined() ? null : " +
+                        $"({toType})JSNativeApi.Unwrap({fromExpression})!";
+                }
+                else
+                {
+                    return $"({toType})JSNativeApi.Unwrap({fromExpression})!";
+                }
+
+            }
+            else if (toType.TypeKind == TypeKind.Struct)
+            {
+                VerifyReferencedTypeIsExported(toType);
+
+                string adapterName = GetStructAdapterName(toType, toJS: false);
+                if (isNullable)
+                {
+                    return $"({fromExpression}).IsNullOrUndefined() ? ({toType}?)null : " +
+                        $"{adapterName}({fromExpression})";
+                }
+                else
+                {
+                    return $"{adapterName}({fromExpression})";
+                }
+            }
+
+            // TODO: Handle other kinds of conversions from JSValue.
+            // TODO: Handle unwrapping external values.
+            return $"default({toType})" + (isNullable ? string.Empty : "!");
+        }
+        else if (toType == null)
+        {
+            // Convert from a C# type to JSValue.
+            (fromType, bool isNullable) = SplitNullable(fromType!);
+            if (CanCast(fromType!))
+            {
+                if (isNullable)
+                {
+                    if (fromType.IsValueType)
+                    {
+                        return $"{fromExpression}.HasValue ? " +
+                            $"(JSValue)({fromExpression}.Value) : JSValue.Null";
+                    }
+                    else
+                    {
+                        return $"{fromExpression} == null ? " +
+                            $"JSValue.Null : (JSValue)({fromExpression}!)";
+                    }
+                }
+                else
+                {
+                    return $"(JSValue)({fromExpression})";
+                }
+            }
+            else if (fromType.TypeKind == TypeKind.Class)
+            {
+                VerifyReferencedTypeIsExported(fromType);
+
+                if (isNullable)
+                {
+                    return $"{fromExpression} == null ? JSValue.Null : " +
+                        $"Context.GetOrCreateObjectWrapper({fromExpression})";
+                }
+                else
+                {
+                    return $"Context.GetOrCreateObjectWrapper({fromExpression})";
+                }
+            }
+            else if (fromType.TypeKind == TypeKind.Struct)
+            {
+                VerifyReferencedTypeIsExported(fromType);
+
+                string adapterName = GetStructAdapterName(fromType, toJS: true);
+                if (isNullable)
+                {
+                    return $"{fromExpression} == null ? JSValue.Null : " +
+                        $"{adapterName}({fromExpression}.Value)";
+                }
+                else
+                {
+                    return $"{adapterName}({fromExpression})";
+                }
+            }
+
+            // TODO: Handle other kinds of conversions to JSValue.
+            // TODO: Consider wrapping unsupported types in a value of type "external".
+            return "JSValue.Undefined";
+        }
+        else
+        {
+            (toType, bool isNullable) = SplitNullable(toType!);
+
+            // TODO: Handle multi-step conversions.
+            return $"default({toType})" + (isNullable ? string.Empty : "!");
+        }
+    }
+
+    private void VerifyReferencedTypeIsExported(ITypeSymbol type)
+    {
+        if (ModuleGenerator.GetJSExportAttribute(type) == null)
+        {
+            // TODO: Consider an option to automatically export referenced classes?
+            ReportError(
+                DiagnosticId.ReferenedTypeNotExported,
+                type,
+                $"Referenced type {type} is not exported.");
+        }
+    }
+
+    private static bool CanCast(ITypeSymbol type)
+    {
+        (type, bool isNullable) = SplitNullable(type);
+        return type.SpecialType switch
+        {
+            SpecialType.System_Boolean => true,
+            SpecialType.System_SByte => true,
+            SpecialType.System_Byte => true,
+            SpecialType.System_Int16 => true,
+            SpecialType.System_UInt16 => true,
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => true,
+            SpecialType.System_Int64 => true,
+            SpecialType.System_UInt64 => true,
+            SpecialType.System_Single => true,
+            SpecialType.System_Double => true,
+            SpecialType.System_String => !isNullable,
+            _ => false,
+        };
+    }
+
+    private static (ITypeSymbol, bool) SplitNullable(ITypeSymbol type)
+    {
+        bool isNullable = false;
+        if (type.NullableAnnotation == NullableAnnotation.Annotated)
+        {
+            isNullable = true;
+
+            // Handle either a Nullable<T> (value type) or a nullable reference type.
+            type = type.IsValueType
+                ? ((INamedTypeSymbol)type).TypeArguments[0]
+                : type.OriginalDefinition;
+        }
+        return (type, isNullable);
     }
 }

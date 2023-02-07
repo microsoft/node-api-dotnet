@@ -22,7 +22,8 @@ internal class TypeDefinitionsGenerator : SourceGenerator
 
         foreach (ISymbol exportItem in exportItems)
         {
-            if (exportItem is ITypeSymbol exportType && exportType.TypeKind == TypeKind.Class)
+            if (exportItem is ITypeSymbol exportType &&
+                (exportType.TypeKind == TypeKind.Class || exportType.TypeKind == TypeKind.Struct))
             {
                 GenerateClassTypeDefinitions(ref s, exportType);
             }
@@ -88,7 +89,8 @@ internal class TypeDefinitionsGenerator : SourceGenerator
                 }
                 else
                 {
-                    s += $"{memberName}({parameters}): {returnType};";
+                    s += $"{(member.IsStatic ? "static " : "")}{memberName}({parameters}): " +
+                        $"{returnType};";
                 }
             }
             else if (member is IPropertySymbol exportProperty)
@@ -106,7 +108,8 @@ internal class TypeDefinitionsGenerator : SourceGenerator
                 {
                     string readonlyModifier =
                         exportProperty.SetMethod == null ? "readonly " : "";
-                    s += $"{readonlyModifier}{memberName}: {propertyType};";
+                    s += $"{(member.IsStatic ? "static " : "")}{readonlyModifier}{memberName}: " +
+                        $"{propertyType};";
                 }
             }
         }
