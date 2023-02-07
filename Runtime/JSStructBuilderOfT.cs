@@ -7,10 +7,13 @@ public class JSStructBuilder<T> where T : struct
 {
     public IList<JSPropertyDescriptor> Properties { get; } = new List<JSPropertyDescriptor>();
 
+    public JSContext Context { get; }
+
     public string StructName { get; }
 
-    public JSStructBuilder(string structName)
+    public JSStructBuilder(JSContext context, string structName)
     {
+        Context = context;
         StructName = structName;
     }
 
@@ -41,7 +44,7 @@ public class JSStructBuilder<T> where T : struct
         // to converted default values? Otherwise they will be initially undefined.
 
         // Note this does not use Wrap() because structs are passed by value.
-        return ObjectMap.RegisterStruct<T>(JSNativeApi.DefineClass(
+        return Context.RegisterStruct<T>(JSNativeApi.DefineClass(
             StructName,
             (args) => args.ThisArg,
             Properties.ToArray()));

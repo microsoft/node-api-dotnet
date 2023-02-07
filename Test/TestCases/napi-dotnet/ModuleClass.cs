@@ -13,7 +13,8 @@ namespace NodeApi.TestCases;
 public class ModuleClass : IDisposable
 {
     /// <summary>
-    /// The module class must have a public constructor that takes no parameters.
+    /// The module class must have a public constructor that takes either no parameters
+    /// or a single JSContext parameter.
     /// </summary>
     public ModuleClass()
     {

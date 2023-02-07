@@ -104,6 +104,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         "Module class must have public visibility.");
                 }
 
+                // TODO: Check for a public constructor that takes a single JSContext argument.
 
                 moduleInitializers.Add(type);
             }
@@ -261,17 +262,18 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += $"[GeneratedCode(\"{generatorName}\", \"{generatorVersion}\")]";
         s += $"public static class {ModuleInitializerClassName}";
         s += "{";
+        s += "private static JSContext Context { get; set; } = null!;";
 
         s += $"[UnmanagedCallersOnly(EntryPoint = \"{ModuleRegisterFunctionName}\")]";
         s += $"public static napi_value _{ModuleInitializeMethodName}(napi_env env, napi_value exports)";
-        s += $"{s.Indent}=> Initialize(env, exports);";
-        s += "";
+        s += $"{s.Indent}=> {ModuleInitializeMethodName}(env, exports);";
+        s++;
         s += $"public static napi_value {ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += "{";
         s += "try";
         s += "{";
-        s += "JSNativeApi.Interop.Initialize();";
-        s += "";
+        s += "Context = new JSContext();";
+        s++;
         s += "using JSValueScope scope = new(env);";
         s += "JSValue exportsValue = new(scope, exports);";
         s++;
@@ -290,7 +292,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             string ns = GetNamespace(moduleInitializerMethod);
             string className = moduleInitializerMethod.ContainingType.Name;
             string methodName = moduleInitializerMethod.Name;
-            s += $"return {ns}.{className}.{methodName}((JSObject)exportsValue)";
+            s += $"return {ns}.{className}.{methodName}(Context, (JSObject)exportsValue)";
             s += "\t.GetCheckedHandle();";
         }
         else
@@ -345,7 +347,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         else
         {
-            s += $"exportsValue = new JSModuleBuilder<System.Object>()";
+            s += $"exportsValue = new JSModuleBuilder<JSContext>()";
             s.IncreaseIndent();
         }
 
@@ -362,11 +364,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 string ns = GetNamespace(exportClass);
                 if (exportClass.IsStatic)
                 {
-                    s += $"new JSClassBuilder<object>(\"{exportName}\")";
+                    s += $"new JSClassBuilder<object>(Context, \"{exportName}\")";
                 }
                 else
                 {
-                    s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(\"{exportName}\",";
+                    s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(Context, \"{exportName}\",";
 
                     string? constructorAdapterName =
                         adapterGenerator.GetConstructorAdapterName(exportClass);
@@ -395,7 +397,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 s.IncreaseIndent();
 
                 string ns = GetNamespace(exportStruct);
-                s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(\"{exportName}\")";
+                s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(Context, \"{exportName}\")";
 
                 ExportMembers(ref s, exportStruct, adapterGenerator);
                 s += ".DefineStruct())";
@@ -413,12 +415,21 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         if (moduleType != null)
         {
+            // The module class constructor may optionally take a JSContext parameter. If an
+            // appropriate constructor is not present then the generated code will not compile.
+            IEnumerable<IMethodSymbol> constructors = moduleType.GetMembers()
+                .OfType<IMethodSymbol>().Where((m) => m.MethodKind == MethodKind.Constructor);
+            IMethodSymbol? constructor = constructors.SingleOrDefault((c) =>
+                c.Parameters.Length == 1 && c.Parameters[0].Type.Name == "JSContext") ??
+                constructors.SingleOrDefault((c) => c.Parameters.Length == 0);
+            string contextParameter = constructor?.Parameters.Length == 1 ?
+                "Context" : string.Empty;
             string ns = GetNamespace(moduleType);
-            s += $".ExportModule((JSObject)exportsValue, new {ns}.{moduleType.Name}());";
+            s += $".ExportModule(new {ns}.{moduleType.Name}({contextParameter}), (JSObject)exportsValue);";
         }
         else
         {
-            s += $".ExportModule((JSObject)exportsValue, null);";
+            s += $".ExportModule(Context, (JSObject)exportsValue);";
         }
 
         s.DecreaseIndent();

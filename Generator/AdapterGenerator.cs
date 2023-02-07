@@ -313,7 +313,7 @@ internal class AdapterGenerator : SourceGenerator
         {
             s += $"private static JSValue {adapterName}({ns}.{structName} value)";
             s += "{";
-            s += $"JSValue jsValue = JSNativeApi.CreateStruct<{ns}.{structName}>();";
+            s += $"JSValue jsValue = Context.CreateStruct<{ns}.{structName}>();";
 
             foreach (ISymbol property in copyableProperties)
             {
@@ -474,11 +474,11 @@ internal class AdapterGenerator : SourceGenerator
                 if (isNullable)
                 {
                     return $"{fromExpression} == null ? JSValue.Null : " +
-                        $"JSNativeApi.Wrap({fromExpression})";
+                        $"Context.GetOrCreateObjectWrapper({fromExpression})";
                 }
                 else
                 {
-                    return $"JSNativeApi.Wrap({fromExpression})";
+                    return $"Context.GetOrCreateObjectWrapper({fromExpression})";
                 }
             }
             else if (fromType.TypeKind == TypeKind.Struct)

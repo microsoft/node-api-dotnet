@@ -8,19 +8,23 @@ public class JSClassBuilder<T>
   , IJSObjectUnwrap<T>
   where T : class
 {
+    public JSContext Context { get; }
+
     public string ClassName { get; }
 
     private readonly Func<T>? _constructor;
     private readonly Func<JSCallbackArgs, T>? _constructorWithArgs;
 
-    public JSClassBuilder(string className, Func<T>? constructor = null)
+    public JSClassBuilder(JSContext context, string className, Func<T>? constructor = null)
     {
+        Context = context;
         ClassName = className;
         _constructor = constructor;
     }
 
-    public JSClassBuilder(string className, Func<JSCallbackArgs, T> constructor)
+    public JSClassBuilder(JSContext context, string className, Func<JSCallbackArgs, T> constructor)
     {
+        Context = context;
         ClassName = className;
         _constructorWithArgs = constructor;
     }
@@ -34,7 +38,7 @@ public class JSClassBuilder<T>
     {
         if (_constructor != null)
         {
-            return ObjectMap.RegisterClass<T>(JSNativeApi.DefineClass(
+            return Context.RegisterClass<T>(JSNativeApi.DefineClass(
                 ClassName,
                 (args) =>
                 {
@@ -49,13 +53,13 @@ public class JSClassBuilder<T>
                         instance = _constructor();
                     }
 
-                    return ObjectMap.InitializeObjectWrapper(args.ThisArg, instance);
+                    return Context.InitializeObjectWrapper(args.ThisArg, instance);
                 },
                 Properties.ToArray()));
         }
         else if (_constructorWithArgs != null)
         {
-            return ObjectMap.RegisterClass<T>(JSNativeApi.DefineClass(
+            return Context.RegisterClass<T>(JSNativeApi.DefineClass(
                 ClassName,
                 (args) =>
                 {
@@ -70,7 +74,7 @@ public class JSClassBuilder<T>
                         instance = _constructorWithArgs(args);
                     }
 
-                    return ObjectMap.InitializeObjectWrapper(args.ThisArg, instance);
+                    return Context.InitializeObjectWrapper(args.ThisArg, instance);
                 },
                 Properties.ToArray()));
         }

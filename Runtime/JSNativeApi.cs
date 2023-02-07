@@ -10,6 +10,12 @@ namespace NodeApi;
 // Node API managed wrappers
 public static partial class JSNativeApi
 {
+    /// <summary>
+    /// Hint to a finalizer callback that indicates the object referenced by the handle should be
+    /// disposed when finalizing.
+    /// </summary>
+    private const nint DisposeHint = (nint)1;
+
     // Crash if we experience any errors while reading error info
     private class ErrorReadingMode : IDisposable
     {
@@ -453,12 +459,6 @@ public static partial class JSNativeApi
         return DefineClass(Encoding.UTF8.GetBytes(name), callback, descriptors);
     }
 
-    public static JSValue CreateStruct<T>() where T : struct
-        => ObjectMap.CreateStructWrapper<T>();
-
-    public static JSValue Wrap<T>(T obj) where T : class
-        => ObjectMap.GetOrCreateObjectWrapper(obj);
-
     /// <summary>
     /// Attaches an object to a JS wrapper.
     /// </summary>
@@ -672,7 +672,9 @@ public static partial class JSNativeApi
         napi_get_instance_data(Env, out nint handlePtr).ThrowIfFailed();
         if (handlePtr != nint.Zero)
         {
-            GCHandle.FromIntPtr(handlePtr).Free();
+            GCHandle handle = GCHandle.FromIntPtr(handlePtr);
+            (handle.Target as IDisposable)?.Dispose();
+            handle.Free();
         }
 
         if (data != null)
@@ -682,7 +684,7 @@ public static partial class JSNativeApi
               Env,
               (nint)handle,
               new napi_finalize(&FinalizeGCHandle),
-              nint.Zero).ThrowIfFailed();
+              DisposeHint).ThrowIfFailed();
         }
     }
 
@@ -778,7 +780,14 @@ public static partial class JSNativeApi
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe void FinalizeGCHandle(napi_env env, nint data, nint hint)
     {
-        GCHandle.FromIntPtr(data).Free();
+        GCHandle handle = GCHandle.FromIntPtr(data);
+
+        if (hint == DisposeHint)
+        {
+            (handle.Target as IDisposable)?.Dispose();
+        }
+
+        handle.Free();
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]

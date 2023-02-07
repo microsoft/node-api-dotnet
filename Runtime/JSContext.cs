@@ -4,20 +4,31 @@ using System.Collections.Concurrent;
 namespace NodeApi;
 
 /// <summary>
-/// Tracks JS constructors and instance JS wrappers for exported classes, enabling
-/// .NET objects to be automatically wrapped when returned to JS, and re-wrapped as needed
-/// if the (weakly-referenced) JS wrapper has been released.
+/// Manages JavaScript interop context for the lifetime of a module.
 /// </summary>
-internal static class ObjectMap
+/// <remarks>
+/// A <see cref="JSContext"/> instance is constructed when the module is loaded and disposed when
+/// the module is unloaded.
+/// </remarks>
+public sealed class JSContext : IDisposable
 {
+    public JSContext()
+    {
+        JSNativeApi.Interop.Initialize();
+    }
+
+    // Track JS constructors and instance JS wrappers for exported classes, enabling
+    // .NET objects to be automatically wrapped when returned to JS, and re-wrapped as needed
+    // if the (weakly-referenced) JS wrapper has been released.
+
     // TODO: Consider an optimization that avoids dictionary lookups:
     // If an exported class is declared as partial, then the generator can add a
     // static `JSConstructor` property and an instance `JSWrapper` property to the class.
     // (The dictionary mappings could still be used to export external/non-partial classes.)
 
-    private static readonly ConcurrentDictionary<Type, JSReference> s_classMap = new();
-    private static readonly ConcurrentDictionary<object, JSReference> s_objectMap = new();
-    private static readonly ConcurrentDictionary<Type, JSReference> s_structMap = new();
+    private readonly ConcurrentDictionary<Type, JSReference> _classMap = new();
+    private readonly ConcurrentDictionary<object, JSReference> _objectMap = new();
+    private readonly ConcurrentDictionary<Type, JSReference> _structMap = new();
 
     /// <summary>
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.
@@ -25,9 +36,9 @@ internal static class ObjectMap
     /// <param name="constructorFunction">JS class constructor function returned from
     /// <see cref="JSNativeApi.DefineClass"/></param>
     /// <returns>The JS constructor.</returns>
-    internal static JSValue RegisterClass<T>(JSValue constructorFunction) where T : class
+    internal JSValue RegisterClass<T>(JSValue constructorFunction) where T : class
     {
-        s_classMap.AddOrUpdate(
+        _classMap.AddOrUpdate(
             typeof(T),
             (_) => new JSReference(constructorFunction, isWeak: false),
             (_, _) => throw new InvalidOperationException(
@@ -38,9 +49,9 @@ internal static class ObjectMap
     /// <summary>
     /// Gets a class JS constructor that was previously registered.
     /// </summary>
-    private static JSValue GetClassConstructor<T>() where T : class
+    private JSValue GetClassConstructor<T>() where T : class
     {
-        if (!s_classMap.TryGetValue(typeof(T), out JSReference? constructorReference))
+        if (!_classMap.TryGetValue(typeof(T), out JSReference? constructorReference))
         {
             throw new InvalidOperationException(
                 "Class not registered for JS export: " + typeof(T));
@@ -63,14 +74,14 @@ internal static class ObjectMap
     /// for <see cref="JSNativeApi.DefineClass"/>.</param>
     /// <param name="obj">New or existing instance of the class to be wrapped.</param>
     /// <returns>The JS wrapper.</returns>
-    internal static unsafe JSValue InitializeObjectWrapper<T>(JSValue wrapper, T obj) where T : class
+    internal unsafe JSValue InitializeObjectWrapper<T>(JSValue wrapper, T obj) where T : class
     {
         // The reference returned by Wrap() is weak (refcount=0), which is good:
         // if the JS object is released then the reference will fail to resolve, and
         // GetOrCreateObjectWrapper() will create a new JS wrapper if requested.
         JSNativeApi.Wrap(wrapper, obj, out JSReference wrapperWeakRef);
 
-        s_objectMap.AddOrUpdate(
+        _objectMap.AddOrUpdate(
             obj,
             (_) => wrapperWeakRef,
             (_, oldReference) =>
@@ -92,7 +103,7 @@ internal static class ObjectMap
     /// a new JS object is constructed to wrap the existing instance, and a weak reference to
     /// the new wrapper is saved in the map.
     /// </remarks>
-    internal static JSValue GetOrCreateObjectWrapper<T>(T obj) where T : class
+    public JSValue GetOrCreateObjectWrapper<T>(T obj) where T : class
     {
         JSValue? wrapper = null;
         JSReference CreateWrapper(T obj)
@@ -106,7 +117,7 @@ internal static class ObjectMap
             return new(wrapper.Value, isWeak: true);
         }
 
-        s_objectMap.AddOrUpdate(
+        _objectMap.AddOrUpdate(
             obj,
             (_) =>
             {
@@ -137,9 +148,9 @@ internal static class ObjectMap
     /// <param name="constructorFunction">JS struct constructor function returned from
     /// <see cref="JSNativeApi.DefineClass"/></param>
     /// <returns>The JS constructor.</returns>
-    internal static JSValue RegisterStruct<T>(JSValue constructorFunction) where T : struct
+    internal JSValue RegisterStruct<T>(JSValue constructorFunction) where T : struct
     {
-        s_structMap.AddOrUpdate(
+        _structMap.AddOrUpdate(
             typeof(T),
             (_) => new JSReference(constructorFunction, isWeak: false),
             (_, _) => throw new InvalidOperationException(
@@ -148,12 +159,12 @@ internal static class ObjectMap
     }
 
     /// <summary>
-    /// Creates a new (empty) JS wrapper instance for a struct.
+    /// Creates a new (empty) JS instance for a struct.
     /// </summary>
     /// <returns>The JS wrapper.</returns>
-    internal static JSValue CreateStructWrapper<T>() where T : struct
+    public JSValue CreateStruct<T>() where T : struct
     {
-        if (!s_structMap.TryGetValue(typeof(T), out JSReference? constructorReference))
+        if (!_structMap.TryGetValue(typeof(T), out JSReference? constructorReference))
         {
             throw new InvalidOperationException(
                 "Struct not registered for JS export: " + typeof(T));
@@ -167,5 +178,38 @@ internal static class ObjectMap
         }
 
         return JSNativeApi.CallAsConstructor(constructorFunction.Value);
+    }
+
+    public void Dispose()
+    {
+        if (!IsDisposed)
+        {
+            IsDisposed = true;
+
+            DisposeReferences(_objectMap);
+            DisposeReferences(_classMap);
+            DisposeReferences(_structMap);
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+    public bool IsDisposed { get; private set; } = false;
+
+    private static void DisposeReferences<TKey>(
+        ConcurrentDictionary<TKey, JSReference> references) where TKey : notnull
+    {
+        foreach (JSReference reference in references.Values)
+        {
+            try
+            {
+                reference.Dispose();
+            }
+            catch (JSException)
+            {
+            }
+        }
+
+        references.Clear();
     }
 }
