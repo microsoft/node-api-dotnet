@@ -459,12 +459,49 @@ public static partial class JSNativeApi
     public static JSValue Wrap<T>(T obj) where T : class
         => ObjectMap.GetOrCreateObjectWrapper(obj);
 
+    /// <summary>
+    /// Attaches an object to a JS wrapper.
+    /// </summary>
+    /// <param name="wrapper">The JS wrapper value, typically the 'this' argument to a class
+    /// constructor callback.</param>
+    /// <param name="value">The object to be wrapped.</param>
+    /// <returns>The JS wrapper.</returns>
     public static unsafe JSValue Wrap(this JSValue wrapper, object value)
     {
         GCHandle valueHandle = GCHandle.Alloc(value);
-        napi_wrap(Env, (napi_value)wrapper, (nint)valueHandle, new napi_finalize(&FinalizeGCHandle), nint.Zero, null).ThrowIfFailed();
+        napi_wrap(
+            Env,
+            (napi_value)wrapper,
+            (nint)valueHandle,
+            new napi_finalize(&FinalizeGCHandle),
+            nint.Zero,
+            null).ThrowIfFailed();
         return wrapper;
     }
+
+    /// <summary>
+    /// Attaches an object to a JS wrapper.
+    /// </summary>
+    /// <param name="wrapper">The JS wrapper value, typically the 'this' argument to a class
+    /// constructor callback.</param>
+    /// <param name="value">The object to be wrapped.</param>
+    /// <param name="wrapperWeakRef">Returns a weak reference to the JS wrapper.</param>
+    /// <returns>The JS wrapper.</returns>
+    public static unsafe JSValue Wrap(this JSValue wrapper, object value, out JSReference wrapperWeakRef)
+    {
+        GCHandle valueHandle = GCHandle.Alloc(value);
+        napi_ref weakRef;
+        napi_wrap(
+            Env,
+            (napi_value)wrapper,
+            (nint)valueHandle,
+            new napi_finalize(&FinalizeGCHandle),
+            nint.Zero,
+            &weakRef).ThrowIfFailed();
+        wrapperWeakRef = new JSReference(weakRef, isWeak: true);
+        return wrapper;
+    }
+
 
     public static object? Unwrap(this JSValue thisValue)
     {

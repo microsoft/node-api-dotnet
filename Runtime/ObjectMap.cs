@@ -1,8 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
-using static NodeApi.JSNativeApi;
-using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
@@ -68,28 +65,18 @@ internal static class ObjectMap
     /// <returns>The JS wrapper.</returns>
     internal static unsafe JSValue InitializeObjectWrapper<T>(JSValue wrapper, T obj) where T : class
     {
-        GCHandle valueHandle = GCHandle.Alloc(obj);
-        napi_ref result;
-        napi_wrap(
-            (napi_env)JSValueScope.Current,
-            (napi_value)wrapper,
-            (nint)valueHandle,
-            new napi_finalize(&FinalizeGCHandle),
-            nint.Zero,
-            &result).ThrowIfFailed();
-
-        // The reference returned by napi_wrap() is weak (refcount=0), which is good:
+        // The reference returned by Wrap() is weak (refcount=0), which is good:
         // if the JS object is released then the reference will fail to resolve, and
         // GetOrCreateObjectWrapper() will create a new JS wrapper if requested.
-        JSReference wrapperReference = new(result, isWeak: true);
+        JSNativeApi.Wrap(wrapper, obj, out JSReference wrapperWeakRef);
 
         s_objectMap.AddOrUpdate(
             obj,
-            (_) => wrapperReference,
+            (_) => wrapperWeakRef,
             (_, oldReference) =>
             {
                 oldReference.Dispose();
-                return wrapperReference;
+                return wrapperWeakRef;
             });
 
         return wrapper;
