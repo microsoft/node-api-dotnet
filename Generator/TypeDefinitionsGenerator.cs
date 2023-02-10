@@ -14,13 +14,20 @@ internal class TypeDefinitionsGenerator : SourceGenerator
     private static readonly Regex s_summaryRegex = new("<summary>(.*)</summary>");
     private static readonly Regex s_remarksRegex = new("<remarks>(.*)</remarks>");
 
-    internal static SourceText GenerateTypeDefinitions(IEnumerable<ISymbol> exportItems)
+    private readonly IEnumerable<ISymbol> exportItems;
+
+    public TypeDefinitionsGenerator(IEnumerable<ISymbol> exportItems)
+    {
+        this.exportItems = exportItems;
+    }
+
+    internal SourceText GenerateTypeDefinitions()
     {
         var s = new SourceBuilder();
 
         s += "// Generated type definitions for .NET module";
 
-        foreach (ISymbol exportItem in exportItems)
+        foreach (ISymbol exportItem in this.exportItems)
         {
             if (exportItem is ITypeSymbol exportType &&
                 (exportType.TypeKind == TypeKind.Class || exportType.TypeKind == TypeKind.Struct))
@@ -50,7 +57,7 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         return s;
     }
 
-    private static void GenerateClassTypeDefinitions(ref SourceBuilder s, ITypeSymbol exportClass)
+    private void GenerateClassTypeDefinitions(ref SourceBuilder s, ITypeSymbol exportClass)
     {
         s++;
         GenerateDocComments(ref s, exportClass);
@@ -117,8 +124,10 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         s += "}";
     }
 
-    private static string GetTSType(ITypeSymbol type)
+    private string GetTSType(ITypeSymbol type)
     {
+        string tsType = "unknown";
+
         string? specialType = type.SpecialType switch
         {
             SpecialType.System_Void => "void",
@@ -137,25 +146,93 @@ internal class TypeDefinitionsGenerator : SourceGenerator
             ////SpecialType.System_DateTime => "Date",
             _ => null,
         };
+
         if (specialType != null)
         {
-            return specialType;
-        }
-
-        if (type.TypeKind == TypeKind.Class)
-        {
-            // TODO: Check if class is exported.
+            tsType = specialType;
         }
         else if (type.TypeKind == TypeKind.Array)
         {
-            // TODO: Get element type.
-            return "any[]";
+            ITypeSymbol elementType = ((IArrayTypeSymbol)type).ElementType;
+            tsType = GetTSType(elementType) + "[]";
+        }
+        else if (type is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)
+        {
+            if (namedType.OriginalDefinition.Name == "Nullable")
+            {
+                tsType = GetTSType(namedType.TypeArguments[0]) + " | null";
+            }
+            else if (namedType.OriginalDefinition.Name == "Memory")
+            {
+                ITypeSymbol elementType = namedType.TypeArguments[0];
+                tsType = elementType.SpecialType switch
+                {
+                    SpecialType.System_SByte => "Int8Array",
+                    SpecialType.System_Int16 => "Int16Array",
+                    SpecialType.System_Int32 => "Int32Array",
+                    SpecialType.System_Int64 => "BigInt64Array",
+                    SpecialType.System_Byte => "Uint8Array",
+                    SpecialType.System_UInt16 => "Uint16Array",
+                    SpecialType.System_UInt32 => "Uint32Array",
+                    SpecialType.System_UInt64 => "BigUint64Array",
+                    SpecialType.System_Single => "Float32Array",
+                    SpecialType.System_Double => "Float64Array",
+                    _ => "unknown",
+                };
+            }
+            else if (namedType.OriginalDefinition.Name == "IList")
+            {
+                tsType = GetTSType(namedType.TypeArguments[0]) + "[]";
+            }
+            else if (namedType.OriginalDefinition.Name == "IReadOnlyList")
+            {
+                tsType = "readonly " + GetTSType(namedType.TypeArguments[0]) + "[]";
+            }
+            else if (namedType.OriginalDefinition.Name == "ICollection" ||
+                namedType.OriginalDefinition.Name == "ISet")
+            {
+                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                return $"Set<{elementTsType}>";
+            }
+            else if (namedType.OriginalDefinition.Name == "IReadOnlyCollection" ||
+                namedType.OriginalDefinition.Name == "IReadOnlySet")
+            {
+                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                return $"ReadonlySet<{elementTsType}>";
+            }
+            else if (namedType.OriginalDefinition.Name == "IEnumerable")
+            {
+                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                return $"Iterable<{elementTsType}>";
+            }
+            else if (namedType.OriginalDefinition.Name == "IDictionary")
+            {
+                string keyTSType = GetTSType(namedType.TypeArguments[0]);
+                string valueTSType = GetTSType(namedType.TypeArguments[1]);
+                tsType = $"Map<{keyTSType}, {valueTSType}>";
+            }
+            else if (namedType.OriginalDefinition.Name == "IReadOnlyDictionary")
+            {
+                string keyTSType = GetTSType(namedType.TypeArguments[0]);
+                string valueTSType = GetTSType(namedType.TypeArguments[1]);
+                tsType = $"ReadonlyMap<{keyTSType}, {valueTSType}>";
+            }
+        }
+        else if (this.exportItems.Contains(type, SymbolEqualityComparer.Default))
+        {
+            tsType = type.Name;
         }
 
-        return "any";
+        if (type.NullableAnnotation == NullableAnnotation.Annotated &&
+            tsType != "any" && !tsType.EndsWith(" | null"))
+        {
+            tsType += " | null";
+        }
+
+        return tsType;
     }
 
-    private static string GetTSParameters(IMethodSymbol method, string indent)
+    private string GetTSParameters(IMethodSymbol method, string indent)
     {
         if (method.Parameters.Length == 0)
         {
@@ -180,7 +257,7 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         return s.ToString();
     }
 
-    private static void GenerateDocComments(ref SourceBuilder s, ISymbol symbol)
+    private void GenerateDocComments(ref SourceBuilder s, ISymbol symbol)
     {
         string? comment = symbol.GetDocumentationCommentXml();
         if (string.IsNullOrEmpty(comment))

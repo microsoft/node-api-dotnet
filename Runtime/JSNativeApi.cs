@@ -563,11 +563,60 @@ public static partial class JSNativeApi
     public static bool IsTypedArray(this JSValue thisValue)
         => napi_is_typedarray(Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
 
-    public static unsafe void GetTypedArrayInfo(
+    public static unsafe int GetTypedArrayLength(
+        this JSValue thisValue,
+        out JSTypedArrayType type)
+    {
+        napi_get_typedarray_info(
+            Env,
+            (napi_value)thisValue,
+            out napi_typedarray_type type_,
+            out nuint length_,
+            out void* _,
+            out napi_value _,
+            out nuint _).ThrowIfFailed();
+        type = (JSTypedArrayType)(int)type_;
+        return (int)length_;
+    }
+
+    public static unsafe Span<T> GetTypedArrayData<T>(
+        this JSValue thisValue) where T : struct
+    {
+        napi_get_typedarray_info(
+            Env,
+            (napi_value)thisValue,
+            out napi_typedarray_type type_,
+            out nuint length_,
+            out void* data_,
+            out napi_value _,
+            out nuint _).ThrowIfFailed();
+        var type = (JSTypedArrayType)(int)type_;
+        if (!(default(T) switch
+        {
+            sbyte => type == JSTypedArrayType.Int8,
+            byte => type == JSTypedArrayType.UInt8 || type == JSTypedArrayType.UInt8Clamped,
+            short => type == JSTypedArrayType.Int16,
+            ushort => type == JSTypedArrayType.Int16,
+            int => type == JSTypedArrayType.Int32,
+            uint => type == JSTypedArrayType.UInt32,
+            long => type == JSTypedArrayType.BigInt64,
+            ulong => type == JSTypedArrayType.BigUInt64,
+            float => type == JSTypedArrayType.Float32,
+            double => type == JSTypedArrayType.Float64,
+            _ => throw new InvalidCastException("Invalid typed-array type: " + typeof(T)),
+        }))
+        {
+            throw new InvalidCastException(
+                $"Incorrect typed-array type {typeof(T)} for {type}Array.");
+        }
+
+        return new Span<T>(data_, (int)length_);
+    }
+
+    public static unsafe void GetTypedArrayBuffer(
         this JSValue thisValue,
         out JSTypedArrayType type,
         out int length,
-        out void* data,
         out JSValue arrayBuffer,
         out int byteOffset)
     {
@@ -576,7 +625,7 @@ public static partial class JSNativeApi
             (napi_value)thisValue,
             out napi_typedarray_type type_,
             out nuint length_,
-            out data,
+            out void* _,
             out napi_value arrayBuffer_,
             out nuint byteOffset_).ThrowIfFailed();
         type = (JSTypedArrayType)(int)type_;
@@ -793,7 +842,9 @@ public static partial class JSNativeApi
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe void FinalizeHintHandle(napi_env _1, nint _2, nint hint)
     {
-        GCHandle.FromIntPtr(hint).Free();
+        GCHandle handle = GCHandle.FromIntPtr(hint);
+        (handle.Target as IDisposable)?.Dispose();
+        handle.Free();
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -844,15 +895,15 @@ public static partial class JSNativeApi
 
     private unsafe delegate void UseUnmanagedDescriptors(ReadOnlySpan<byte> name, nuint count, napi_property_descriptor* descriptors);
 
-    internal class PinnedReadOnlyMemory : IDisposable
+    internal sealed class PinnedMemory<T> : IDisposable where T : struct
     {
-        private bool _disposedValue = false;
-        private readonly ReadOnlyMemory<byte> _memory;
+        private bool _disposed = false;
+        private readonly Memory<T> _memory;
         private MemoryHandle _memoryHandle;
 
         public object? Owner { get; private set; }
 
-        public PinnedReadOnlyMemory(object? owner, ReadOnlyMemory<byte> memory)
+        public PinnedMemory(Memory<T> memory, object? owner)
         {
             Owner = owner;
             _memory = memory;
@@ -861,26 +912,17 @@ public static partial class JSNativeApi
 
         public unsafe void* Pointer => _memoryHandle.Pointer;
 
-        public int Length => _memory.Length;
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposedValue)
-            {
-                if (disposing)
-                {
-                    _memoryHandle.Dispose();
-                }
-
-                Owner = null;
-                _disposedValue = true;
-            }
-        }
+        public int Length => _memory.Length * Unsafe.SizeOf<T>();
 
         public void Dispose()
         {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
+            if (!_disposed)
+            {
+                _disposed = true;
+                _memoryHandle.Dispose();
+                Owner = null;
+            }
+
             GC.SuppressFinalize(this);
         }
     }

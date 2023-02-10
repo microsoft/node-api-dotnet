@@ -1,17 +1,17 @@
 namespace NodeApi;
 
-// Matches to napi_typed_arraytype
+// Matches to napi_typedarray_type
 public enum JSTypedArrayType : int
 {
-    SByteArray,
-    ByteArray,
-    ByteClampedArray,
-    Int16Array,
-    UInt16Array,
-    Int32Array,
-    UInt32Array,
-    SingleArray,
-    DoubleArray,
-    BigInt64Array,
-    BigUInt64Array,
+    Int8,
+    UInt8,
+    UInt8Clamped,
+    Int16,
+    UInt16,
+    Int32,
+    UInt32,
+    Float32,
+    Float64,
+    BigInt64,
+    BigUInt64,
 }

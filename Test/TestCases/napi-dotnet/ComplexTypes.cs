@@ -1,7 +1,5 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Threading;
 
 namespace NodeApi.TestCases;
 
@@ -23,9 +21,9 @@ public static class ComplexTypes
 
     public static ClassObject? NullableClassObject { get; set; }
 
-    public static int[] Array { get; set; } = System.Array.Empty<int>();
+    public static string[] StringArray { get; set; } = Array.Empty<string>();
 
-    public static int[]? NullableArray { get; set; }
+    public static Memory<uint> UIntArray { get; set; }
 
     public static IList<int> List { get; set; } = new List<int>();
 
@@ -35,6 +33,9 @@ public static class ComplexTypes
 
     public static IReadOnlyDictionary<int, string> ReadOnlyDictionary { get; set; }
         = new Dictionary<int, string>().AsReadOnly();
+
+    public static IDictionary<string, IList<ClassObject>> ObjectListDictionary { get; set; }
+        = new Dictionary<string, IList<ClassObject>>();
 }
 
 /// <summary>

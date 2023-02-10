@@ -21,6 +21,7 @@ internal class AdapterGenerator : SourceGenerator
 
     private readonly Dictionary<string, ISymbol> _adaptedMembers = new();
     private readonly Dictionary<string, ITypeSymbol> _adaptedStructs = new();
+    private readonly Dictionary<string, ITypeSymbol> _adaptedArrays = new();
 
     internal AdapterGenerator(GeneratorExecutionContext context)
     {
@@ -132,6 +133,19 @@ internal class AdapterGenerator : SourceGenerator
         return (getAdapterName, setAdapterName);
     }
 
+    private string GetArrayAdapterName(ITypeSymbol elementType, bool toJS)
+    {
+        string ns = GetNamespace(elementType);
+        string elementName = elementType.Name;
+        string prefix = toJS ? AdapterFromPrefix : AdapterToPrefix;
+        string adapterName = $"{prefix}{ns.Replace('.', '_')}_{elementName}_Array";
+        if (!_adaptedArrays.ContainsKey(adapterName))
+        {
+            _adaptedArrays.Add(adapterName, elementType);
+        }
+        return adapterName;
+    }
+
     internal void GenerateAdapters(SourceBuilder s)
     {
         foreach (KeyValuePair<string, ISymbol> nameAndSymbol in _adaptedMembers)
@@ -163,6 +177,14 @@ internal class AdapterGenerator : SourceGenerator
             string adapterName = nameAndSymbol.Key;
             ITypeSymbol structSymbol = nameAndSymbol.Value;
             GenerateStructAdapter(ref s, adapterName, structSymbol);
+        }
+
+        foreach (KeyValuePair<string, ITypeSymbol> nameAndSymbol in _adaptedArrays)
+        {
+            s++;
+            string adapterName = nameAndSymbol.Key;
+            ITypeSymbol elementSymbol = nameAndSymbol.Value;
+            GenerateArrayAdapter(ref s, adapterName, elementSymbol);
         }
     }
 
@@ -345,6 +367,59 @@ internal class AdapterGenerator : SourceGenerator
         }
     }
 
+    private void GenerateArrayAdapter(
+        ref SourceBuilder s,
+        string adapterName,
+        ITypeSymbol elementType)
+    {
+        string ns = GetNamespace(elementType);
+        string elementName = elementType.Name;
+
+        if (adapterName.StartsWith(AdapterFromPrefix))
+        {
+            s += $"private static JSValue {adapterName}({ns}.{elementName}[] array)";
+            s += "{";
+            s += "JSArray jsArray = new JSArray(array.Length);";
+            s += "for (int i = 0; i < array.Length; i++)";
+            s += "{";
+            s += $"jsArray[i] = {Convert("array[i]", elementType, null)};";
+            s += "}";
+            s += "return jsArray;";
+            s += "}";
+        }
+        else
+        {
+            s += $"private static {ns}.{elementName}[] {adapterName}(JSValue value)";
+            s += "{";
+            s += "JSArray jsArray = (JSArray)value;";
+            s += $"{ns}.{elementName}[] array = new {ns}.{elementName}[jsArray.Length];";
+            s += "for (int i = 0; i < array.Length; i++)";
+            s += "{";
+            s += $"array[i] = {Convert("jsArray[i]", null, elementType)};";
+            s += "}";
+            s += "return array;";
+            s += "}";
+        }
+    }
+
+    private bool IsTypedArrayType(ITypeSymbol elementType)
+    {
+        return elementType.SpecialType switch
+        {
+            SpecialType.System_SByte => true,
+            SpecialType.System_Byte => true,
+            SpecialType.System_Int16 => true,
+            SpecialType.System_UInt16 => true,
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => true,
+            SpecialType.System_Int64 => true,
+            SpecialType.System_UInt64 => true,
+            SpecialType.System_Single => true,
+            SpecialType.System_Double => true,
+            _ => false,
+        };
+    }
+
     private void AdaptThisArg(ref SourceBuilder s, ISymbol symbol)
     {
 
@@ -425,6 +500,14 @@ internal class AdapterGenerator : SourceGenerator
             }
             else if (toType.TypeKind == TypeKind.Struct)
             {
+                if (toType is INamedTypeSymbol namedType &&
+                    namedType.TypeParameters.Length == 1 &&
+                    namedType.OriginalDefinition.Name == "Memory" &&
+                    IsTypedArrayType(namedType.TypeArguments[0]))
+                {
+                    return $"((JSTypedArray<{namedType.TypeArguments[0]}>){fromExpression}).AsMemory()";
+                }
+
                 VerifyReferencedTypeIsExported(toType);
 
                 string adapterName = GetStructAdapterName(toType, toJS: false);
@@ -437,6 +520,26 @@ internal class AdapterGenerator : SourceGenerator
                 {
                     return $"{adapterName}({fromExpression})";
                 }
+            }
+            else if (toType.TypeKind == TypeKind.Array)
+            {
+                ITypeSymbol elementType = ((IArrayTypeSymbol)toType).ElementType;
+                VerifyReferencedTypeIsExported(elementType);
+
+                string adapterName = GetArrayAdapterName(elementType, toJS: false);
+                if (isNullable)
+                {
+                    return $"({fromExpression}).IsNullOrUndefined() ? ({elementType}[]?)null : " +
+                        $"{adapterName}({fromExpression})";
+                }
+                else
+                {
+                    return $"{adapterName}({fromExpression})";
+                }
+            }
+            else if (toType is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)
+            {
+                // TODO: Handle generic collections.
             }
 
             // TODO: Handle other kinds of conversions from JSValue.
@@ -483,6 +586,14 @@ internal class AdapterGenerator : SourceGenerator
             }
             else if (fromType.TypeKind == TypeKind.Struct)
             {
+                if (fromType is INamedTypeSymbol namedType &&
+                    namedType.TypeParameters.Length == 1 &&
+                    namedType.OriginalDefinition.Name == "Memory" &&
+                    IsTypedArrayType(namedType.TypeArguments[0]))
+                {
+                    return $"new JSTypedArray<{namedType.TypeArguments[0]}>({fromExpression})";
+                }
+
                 VerifyReferencedTypeIsExported(fromType);
 
                 string adapterName = GetStructAdapterName(fromType, toJS: true);
@@ -495,6 +606,26 @@ internal class AdapterGenerator : SourceGenerator
                 {
                     return $"{adapterName}({fromExpression})";
                 }
+            }
+            else if (fromType.TypeKind == TypeKind.Array)
+            {
+                ITypeSymbol elementType = ((IArrayTypeSymbol)fromType).ElementType;
+                VerifyReferencedTypeIsExported(elementType);
+
+                string adapterName = GetArrayAdapterName(elementType, toJS: true);
+                if (isNullable)
+                {
+                    return $"{fromExpression} == null ? JSValue.Null : " +
+                        $"{adapterName}({fromExpression})";
+                }
+                else
+                {
+                    return $"{adapterName}({fromExpression})";
+                }
+            }
+            else if (fromType is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)
+            {
+                // TODO: Handle generic collections.
             }
 
             // TODO: Handle other kinds of conversions to JSValue.
@@ -512,6 +643,13 @@ internal class AdapterGenerator : SourceGenerator
 
     private void VerifyReferencedTypeIsExported(ITypeSymbol type)
     {
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_Object:
+            case SpecialType.System_String: return;
+            default: break;
+        }
+
         if (ModuleGenerator.GetJSExportAttribute(type) == null)
         {
             // TODO: Consider an option to automatically export referenced classes?

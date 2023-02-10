@@ -57,8 +57,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             // No type definitions are generated when using a custom init function.
             if (moduleInitializer is not IMethodSymbol)
             {
-                SourceText typeDefinitions = TypeDefinitionsGenerator.GenerateTypeDefinitions(
-                    exportItems);
+                TypeDefinitionsGenerator tsGenerator = new(exportItems);
+                SourceText typeDefinitions = tsGenerator.GenerateTypeDefinitions();
                 if (context.AnalyzerConfigOptions.GlobalOptions.TryGetValue(
                     "build_property.TargetPath", out string? targetPath))
                 {

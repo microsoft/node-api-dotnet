@@ -5,29 +5,32 @@ namespace NodeApi;
 
 public partial struct JSArray : IList<JSValue>
 {
-    private JSValue _value;
+    private readonly JSValue _value;
 
-    public static explicit operator JSArray(JSValue value) => new() { _value = value };
+    public static explicit operator JSArray(JSValue value) => new JSArray(value);
     public static implicit operator JSValue(JSArray arr) => arr._value;
 
     public static explicit operator JSArray(JSObject obj) => (JSArray)(JSValue)obj;
     public static implicit operator JSObject(JSArray arr) => (JSObject)arr._value;
 
-    public JSArray()
+    private JSArray(JSValue value)
     {
-        _value = JSValue.CreateArray();
+        _value = value;
     }
 
-    public JSArray(int length)
+    public JSArray() : this(JSValue.CreateArray())
     {
-        _value = JSValue.CreateArray(length);
+    }
+
+    public JSArray(int length) : this(JSValue.CreateArray(length))
+    {
     }
 
     public int Length => _value.GetArrayLength();
 
-    public int Count => _value.GetArrayLength();
+    int ICollection<JSValue>.Count => _value.GetArrayLength();
 
-    public bool IsReadOnly => false;
+    bool ICollection<JSValue>.IsReadOnly => false;
 
     public JSValue this[int index]
     {

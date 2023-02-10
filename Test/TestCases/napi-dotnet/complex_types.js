@@ -57,3 +57,35 @@ assert.notStrictEqual(structInstance2, structInstance);
 structInstance2.value = 'test2';
 assert.strictEqual(structInstance2.value, 'test2');
 assert.strictEqual(structInstance.value, 'test');
+
+// C# arrays are copied to/from JS, so modifying the returned array doesn't affect the original.
+const stringArrayValue = ComplexTypes.stringArray;
+assert(Array.isArray(stringArrayValue));
+assert.strictEqual(stringArrayValue.length, 0);
+ComplexTypes.stringArray = [ 'test' ];
+assert.notStrictEqual(ComplexTypes.stringArray, stringArrayValue);
+assert.strictEqual(ComplexTypes.stringArray[0], 'test');
+ComplexTypes.stringArray[0] = 'test2';
+assert.strictEqual(ComplexTypes.stringArray[0], 'test');
+
+// C# Memory<T> maps to/from JS TypedArray (without copying) for valid typed-array element types.
+const uintArrayValue = ComplexTypes.uIntArray;
+assert(uintArrayValue instanceof Uint32Array);
+assert.strictEqual(uintArrayValue.length, 0);
+const uintArrayValue2 = new Uint32Array([0, 1, 2]);
+ComplexTypes.uIntArray = uintArrayValue2;
+assert.strictEqual(ComplexTypes.uIntArray.length, 3);
+assert.strictEqual(ComplexTypes.uIntArray[1], 1);
+
+/*
+// C# IList<T> maps to/from JS Array<T> (without copying).
+const listValue = ComplexTypes.list;
+assert(Array.isArray(listValue));
+assert.strictEqual(listValue.length, 0);
+ComplexTypes.list = [0];
+assert.notStrictEqual(ComplexTypes.list, listValue);
+assert.strictEqual(ComplexTypes.list[0], 0);
+listValue = ComplexTypes.list;
+ComplexTypes.list[0] = 1;
+assert.strictEqual(listValue[0], 1);
+*/
