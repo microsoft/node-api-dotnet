@@ -6,9 +6,9 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public struct JSValue
+public readonly struct JSValue
 {
-    private napi_value _handle;
+    private readonly napi_value _handle;
 
     public JSValueScope Scope { get; }
 
@@ -188,9 +188,9 @@ public struct JSValue
         return result;
     }
 
-    public static unsafe JSValue CreateExternalArrayBuffer(object? external, ReadOnlyMemory<byte> memory)
+    public static unsafe JSValue CreateExternalArrayBuffer<T>(Memory<T> memory, object? external = null) where T : struct
     {
-        var pinnedMemory = new PinnedReadOnlyMemory(external, memory);
+        var pinnedMemory = new PinnedMemory<T>(memory, external);
         return napi_create_external_arraybuffer(
             Env,
             pinnedMemory.Pointer,

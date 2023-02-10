@@ -5,7 +5,7 @@ namespace NodeApi;
 
 public class JSValueScope : IDisposable
 {
-    private napi_env _env;
+    private readonly napi_env _env;
     [ThreadStatic] private static JSValueScope? s_current;
 
     public JSValueScope? ParentScope { get; }
