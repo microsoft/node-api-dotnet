@@ -27,7 +27,7 @@ public class TestBasicTypesValue : TestHelper, ITestObject
 
     // Helper methods
     private static JSValue CreateDefaultValue(JSCallbackArgs _) => default;
-    private static JSValue CreateEmptyValue(JSCallbackArgs _) => new JSValue();
+    private static JSValue CreateEmptyValue(JSCallbackArgs _) => new();
     private static JSValue CreateNonEmptyValue(JSCallbackArgs _) => "non_empty_val";
     private static JSValue CreateExternal(JSCallbackArgs _) => JSValue.CreateExternal(1);
 
