@@ -8,6 +8,9 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace NodeApi.Generator;
 
+// An analyzer bug results in incorrect reports of CA1822 against methods in this class.
+#pragma warning disable CA1822 // Mark members as static
+
 internal class TypeDefinitionsGenerator : SourceGenerator
 {
     private static readonly Regex s_newlineRegex = new("\n *");
