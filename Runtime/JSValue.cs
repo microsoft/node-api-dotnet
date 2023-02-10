@@ -24,7 +24,7 @@ public readonly struct JSValue
     {
         if (handle.Handle != nint.Zero)
         {
-            ArgumentNullException.ThrowIfNull(nameof(scope));
+            ArgumentNullException.ThrowIfNull(scope);
         }
         _scope = scope;
         _handle = handle;
