@@ -9,30 +9,28 @@ namespace NodeApi;
 public readonly struct JSValue
 {
     private readonly napi_value _handle;
+    private readonly JSValueScope? _scope;
 
-    public JSValueScope Scope { get; }
+    public readonly JSValueScope Scope =>
+        _scope ?? JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
 
-    public JSValue(JSValueScope scope, napi_value handle)
+    public JSValue() { }
+
+    public JSValue(napi_value handle) : this(JSValueScope.Current, handle)
     {
-        if (handle.Handle == nint.Zero)
+    }
+
+    public JSValue(JSValueScope? scope, napi_value handle)
+    {
+        if (handle.Handle != nint.Zero)
         {
-            throw new ArgumentException($"{nameof(handle)} must not be null.");
+            ArgumentNullException.ThrowIfNull(nameof(scope));
         }
-        Scope = scope;
+        _scope = scope;
         _handle = handle;
     }
 
-    public JSValue(napi_value handle)
-    {
-        if (handle.Handle == nint.Zero)
-        {
-            throw new ArgumentException($"{nameof(handle)} must not be null.");
-        }
-        Scope = JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
-        _handle = handle;
-    }
-
-    public napi_value? Handle => !Scope.IsDisposed ? _handle : null;
+    public napi_value? Handle => !Scope.IsDisposed ? (_handle.Handle != nint.Zero ? _handle : Undefined._handle) : null;
 
     public napi_value GetCheckedHandle()
         => Handle ?? throw new InvalidOperationException("The value handle is invalid because its scope is closed");

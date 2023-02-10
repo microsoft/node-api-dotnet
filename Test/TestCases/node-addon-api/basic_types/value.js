@@ -124,6 +124,9 @@ function test(binding) {
   typeCheckerTest(value.isDataView, 'dataview');
   typeCheckerTest(value.isExternal, 'external');
 
+  assert.strictEqual(value.isUndefined(value.createDefaultValue()), true);
+  assert.strictEqual(value.isUndefined(value.createEmptyValue()), true);
+
   typeConverterTest(value.toBoolean, Boolean);
   assert.strictEqual(value.toBoolean(undefined), false);
   assert.strictEqual(value.toBoolean(null), false);
