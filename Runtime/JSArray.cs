@@ -3,11 +3,11 @@ using System.Collections.Generic;
 
 namespace NodeApi;
 
-public partial struct JSArray : IList<JSValue>
+public readonly partial struct JSArray : IList<JSValue>
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSArray(JSValue value) => new JSArray(value);
+    public static explicit operator JSArray(JSValue value) => new(value);
     public static implicit operator JSValue(JSArray arr) => arr._value;
 
     public static explicit operator JSArray(JSObject obj) => (JSArray)(JSValue)obj;

@@ -14,11 +14,11 @@ internal class TypeDefinitionsGenerator : SourceGenerator
     private static readonly Regex s_summaryRegex = new("<summary>(.*)</summary>");
     private static readonly Regex s_remarksRegex = new("<remarks>(.*)</remarks>");
 
-    private readonly IEnumerable<ISymbol> exportItems;
+    private readonly IEnumerable<ISymbol> _exportItems;
 
     public TypeDefinitionsGenerator(IEnumerable<ISymbol> exportItems)
     {
-        this.exportItems = exportItems;
+        _exportItems = exportItems;
     }
 
     internal SourceText GenerateTypeDefinitions()
@@ -27,7 +27,7 @@ internal class TypeDefinitionsGenerator : SourceGenerator
 
         s += "// Generated type definitions for .NET module";
 
-        foreach (ISymbol exportItem in this.exportItems)
+        foreach (ISymbol exportItem in _exportItems)
         {
             if (exportItem is ITypeSymbol exportType &&
                 (exportType.TypeKind == TypeKind.Class || exportType.TypeKind == TypeKind.Struct))
@@ -218,7 +218,7 @@ internal class TypeDefinitionsGenerator : SourceGenerator
                 tsType = $"ReadonlyMap<{keyTSType}, {valueTSType}>";
             }
         }
-        else if (this.exportItems.Contains(type, SymbolEqualityComparer.Default))
+        else if (_exportItems.Contains(type, SymbolEqualityComparer.Default))
         {
             tsType = type.Name;
         }
@@ -257,7 +257,7 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         return s.ToString();
     }
 
-    private void GenerateDocComments(ref SourceBuilder s, ISymbol symbol)
+    private static void GenerateDocComments(ref SourceBuilder s, ISymbol symbol)
     {
         string? comment = symbol.GetDocumentationCommentXml();
         if (string.IsNullOrEmpty(comment))

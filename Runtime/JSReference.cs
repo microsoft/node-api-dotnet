@@ -5,8 +5,8 @@ namespace NodeApi;
 
 public class JSReference : IDisposable
 {
-    private napi_env _env;
-    private napi_ref _handle;
+    private readonly napi_env _env;
+    private readonly napi_ref _handle;
 
     public bool IsWeak { get; private set; }
 

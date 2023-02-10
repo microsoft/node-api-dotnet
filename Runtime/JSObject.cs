@@ -4,20 +4,24 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public partial struct JSObject : IDictionary<JSValue, JSValue>
+public readonly partial struct JSObject : IDictionary<JSValue, JSValue>
 {
-    private JSValue _value;
+    private readonly JSValue _value;
 
     public int Count => throw new System.NotImplementedException();
 
     public bool IsReadOnly => throw new System.NotImplementedException();
 
-    public static explicit operator JSObject(JSValue value) => new() { _value = value };
+    public static explicit operator JSObject(JSValue value) => new(value);
     public static implicit operator JSValue(JSObject obj) => obj._value;
 
-    public JSObject()
+    private JSObject(JSValue value)
     {
-        _value = JSValue.CreateObject();
+        _value = value;
+    }
+
+    public JSObject() : this(JSValue.CreateObject())
+    {
     }
 
     public void DefineProperties(params JSPropertyDescriptor[] descriptors)

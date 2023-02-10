@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 
 namespace NodeApi;
 
-public struct JSTypedArray<T> where T : struct
+public readonly struct JSTypedArray<T> where T : struct
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSTypedArray<T>(JSValue value) => new JSTypedArray<T>(value);
+    public static explicit operator JSTypedArray<T>(JSValue value) => new(value);
     public static implicit operator JSValue(JSTypedArray<T> arr) => arr._value;
 
     private static int ElementSize { get; } = default(T) switch
@@ -109,7 +109,7 @@ public struct JSTypedArray<T> where T : struct
     /// </summary>
     public Memory<T> AsMemory()
     {
-        JSReference typedArrayReference = new JSReference(_value);
+        JSReference typedArrayReference = new(_value);
         return new MemoryManager(typedArrayReference).Memory;
     }
 

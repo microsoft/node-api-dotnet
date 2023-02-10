@@ -6,7 +6,7 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public struct JSValue
+public readonly struct JSValue
 {
     private readonly napi_value _handle;
 
