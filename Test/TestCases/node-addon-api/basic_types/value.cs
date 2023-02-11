@@ -26,8 +26,10 @@ public class TestBasicTypesValue : TestHelper, ITestObject
     private static JSValue StrictlyEquals(JSCallbackArgs args) => args[0].StrictEquals(args[1]);
 
     // Helper methods
-    private static JSValue CreateExternal(JSCallbackArgs _) => JSValue.CreateExternal(1);
+    private static JSValue CreateDefaultValue(JSCallbackArgs _) => default;
+    private static JSValue CreateEmptyValue(JSCallbackArgs _) => new();
     private static JSValue CreateNonEmptyValue(JSCallbackArgs _) => "non_empty_val";
+    private static JSValue CreateExternal(JSCallbackArgs _) => JSValue.CreateExternal(1);
 
 
     public static JSObject Init() => new()
@@ -53,6 +55,8 @@ public class TestBasicTypesValue : TestHelper, ITestObject
 
         Method(StrictlyEquals),
 
+        Method(CreateDefaultValue),
+        Method(CreateEmptyValue),
         Method(CreateNonEmptyValue),
         Method(CreateExternal),
     };
