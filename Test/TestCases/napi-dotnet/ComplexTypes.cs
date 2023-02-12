@@ -25,6 +25,12 @@ public static class ComplexTypes
 
     public static Memory<uint> UIntArray { get; set; }
 
+    public static IEnumerable<int> Enumerable { get; set; } = new int[] { 0, 1, 2 };
+
+    public static ICollection<int> Collection { get; set; } = new List<int>(new int[] { 0, 1, 2 });
+
+    public static IReadOnlyCollection<int> ReadOnlyCollection { get; set; } = new int[] { 0, 1, 2 };
+
     public static IList<int> List { get; set; } = new List<int>();
 
     public static IReadOnlyList<int> ReadOnlyList { get; set; } = new List<int>().AsReadOnly();
@@ -36,6 +42,8 @@ public static class ComplexTypes
 
     public static IDictionary<string, IList<ClassObject>> ObjectListDictionary { get; set; }
         = new Dictionary<string, IList<ClassObject>>();
+
+    public static Memory<uint> Slice(Memory<uint> array, int start, int length) => array.Slice(start, length);
 }
 
 /// <summary>

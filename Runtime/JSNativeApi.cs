@@ -502,17 +502,38 @@ public static partial class JSNativeApi
         return wrapper;
     }
 
-
-    public static object? Unwrap(this JSValue thisValue)
+    public static bool TryUnwrap(this JSValue thisValue, out object? value)
     {
-        napi_unwrap(Env, (napi_value)thisValue, out nint result).ThrowIfFailed();
-        return GCHandle.FromIntPtr(result).Target;
+        napi_status status = napi_unwrap(Env, (napi_value)thisValue, out nint result);
+        if (status == napi_status.napi_invalid_arg)
+        {
+            value = null;
+            return false;
+        }
+
+        status.ThrowIfFailed();
+        value = GCHandle.FromIntPtr(result).Target;
+        return true;
     }
 
-    public static object? RemoveWrap(this JSValue thisValue)
+    public static object Unwrap(this JSValue thisValue)
     {
-        napi_remove_wrap(Env, (napi_value)thisValue, out nint result).ThrowIfFailed();
-        return GCHandle.FromIntPtr(result).Target;
+        napi_unwrap(Env, (napi_value)thisValue, out nint result).ThrowIfFailed();
+        return GCHandle.FromIntPtr(result).Target!;
+    }
+
+    public static bool RemoveWrap(this JSValue thisValue, out object? value)
+    {
+        napi_status status = napi_remove_wrap(Env, (napi_value)thisValue, out nint result);
+        if (status == napi_status.napi_invalid_arg)
+        {
+            value = null;
+            return false;
+        }
+
+        status.ThrowIfFailed();
+        value = GCHandle.FromIntPtr(result).Target;
+        return true;
     }
 
     public static unsafe object GetValueExternal(this JSValue thisValue)

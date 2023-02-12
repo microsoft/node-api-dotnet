@@ -471,31 +471,21 @@ internal class AdapterGenerator : SourceGenerator
         {
             // Convert from JSValue to a C# type.
             (toType, bool isNullable) = SplitNullable(toType!);
+            if (isNullable)
+            {
+                return $"({fromExpression}).IsNullOrUndefined() ? " +
+                    $"({toType}?)null : {Convert(fromExpression, fromType, toType)}";
+            }
+
             if (CanCast(toType!))
             {
-                if (isNullable)
-                {
-                    return $"({fromExpression}).IsNullOrUndefined() ? null : " +
-                        $"({toType}?)({fromExpression})";
-                }
-                else
-                {
-                    return $"({toType})({fromExpression})";
-                }
+                return $"({toType})({fromExpression})";
             }
             else if (toType.TypeKind == TypeKind.Class)
             {
                 VerifyReferencedTypeIsExported(toType);
 
-                if (isNullable)
-                {
-                    return $"({fromExpression}).IsNullOrUndefined() ? null : " +
-                        $"({toType})JSNativeApi.Unwrap({fromExpression})!";
-                }
-                else
-                {
-                    return $"({toType})JSNativeApi.Unwrap({fromExpression})!";
-                }
+                return $"({toType})JSNativeApi.Unwrap({fromExpression})";
 
             }
             else if (toType.TypeKind == TypeKind.Struct)
@@ -511,15 +501,7 @@ internal class AdapterGenerator : SourceGenerator
                 VerifyReferencedTypeIsExported(toType);
 
                 string adapterName = GetStructAdapterName(toType, toJS: false);
-                if (isNullable)
-                {
-                    return $"({fromExpression}).IsNullOrUndefined() ? ({toType}?)null : " +
-                        $"{adapterName}({fromExpression})";
-                }
-                else
-                {
-                    return $"{adapterName}({fromExpression})";
-                }
+                return $"{adapterName}({fromExpression})";
             }
             else if (toType.TypeKind == TypeKind.Array)
             {
@@ -527,62 +509,65 @@ internal class AdapterGenerator : SourceGenerator
                 VerifyReferencedTypeIsExported(elementType);
 
                 string adapterName = GetArrayAdapterName(elementType, toJS: false);
-                if (isNullable)
-                {
-                    return $"({fromExpression}).IsNullOrUndefined() ? ({elementType}[]?)null : " +
-                        $"{adapterName}({fromExpression})";
-                }
-                else
-                {
-                    return $"{adapterName}({fromExpression})";
-                }
+                return $"{adapterName}({fromExpression})";
             }
             else if (toType is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)
             {
-                // TODO: Handle generic collections.
+                string collectionTypeName = toType.OriginalDefinition.Name;
+                if (collectionTypeName == "IList" ||
+                    collectionTypeName == "ICollection")
+                {
+                    ITypeSymbol elementType = namedType.TypeArguments[0];
+                    return $"(JSNativeApi.TryUnwrap({fromExpression}, out var __collection) " +
+                        $"? ({toType})__collection! : ((JSArray){fromExpression})" +
+                        $".As{collectionTypeName.Substring(1)}<{elementType}>(" +
+                        $"(value) => {Convert("value", null, elementType)}, " +
+                        $"(value) => {Convert("value", elementType, null)}))";
+                }
+                else if (collectionTypeName == "IReadOnlyList" ||
+                    collectionTypeName == "IReadOnlyCollection" ||
+                    collectionTypeName == "IEnumerable")
+                {
+                    ITypeSymbol elementType = namedType.TypeArguments[0];
+                    return $"(JSNativeApi.TryUnwrap({fromExpression}, out var __collection) " +
+                        $"? ({toType})__collection! : ((JSArray){fromExpression})" +
+                        $".As{collectionTypeName.Substring(1)}<{elementType}>(" +
+                        $"(value) => {Convert("value", null, elementType)}))";
+                }
+
+                // TODO: Handle other generic collection interfaces.
             }
 
             // TODO: Handle other kinds of conversions from JSValue.
             // TODO: Handle unwrapping external values.
-            return $"default({toType})" + (isNullable ? string.Empty : "!");
+            return $"default({toType})" + (toType.IsValueType ? string.Empty : "!");
         }
         else if (toType == null)
         {
             // Convert from a C# type to JSValue.
             (fromType, bool isNullable) = SplitNullable(fromType!);
-            if (CanCast(fromType!))
+            if (isNullable)
             {
-                if (isNullable)
+                if (fromType.IsValueType)
                 {
-                    if (fromType.IsValueType)
-                    {
-                        return $"{fromExpression}.HasValue ? " +
-                            $"(JSValue)({fromExpression}.Value) : JSValue.Null";
-                    }
-                    else
-                    {
-                        return $"{fromExpression} == null ? " +
-                            $"JSValue.Null : (JSValue)({fromExpression}!)";
-                    }
+                    return $"{fromExpression}.HasValue ? " +
+                        $"{Convert($"({fromExpression}).Value", fromType, toType)} : JSValue.Null";
                 }
                 else
                 {
-                    return $"(JSValue)({fromExpression})";
+                    return $"{fromExpression} == null ? " +
+                        $"JSValue.Null : {Convert($"{fromExpression}", fromType, toType)}";
                 }
+            }
+
+            if (CanCast(fromType!))
+            {
+                return $"(JSValue)({fromExpression})";
             }
             else if (fromType.TypeKind == TypeKind.Class)
             {
                 VerifyReferencedTypeIsExported(fromType);
-
-                if (isNullable)
-                {
-                    return $"{fromExpression} == null ? JSValue.Null : " +
-                        $"Context.GetOrCreateObjectWrapper({fromExpression})";
-                }
-                else
-                {
-                    return $"Context.GetOrCreateObjectWrapper({fromExpression})";
-                }
+                return $"Context.GetOrCreateObjectWrapper({fromExpression})";
             }
             else if (fromType.TypeKind == TypeKind.Struct)
             {
@@ -597,15 +582,7 @@ internal class AdapterGenerator : SourceGenerator
                 VerifyReferencedTypeIsExported(fromType);
 
                 string adapterName = GetStructAdapterName(fromType, toJS: true);
-                if (isNullable)
-                {
-                    return $"{fromExpression} == null ? JSValue.Null : " +
-                        $"{adapterName}({fromExpression}.Value)";
-                }
-                else
-                {
-                    return $"{adapterName}({fromExpression})";
-                }
+                return $"{adapterName}({fromExpression})";
             }
             else if (fromType.TypeKind == TypeKind.Array)
             {
@@ -613,19 +590,29 @@ internal class AdapterGenerator : SourceGenerator
                 VerifyReferencedTypeIsExported(elementType);
 
                 string adapterName = GetArrayAdapterName(elementType, toJS: true);
-                if (isNullable)
-                {
-                    return $"{fromExpression} == null ? JSValue.Null : " +
-                        $"{adapterName}({fromExpression})";
-                }
-                else
-                {
-                    return $"{adapterName}({fromExpression})";
-                }
+                return $"{adapterName}({fromExpression})";
             }
             else if (fromType is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)
             {
-                // TODO: Handle generic collections.
+                string collectionTypeName = fromType.OriginalDefinition.Name;
+                if (collectionTypeName == "IList" ||
+                    collectionTypeName == "ICollection")
+                {
+                    ITypeSymbol elementType = namedType.TypeArguments[0];
+                    return $"Context.GetOrCreateCollectionWrapper({fromExpression}, " +
+                        $"(value) => {Convert("value", elementType, null)}, " +
+                        $"(value) => {Convert("value", null, elementType)})";
+                }
+                else if (collectionTypeName == "IReadOnlyList" ||
+                    collectionTypeName == "IReadOnlyCollection" ||
+                    collectionTypeName == "IEnumerable")
+                {
+                    ITypeSymbol elementType = namedType.TypeArguments[0];
+                    return $"Context.GetOrCreateCollectionWrapper({fromExpression}, " +
+                        $"(value) => {Convert("value", elementType, null)})";
+                }
+
+                // TODO: Handle other generic collection interfaces.
             }
 
             // TODO: Handle other kinds of conversions to JSValue.

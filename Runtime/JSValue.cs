@@ -306,4 +306,14 @@ public readonly struct JSValue
 
     private static T? ValueOrNull<T>(JSValue value, Func<JSValue, T> convert) where T : struct
         => value.IsNullOrUndefined() ? null : convert(value);
+
+    /// <summary>
+    /// Delegate that provides a conversion from some type to a JS value.
+    /// </summary>
+    public delegate JSValue From<T>(T value);
+
+    /// <summary>
+    /// Delegate that provides a conversion from a JS value to some type.
+    /// </summary>
+    public delegate T To<T>(JSValue value);
 }

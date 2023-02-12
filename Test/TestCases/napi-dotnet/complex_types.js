@@ -62,8 +62,9 @@ assert.strictEqual(structInstance.value, 'test');
 const stringArrayValue = ComplexTypes.stringArray;
 assert(Array.isArray(stringArrayValue));
 assert.strictEqual(stringArrayValue.length, 0);
-ComplexTypes.stringArray = [ 'test' ];
 assert.notStrictEqual(ComplexTypes.stringArray, stringArrayValue);
+assert.deepStrictEqual(ComplexTypes.stringArray, stringArrayValue);
+ComplexTypes.stringArray = [ 'test' ];
 assert.strictEqual(ComplexTypes.stringArray[0], 'test');
 ComplexTypes.stringArray[0] = 'test2';
 assert.strictEqual(ComplexTypes.stringArray[0], 'test');
@@ -72,20 +73,47 @@ assert.strictEqual(ComplexTypes.stringArray[0], 'test');
 const uintArrayValue = ComplexTypes.uIntArray;
 assert(uintArrayValue instanceof Uint32Array);
 assert.strictEqual(uintArrayValue.length, 0);
+assert.deepStrictEqual(ComplexTypes.uIntArray, uintArrayValue);
 const uintArrayValue2 = new Uint32Array([0, 1, 2]);
 ComplexTypes.uIntArray = uintArrayValue2;
 assert.strictEqual(ComplexTypes.uIntArray.length, 3);
 assert.strictEqual(ComplexTypes.uIntArray[1], 1);
+assert.deepStrictEqual(ComplexTypes.uIntArray, uintArrayValue2);
+const slicedArray = ComplexTypes.slice(new Uint32Array([0, 1, 2, 3]), 1, 2);
+assert.deepStrictEqual(slicedArray, new Uint32Array([1, 2]))
 
-/*
+// C# IEnumerable<T> maps to/from JS Iterable<T> (without copying)
+const enumerableValue = ComplexTypes.enumerable;
+assert.strictEqual(typeof enumerableValue, 'object');
+const enumerableResult = [];
+for (let value of enumerableValue) enumerableResult.push(value);
+assert.deepStrictEqual(enumerableResult, [0, 1, 2]);
+
+// C# Collection<T> maps to JS Iterable<T> and from JS Array<T> (without copying).
+const collectionValue = ComplexTypes.collection;
+assert.strictEqual(typeof collectionValue, 'object');
+assert.strictEqual(collectionValue.length, 3);
+const collectionResult = [];
+for (let value of collectionValue) collectionResult.push(value);
+assert.deepStrictEqual(collectionResult, [0, 1, 2]);
+collectionValue.add(3);
+assert.strictEqual(collectionValue.length, 4);
+collectionValue.delete(0);
+const collectionResult2 = [];
+for (let value of collectionValue) collectionResult2.push(value);
+assert.deepStrictEqual(collectionResult2, [1, 2, 3]);
+const collectionArray = [];
+ComplexTypes.collection = collectionArray;
+assert.strictEqual(ComplexTypes.collection, collectionArray);
+
 // C# IList<T> maps to/from JS Array<T> (without copying).
 const listValue = ComplexTypes.list;
 assert(Array.isArray(listValue));
 assert.strictEqual(listValue.length, 0);
-ComplexTypes.list = [0];
+assert.strictEqual(ComplexTypes.list, listValue);
+ComplexTypes.list = [0, 1, 2];
 assert.notStrictEqual(ComplexTypes.list, listValue);
 assert.strictEqual(ComplexTypes.list[0], 0);
-listValue = ComplexTypes.list;
+const listValue2 = ComplexTypes.list;
 ComplexTypes.list[0] = 1;
-assert.strictEqual(listValue[0], 1);
-*/
+assert.strictEqual(listValue2[0], 1);

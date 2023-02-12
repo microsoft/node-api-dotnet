@@ -47,11 +47,9 @@ public class JSReference : IDisposable
         return result;
     }
 
-    public bool IsDisposed { get; private set; } = false;
-
     public static explicit operator napi_ref(JSReference value) => value._handle;
 
-    public void Delete() => Dispose();
+    public bool IsDisposed { get; private set; }
 
     public void Dispose()
     {
@@ -64,11 +62,15 @@ public class JSReference : IDisposable
     {
         if (!IsDisposed)
         {
-            if (disposing)
-            {
-                napi_delete_reference(_env, _handle).ThrowIfFailed();
-            }
+            // Note the reference handle should be deleted regardless of the `disposing` argument.
+            napi_delete_reference(_env, _handle).ThrowIfFailed();
+
             IsDisposed = true;
         }
     }
+
+    /// <summary>
+    /// Deletes the reference to the JS value when it is no longer held by any C# code.
+    /// </summary>
+    ~JSReference() => Dispose(disposing: false);
 }
