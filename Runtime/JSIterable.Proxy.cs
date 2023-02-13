@@ -12,7 +12,7 @@ public partial struct JSIterable
         JSContext context,
         JSValue.From<T> toJS)
     {
-        JSObject target = new JSObject();
+        JSObject target = new();
         return new JSProxy(target, new JSProxy.Handler(context)
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
@@ -52,7 +52,7 @@ public partial struct JSIterable
         return JSValue.CreateFunction("values", (args) =>
         {
             IEnumerator<T> enumerator = enumerable.GetEnumerator();
-            JSObject iterator = new JSObject();
+            JSObject iterator = new();
             iterator.DefineProperties(
                 JSPropertyDescriptor.Function(GetIteratorSymbol(), (args) =>
                 {
@@ -61,7 +61,7 @@ public partial struct JSIterable
                 }, JSPropertyAttributes.DefaultProperty),
                 JSPropertyDescriptor.Function("next", (args) =>
                 {
-                    JSObject nextResult = new JSObject();
+                    JSObject nextResult = new();
                     if (enumerator.MoveNext())
                     {
                         nextResult["value"] = toJS(enumerator.Current);

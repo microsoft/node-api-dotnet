@@ -86,7 +86,7 @@ public readonly partial struct JSProxy
 
         internal JSObject Object => (JSObject)Reference.Value.GetValue()!;
 
-        private Lazy<JSReference> Reference => new Lazy<JSReference>(
+        private Lazy<JSReference> Reference => new(
             CreateHandler, LazyThreadSafetyMode.ExecutionAndPublication);
 
         private JSReference CreateHandler()

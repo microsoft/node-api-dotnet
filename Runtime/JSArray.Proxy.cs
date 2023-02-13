@@ -17,7 +17,7 @@ public partial struct JSArray
         JSContext context,
         JSValue.From<T> toJS)
     {
-        JSObject target = new JSObject();
+        JSObject target = new();
         return new JSProxy(target, new JSProxy.Handler(context)
         {
             // There is no equivalent to IReadOnlyCollection in JS.
@@ -43,7 +43,7 @@ public partial struct JSArray
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
-        JSObject target = new JSObject();
+        JSObject target = new();
         return new JSProxy(target, new JSProxy.Handler(context)
         {
             // There is no equivalent to ICollection in JS.
@@ -88,7 +88,7 @@ public partial struct JSArray
         JSContext context,
         JSValue.From<T> toJS)
     {
-        JSArray target = new JSArray();
+        JSArray target = new();
         return new JSProxy(target, new JSProxy.Handler(context)
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
@@ -120,7 +120,7 @@ public partial struct JSArray
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
-        JSArray target = new JSArray();
+        JSArray target = new();
         return new JSProxy(target, new JSProxy.Handler(context)
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
@@ -156,7 +156,7 @@ public partial struct JSArray
 
                         while (list.Count < newLength)
                         {
-                            list.Add(default(T)!);
+                            list.Add(default!);
                         }
 
                         while (list.Count > newLength)
