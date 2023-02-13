@@ -3,6 +3,19 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
+/// <summary>
+/// A strong or weak reference to a JS value.
+/// </summary>
+/// <remarks>
+/// <see cref="JSValue"/> and related JS handle structs are not valid after their
+/// <see cref="JSValueScope"/> closes -- typically that is when a callback returns. Use a
+/// <see cref="JSReference"/> to maintain a reference to a JS value beyond a single scope.
+/// <para/>
+/// A <see cref="JSReference"/> should be disposed when no longer needed; this allows the JS value
+/// to be collected by the GC if it has no other references. The <see cref="JSReference"/> class
+/// also has a finalizer so that the reference will be released when the C# object is GC'd. However
+/// explicit disposal is still preferable when possible.
+/// </remarks>
 public class JSReference : IDisposable
 {
     private readonly napi_env _env;
@@ -26,6 +39,7 @@ public class JSReference : IDisposable
 
     public void MakeWeak()
     {
+        ThrowIfDisposed();
         if (!IsWeak)
         {
             napi_reference_unref(_env, _handle, nint.Zero).ThrowIfFailed();
@@ -34,6 +48,7 @@ public class JSReference : IDisposable
     }
     public void MakeStrong()
     {
+        ThrowIfDisposed();
         if (IsWeak)
         {
             napi_reference_ref(_env, _handle, nint.Zero).ThrowIfFailed();
@@ -43,6 +58,7 @@ public class JSReference : IDisposable
 
     public JSValue? GetValue()
     {
+        ThrowIfDisposed();
         napi_get_reference_value(_env, _handle, out napi_value result).ThrowIfFailed();
         return result;
     }
@@ -51,6 +67,17 @@ public class JSReference : IDisposable
 
     public bool IsDisposed { get; private set; }
 
+    private void ThrowIfDisposed()
+    {
+        if (IsDisposed)
+        {
+            throw new ObjectDisposedException(nameof(JSReference));
+        }
+    }
+
+    /// <summary>
+    /// Releases the reference.
+    /// </summary>
     public void Dispose()
     {
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
@@ -62,8 +89,14 @@ public class JSReference : IDisposable
     {
         if (!IsDisposed)
         {
-            // Note the reference handle should be deleted regardless of the `disposing` argument.
-            napi_delete_reference(_env, _handle).ThrowIfFailed();
+            // The reference handle should be deleted regardless of the `disposing` argument.
+            napi_status status = napi_delete_reference(_env, _handle);
+
+            // Ignore errors when finalizing.
+            if (disposing)
+            {
+                status.ThrowIfFailed();
+            }
 
             IsDisposed = true;
         }
