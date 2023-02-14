@@ -44,6 +44,11 @@ internal class AdapterGenerator : SourceGenerator
     private const string AdapterToPrefix = "to_";
 
     /// <summary>
+    /// Prefix for a proxy handler field for a collection type.
+    /// </summary>
+    private const string ProxyPrefix = "proxy_";
+
+    /// <summary>
     /// Maps from property and method adapter names to property or method symbols.
     /// </summary>
     private readonly Dictionary<string, ISymbol> _adaptedMembers = new();
@@ -57,6 +62,11 @@ internal class AdapterGenerator : SourceGenerator
     /// Maps from array adapter names to array element type symbols.
     /// </summary>
     private readonly Dictionary<string, ITypeSymbol> _adaptedArrays = new();
+
+    /// <summary>
+    /// Maps from proxy handler names to collection type symbols.
+    /// </summary>
+    private readonly Dictionary<string, INamedTypeSymbol> _proxiedCollections = new();
 
     internal AdapterGenerator(GeneratorExecutionContext context)
     {
@@ -205,6 +215,23 @@ internal class AdapterGenerator : SourceGenerator
     }
 
     /// <summary>
+    /// Gets the name of field to be generated that holds a JS proxy handler for a target type.
+    /// </summary>
+    private string GetProxyFieldName(INamedTypeSymbol targetType)
+    {
+        string fieldName = ProxyPrefix + targetType.Name + "_of";
+        foreach (ITypeSymbol typeArgument in targetType.TypeArguments)
+        {
+            fieldName += "_" + typeArgument.Name;
+        }
+        if (!_proxiedCollections.ContainsKey(fieldName))
+        {
+            _proxiedCollections.Add(fieldName, targetType);
+        }
+        return fieldName;
+    }
+
+    /// <summary>
     /// Generates code for all adapter methods that were requested by a prior call to any of the
     /// Get*AdapterName() methods above.
     /// </summary>
@@ -247,6 +274,14 @@ internal class AdapterGenerator : SourceGenerator
             string adapterName = nameAndSymbol.Key;
             ITypeSymbol elementSymbol = nameAndSymbol.Value;
             GenerateArrayAdapter(ref s, adapterName, elementSymbol);
+        }
+
+        foreach (KeyValuePair<string, INamedTypeSymbol> nameAndSymbol in _proxiedCollections)
+        {
+            s++;
+            string fieldName = nameAndSymbol.Key;
+            INamedTypeSymbol collectionSymbol = nameAndSymbol.Value;
+            GenerateProxyField(ref s, fieldName, collectionSymbol);
         }
     }
 
@@ -548,6 +583,46 @@ internal class AdapterGenerator : SourceGenerator
         }
     }
 
+    private void GenerateProxyField(
+        ref SourceBuilder s,
+        string fieldName,
+        INamedTypeSymbol targetType)
+    {
+        /**
+         * private static readonly Lazy<JSProxy.Handler> proxy_ICollection_of_Int32 = new(
+         *     () => JSIterable.CreateProxyHandlerForCollection<int>(Context, (item) => (JSValue)(item)),
+         *     LazyThreadSafetyMode.ExecutionAndPublication);
+         */
+
+        s += $"private static readonly System.Lazy<JSProxy.Handler> {fieldName} " +
+            "= new(";
+
+        ITypeSymbol elementType = targetType.TypeArguments[0];
+        s += targetType.OriginalDefinition.Name switch
+        {
+            "IEnumerable" =>
+                $"\t() => JSIterable.CreateProxyHandlerForEnumerable<{elementType}>(Context, " +
+                $"(item) => {ConvertFrom("item", elementType)}),",
+            "IReadOnlyCollection" =>
+                $"\t() => JSIterable.CreateProxyHandlerForReadOnlyCollection<{elementType}>(Context, " +
+                $"(item) => {ConvertFrom("item", elementType)}),",
+            "ICollection" =>
+                $"\t() => JSIterable.CreateProxyHandlerForCollection<{elementType}>(Context, " +
+                $"(item) => {ConvertFrom("item", elementType)}, " +
+                $"(value) => {ConvertTo("value", elementType)}),",
+            "IReadOnlyList" =>
+                $"\t() => JSArray.CreateProxyHandlerForReadOnlyList<{elementType}>(Context, " +
+                $"(item) => {ConvertFrom("item", elementType)}),",
+            "IList" =>
+                $"\t() => JSArray.CreateProxyHandlerForList<{elementType}>(Context, " +
+                $"(item) => {ConvertFrom("item", elementType)}, " +
+                $"(value) => {ConvertTo("value", elementType)}),",
+            _ => throw new NotSupportedException("Unsupported proxy target type: " + targetType),
+        };
+
+        s += "\tSystem.Threading.LazyThreadSafetyMode.ExecutionAndPublication);";
+    }
+
     /// <summary>
     /// Checks whether an element type is one of the JS TypedArray element types.
     /// </summary>
@@ -779,24 +854,16 @@ internal class AdapterGenerator : SourceGenerator
         {
             string collectionTypeName = fromType.OriginalDefinition.Name;
             if (collectionTypeName == "IList" ||
-                collectionTypeName == "ICollection")
+                collectionTypeName == "IReadOnlyList" ||
+                collectionTypeName == "ICollection" ||
+                collectionTypeName == "IReadOnlyCollection" ||
+                collectionTypeName == "IEnumerable")
             {
                 // Collections are wrapped with a JS proxy object to avoid copying the data.
                 // When the same collection is passed multiple times, the proxy object is re-used.
                 // Read-write collections require bi-directional element conversion lamdas.
-                ITypeSymbol elementType = namedType.TypeArguments[0];
                 return $"Context.GetOrCreateCollectionWrapper({fromExpression}, " +
-                    $"(value) => {ConvertFrom("value", elementType)}, " +
-                    $"(value) => {ConvertTo("value", elementType)})";
-            }
-            else if (collectionTypeName == "IReadOnlyList" ||
-                collectionTypeName == "IReadOnlyCollection" ||
-                collectionTypeName == "IEnumerable")
-            {
-                // Read-only collections require an element conversion lamda in only one direction.
-                ITypeSymbol elementType = namedType.TypeArguments[0];
-                return $"Context.GetOrCreateCollectionWrapper({fromExpression}, " +
-                    $"(value) => {ConvertFrom("value", elementType)})";
+                    $"{GetProxyFieldName(namedType)}.Value)";
             }
 
             // TODO: Handle other generic collection interfaces.

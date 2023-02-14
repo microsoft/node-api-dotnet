@@ -71,11 +71,6 @@ public sealed class JSContext : IDisposable
     private readonly ConcurrentDictionary<string, JSReference> _importMap = new();
 
     /// <summary>
-    /// Collection of references tracked for any purpose that have the lifetime of the context.
-    /// </summary>
-    private readonly ConcurrentBag<JSReference> _trackedReferences = new();
-
-    /// <summary>
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.
     /// </summary>
     /// <param name="constructorFunction">JS class constructor function returned from
@@ -186,51 +181,50 @@ public sealed class JSContext : IDisposable
 
         return wrapper!.Value;
     }
+
     public JSValue GetOrCreateCollectionWrapper<T>(
         IEnumerable<T> collection,
-        JSValue.From<T> toJS)
+        JSProxy.Handler proxyHandler)
     {
         return collection is JSIterable.Enumerable<T> adapter ? adapter.Array :
             GetOrCreateCollectionWrapper(
-                collection, () => JSIterable.Proxy(collection, this, toJS));
+                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         IReadOnlyCollection<T> collection,
-        JSValue.From<T> toJS)
+        JSProxy.Handler proxyHandler)
     {
         return collection is JSArray.ReadOnlyCollection<T> adapter ? adapter.Array :
             GetOrCreateCollectionWrapper(
-                collection, () => JSArray.Proxy(collection, this, toJS));
+                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         ICollection<T> collection,
-        JSValue.From<T> toJS,
-        JSValue.To<T> fromJS)
+        JSProxy.Handler proxyHandler)
     {
         return collection is JSArray.Collection<T> adapter ? adapter.Array :
             GetOrCreateCollectionWrapper(
-                collection, () => JSArray.Proxy(collection, this, toJS, fromJS));
+                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         IReadOnlyList<T> collection,
-        JSValue.From<T> toJS)
+        JSProxy.Handler proxyHandler)
     {
         return collection is JSArray.ReadOnlyList<T> adapter ? adapter.Array :
             GetOrCreateCollectionWrapper(
-                collection, () => JSArray.Proxy(collection, this, toJS));
+                collection, () => new JSProxy(new JSArray(), proxyHandler, collection));
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         IList<T> collection,
-        JSValue.From<T> toJS,
-        JSValue.To<T> fromJS)
+        JSProxy.Handler proxyHandler)
     {
         return collection is JSArray.List<T> adapter ? adapter.Array :
             GetOrCreateCollectionWrapper(
-                collection, () => JSArray.Proxy(collection, this, toJS, fromJS));
+                collection, () => new JSProxy(new JSArray(), proxyHandler, collection));
     }
 
     private JSValue GetOrCreateCollectionWrapper(
@@ -245,7 +239,6 @@ public sealed class JSContext : IDisposable
             {
                 // No wrapper was found in the map for the object. Create a new one.
                 wrapper = createWrapper();
-                JSNativeApi.Wrap(wrapper.Value, collection);
                 return new JSReference(wrapper.Value, isWeak: true);
             },
             (_, wrapperReference) =>
@@ -258,11 +251,9 @@ public sealed class JSContext : IDisposable
                 }
 
                 // A reference was found in the map, but the JS object was released.
-                // Create a new wrapper JS object and update the reference in the map.l
+                // Create a new wrapper JS object and update the reference in the map.
                 wrapperReference.Dispose();
-
                 wrapper = createWrapper();
-                JSNativeApi.Wrap(wrapper.Value, collection);
                 return new JSReference(wrapper.Value, isWeak: true);
             });
 
@@ -317,13 +308,6 @@ public sealed class JSContext : IDisposable
         return reference.GetValue() ?? JSValue.Undefined;
     }
 
-    public JSReference TrackReference(JSValue value)
-    {
-        var reference = new JSReference(value);
-        _trackedReferences.Add(reference);
-        return reference;
-    }
-
     public void Dispose()
     {
         if (!IsDisposed)
@@ -333,7 +317,6 @@ public sealed class JSContext : IDisposable
             DisposeReferences(_objectMap);
             DisposeReferences(_classMap);
             DisposeReferences(_structMap);
-            DisposeReferences(_trackedReferences);
         }
 
         GC.SuppressFinalize(this);
@@ -345,23 +328,6 @@ public sealed class JSContext : IDisposable
         ConcurrentDictionary<TKey, JSReference> references) where TKey : notnull
     {
         foreach (JSReference reference in references.Values)
-        {
-            try
-            {
-                reference.Dispose();
-            }
-            catch (JSException)
-            {
-            }
-        }
-
-        references.Clear();
-    }
-
-    private static void DisposeReferences(
-        ConcurrentBag<JSReference> references)
-    {
-        foreach (JSReference reference in references)
         {
             try
             {

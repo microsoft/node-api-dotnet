@@ -102,8 +102,6 @@ public class JSReference : IDisposable
         }
     }
 
-    /// <summary>
-    /// Deletes the reference to the JS value when it is no longer held by any C# code.
-    /// </summary>
-    ~JSReference() => Dispose(disposing: false);
+    // TODO: A finalizer should delete the reference, after switching to the JS thread!
+    ////~JSReference() => Dispose(disposing: false);
 }

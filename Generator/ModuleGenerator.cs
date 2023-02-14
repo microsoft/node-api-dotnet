@@ -264,7 +264,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         var s = new SourceBuilder();
 
         s += "using System.CodeDom.Compiler;";
-        s += "using System.Collections.Generic;";
         s += "using System.Runtime.InteropServices;";
         s += "using static NodeApi.JSNativeApi.Interop;";
 

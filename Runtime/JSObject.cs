@@ -29,6 +29,29 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>
         _value.DefineProperties(descriptors);
     }
 
+    public JSObject Wrap(object target)
+    {
+        JSNativeApi.Wrap(_value, target);
+        return this;
+    }
+
+    public bool TryUnwrap<T>(out T? target) where T : class
+    {
+        if (!JSNativeApi.TryUnwrap(_value, out object? unwrapped))
+        {
+            target = null;
+            return false;
+        }
+
+        target = unwrapped as T;
+        return true;
+    }
+
+    public T Unwrap<T>() where T : class
+    {
+        return (T)JSNativeApi.Unwrap(_value);
+    }
+
     public JSValue this[JSValue name]
     {
         get => _value.GetProperty(name);

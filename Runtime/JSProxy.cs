@@ -13,30 +13,58 @@ public readonly partial struct JSProxy
     private readonly JSValue _revoke;
 
     public static explicit operator JSProxy(JSValue value) => new(value);
-    public static implicit operator JSValue(JSProxy arr) => arr._value;
+    public static implicit operator JSValue(JSProxy proxy) => proxy._value;
 
     private JSProxy(JSValue value)
     {
         _value = value;
     }
 
-    public JSProxy(JSObject target, Handler handler, bool revocable = false)
+    /// <summary>
+    /// Creates a new JS proxy for a target.
+    /// </summary>
+    /// <param name="jsTarget">JS target for the proxy.</param>
+    /// <param name="handler">Proxy handler callbacks (traps).</param>
+    /// <param name="target">Optional target object to be wrapped by the JS target,
+    /// or null if the JS target will not wrap anything.</param>
+    /// <param name="revocable">True if the proxy may be revoked; defaults to false.</param>
+    /// <remarks>
+    /// If a wrapped target object is provided, proxy callbacks my access that object by calling
+    /// <see cref="JSObject.Unwrap{T}"/>.
+    /// </remarks>
+    public JSProxy(
+        JSObject jsTarget,
+        Handler handler,
+        object? target = null,
+        bool revocable = false)
     {
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (target != null)
+        {
+            jsTarget.Wrap(target);
+        }
+
         JSValue proxyConstructor = handler.Context.Import("Proxy");
 
         if (revocable)
         {
             JSValue proxyAndRevoke = proxyConstructor[nameof(revocable)]
-                .Call(target, handler.Object);
+                .Call(jsTarget, handler.JSHandler);
             _value = proxyAndRevoke["proxy"];
             _revoke = proxyAndRevoke["revoke"];
         }
         else
         {
-            _value = proxyConstructor.CallAsConstructor(target, handler.Object);
+            _value = proxyConstructor.CallAsConstructor(jsTarget, handler.JSHandler);
         }
     }
 
+    /// <summary>
+    /// Revokes the proxy, so that further access to the target is no longer trapped by
+    /// the proxy handler.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The proxy is not revocable.</exception>
     public void Revoke()
     {
         if (!_revoke.Handle.HasValue)
@@ -61,14 +89,37 @@ public readonly partial struct JSProxy
     public delegate bool Set(JSObject target, JSValue property, JSValue value, JSObject receiver);
     public delegate bool SetPrototypeOf(JSObject target, JSObject prototype);
 
-    public sealed class Handler
+    /// <summary>
+    /// Specifies handler callbacks (traps) for a JS proxy.
+    /// </summary>
+    public sealed class Handler : IDisposable
     {
-        public Handler(JSContext context)
+        public Handler(JSContext context, string? name = null)
         {
+            ArgumentNullException.ThrowIfNull(context);
+
             Context = context;
+            Name = name;
+
+            JSHandlerReference = new Lazy<JSReference>(
+                () => new JSReference(CreateJSHandler()),
+                LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
         internal JSContext Context { get; }
+
+        /// <summary>
+        /// Gets the name that was given to the handler (for diagnostic purposes),
+        /// or null if no name was assigned.
+        /// </summary>
+        public string? Name { get; }
+
+        private Lazy<JSReference> JSHandlerReference { get; }
+
+        /// <summary>
+        /// Gets the JS object with the callback methods defined on it.
+        /// </summary>
+        internal JSObject JSHandler => (JSObject)JSHandlerReference.Value.GetValue()!;
 
         public Apply? Apply { get; init; }
         public Construct? Construct { get; init; }
@@ -84,13 +135,13 @@ public readonly partial struct JSProxy
         public Set? Set { get; init; }
         public SetPrototypeOf? SetPrototypeOf { get; init; }
 
-        internal JSObject Object => (JSObject)Reference.Value.GetValue()!;
-
-        private Lazy<JSReference> Reference => new(
-            CreateHandler, LazyThreadSafetyMode.ExecutionAndPublication);
-
-        private JSReference CreateHandler()
+        private JSObject CreateJSHandler()
         {
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException($"{nameof(JSProxy)}.{nameof(Handler)}");
+            }
+
             List<JSPropertyDescriptor> properties = new();
 
             if (Apply != null)
@@ -184,9 +235,38 @@ public readonly partial struct JSProxy
                     (args) => SetPrototypeOf((JSObject)args[0], (JSObject)args[1])));
             }
 
-            var obj = JSValue.CreateObject();
-            obj.DefineProperties(properties.ToArray());
-            return Context.TrackReference(obj);
+            var jsHandler = new JSObject();
+            jsHandler.DefineProperties(properties.ToArray());
+            return jsHandler;
+        }
+
+        public bool IsDisposed { get; private set; }
+
+        /// <summary>
+        /// Disposes the proxy handler.
+        /// </summary>
+        /// <remarks>
+        /// Disposing a proxy handler does not revoke or dispose proxies created using the handler.
+        /// It does prevent new proxies from being created using the handler instance.
+        /// </remarks>
+        public void Dispose()
+        {
+            if (!IsDisposed)
+            {
+                IsDisposed = true;
+
+                if (JSHandlerReference.IsValueCreated)
+                {
+                    JSHandlerReference.Value.Dispose();
+                }
+            }
+
+            GC.SuppressFinalize(this);
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(JSProxy)}.{nameof(Handler)} \"{Name}\"";
         }
     }
 }

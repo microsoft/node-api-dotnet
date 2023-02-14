@@ -502,9 +502,18 @@ public static partial class JSNativeApi
         return wrapper;
     }
 
+    /// <summary>
+    /// Attempts to get the object that was previously attached to a JS wrapper.
+    /// </summary>
+    /// <param name="thisValue">The JS wrapper value.</param>
+    /// <param name="value">Returns the wrapped object, or null if nothing was wrapped.</param>
+    /// <returns>True if a wrapped object was found and returned, else false.</returns>
     public static bool TryUnwrap(this JSValue thisValue, out object? value)
     {
         napi_status status = napi_unwrap(Env, (napi_value)thisValue, out nint result);
+
+        // The invalid arg error code is returned if there was nothing to unwrap. It doesn't
+        // distinguish from an invalid handle, but either way the unwrap failed.
         if (status == napi_status.napi_invalid_arg)
         {
             value = null;
@@ -516,15 +525,27 @@ public static partial class JSNativeApi
         return true;
     }
 
+    /// <summary>
+    /// Gets the object that was previously attached to a JS wrapper.
+    /// (Throws an exception if unwrapping failed.)
+    /// </summary>
     public static object Unwrap(this JSValue thisValue)
     {
         napi_unwrap(Env, (napi_value)thisValue, out nint result).ThrowIfFailed();
         return GCHandle.FromIntPtr(result).Target!;
     }
 
+    /// <summary>
+    /// Detaches an object from a JS wrapper.
+    /// </summary>
+    /// <param name="thisValue">The JS wrapper value.</param>
+    /// <param name="value">Returns the wrapped object, or null if nothing was wrapped.</param>
+    /// <returns>True if a wrapped object was found and removed, else false.</returns>
     public static bool RemoveWrap(this JSValue thisValue, out object? value)
     {
         napi_status status = napi_remove_wrap(Env, (napi_value)thisValue, out nint result);
+
+        // The invalid arg error code is returned if there was nothing to remove.
         if (status == napi_status.napi_invalid_arg)
         {
             value = null;
