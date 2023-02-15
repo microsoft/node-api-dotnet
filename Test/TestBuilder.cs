@@ -37,6 +37,7 @@ internal static class TestBuilder
                 MSBuildLocator.QueryVisualStudioInstances().ToArray();
             VisualStudioInstance msbuildInstance = msbuildInstances
                 .Where((instance) => instance.Version.Major == Environment.Version.Major &&
+                    instance.Version.Build < 200 &&
                     !instance.MSBuildPath.Contains("preview"))
                 .OrderByDescending(instance => instance.Version)
                 .First();

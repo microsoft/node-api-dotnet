@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace NodeApi;
 
@@ -8,7 +9,9 @@ namespace NodeApi;
 /// </summary>
 /// <remarks>
 /// A <see cref="JSContext"/> instance is constructed when the module is loaded and disposed when
-/// the module is unloaded.
+/// the module is unloaded. The context tracks several kinds of JS references used internally
+/// by this assembly, so that the references can be re-used for the lifetime of the module and
+/// disposed when the module is unloaded.
 /// </remarks>
 public sealed class JSContext : IDisposable
 {
@@ -26,9 +29,46 @@ public sealed class JSContext : IDisposable
     // static `JSConstructor` property and an instance `JSWrapper` property to the class.
     // (The dictionary mappings could still be used to export external/non-partial classes.)
 
+    /// <summary>
+    /// Maps from exported class types to (strong references to) JS constructors for each class.
+    /// </summary>
+    /// <remarks>
+    /// Used to automatically construct a JS wrapper object with correct prototype whenever
+    /// a class instance is marshalled from C# to JS.
+    /// </remarks>
     private readonly ConcurrentDictionary<Type, JSReference> _classMap = new();
+
+    /// <summary>
+    /// Maps from C# objects to (weak references to) JS wrappers for each object.
+    /// </summary>
+    /// <remarks>
+    /// Enables re-using the same JS wrapper objects for the same C# objects, so that
+    /// a C# object maps to the same JS instance when marshalled multiple times. The
+    /// references are weak to allow the JS wrappers to be released; new wrappers are
+    /// re-constructed as needed.
+    /// </remarks>
     private readonly ConcurrentDictionary<object, JSReference> _objectMap = new();
+
+    /// <summary>
+    /// Maps from exported struct types to (strong references to) JS constructors for classes
+    /// that represent each struct.
+    /// </summary>
+    /// <remarks>
+    /// Used to automatically construct a JS object with correct prototype whenever
+    /// a struct is marshalled from C# to JS. Since structs are marshalled by value,
+    /// the JS object is not a wrapper, rather the properties are copied by the marshaller.
+    /// </remarks>
     private readonly ConcurrentDictionary<Type, JSReference> _structMap = new();
+
+    /// <summary>
+    /// Maps from JS class names to (strong references to) JS constructors for classes imported
+    /// from JS to C#.
+    /// </summary>
+    /// <remarks>
+    /// Enables C# code to construct instances of built-in JS classes, without having to resolve
+    /// the constructors every time.
+    /// </remarks>
+    private readonly ConcurrentDictionary<string, JSReference> _importMap = new();
 
     /// <summary>
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.
@@ -142,6 +182,84 @@ public sealed class JSContext : IDisposable
         return wrapper!.Value;
     }
 
+    public JSValue GetOrCreateCollectionWrapper<T>(
+        IEnumerable<T> collection,
+        JSProxy.Handler proxyHandler)
+    {
+        return collection is JSIterable.Enumerable<T> adapter ? adapter.Array :
+            GetOrCreateCollectionWrapper(
+                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
+    }
+
+    public JSValue GetOrCreateCollectionWrapper<T>(
+        IReadOnlyCollection<T> collection,
+        JSProxy.Handler proxyHandler)
+    {
+        return collection is JSArray.ReadOnlyCollection<T> adapter ? adapter.Array :
+            GetOrCreateCollectionWrapper(
+                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
+    }
+
+    public JSValue GetOrCreateCollectionWrapper<T>(
+        ICollection<T> collection,
+        JSProxy.Handler proxyHandler)
+    {
+        return collection is JSArray.Collection<T> adapter ? adapter.Array :
+            GetOrCreateCollectionWrapper(
+                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
+    }
+
+    public JSValue GetOrCreateCollectionWrapper<T>(
+        IReadOnlyList<T> collection,
+        JSProxy.Handler proxyHandler)
+    {
+        return collection is JSArray.ReadOnlyList<T> adapter ? adapter.Array :
+            GetOrCreateCollectionWrapper(
+                collection, () => new JSProxy(new JSArray(), proxyHandler, collection));
+    }
+
+    public JSValue GetOrCreateCollectionWrapper<T>(
+        IList<T> collection,
+        JSProxy.Handler proxyHandler)
+    {
+        return collection is JSArray.List<T> adapter ? adapter.Array :
+            GetOrCreateCollectionWrapper(
+                collection, () => new JSProxy(new JSArray(), proxyHandler, collection));
+    }
+
+    private JSValue GetOrCreateCollectionWrapper(
+        object collection,
+        Func<JSValue> createWrapper)
+    {
+        JSValue? wrapper = null;
+
+        _objectMap.AddOrUpdate(
+            collection,
+            (_) =>
+            {
+                // No wrapper was found in the map for the object. Create a new one.
+                wrapper = createWrapper();
+                return new JSReference(wrapper.Value, isWeak: true);
+            },
+            (_, wrapperReference) =>
+            {
+                wrapper = wrapperReference.GetValue();
+                if (wrapper.HasValue)
+                {
+                    // A valid reference was found in the map. Return it to keep the same mapping.
+                    return wrapperReference;
+                }
+
+                // A reference was found in the map, but the JS object was released.
+                // Create a new wrapper JS object and update the reference in the map.
+                wrapperReference.Dispose();
+                wrapper = createWrapper();
+                return new JSReference(wrapper.Value, isWeak: true);
+            });
+
+        return wrapper!.Value;
+    }
+
     /// <summary>
     /// Registers a struct JS constructor, enabling instantiation of JS wrappers for the struct.
     /// </summary>
@@ -178,6 +296,16 @@ public sealed class JSContext : IDisposable
         }
 
         return JSNativeApi.CallAsConstructor(constructorFunction.Value);
+    }
+
+    public JSValue Import(string name)
+    {
+        JSReference reference = _importMap.GetOrAdd(name, (_) =>
+        {
+            JSValue value = JSValue.Global[name];
+            return new JSReference(value);
+        });
+        return reference.GetValue() ?? JSValue.Undefined;
     }
 
     public void Dispose()

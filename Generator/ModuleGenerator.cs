@@ -74,6 +74,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
     }
 
+    /// <summary>
+    /// Enumerates all the types defined in the current compilation.
+    /// </summary>
     private IEnumerable<ITypeSymbol> GetCompilationTypes()
     {
         return Context.Compilation.Assembly.TypeNames
@@ -81,6 +84,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
           .OfType<ITypeSymbol>();
     }
 
+    /// <summary>
+    /// Scans classes and static methods to find a single item with a [JSModule] attribute.
+    /// </summary>
     private ISymbol? GetModuleInitializer()
     {
         List<ISymbol> moduleInitializers = new();
@@ -168,6 +174,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         return moduleInitializers.SingleOrDefault();
     }
 
+    /// <summary>
+    /// Enumerates all types and static methods with a [JSExport] attribute.
+    /// </summary>
     private IEnumerable<ISymbol> GetModuleExportItems()
     {
         foreach (ITypeSymbol type in GetCompilationTypes())
@@ -242,6 +251,12 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
     }
 
+    /// <summary>
+    /// Generates a `Module` class with an exported module register function.
+    /// </summary>
+    /// <param name="moduleInitializer">Optional custom module class or module initialization method.</param>
+    /// <param name="exportItems">Enumeration of all exported types and functions (static methods).</param>
+    /// <returns>The generated source.</returns>
     private SourceText GenerateModuleInitializer(
       ISymbol? moduleInitializer,
       IEnumerable<ISymbol> exportItems)
@@ -249,7 +264,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         var s = new SourceBuilder();
 
         s += "using System.CodeDom.Compiler;";
-        s += "using System.Collections.Generic;";
         s += "using System.Runtime.InteropServices;";
         s += "using static NodeApi.JSNativeApi.Interop;";
 
@@ -262,12 +276,18 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += $"[GeneratedCode(\"{generatorName}\", \"{generatorVersion}\")]";
         s += $"public static class {ModuleInitializerClassName}";
         s += "{";
+
+        // The `JSContext` is created when the module is initialized and disposed when the module is unloaded.
+        // It is static because each instance of the module is in a separate AssemblyLoadContext.
         s += "private static JSContext Context { get; set; } = null!;";
 
+        // The unmanaged entrypoint is used only when the AOT-compiled module is loaded.
         s += $"[UnmanagedCallersOnly(EntryPoint = \"{ModuleRegisterFunctionName}\")]";
         s += $"public static napi_value _{ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += $"{s.Indent}=> {ModuleInitializeMethodName}(env, exports);";
         s++;
+
+        // The main initialization entrypoint is called by the `ManagedHost`, and by the unmanaged entrypoint.
         s += $"public static napi_value {ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += "{";
         s += "try";
@@ -281,6 +301,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         AdapterGenerator adapterGenerator = new(Context);
         if (moduleInitializer is IMethodSymbol moduleInitializerMethod)
         {
+            // Just call the custom module initialization method. Additional tagged exports aren't supported.
+
             if (exportItems.Any())
             {
                 ReportError(
@@ -297,6 +319,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         else
         {
+            // Export the custom module class and/or additional types and static methods tagged for export.
+
             ExportModule(ref s, moduleInitializer as ITypeSymbol, exportItems, adapterGenerator);
             s++;
             s += "return exportsValue.GetCheckedHandle();";
@@ -310,21 +334,23 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "}";
         s += "}";
 
-        adapterGenerator.GenerateAdapters(s);
+        // Generate any supporting adapter methods that the module initialization depended on.
+        adapterGenerator.GenerateAdapters(ref s);
 
         s += "}";
 
         return s;
     }
 
+    /// <summary>
+    /// Generates code to define all the properties of the module and return the module exports.
+    /// </summary>
     private static void ExportModule(
       ref SourceBuilder s,
       ITypeSymbol? moduleType,
       IEnumerable<ISymbol> exportItems,
       AdapterGenerator adapterGenerator)
     {
-        // TODO: Also generate .d.ts?
-
         if (moduleType != null)
         {
             string ns = GetNamespace(moduleType);
@@ -351,7 +377,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             s.IncreaseIndent();
         }
 
-        // Export items tagged with [JSExport]
+        // Export types and functions (static methods) tagged with [JSExport]
         foreach (ISymbol exportItem in exportItems)
         {
             string exportName = GetExportName(exportItem);
@@ -364,12 +390,15 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 string ns = GetNamespace(exportClass);
                 if (exportClass.IsStatic)
                 {
+                    // Static classes are projected as simple JS objects with defined properties.
                     s += $"new JSClassBuilder<object>(Context, \"{exportName}\")";
                 }
                 else
                 {
                     s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(Context, \"{exportName}\",";
 
+                    // The class constructor may take no parameter, or a single JSCallbackArgs
+                    // parameter, or may use an adapter to support arbitrary parameters.
                     string? constructorAdapterName =
                         adapterGenerator.GetConstructorAdapterName(exportClass);
                     if (constructorAdapterName != null)
@@ -386,6 +415,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     }
                 }
 
+                // Export all the class members, then define the class.
                 ExportMembers(ref s, exportClass, adapterGenerator);
                 s += ".DefineClass())";
                 s.DecreaseIndent();
@@ -403,18 +433,25 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 s += ".DefineStruct())";
                 s.DecreaseIndent();
             }
+            else if (exportItem is ITypeSymbol exportEnum && exportEnum.TypeKind == TypeKind.Enum)
+            {
+                // TODO: Export enums.
+            }
             else if (exportItem is IPropertySymbol exportProperty)
             {
+                // Export tagged static properties as properties on the module.
                 ExportProperty(ref s, exportProperty, adapterGenerator, exportName);
             }
             else if (exportItem is IMethodSymbol exportMethod)
             {
+                // Export tagged static methods as top-level functions on the module.
                 ExportMethod(ref s, exportMethod, adapterGenerator, exportName);
             }
         }
 
         if (moduleType != null)
         {
+            // Construct an instance of the custom module class when the module is initialized.
             // The module class constructor may optionally take a JSContext parameter. If an
             // appropriate constructor is not present then the generated code will not compile.
             IEnumerable<IMethodSymbol> constructors = moduleType.GetMembers()
@@ -435,14 +472,15 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s.DecreaseIndent();
     }
 
+    /// <summary>
+    /// Generates code to define properties and methods for an exported class or struct type.
+    /// </summary>
     private static void ExportMembers(
       ref SourceBuilder s,
-      ITypeSymbol classType,
+      ITypeSymbol type,
       AdapterGenerator adapterGenerator)
     {
-        // TODO: Also generate .d.ts?
-
-        foreach (ISymbol? member in classType.GetMembers()
+        foreach (ISymbol? member in type.GetMembers()
           .Where((m) => m.DeclaredAccessibility == Accessibility.Public))
         {
             if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
@@ -456,6 +494,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
     }
 
+    /// <summary>
+    /// Generate code for a method exported on a class, struct, or module.
+    /// </summary>
     private static void ExportMethod(
       ref SourceBuilder s,
       IMethodSymbol method,
@@ -464,6 +505,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         exportName ??= ToCamelCase(method.Name);
 
+        // An adapter method may be used to support marshalling arbitrary parameters,
+        // if the method does not match the `JSCallback` signature.
         string? adapterName = adapterGenerator.GetMethodAdapterName(method);
         if (adapterName != null)
         {
@@ -481,6 +524,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
     }
 
+    /// <summary>
+    /// Generates code for a property exported on a class, struct, or module.
+    /// </summary>
     private static void ExportProperty(
       ref SourceBuilder s,
       IPropertySymbol property,
@@ -489,13 +535,15 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         exportName ??= ToCamelCase(property.Name);
 
+        // Getter and setter adapter methods may be used if the property type is not `JSValue`.
         (string? getterAdapterName, string? setterAdapterName) =
             adapterGenerator.GetPropertyAdapterNames(property);
 
         if (property.ContainingType.TypeKind == TypeKind.Struct)
         {
-            // Struct properties are not backed by getter/setter methods.
-            // The entire struct is always passed by value.
+            // Struct properties are not backed by getter/setter methods. The entire struct is
+            // always passed by value. Properties are converted to/from `JSValue` by the struct
+            // adapter method.
             s += $".AddProperty(\"{exportName}\"{(property.IsStatic ? ", isStatic: true" : "")})";
             return;
         }
@@ -543,61 +591,25 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s.DecreaseIndent();
     }
 
-    private void ValidateExportedMethod(
-      IMethodSymbol method)
-    {
-        // TODO: Marshal other parameter and return types.
-        // TODO: Implement correct type matching
-        if (!(method.Parameters.Length == 0 ||
-          (method.Parameters.Length == 1 &&
-            (method.Parameters[0].Type.Name == "JSCallbackArgs" ||
-             method.Parameters[0].Type.Name == "JSValue"))))
-        {
-            ReportError(
-              DiagnosticId.UnsupportedMethodParameterType,
-              method,
-              $"Exported method {method.Name} has unsupported parameters.",
-              "Exported methods must have either no parameters or a single parameter of type " +
-                  $"{nameof(NodeApi)}.JSCallbackArgs.");
-            return;
-        }
-
-        if (method.ReturnType.Name != "Void" && method.ReturnType.Name != "JSValue")
-        {
-            ReportError(
-              DiagnosticId.UnsupportedMethodReturnType,
-              method,
-              $"Exported method {method.Name} has unsupported return type. ",
-              $"Exported methods must have return type {nameof(NodeApi)}.JSValue or void.");
-            return;
-        }
-    }
-
-    private void ValidateExportedProperty(
-      IPropertySymbol property)
-    {
-        if (property.Type.Name != "JSValue")
-        {
-            ReportError(
-              DiagnosticId.UnsupportedPropertyType,
-              property,
-              "Exported property has unsupported type.",
-              $"Exported properties must have type {nameof(NodeApi)}.JSValue.");
-            return;
-        }
-    }
-
+    /// <summary>
+    /// Gets the projected name for a symbol, which may be different from its C# name.
+    /// </summary>
     public static string GetExportName(ISymbol symbol)
     {
+        // If the symbol has a JSExportAttribute.Name property, use that.
         if (GetJSExportAttribute(symbol)?.ConstructorArguments.SingleOrDefault().Value
             is string exportName)
         {
             return exportName;
         }
 
+        // Member names are automatically formatted as camelCase; type names are not.
         return symbol is ITypeSymbol ? symbol.Name : ToCamelCase(symbol.Name);
     }
 
+    /// <summary>
+    /// Gets the [JSExport] attribute data for a symbol, if any.
+    /// </summary>
     public static AttributeData? GetJSExportAttribute(ISymbol symbol)
     {
         return symbol.GetAttributes().SingleOrDefault(

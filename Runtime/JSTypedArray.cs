@@ -48,7 +48,7 @@ public readonly struct JSTypedArray<T> where T : struct
     }
 
     /// <summary>
-    /// Creates a new typed array of specified length, with newly allocated memroy.
+    /// Creates a new typed array of specified length, with newly allocated memory.
     /// </summary>
     public JSTypedArray(int length)
     {
@@ -59,10 +59,42 @@ public readonly struct JSTypedArray<T> where T : struct
     /// <summary>
     /// Creates a typed-array over memory, without copying.
     /// </summary>
-    public JSTypedArray(Memory<T> data)
+    public unsafe JSTypedArray(Memory<T> data)
     {
-        JSValue arrayBuffer = JSValue.CreateExternalArrayBuffer(data);
-        _value = JSValue.CreateTypedArray(ArrayType, data.Length, arrayBuffer, 0);
+        // Check if this Memory is already owned by a JS TypedArray value.
+        // This assumes the owner object of a Memory struct is stored as a reference in the
+        // first (private) field of the struct. If the Memory internal structure ever changes
+        // (in a future major version of the .NET Runtime), this unsafe code could crash.
+        // Unfortunately there's no public API to get the Memory owner object.
+        void* memoryPointer = Unsafe.AsPointer(ref data);
+        object? memoryOwner = Unsafe.Read<object?>(memoryPointer);
+        if (memoryOwner is MemoryManager manager)
+        {
+            // The Memory was created from a JS TypedArray.
+
+            void* memoryIndexPointer = (byte*)memoryPointer + Unsafe.SizeOf<object?>();
+            int index = Unsafe.Read<int>(memoryIndexPointer);
+            void* memoryLengthPointer = (byte*)memoryIndexPointer + Unsafe.SizeOf<int>();
+            int length = Unsafe.Read<int>(memoryLengthPointer);
+
+            _value = manager.JSValue;
+            int valueLength = _value.GetTypedArrayLength(out _);
+
+            if (index != 0 || length != valueLength)
+            {
+                // The Memory was sliced, so get an equivalent slice of the JS TypedArray.
+                _value = _value.CallMethod("slice", index, index + length);
+            }
+        }
+        else
+        {
+            // The Memory was NOT created from a JS TypedArray. Most likely it was allocated
+            // directly or via a .NET array or string.
+
+            JSValue arrayBuffer = data.Length > 0 ?
+                JSValue.CreateExternalArrayBuffer(data) : JSValue.CreateArrayBuffer(0);
+            _value = JSValue.CreateTypedArray(ArrayType, data.Length, arrayBuffer, 0);
+        }
     }
 
     /// <summary>
@@ -125,18 +157,20 @@ public readonly struct JSTypedArray<T> where T : struct
             _typedArrayReference = typedArrayReference;
         }
 
+        public JSValue JSValue => _typedArrayReference.GetValue() ??
+            throw new ObjectDisposedException(nameof(JSTypedArray<T>));
+
         public override Span<T> GetSpan()
         {
-            JSValue value = _typedArrayReference.GetValue() ??
-                throw new ObjectDisposedException(nameof(JSTypedArray<T>));
-            return ((JSTypedArray<T>)value).Span;
+            return ((JSTypedArray<T>)JSValue).Span;
         }
 
         public override unsafe MemoryHandle Pin(int elementIndex = 0)
         {
             // Do TypedArray or ArrayBuffer support pinning?
             // This code assumes the memory buffer is not moveable.
-            void* pointer = Unsafe.AsPointer(ref MemoryMarshal.GetReference(GetSpan()));
+            Span<T> span = GetSpan().Slice(elementIndex);
+            void* pointer = Unsafe.AsPointer(ref MemoryMarshal.GetReference(span));
             return new MemoryHandle(pointer, handle: default, pinnable: this);
         }
 

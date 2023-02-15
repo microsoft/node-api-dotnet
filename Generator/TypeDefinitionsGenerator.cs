@@ -191,14 +191,23 @@ internal class TypeDefinitionsGenerator : SourceGenerator
             {
                 tsType = "readonly " + GetTSType(namedType.TypeArguments[0]) + "[]";
             }
-            else if (namedType.OriginalDefinition.Name == "ICollection" ||
-                namedType.OriginalDefinition.Name == "ISet")
+            else if (namedType.OriginalDefinition.Name == "ICollection")
+            {
+                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                return $"Iterable<{elementTsType}> & {{ length: number }}";
+            }
+            else if (namedType.OriginalDefinition.Name == "IReadOnlyCollection")
+            {
+                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                return $"Iterable<{elementTsType}> & {{ length: number, " +
+                    $"add(item: {elementTsType}): this, delete(item: {elementTsType}): boolean }}";
+            }
+            else if (namedType.OriginalDefinition.Name == "ISet")
             {
                 string elementTsType = GetTSType(namedType.TypeArguments[0]);
                 return $"Set<{elementTsType}>";
             }
-            else if (namedType.OriginalDefinition.Name == "IReadOnlyCollection" ||
-                namedType.OriginalDefinition.Name == "IReadOnlySet")
+            else if (namedType.OriginalDefinition.Name == "IReadOnlySet")
             {
                 string elementTsType = GetTSType(namedType.TypeArguments[0]);
                 return $"ReadonlySet<{elementTsType}>";

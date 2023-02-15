@@ -8,17 +8,17 @@ public partial struct JSArray
 {
     public struct Enumerator : IEnumerator<JSValue>, IEnumerator
     {
-        private readonly JSValue _value;
+        private readonly JSValue _array;
         private readonly int _count;
         private int _index;
         private JSValue? _current;
 
-        internal Enumerator(JSValue value)
+        internal Enumerator(JSValue array)
         {
-            _value = value;
-            if (value.IsArray())
+            _array = array;
+            if (array.IsArray())
             {
-                _count = value.GetArrayLength();
+                _count = array.GetArrayLength();
             }
             else
             {
@@ -28,15 +28,11 @@ public partial struct JSArray
             _current = default;
         }
 
-        public void Dispose()
-        {
-        }
-
         public bool MoveNext()
         {
             if (_index < _count)
             {
-                _current = _value.GetElement(_index);
+                _current = _array.GetElement(_index);
                 _index++;
                 return true;
             }
@@ -65,6 +61,10 @@ public partial struct JSArray
         {
             _index = 0;
             _current = default;
+        }
+
+        void IDisposable.Dispose()
+        {
         }
     }
 }
