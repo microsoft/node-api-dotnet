@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 
 namespace NodeApi;
@@ -7,7 +8,7 @@ namespace NodeApi;
 /// <summary>
 /// Enables creation of JS Proxy objects with C# handler callbacks.
 /// </summary>
-public readonly partial struct JSProxy
+public readonly partial struct JSProxy : IEquatable<JSValue>
 {
     private readonly JSValue _value;
     private readonly JSValue _revoke;
@@ -268,5 +269,18 @@ public readonly partial struct JSProxy
         {
             return $"{nameof(JSProxy)}.{nameof(Handler)} \"{Name}\"";
         }
+    }
+
+    public bool Equals(JSValue other) => _value.StrictEquals(other);
+
+    public override bool Equals([NotNullWhen(true)] object? obj)
+    {
+        return obj is JSValue other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        throw new NotSupportedException(
+            "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
 }

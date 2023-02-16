@@ -110,13 +110,13 @@ public partial struct JSIterable
         };
     }
 
-    private static JSValue ProxyGet<T>(
+    internal static JSValue ProxyGet<T>(
         IEnumerable<T> enumerable,
         JSObject target,
         JSValue property,
         JSValue.From<T> toJS)
     {
-        if (IsIteratorSymbol(property) ||
+        if (((JSValue)JSSymbol.Iterator).StrictEquals(property) ||
             (property.IsString() && (string)property == "values"))
         {
             return CreateIteratorFunction(enumerable, toJS);
@@ -125,17 +125,7 @@ public partial struct JSIterable
         return target[property];
     }
 
-    private static JSValue GetIteratorSymbol()
-    {
-        return JSValue.Global["Symbol"]["iterator"];
-    }
-
-    private static bool IsIteratorSymbol(JSValue value)
-    {
-        return GetIteratorSymbol().StrictEquals(value);
-    }
-
-    private static JSValue CreateIteratorFunction<T>(
+    internal static JSValue CreateIteratorFunction<T>(
         IEnumerable<T> enumerable,
         JSValue.From<T> toJS)
     {
@@ -144,7 +134,7 @@ public partial struct JSIterable
             IEnumerator<T> enumerator = enumerable.GetEnumerator();
             JSObject iterator = new();
             iterator.DefineProperties(
-                JSPropertyDescriptor.Function(GetIteratorSymbol(), (args) =>
+                JSPropertyDescriptor.Function(JSSymbol.Iterator, (args) =>
                 {
                     // The iterator is also iterable.
                     return args.ThisArg;

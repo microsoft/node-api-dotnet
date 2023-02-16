@@ -1,9 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly partial struct JSIterable : IEnumerable<JSValue>
+public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
@@ -26,4 +28,17 @@ public readonly partial struct JSIterable : IEnumerable<JSValue>
     IEnumerator<JSValue> IEnumerable<JSValue>.GetEnumerator() => GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public bool Equals(JSValue other) => _value.StrictEquals(other);
+
+    public override bool Equals([NotNullWhen(true)] object? obj)
+    {
+        return obj is JSValue other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        throw new NotSupportedException(
+            "Hashing JS values is not supported. Use JSSet or JSMap instead.");
+    }
 }

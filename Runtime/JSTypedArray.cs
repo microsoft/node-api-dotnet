@@ -1,11 +1,12 @@
 using System;
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace NodeApi;
 
-public readonly struct JSTypedArray<T> where T : struct
+public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
 {
     private readonly JSValue _value;
 
@@ -135,6 +136,20 @@ public readonly struct JSTypedArray<T> where T : struct
     }
 
     public Span<T>.Enumerator GetEnumerator() => Span.GetEnumerator();
+
+
+    public bool Equals(JSValue other) => _value.StrictEquals(other);
+
+    public override bool Equals([NotNullWhen(true)] object? obj)
+    {
+        return obj is JSValue other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        throw new NotSupportedException(
+            "Hashing JS values is not supported. Use JSSet or JSMap instead.");
+    }
 
     /// <summary>
     /// Gets the typed-array values as memory, without copying.

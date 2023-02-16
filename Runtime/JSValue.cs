@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
 using static NodeApi.JSNativeApi;
@@ -6,7 +7,7 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public readonly struct JSValue
+public readonly struct JSValue : IEquatable<JSValue>
 {
     private readonly napi_value _handle;
     private readonly JSValueScope? _scope;
@@ -314,4 +315,30 @@ public readonly struct JSValue
     /// Delegate that provides a conversion from a JS value to some type.
     /// </summary>
     public delegate T To<T>(JSValue value);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSValue a, JSValue b) => a.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSValue a, JSValue b) => !a.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public bool Equals(JSValue other) => this.StrictEquals(other);
+
+    public override bool Equals([NotNullWhen(true)] object? obj)
+    {
+        return obj is JSValue other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        throw new NotSupportedException(
+            "Hashing JS values is not supported. Use JSSet or JSMap instead.");
+    }
 }

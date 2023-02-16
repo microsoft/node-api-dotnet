@@ -117,3 +117,36 @@ assert.strictEqual(ComplexTypes.list[0], 0);
 const listValue2 = ComplexTypes.list;
 ComplexTypes.list[0] = 1;
 assert.strictEqual(listValue2[0], 1);
+
+// C# ISet<T> maps to/from JS Set<T> (without copying).
+const setValue = ComplexTypes.set;
+assert(setValue instanceof Set);
+assert.strictEqual(setValue.size, 0);
+assert.strictEqual(ComplexTypes.set, setValue);
+ComplexTypes.set = new Set([0, 1, 2]);
+assert.notStrictEqual(ComplexTypes.set, setValue);
+assert.strictEqual(ComplexTypes.set.size, 3);
+assert(ComplexTypes.set.has(1));
+const setValue2 = ComplexTypes.set;
+ComplexTypes.set.add(3);
+assert(setValue2.has(3));
+const setEnumerableResult = [];
+for (let value of setValue2) setEnumerableResult.push(value);
+assert.deepStrictEqual(setEnumerableResult, [0, 1, 2, 3]);
+
+// C# IDictionary<TKey, TValue> maps to/from JS Map<TKey, TValue> (without copying).
+const mapValue = ComplexTypes.dictionary;
+assert(mapValue instanceof Map);
+assert.strictEqual(mapValue.size, 0);
+assert.strictEqual(ComplexTypes.dictionary, mapValue);
+ComplexTypes.dictionary = new Map([[0, 'zero'], [1, 'one'], [2, 'two']]);
+assert.notStrictEqual(ComplexTypes.dictionary, mapValue);
+assert.strictEqual(ComplexTypes.dictionary.size, 3);
+assert(ComplexTypes.dictionary.has(1));
+const mapValue2 = ComplexTypes.dictionary;
+ComplexTypes.dictionary.set(3, 'three');
+ComplexTypes.dictionary.delete(0);
+assert.strictEqual(mapValue2.get(3), 'three');
+const mapEnumerableResult = [];
+for (let value of mapValue2) mapEnumerableResult.push(value);
+assert.deepStrictEqual(mapEnumerableResult, [[1, 'one'], [2, 'two'], [3, 'three']]);

@@ -35,6 +35,10 @@ public static class ComplexTypes
 
     public static IReadOnlyList<int> ReadOnlyList { get; set; } = new List<int>().AsReadOnly();
 
+    public static ISet<int> Set { get; set; } = new HashSet<int>();
+
+    public static IReadOnlySet<int> ReadOnlySet { get; set; } = new HashSet<int>();
+
     public static IDictionary<int, string> Dictionary { get; set; } = new Dictionary<int, string>();
 
     public static IReadOnlyDictionary<int, string> ReadOnlyDictionary { get; set; }
