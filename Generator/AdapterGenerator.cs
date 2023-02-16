@@ -472,7 +472,7 @@ internal class AdapterGenerator : SourceGenerator
             /*
              * private static JSValue from_StructName(StructName value)
              * {
-             *     JSValue jsValue = Context.CreateStruct<StructName>();
+             *     JSValue jsValue = JSContext.Current.CreateStruct<StructName>();
              *     jsValue["property0"] = (JSValue)value.Property0;
              *     ...
              *     return jsValue;
@@ -481,7 +481,7 @@ internal class AdapterGenerator : SourceGenerator
 
             s += $"private static JSValue {adapterName}({ns}.{structName} value)";
             s += "{";
-            s += $"JSValue jsValue = Context.CreateStruct<{ns}.{structName}>();";
+            s += $"JSValue jsValue = JSContext.Current.CreateStruct<{ns}.{structName}>();";
 
             foreach (ISymbol property in copyableProperties)
             {
@@ -590,7 +590,7 @@ internal class AdapterGenerator : SourceGenerator
     {
         /**
          * private static readonly Lazy<JSProxy.Handler> proxy_ICollection_of_Int32 = new(
-         *     () => JSIterable.CreateProxyHandlerForCollection<int>(Context, (item) => (JSValue)(item)),
+         *     () => JSIterable.CreateProxyHandlerForCollection<int>(JSContext.Current, (item) => (JSValue)(item)),
          *     LazyThreadSafetyMode.ExecutionAndPublication);
          */
 
@@ -601,20 +601,20 @@ internal class AdapterGenerator : SourceGenerator
         s += targetType.OriginalDefinition.Name switch
         {
             "IEnumerable" =>
-                $"\t() => JSIterable.CreateProxyHandlerForEnumerable<{elementType}>(Context, " +
+                $"\t() => JSIterable.CreateProxyHandlerForEnumerable<{elementType}>(JSContext.Current, " +
                 $"(item) => {ConvertFrom("item", elementType)}),",
             "IReadOnlyCollection" =>
-                $"\t() => JSIterable.CreateProxyHandlerForReadOnlyCollection<{elementType}>(Context, " +
+                $"\t() => JSIterable.CreateProxyHandlerForReadOnlyCollection<{elementType}>(JSContext.Current, " +
                 $"(item) => {ConvertFrom("item", elementType)}),",
             "ICollection" =>
-                $"\t() => JSIterable.CreateProxyHandlerForCollection<{elementType}>(Context, " +
+                $"\t() => JSIterable.CreateProxyHandlerForCollection<{elementType}>(JSContext.Current, " +
                 $"(item) => {ConvertFrom("item", elementType)}, " +
                 $"(value) => {ConvertTo("value", elementType)}),",
             "IReadOnlyList" =>
-                $"\t() => JSArray.CreateProxyHandlerForReadOnlyList<{elementType}>(Context, " +
+                $"\t() => JSArray.CreateProxyHandlerForReadOnlyList<{elementType}>(JSContext.Current, " +
                 $"(item) => {ConvertFrom("item", elementType)}),",
             "IList" =>
-                $"\t() => JSArray.CreateProxyHandlerForList<{elementType}>(Context, " +
+                $"\t() => JSArray.CreateProxyHandlerForList<{elementType}>(JSContext.Current, " +
                 $"(item) => {ConvertFrom("item", elementType)}, " +
                 $"(value) => {ConvertTo("value", elementType)}),",
             _ => throw new NotSupportedException("Unsupported proxy target type: " + targetType),
@@ -658,7 +658,7 @@ internal class AdapterGenerator : SourceGenerator
         {
             // For a method on a module class, the .NET object is stored in module instance data.
             // Note `ThisArg` is ignored for module-level methods.
-            s += $"if (!(JSNativeApi.GetInstanceData() is {ns}.{typeName} __obj)) " +
+            s += $"if (!(JSContext.Current.Module is {ns}.{typeName} __obj)) " +
                 "return JSValue.Undefined;";
         }
         else if (symbol.ContainingType.TypeKind == TypeKind.Class)
@@ -824,7 +824,7 @@ internal class AdapterGenerator : SourceGenerator
         else if (fromType.TypeKind == TypeKind.Class)
         {
             VerifyReferencedTypeIsExported(fromType);
-            return $"Context.GetOrCreateObjectWrapper({fromExpression})";
+            return $"JSContext.Current.GetOrCreateObjectWrapper({fromExpression})";
         }
         else if (fromType.TypeKind == TypeKind.Struct)
         {
@@ -862,7 +862,7 @@ internal class AdapterGenerator : SourceGenerator
                 // Collections are wrapped with a JS proxy object to avoid copying the data.
                 // When the same collection is passed multiple times, the proxy object is re-used.
                 // Read-write collections require bi-directional element conversion lamdas.
-                return $"Context.GetOrCreateCollectionWrapper({fromExpression}, " +
+                return $"JSContext.Current.GetOrCreateCollectionWrapper({fromExpression}, " +
                     $"{GetProxyFieldName(namedType)}.Value)";
             }
 

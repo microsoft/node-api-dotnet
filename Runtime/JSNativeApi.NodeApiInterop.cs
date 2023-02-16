@@ -21,8 +21,8 @@ public static partial class JSNativeApi
 
         public unsafe struct napi_cleanup_hook
         {
-            public delegate* unmanaged[Cdecl]<void* /*arg*/, void> Handle;
-            public napi_cleanup_hook(delegate* unmanaged[Cdecl]<void* /*arg*/, void> handle)
+            public delegate* unmanaged[Cdecl]<nint /*arg*/, void> Handle;
+            public napi_cleanup_hook(delegate* unmanaged[Cdecl]<nint /*arg*/, void> handle)
                 => Handle = handle;
         }
 
@@ -58,9 +58,9 @@ public static partial class JSNativeApi
 
         public unsafe struct napi_threadsafe_function_call_js
         {
-            public delegate* unmanaged[Cdecl]<napi_env /*env*/, napi_value /*js_callback*/, void* /*context*/, void* /*data*/, void> Handle;
+            public delegate* unmanaged[Cdecl]<napi_env /*env*/, napi_value /*js_callback*/, nint /*context*/, nint /*data*/, void> Handle;
             public napi_threadsafe_function_call_js(
-                delegate* unmanaged[Cdecl]<napi_env /*env*/, napi_value /*js_callback*/, void* /*context*/, void* /*data*/, void> handle)
+                delegate* unmanaged[Cdecl]<napi_env /*env*/, napi_value /*js_callback*/, nint /*context*/, nint /*data*/, void> handle)
                 => Handle = handle;
         }
 
@@ -192,10 +192,10 @@ public static partial class JSNativeApi
         internal static unsafe partial napi_status napi_fatal_exception(napi_env env, napi_value err);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        internal static unsafe partial napi_status napi_add_env_cleanup_hook(napi_env env, napi_cleanup_hook fun, void* arg);
+        internal static unsafe partial napi_status napi_add_env_cleanup_hook(napi_env env, napi_cleanup_hook fun, nint arg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-        internal static unsafe partial napi_status napi_remove_env_cleanup_hook(napi_env env, napi_cleanup_hook fun, void* arg);
+        internal static unsafe partial napi_status napi_remove_env_cleanup_hook(napi_env env, napi_cleanup_hook fun, nint arg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static unsafe partial napi_status napi_open_callback_scope(
@@ -215,21 +215,21 @@ public static partial class JSNativeApi
             napi_value async_resource_name,
             nuint max_queue_size,
             nuint initial_thread_count,
-            void* thread_finalize_data,
+            nint thread_finalize_data,
             napi_finalize thread_finalize_cb,
-            void* context,
+            nint context,
             napi_threadsafe_function_call_js call_js_cb,
-            napi_threadsafe_function* result);
+            out napi_threadsafe_function result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static unsafe partial napi_status napi_get_threadsafe_function_context(
             napi_threadsafe_function func,
-            void** result);
+            out nint result);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static unsafe partial napi_status napi_call_threadsafe_function(
             napi_threadsafe_function func,
-            void* data,
+            nint data,
             napi_threadsafe_function_call_mode is_blocking);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

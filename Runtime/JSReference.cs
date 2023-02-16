@@ -18,21 +18,19 @@ namespace NodeApi;
 /// </remarks>
 public class JSReference : IDisposable
 {
-    private readonly napi_env _env;
+    private readonly JSContext _context;
     private readonly napi_ref _handle;
 
     public bool IsWeak { get; private set; }
 
     public JSReference(JSValue value, bool isWeak = false)
+        : this(napi_create_reference((napi_env)JSValueScope.Current, (napi_value)value, isWeak ? 0u : 1u, out napi_ref handle).ThrowIfFailed(handle), isWeak)
     {
-        _env = (napi_env)value.Scope;
-        napi_create_reference(_env, (napi_value)value, isWeak ? 0u : 1u, out _handle).ThrowIfFailed();
-        IsWeak = isWeak;
     }
 
     public JSReference(napi_ref handle, bool isWeak = false)
     {
-        _env = (napi_env)JSSimpleValueScope.Current;
+        _context = JSContext.Current;
         _handle = handle;
         IsWeak = isWeak;
     }
@@ -42,7 +40,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (!IsWeak)
         {
-            napi_reference_unref(_env, _handle, nint.Zero).ThrowIfFailed();
+            napi_reference_unref((napi_env)_context, _handle, nint.Zero).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -51,7 +49,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (IsWeak)
         {
-            napi_reference_ref(_env, _handle, nint.Zero).ThrowIfFailed();
+            napi_reference_ref((napi_env)_context, _handle, nint.Zero).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -59,7 +57,7 @@ public class JSReference : IDisposable
     public JSValue? GetValue()
     {
         ThrowIfDisposed();
-        napi_get_reference_value(_env, _handle, out napi_value result).ThrowIfFailed();
+        napi_get_reference_value((napi_env)_context, _handle, out napi_value result).ThrowIfFailed();
         return result;
     }
 
@@ -89,16 +87,11 @@ public class JSReference : IDisposable
     {
         if (!IsDisposed)
         {
-            // The reference handle should be deleted regardless of the `disposing` argument.
-            napi_status status = napi_delete_reference(_env, _handle);
-
-            // Ignore errors when finalizing.
-            if (disposing)
-            {
-                status.ThrowIfFailed();
-            }
-
             IsDisposed = true;
+            if (!_context.IsDisposed)
+            {
+                napi_delete_reference((napi_env)_context, _handle).ThrowIfFailed();
+            }
         }
     }
 
