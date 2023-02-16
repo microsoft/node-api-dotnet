@@ -12,7 +12,7 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
 
     public JSSynchronizationContext()
     {
-        _tsfn = JSThreadSafeFunction.New(
+        _tsfn = new JSThreadSafeFunction(
             maxQueueSize: 0,
             initialThreadCount: 1,
             asyncResourceName: (JSValue)"SynchronizationContext");
@@ -46,9 +46,11 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
         {
             callback(state);
         }
-        else
+        else if (!IsDisposed)
         {
-            Post(callback, state);
+            using ManualResetEvent syncEvent = new(false);
+            _tsfn.NonBlockingCall(() => { callback(state); syncEvent.Set(); });
+            syncEvent.WaitOne();
         }
     }
 

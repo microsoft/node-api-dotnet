@@ -88,7 +88,7 @@ public class JSReference : IDisposable
         if (!IsDisposed)
         {
             IsDisposed = true;
-            if (disposing && !_context.IsDisposed)
+            if (!_context.IsDisposed)
             {
                 napi_delete_reference((napi_env)_context, _handle).ThrowIfFailed();
             }

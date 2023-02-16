@@ -20,14 +20,14 @@ public struct JSThreadSafeFunction
     private JSThreadSafeFunction(napi_threadsafe_function tsfn) => _tsfn = tsfn;
 
     // This API may only be called from the main thread.
-    public static unsafe JSThreadSafeFunction New(int maxQueueSize,
-                                                  int initialThreadCount,
-                                                  in JSValue asyncResourceName,
-                                                  in JSValue? jsFunction = null,
-                                                  in JSObject? asyncResource = null,
-                                                  JSThreadSafeFinalizeCallback? finalize = null,
-                                                  object? functionContext = null,
-                                                  JSThreadSafeCallback? jsCaller = null)
+    public unsafe JSThreadSafeFunction(int maxQueueSize,
+                                int initialThreadCount,
+                                in JSValue asyncResourceName,
+                                in JSValue? jsFunction = null,
+                                in JSObject? asyncResource = null,
+                                JSThreadSafeFinalizeCallback? finalize = null,
+                                object? functionContext = null,
+                                JSThreadSafeCallback? jsCaller = null)
     {
         FunctionData functionData = new()
         {
@@ -39,7 +39,7 @@ public struct JSThreadSafeFunction
         napi_status status = napi_create_threadsafe_function(
                                  (napi_env)JSValueScope.Current,
                                  (napi_value)jsFunction,
-                                 (napi_value)(JSValue)(asyncResource is JSObject obj ? obj : new JSObject()),
+                                 (napi_value)(JSValue?)asyncResource,
                                  (napi_value)asyncResourceName,
                                  (nuint)maxQueueSize,
                                  (nuint)initialThreadCount,
@@ -49,14 +49,12 @@ public struct JSThreadSafeFunction
                                  (jsCaller != null)
                                      ? new napi_threadsafe_function_call_js(&CustomCallJS)
                                      : new napi_threadsafe_function_call_js(&DefaultCallJS),
-                                 out napi_threadsafe_function tsfn);
+                                 out _tsfn);
         if (status != napi_status.napi_ok)
         {
             functionDataHandle.Free();
             status.ThrowIfFailed();
         }
-
-        return new JSThreadSafeFunction(tsfn);
     }
 
 

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using static NodeApi.JSNativeApi;
-using static NodeApi.JSNativeApi.Interop;
+using napi_env = NodeApi.JSNativeApi.Interop.napi_env;
 
 namespace NodeApi;
 
@@ -72,7 +72,7 @@ public sealed class JSContext : IDisposable
 
     public JSContext(napi_env env)
     {
-        Initialize();
+        Interop.Initialize();
         _env = env;
         SetInstanceData(this);
     }
@@ -331,14 +331,14 @@ public sealed class JSContext : IDisposable
         {
             IsDisposed = true;
 
-            DisposeReferences(_objectMap);
-            DisposeReferences(_classMap);
-            DisposeReferences(_structMap);
-
             if (Module is IDisposable module)
             {
                 module.Dispose();
             }
+
+            DisposeReferences(_objectMap);
+            DisposeReferences(_classMap);
+            DisposeReferences(_structMap);
         }
 
         GC.SuppressFinalize(this);
