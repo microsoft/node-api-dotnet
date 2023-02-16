@@ -18,6 +18,7 @@ namespace NodeApi;
 public sealed class JSContext : IDisposable
 {
     private readonly napi_env _env;
+    private readonly JSSynchronizationContext _syncContext;
 
     // Track JS constructors and instance JS wrappers for exported classes, enabling
     // .NET objects to be automatically wrapped when returned to JS, and re-wrapped as needed
@@ -75,6 +76,7 @@ public sealed class JSContext : IDisposable
         Interop.Initialize();
         _env = env;
         SetInstanceData(this);
+        _syncContext = new JSSynchronizationContext();
     }
 
     /// <summary>
@@ -339,6 +341,7 @@ public sealed class JSContext : IDisposable
             DisposeReferences(_objectMap);
             DisposeReferences(_classMap);
             DisposeReferences(_structMap);
+            _syncContext.Dispose();
         }
 
         GC.SuppressFinalize(this);

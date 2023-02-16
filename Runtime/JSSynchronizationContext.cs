@@ -10,12 +10,16 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
 
     public bool IsDisposed { get; private set; }
 
+    public static new JSSynchronizationContext? Current
+        => SynchronizationContext.Current as JSSynchronizationContext;
+
     public JSSynchronizationContext()
     {
         _tsfn = new JSThreadSafeFunction(
             maxQueueSize: 0,
             initialThreadCount: 1,
             asyncResourceName: (JSValue)"SynchronizationContext");
+        _tsfn.Unref();
 
         _previousSyncContext = Current;
         SetSynchronizationContext(this);
@@ -66,5 +70,15 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
 
             _tsfn.Release();
         }
+    }
+
+    internal void OpenAsyncScope()
+    {
+        _tsfn.Ref();
+    }
+
+    internal void CloseAsyncScope()
+    {
+        _tsfn.Unref();
     }
 }
