@@ -14,16 +14,13 @@ namespace NodeApi.Hosting;
 [RequiresUnreferencedCode("Managed host is not used in trimmed assembly.")]
 public class ManagedHost : IDisposable
 {
-    private ManagedHost(JSContext context)
+    private ManagedHost()
     {
-        Context = context;
     }
-
-    public JSContext Context { get; }
 
     /// <summary>
     /// Each instance of a managed host uses a separate assembly load context.
-    /// That way, static data is not shared across multiple host instanances.
+    /// That way, static data is not shared across multiple host instances.
     /// </summary>
     private readonly AssemblyLoadContext _loadContext = new(name: default);
 
@@ -48,19 +45,18 @@ public class ManagedHost : IDisposable
 
         try
         {
-            JSContext context = new();
-
             // Ensure references to this assembly can be resolved when loading other assemblies.
             Assembly nodeApiAssembly = typeof(JSValue).Assembly;
             AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
                 e.Name.Split(',')[0] == nameof(NodeApi) ? nodeApiAssembly : null;
 
             using var scope = new JSValueScope(env);
+            JSContext context = new(env);
             var exportsValue = new JSValue(scope, exports);
             new JSModuleBuilder<ManagedHost>()
                 .AddMethod("require", (host) => host.LoadModule)
                 .AddMethod("loadAssembly", (host) => LoadAssembly)
-                .ExportModule(new ManagedHost(context), (JSObject)exportsValue);
+                .ExportModule(new ManagedHost(), (JSObject)exportsValue);
         }
         catch (Exception ex)
         {
@@ -174,9 +170,5 @@ public class ManagedHost : IDisposable
 
     protected virtual void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            Context.Dispose();
-        }
     }
 }

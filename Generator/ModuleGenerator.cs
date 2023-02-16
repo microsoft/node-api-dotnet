@@ -277,10 +277,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += $"public static class {ModuleInitializerClassName}";
         s += "{";
 
-        // The `JSContext` is created when the module is initialized and disposed when the module is unloaded.
-        // It is static because each instance of the module is in a separate AssemblyLoadContext.
-        s += "private static JSContext Context { get; set; } = null!;";
-
         // The unmanaged entrypoint is used only when the AOT-compiled module is loaded.
         s += $"[UnmanagedCallersOnly(EntryPoint = \"{ModuleRegisterFunctionName}\")]";
         s += $"public static napi_value _{ModuleInitializeMethodName}(napi_env env, napi_value exports)";
@@ -292,9 +288,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "{";
         s += "try";
         s += "{";
-        s += "Context = new JSContext();";
-        s++;
         s += "using JSValueScope scope = new(env);";
+        s += "JSContext context = new(env);";
         s += "JSValue exportsValue = new(scope, exports);";
         s++;
 
@@ -314,7 +309,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             string ns = GetNamespace(moduleInitializerMethod);
             string className = moduleInitializerMethod.ContainingType.Name;
             string methodName = moduleInitializerMethod.Name;
-            s += $"return {ns}.{className}.{methodName}(Context, (JSObject)exportsValue)";
+            s += $"return {ns}.{className}.{methodName}(context, (JSObject)exportsValue)";
             s += "\t.GetCheckedHandle();";
         }
         else
@@ -391,11 +386,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 if (exportClass.IsStatic)
                 {
                     // Static classes are projected as simple JS objects with defined properties.
-                    s += $"new JSClassBuilder<object>(Context, \"{exportName}\")";
+                    s += $"new JSClassBuilder<object>(context, \"{exportName}\")";
                 }
                 else
                 {
-                    s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(Context, \"{exportName}\",";
+                    s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(context, \"{exportName}\",";
 
                     // The class constructor may take no parameter, or a single JSCallbackArgs
                     // parameter, or may use an adapter to support arbitrary parameters.
@@ -427,7 +422,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 s.IncreaseIndent();
 
                 string ns = GetNamespace(exportStruct);
-                s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(Context, \"{exportName}\")";
+                s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(context, \"{exportName}\")";
 
                 ExportMembers(ref s, exportStruct, adapterGenerator);
                 s += ".DefineStruct())";
@@ -460,13 +455,13 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 c.Parameters.Length == 1 && c.Parameters[0].Type.Name == "JSContext") ??
                 constructors.SingleOrDefault((c) => c.Parameters.Length == 0);
             string contextParameter = constructor?.Parameters.Length == 1 ?
-                "Context" : string.Empty;
+                "context" : string.Empty;
             string ns = GetNamespace(moduleType);
             s += $".ExportModule(new {ns}.{moduleType.Name}({contextParameter}), (JSObject)exportsValue);";
         }
         else
         {
-            s += $".ExportModule(Context, (JSObject)exportsValue);";
+            s += $".ExportModule(context, (JSObject)exportsValue);";
         }
 
         s.DecreaseIndent();

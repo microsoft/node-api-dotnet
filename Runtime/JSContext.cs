@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using static NodeApi.JSNativeApi;
+using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
@@ -15,10 +17,7 @@ namespace NodeApi;
 /// </remarks>
 public sealed class JSContext : IDisposable
 {
-    public JSContext()
-    {
-        JSNativeApi.Interop.Initialize();
-    }
+    private readonly napi_env _env;
 
     // Track JS constructors and instance JS wrappers for exported classes, enabling
     // .NET objects to be automatically wrapped when returned to JS, and re-wrapped as needed
@@ -59,6 +58,24 @@ public sealed class JSContext : IDisposable
     /// the JS object is not a wrapper, rather the properties are copied by the marshaller.
     /// </remarks>
     private readonly ConcurrentDictionary<Type, JSReference> _structMap = new();
+
+    public object? Module { get; set; }
+
+    public bool IsDisposed { get; private set; }
+
+    public static explicit operator napi_env(JSContext context) => context._env;
+
+    public static JSContext Current
+      => GetInstanceData() is JSContext context
+        ? context
+        : throw new InvalidCastException("Context is not found in napi_env instance data.");
+
+    public JSContext(napi_env env)
+    {
+        Initialize();
+        _env = env;
+        SetInstanceData(this);
+    }
 
     /// <summary>
     /// Maps from JS class names to (strong references to) JS constructors for classes imported
@@ -317,12 +334,15 @@ public sealed class JSContext : IDisposable
             DisposeReferences(_objectMap);
             DisposeReferences(_classMap);
             DisposeReferences(_structMap);
+
+            if (Module is IDisposable module)
+            {
+                module.Dispose();
+            }
         }
 
         GC.SuppressFinalize(this);
     }
-
-    public bool IsDisposed { get; private set; } = false;
 
     private static void DisposeReferences<TKey>(
         ConcurrentDictionary<TKey, JSReference> references) where TKey : notnull

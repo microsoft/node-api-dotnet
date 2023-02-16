@@ -13,7 +13,7 @@ public class JSCallbackArgs
 
     public JSValue ThisArg { get; }
 
-    public object? Data { get; set; } = null;
+    public object? Data { get; set; }
 
     public JSValue GetNewTarget()
     {

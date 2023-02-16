@@ -758,14 +758,14 @@ public static partial class JSNativeApi
           out napi_value result).ThrowIfFailed(result);
     }
 
-    public static unsafe void SetInstanceData(object? data)
+    internal static unsafe void SetInstanceData(object? data)
     {
         napi_get_instance_data(Env, out nint handlePtr).ThrowIfFailed();
         if (handlePtr != nint.Zero)
         {
-            GCHandle handle = GCHandle.FromIntPtr(handlePtr);
-            (handle.Target as IDisposable)?.Dispose();
-            handle.Free();
+            // Current napi_set_instance_data implementation does not call finalizer when we replace existing instance data.
+            // It means that we only remove the GC root, but do not call Dispose.
+            GCHandle.FromIntPtr(handlePtr).Free();
         }
 
         if (data != null)
@@ -779,7 +779,7 @@ public static partial class JSNativeApi
         }
     }
 
-    public static object? GetInstanceData()
+    internal static object? GetInstanceData()
     {
         napi_get_instance_data(Env, out nint data).ThrowIfFailed();
         return (data != nint.Zero) ? GCHandle.FromIntPtr(data).Target : null;

@@ -40,8 +40,15 @@ public static partial class JSNativeApi
         // Specialized pointer types
         //===========================================================================
 
-        public record struct napi_env(nint Handle);
-        public record struct napi_value(nint Handle);
+        public record struct napi_env(nint Handle)
+        {
+            public bool IsNull => Handle == nint.Zero;
+        }
+        public record struct napi_value(nint Handle)
+        {
+            public static napi_value Null => new(nint.Zero);
+            public bool IsNull => Handle == nint.Zero;
+        }
         public record struct napi_ref(nint Handle);
         public record struct napi_handle_scope(nint Handle);
         public record struct napi_escapable_handle_scope(nint Handle);
