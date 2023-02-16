@@ -327,6 +327,56 @@ public sealed class JSContext : IDisposable
         return reference.GetValue() ?? JSValue.Undefined;
     }
 
+    /// <summary>
+    /// Runs callback in the main Node.JS loop for this module environment.
+    /// By default it runs the callback always asynchronously.
+    /// Set the allowSyncRun parameter to true to allow sync execution if we are
+    /// already in the main loop thread.
+    /// </summary>
+    /// <param name="callback">The callback to run.</param>
+    /// <param name="allowSyncRun">Pass true to allow synchronous execution if are already
+    /// in the main loop. Default is false.
+    /// </param>
+    public void RunInMainLoop(Action callback, bool allowSyncRun = false)
+    {
+        if (!IsDisposed)
+        {
+            if (allowSyncRun && JSSynchronizationContext.Current == _syncContext)
+            {
+                callback();
+            }
+            else
+            {
+                _syncContext.Post(_ =>
+                {
+                    if (!IsDisposed)
+                    {
+                        callback();
+                    }
+                }, null);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A helper method to run callbacks that need napi_env parameter
+    /// in the main Node.JS loop for this module environment.
+    /// By default it runs the callback always asynchronously.
+    /// Set the allowSyncRun parameter to true to allow sync execution if we are
+    /// already in the main loop thread.
+    /// </summary>
+    /// <param name="callback">The callback to run.</param>
+    /// <param name="allowSyncRun">Pass true to allow synchronous execution if are already
+    /// in the main loop. Default is false.
+    /// </param>
+    internal void RunInMainLoop(Action<napi_env> callback, bool allowSyncRun = false)
+    {
+        if (!IsDisposed)
+        {
+            RunInMainLoop(() => callback(_env), allowSyncRun);
+        }
+    }
+
     public void Dispose()
     {
         if (!IsDisposed)

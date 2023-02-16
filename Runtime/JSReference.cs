@@ -24,7 +24,12 @@ public class JSReference : IDisposable
     public bool IsWeak { get; private set; }
 
     public JSReference(JSValue value, bool isWeak = false)
-        : this(napi_create_reference((napi_env)JSValueScope.Current, (napi_value)value, isWeak ? 0u : 1u, out napi_ref handle).ThrowIfFailed(handle), isWeak)
+        : this(napi_create_reference(
+                  (napi_env)JSValueScope.Current,
+                  (napi_value)value,
+                  isWeak ? 0u : 1u,
+                  out napi_ref handle).ThrowIfFailed(handle),
+               isWeak)
     {
     }
 
@@ -88,13 +93,12 @@ public class JSReference : IDisposable
         if (!IsDisposed)
         {
             IsDisposed = true;
-            if (!_context.IsDisposed)
-            {
-                napi_delete_reference((napi_env)_context, _handle).ThrowIfFailed();
-            }
+            napi_ref handle = _handle; // To capture in lambda
+            _context.RunInMainLoop(
+                (napi_env env) => napi_delete_reference(env, handle).ThrowIfFailed(),
+                allowSyncRun: true);
         }
     }
 
-    // TODO: A finalizer should delete the reference, after switching to the JS thread!
-    ////~JSReference() => Dispose(disposing: false);
+    ~JSReference() => Dispose(disposing: false);
 }
