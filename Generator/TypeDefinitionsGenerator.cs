@@ -18,6 +18,8 @@ internal class TypeDefinitionsGenerator : SourceGenerator
     private static readonly Regex s_remarksRegex = new("<remarks>(.*)</remarks>");
 
     private readonly IEnumerable<ISymbol> _exportItems;
+    private bool _emitDisposable;
+    private bool _emitCancellation;
 
     public TypeDefinitionsGenerator(IEnumerable<ISymbol> exportItems)
     {
@@ -61,7 +63,29 @@ internal class TypeDefinitionsGenerator : SourceGenerator
             }
         }
 
+        EmitSupportingInterfaces(ref s);
+
         return s;
+    }
+
+    private void EmitSupportingInterfaces(ref SourceBuilder s)
+    {
+        if (_emitCancellation)
+        {
+            s++;
+            s += "export interface CancellationToken {";
+            s += "readonly isCancellationRequested: boolean;";
+            s += "readonly onCancellationRequested: (listener: (e: any) => any) => IDisposable;";
+            s += "}";
+        }
+
+        if (_emitDisposable || _emitCancellation)
+        {
+            s++;
+            s += "export interface IDisposable {";
+            s += "dispose(): void;";
+            s += "}";
+        }
     }
 
     private void GenerateClassDefinition(ref SourceBuilder s, ITypeSymbol exportClass)
@@ -176,6 +200,14 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         {
             tsType = specialType;
         }
+        else if (type.Name == "JSValue")
+        {
+            tsType = "any";
+        }
+        else if (type.Name == "JSCallbackArgs")
+        {
+            tsType = "...any[]";
+        }
         else if (type.TypeKind == TypeKind.Array)
         {
             ITypeSymbol elementType = ((IArrayTypeSymbol)type).ElementType;
@@ -183,11 +215,16 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         }
         else if (type is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)
         {
-            if (namedType.OriginalDefinition.Name == "Nullable")
+            string typeName = namedType.OriginalDefinition.Name;
+            if (typeName == "Nullable")
             {
                 tsType = GetTSType(namedType.TypeArguments[0]) + " | null";
             }
-            else if (namedType.OriginalDefinition.Name == "Memory")
+            else if (typeName == "Task")
+            {
+                tsType = $"Promise<{GetTSType(namedType.TypeArguments[0])}>";
+            }
+            else if (typeName == "Memory")
             {
                 ITypeSymbol elementType = namedType.TypeArguments[0];
                 tsType = elementType.SpecialType switch
@@ -205,52 +242,66 @@ internal class TypeDefinitionsGenerator : SourceGenerator
                     _ => "unknown",
                 };
             }
-            else if (namedType.OriginalDefinition.Name == "IList")
+            else if (typeName == "IList")
             {
                 tsType = GetTSType(namedType.TypeArguments[0]) + "[]";
             }
-            else if (namedType.OriginalDefinition.Name == "IReadOnlyList")
+            else if (typeName == "IReadOnlyList")
             {
                 tsType = "readonly " + GetTSType(namedType.TypeArguments[0]) + "[]";
             }
-            else if (namedType.OriginalDefinition.Name == "ICollection")
+            else if (typeName == "ICollection")
             {
                 string elementTsType = GetTSType(namedType.TypeArguments[0]);
                 return $"Iterable<{elementTsType}> & {{ length: number }}";
             }
-            else if (namedType.OriginalDefinition.Name == "IReadOnlyCollection")
+            else if (typeName == "IReadOnlyCollection")
             {
                 string elementTsType = GetTSType(namedType.TypeArguments[0]);
                 return $"Iterable<{elementTsType}> & {{ length: number, " +
                     $"add(item: {elementTsType}): this, delete(item: {elementTsType}): boolean }}";
             }
-            else if (namedType.OriginalDefinition.Name == "ISet")
+            else if (typeName == "ISet")
             {
                 string elementTsType = GetTSType(namedType.TypeArguments[0]);
                 return $"Set<{elementTsType}>";
             }
-            else if (namedType.OriginalDefinition.Name == "IReadOnlySet")
+            else if (typeName == "IReadOnlySet")
             {
                 string elementTsType = GetTSType(namedType.TypeArguments[0]);
                 return $"ReadonlySet<{elementTsType}>";
             }
-            else if (namedType.OriginalDefinition.Name == "IEnumerable")
+            else if (typeName == "IEnumerable")
             {
                 string elementTsType = GetTSType(namedType.TypeArguments[0]);
                 return $"Iterable<{elementTsType}>";
             }
-            else if (namedType.OriginalDefinition.Name == "IDictionary")
+            else if (typeName == "IDictionary")
             {
                 string keyTSType = GetTSType(namedType.TypeArguments[0]);
                 string valueTSType = GetTSType(namedType.TypeArguments[1]);
                 tsType = $"Map<{keyTSType}, {valueTSType}>";
             }
-            else if (namedType.OriginalDefinition.Name == "IReadOnlyDictionary")
+            else if (typeName == "IReadOnlyDictionary")
             {
                 string keyTSType = GetTSType(namedType.TypeArguments[0]);
                 string valueTSType = GetTSType(namedType.TypeArguments[1]);
                 tsType = $"ReadonlyMap<{keyTSType}, {valueTSType}>";
             }
+        }
+        else if (type.Name == "Task")
+        {
+            tsType = "Promise<void>";
+        }
+        else if (type.Name == "CancellationToken")
+        {
+            tsType = type.Name;
+            _emitCancellation = true;
+        }
+        else if (type.Name == "IDisposable")
+        {
+            tsType = type.Name;
+            _emitDisposable = true;
         }
         else if (_exportItems.Contains(type, SymbolEqualityComparer.Default))
         {
@@ -275,7 +326,14 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         else if (method.Parameters.Length == 1)
         {
             string parameterType = GetTSType(method.Parameters[0].Type);
-            return $"{method.Parameters[0].Name}: {parameterType}";
+            if (parameterType.StartsWith("..."))
+            {
+                return $"...{method.Parameters[0].Name}: {parameterType.Substring(3)}";
+            }
+            else
+            {
+                return $"{method.Parameters[0].Name}: {parameterType}";
+            }
         }
 
         var s = new StringBuilder();

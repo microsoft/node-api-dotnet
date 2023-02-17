@@ -213,10 +213,10 @@ public readonly struct JSValue : IEquatable<JSValue>
             out napi_value result)
             .ThrowIfFailed(result);
 
-    public static JSValue CreatePromise(out JSDeferred deferred)
+    public static JSValue CreatePromise(out JSPromise.Deferred deferred)
     {
         napi_create_promise(Env, out napi_deferred deferred_, out napi_value promise).ThrowIfFailed();
-        deferred = new JSDeferred(deferred_);
+        deferred = new JSPromise.Deferred(deferred_);
         return promise;
     }
 

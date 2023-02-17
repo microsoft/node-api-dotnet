@@ -259,6 +259,10 @@ internal class AdapterGenerator : SourceGenerator
                 {
                     GenerateConstructorAdapter(ref s, adapterName, method);
                 }
+                else if (GetFullName(method.ReturnType) == "System.Threading.Tasks.Task")
+                {
+                    GenerateAsyncMethodAdapter(ref s, adapterName, method);
+                }
                 else
                 {
                     GenerateMethodAdapter(ref s, adapterName, method);
@@ -338,7 +342,7 @@ internal class AdapterGenerator : SourceGenerator
          *     if (!(__args.ThisArg.Unwrap() is MethodClass __obj)) return JSValue.Undefined;
          *     var param0Name = (Param0Type)__args[0];
          *     ...
-         *     var __result = __obj.MethodName(param1, ...);
+         *     var __result = __obj.MethodName(param0, ...);
          *     return (JSValue)__result;
          * }
          */
@@ -381,6 +385,72 @@ internal class AdapterGenerator : SourceGenerator
             AdaptReturnValue(ref s, method.ReturnType);
         }
 
+        s += "}";
+    }
+
+    private void GenerateAsyncMethodAdapter(
+        ref SourceBuilder s,
+        string adapterName,
+        IMethodSymbol method)
+    {
+        /*
+         * private static JSValue MethodClass_AsyncMethodName(JSCallbackArgs __args)
+         * {
+         *     if (!(__args.ThisArg.Unwrap() is MethodClass __obj)) return JSValue.Undefined;
+         *     var param0Name = (Param0Type)__args[0];
+         *     ...
+         *     return new JSPromise(async (Action<JSValue> resolve, Action<JSValue> reject) =>
+         *     {
+         *          var __result = await __obj.AsyncMethodName(param0, ...);
+         *          resolve((JSValue)__result);
+         *     });
+         * }
+         */
+
+        s += $"private static JSValue {adapterName}(JSCallbackArgs __args)";
+        s += "{";
+
+        if (!method.IsStatic)
+        {
+            AdaptThisArg(ref s, method);
+        }
+
+        IReadOnlyList<IParameterSymbol> parameters = method.Parameters;
+        for (int i = 0; i < parameters.Count; i++)
+        {
+            AdaptArgument(ref s, parameters[i].Type, parameters[i].Name, i);
+        }
+
+        s += "return new JSPromise(async (resolve) =>";
+        s += "{";
+
+        string argumentList = string.Join(", ", parameters.Select((p) => p.Name));
+        string returnAssignment = method.ReturnsVoid ? string.Empty : "var __result = ";
+
+        string ns = GetNamespace(method);
+        string className = method.ContainingType.Name;
+
+        if (method.IsStatic)
+        {
+            s += $"{returnAssignment}await {ns}.{className}.{method.Name}({argumentList});";
+        }
+        else
+        {
+            s += $"{returnAssignment}await __obj.{method.Name}({argumentList});";
+        }
+
+
+        if (((INamedTypeSymbol)method.ReturnType).TypeArguments.Length == 0)
+        {
+            s += "resolve(JSValue.Undefined);";
+        }
+        else
+        {
+            ITypeSymbol asyncReturnType = ((INamedTypeSymbol)method.ReturnType).TypeArguments[0];
+            s += $"resolve({ConvertFrom("__result", asyncReturnType)});";
+        }
+
+        s += "});";
         s += "}";
     }
 
@@ -939,7 +1009,7 @@ internal class AdapterGenerator : SourceGenerator
                 // When the same collection is passed multiple times, the proxy object is re-used.
                 // Read-write collections require bi-directional element conversion lamdas.
                 return $"JSContext.Current.GetOrCreateCollectionWrapper({fromExpression}, " +
-                    $"{GetProxyFieldName(namedType)}.Value)";
+                    $"{GetProxyFieldName(namedType)}!.Value)";
             }
         }
 

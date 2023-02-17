@@ -109,12 +109,13 @@ async function whichBuildType() {
 
 exports.whichBuildType = whichBuildType;
 
+// Load the addon module, using either hosted or native AOT mode.
+const dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
+const dotnetModule = process.env.TEST_DOTNET_MODULE_PATH;
+exports.binding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
+
 exports.runTest = async function (test) {
-  // Load the addon module, using either hosted or native AOT mode.
-  const dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
-  const dotnetModule = process.env.TEST_DOTNET_MODULE_PATH;
-  const binding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
-  await Promise.resolve(test(binding))
+  await Promise.resolve(test(exports.binding))
     .finally(exports.mustCall());
 };
 
