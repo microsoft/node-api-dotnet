@@ -106,6 +106,19 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSObject a, JSObject b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSObject a, JSObject b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
     public bool Equals(JSValue other) => _value.StrictEquals(other);
 
     public override bool Equals([NotNullWhen(true)] object? obj)

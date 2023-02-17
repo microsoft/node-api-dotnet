@@ -87,7 +87,7 @@ public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
 
     public void IntersectWith(IEnumerable<JSValue> other)
     {
-        List<JSValue> itemsToRemove = new List<JSValue>();
+        List<JSValue> itemsToRemove = new();
         foreach (JSValue item in this)
         {
             if (!other.Contains(item))
@@ -116,7 +116,7 @@ public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
         }
 
         // Not using this.Any() to avoid boxing.
-        foreach (var item in this)
+        foreach (JSValue item in this)
         {
             if (!other.Contains(item))
             {
@@ -174,6 +174,19 @@ public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
         }
     }
 
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSSet a, JSSet b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSSet a, JSSet b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
     public bool Equals(JSValue other) => _value.StrictEquals(other);
 
     public override bool Equals([NotNullWhen(true)] object? obj)

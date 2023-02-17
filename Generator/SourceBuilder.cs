@@ -49,7 +49,7 @@ internal class SourceBuilder : SourceText
 
     private void AppendLine(string line)
     {
-        if (line.Contains("\n"))
+        if (line.Contains('\n'))
         {
             foreach (string singleLine in line.Split('\n'))
             {

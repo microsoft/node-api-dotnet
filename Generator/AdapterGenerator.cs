@@ -219,7 +219,7 @@ internal class AdapterGenerator : SourceGenerator
     /// </summary>
     private string GetProxyFieldName(INamedTypeSymbol targetType)
     {
-        string GetTypeName(ITypeSymbol type)
+        static string GetTypeName(ITypeSymbol type)
         {
             string name = type.Name;
             if (type is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)

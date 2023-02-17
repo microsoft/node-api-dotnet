@@ -174,6 +174,6 @@ public partial struct JSMap
 
         bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> item)
             => TryGetValue(item.Key, out TValue? value) &&
-                (item.Value?.Equals(value) ?? value == null) ? Remove(item.Key) : false;
+                (item.Value?.Equals(value) ?? value == null) && Remove(item.Key);
     }
 }

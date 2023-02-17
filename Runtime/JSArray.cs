@@ -72,6 +72,19 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
 
     bool ICollection<JSValue>.Remove(JSValue item) => throw new System.NotImplementedException();
 
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSArray a, JSArray b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSArray a, JSArray b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
     public bool Equals(JSValue other) => _value.StrictEquals(other);
 
     public override bool Equals([NotNullWhen(true)] object? obj)

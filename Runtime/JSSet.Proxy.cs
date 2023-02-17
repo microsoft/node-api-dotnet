@@ -97,7 +97,7 @@ public partial struct JSSet
                                 return JSValue.Undefined;
                             });
 
-                        // TODO: More Set methods: keys(), entries(), forEach()
+                            // TODO: More Set methods: keys(), entries(), forEach()
                     }
                 }
 

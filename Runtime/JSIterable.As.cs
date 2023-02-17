@@ -134,10 +134,10 @@ public partial struct JSIterable
         public bool Remove(T item) => throw new NotSupportedException();
     }
 
-    public struct Collection : ICollection<JSValue>, IReadOnlyCollection<JSValue>
+    public readonly struct Collection : ICollection<JSValue>, IReadOnlyCollection<JSValue>
     {
-        private JSIterable _iterable;
-        private Func<int> _getCount;
+        private readonly JSIterable _iterable;
+        private readonly Func<int> _getCount;
 
         internal Collection(JSIterable iterable, Func<int> getCount)
         {

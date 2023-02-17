@@ -138,6 +138,19 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
     public Span<T>.Enumerator GetEnumerator() => Span.GetEnumerator();
 
 
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSTypedArray<T> a, JSTypedArray<T> b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSTypedArray<T> a, JSTypedArray<T> b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
     public bool Equals(JSValue other) => _value.StrictEquals(other);
 
     public override bool Equals([NotNullWhen(true)] object? obj)

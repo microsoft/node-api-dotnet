@@ -117,7 +117,7 @@ public partial struct JSMap
                                 return JSValue.Undefined;
                             });
 
-                        // TODO: More Map methods: keys(), values(), forEach()
+                            // TODO: More Map methods: keys(), values(), forEach()
                     }
                 }
 
@@ -138,9 +138,11 @@ public partial struct JSMap
         {
             return JSIterable.CreateIteratorFunction(enumerable, (pair) =>
             {
-                JSArray jsPair = new JSArray(2);
-                jsPair[0] = keyToJS(pair.Key);
-                jsPair[1] = valueToJS(pair.Value);
+                JSArray jsPair = new(2)
+                {
+                    [0] = keyToJS(pair.Key),
+                    [1] = valueToJS(pair.Value)
+                };
                 return jsPair;
             });
         }

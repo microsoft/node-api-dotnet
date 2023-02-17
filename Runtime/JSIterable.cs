@@ -29,6 +29,19 @@ public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSV
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSIterable a, JSIterable b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSIterable a, JSIterable b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
     public bool Equals(JSValue other) => _value.StrictEquals(other);
 
     public override bool Equals([NotNullWhen(true)] object? obj)
@@ -41,4 +54,6 @@ public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSV
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
+
+    public static bool operator ==()
 }

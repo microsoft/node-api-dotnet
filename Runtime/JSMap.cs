@@ -67,9 +67,9 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
         return !value.IsUndefined();
     }
 
-    public JSIterable.Collection Keys => new JSIterable.Collection((JSIterable)_value["keys"], GetCount);
+    public JSIterable.Collection Keys => new((JSIterable)_value["keys"], GetCount);
 
-    public JSIterable.Collection Values => new JSIterable.Collection((JSIterable)_value["values"], GetCount);
+    public JSIterable.Collection Values => new((JSIterable)_value["values"], GetCount);
 
     private int GetCount() => Count;
 
@@ -104,8 +104,21 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
     }
 
     bool ICollection<KeyValuePair<JSValue, JSValue>>.Remove(KeyValuePair<JSValue, JSValue> item)
-        => TryGetValue(item.Key, out JSValue value) && item.Value.Equals(value) ? Remove(item.Key) : false;
+        => TryGetValue(item.Key, out JSValue value) && item.Value.Equals(value) && Remove(item.Key);
 
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSMap a, JSMap b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSMap a, JSMap b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
     public bool Equals(JSValue other) => _value.StrictEquals(other);
 
     public override bool Equals([NotNullWhen(true)] object? obj)

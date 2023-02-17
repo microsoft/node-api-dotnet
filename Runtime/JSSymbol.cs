@@ -7,7 +7,7 @@ public readonly struct JSSymbol : IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
-    private static readonly Lazy<JSReference> _iteratorSymbol =
+    private static readonly Lazy<JSReference> s_iteratorSymbol =
         new(new JSReference(JSValue.Global["Symbol"]["iterator"]));
 
     public static explicit operator JSSymbol(JSValue value) => new(value);
@@ -28,10 +28,23 @@ public readonly struct JSSymbol : IEquatable<JSValue>
         return new JSSymbol(JSValue.SymbolFor(utf8Name));
     }
 
-    public static JSSymbol Iterator => (JSSymbol)_iteratorSymbol.Value.GetValue()!;
+    public static JSSymbol Iterator => (JSSymbol)s_iteratorSymbol.Value.GetValue()!;
 
     // TODO: Add static properties for other well-known symbols.
 
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSSymbol a, JSSymbol b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSSymbol a, JSSymbol b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
     public bool Equals(JSValue other) => _value.StrictEquals(other);
 
     public override bool Equals([NotNullWhen(true)] object? obj)
