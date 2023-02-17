@@ -17,24 +17,26 @@ public class JSStructBuilder<T> where T : struct
         StructName = structName;
     }
 
-    public JSStructBuilder<T> AddProperty(string name, bool isStatic = false)
+    public JSStructBuilder<T> AddProperty(
+        string name,
+        JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
         Properties.Add(JSPropertyDescriptor.ForValue(
             name,
             JSValue.Undefined,
-            JSPropertyAttributes.DefaultProperty | (isStatic ? JSPropertyAttributes.Static : 0)));
+            attributes));
         return this;
     }
 
     public JSStructBuilder<T> AddMethod(
         string name,
         JSCallback callback,
-        bool isStatic = false)
+        JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
     {
         Properties.Add(JSPropertyDescriptor.Function(
             name,
             callback,
-            JSPropertyAttributes.DefaultProperty | (isStatic ? JSPropertyAttributes.Static : 0)));
+            attributes));
         return this;
     }
 

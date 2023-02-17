@@ -117,3 +117,10 @@ assert.strictEqual(ComplexTypes.list[0], 0);
 const listValue2 = ComplexTypes.list;
 ComplexTypes.list[0] = 1;
 assert.strictEqual(listValue2[0], 1);
+
+// C# enums are projected as objects with two-way value mappings
+const enumType = binding.TestEnum;
+assert.strictEqual(typeof enumType, 'object');
+assert.strictEqual(enumType.Zero, 0);
+assert.strictEqual(enumType.One, 1);
+assert.strictEqual(enumType[enumType.One], 'One');

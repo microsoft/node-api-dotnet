@@ -80,10 +80,48 @@ public class JSClassBuilder<T>
         }
         else
         {
-            // Static class (no constructor).
-            var obj = JSValue.CreateObject();
-            obj.DefineProperties(Properties.ToArray());
-            return obj;
+            throw new InvalidOperationException("A constructor is required.");
         }
+    }
+
+    public JSValue DefineStaticClass()
+    {
+        foreach (var property in Properties)
+        {
+            if (!property.Attributes.HasFlag(JSPropertyAttributes.Static))
+            {
+                throw new InvalidOperationException("Static class properties must be static.");
+            }
+        }
+
+        var obj = JSValue.CreateObject();
+        obj.DefineProperties(Properties.ToArray());
+        return obj;
+    }
+
+    public JSValue DefineEnum()
+    {
+        foreach (var property in Properties)
+        {
+            if (!property.Attributes.HasFlag(JSPropertyAttributes.Static))
+            {
+                throw new InvalidOperationException("Enum properties must be static.");
+            }
+            if (property.Value?.IsNumber() != true)
+            {
+                throw new InvalidOperationException("Enum property values must be numbers.");
+            }
+        }
+
+        var obj = JSValue.CreateObject();
+        obj.DefineProperties(Properties.ToArray());
+
+        // Create the reverse mapping from numeric value to string value.
+        foreach (var property in Properties)
+        {
+            obj[property.Value!.Value] = property.Name;
+        }
+
+        return obj;
     }
 }
