@@ -85,7 +85,10 @@ public sealed class JSValueScope : IDisposable
     public JSValue Escape(JSValue value)
     {
         if (_parentScope == null)
-            throw new InvalidOperationException($"Parent scope must not be null.");
+            throw new InvalidOperationException("Parent scope must not be null.");
+
+        if (_scopeType != JSValueScopeType.Escapable)
+            throw new InvalidOperationException("It can be called only for Escapable value scopes.");
 
         napi_escape_handle(
             (napi_env)this,
