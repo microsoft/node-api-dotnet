@@ -1,50 +1,106 @@
 using System;
+using System.Threading;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public class JSValueScope : IDisposable
+public enum JSValueScopeType { Handle, Escapable, Callback, Root, RootNoContext, }
+
+public sealed class JSValueScope : IDisposable
 {
     private readonly napi_env _env;
-    [ThreadStatic] private static JSValueScope? s_current;
+    private readonly JSValueScopeType _scopeType;
+    private readonly JSValueScope? _parentScope;
+    private readonly SynchronizationContext? _previousSyncContext;
+    private readonly nint _scopeHandle;
 
-    public JSValueScope? ParentScope { get; }
+    [ThreadStatic] private static JSValueScope? s_currentScope;
 
-    public JSValueScope(napi_env env)
+    public static JSValueScope? Current => s_currentScope;
+
+    public bool IsDisposed { get; private set; }
+
+    public JSContext ModuleContext { get; }
+
+    public JSValueScope(JSValueScopeType scopeType = JSValueScopeType.Handle, napi_env env = default)
     {
+        _scopeType = scopeType;
         _env = env;
-        ParentScope = s_current;
-        s_current = this;
+
+        _parentScope = s_currentScope;
+        s_currentScope = this;
+
+        ModuleContext = scopeType switch
+        {
+            JSValueScopeType.Root => new JSContext(env),
+            JSValueScopeType.Callback => (JSContext)env,
+            JSValueScopeType.RootNoContext => null!,
+            _ => _parentScope?.ModuleContext ?? throw new InvalidOperationException("Parent scope not found"),
+        };
+
+        if (scopeType == JSValueScopeType.Root || scopeType == JSValueScopeType.Callback)
+        {
+            _previousSyncContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(ModuleContext.SynchronizationContext);
+        }
+
+        _scopeHandle = _scopeType switch
+        {
+            JSValueScopeType.Handle
+                => napi_open_handle_scope(env, out napi_handle_scope handleScope)
+                   .ThrowIfFailed(handleScope).Handle,
+            JSValueScopeType.Escapable
+                => napi_open_escapable_handle_scope(env, out napi_escapable_handle_scope handleScope)
+                   .ThrowIfFailed(handleScope).Handle,
+            _ => nint.Zero,
+        };
     }
-
-    public static JSValueScope? Current => s_current;
-
-    public void Close() => Dispose();
 
     public void Dispose()
     {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
+        if (IsDisposed) return;
+        IsDisposed = true;
+
+        if (_scopeType != JSValueScopeType.RootNoContext)
+        {
+            napi_env env = (napi_env)ModuleContext;
+
+            switch (_scopeType)
+            {
+                case JSValueScopeType.Handle:
+                    napi_close_handle_scope(env, new napi_handle_scope(_scopeHandle)).ThrowIfFailed();
+                    break;
+                case JSValueScopeType.Escapable:
+                    napi_close_escapable_handle_scope(env, new napi_escapable_handle_scope(_scopeHandle)).ThrowIfFailed();
+                    break;
+                default:
+                    SynchronizationContext.SetSynchronizationContext(_previousSyncContext);
+                    break;
+            }
+
+            s_currentScope = _parentScope;
+        }
     }
 
-    public bool IsDisposed { get; private set; } = false;
+    public JSValue Escape(JSValue value)
+    {
+        if (_parentScope == null)
+            throw new InvalidOperationException("Parent scope must not be null.");
+
+        if (_scopeType != JSValueScopeType.Escapable)
+            throw new InvalidOperationException("It can be called only for Escapable value scopes.");
+
+        napi_escape_handle(
+            (napi_env)this,
+            new napi_escapable_handle_scope(_scopeHandle),
+            (napi_value)value,
+            out napi_value result);
+        return new JSValue(_parentScope, result);
+    }
 
     public static explicit operator napi_env(JSValueScope? scope)
     {
-        if (scope == null)
-        {
-            throw new JSException("Out of scope!");
-        }
+        ArgumentNullException.ThrowIfNull(scope);
         return scope._env;
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!IsDisposed)
-        {
-            IsDisposed = true;
-            s_current = ParentScope;
-        }
     }
 }

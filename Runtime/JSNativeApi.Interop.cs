@@ -43,6 +43,7 @@ public static partial class JSNativeApi
         public record struct napi_env(nint Handle)
         {
             public bool IsNull => Handle == nint.Zero;
+            public static napi_env Null => new(nint.Zero);
         }
         public record struct napi_value(nint Handle)
         {
