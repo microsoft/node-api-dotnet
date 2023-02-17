@@ -86,7 +86,7 @@ public class JSClassBuilder<T>
 
     public JSValue DefineStaticClass()
     {
-        foreach (var property in Properties)
+        foreach (JSPropertyDescriptor property in Properties)
         {
             if (!property.Attributes.HasFlag(JSPropertyAttributes.Static))
             {
@@ -94,14 +94,14 @@ public class JSClassBuilder<T>
             }
         }
 
-        var obj = JSValue.CreateObject();
+        JSValue obj = JSValue.CreateObject();
         obj.DefineProperties(Properties.ToArray());
         return obj;
     }
 
     public JSValue DefineEnum()
     {
-        foreach (var property in Properties)
+        foreach (JSPropertyDescriptor property in Properties)
         {
             if (!property.Attributes.HasFlag(JSPropertyAttributes.Static))
             {
@@ -113,11 +113,11 @@ public class JSClassBuilder<T>
             }
         }
 
-        var obj = JSValue.CreateObject();
+        JSValue obj = JSValue.CreateObject();
         obj.DefineProperties(Properties.ToArray());
 
         // Create the reverse mapping from numeric value to string value.
-        foreach (var property in Properties)
+        foreach (JSPropertyDescriptor property in Properties)
         {
             obj[property.Value!.Value] = property.Name;
         }

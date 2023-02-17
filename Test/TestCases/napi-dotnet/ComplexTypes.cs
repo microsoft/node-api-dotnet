@@ -44,6 +44,8 @@ public static class ComplexTypes
         = new Dictionary<string, IList<ClassObject>>();
 
     public static Memory<uint> Slice(Memory<uint> array, int start, int length) => array.Slice(start, length);
+
+    public static TestEnum Enum { get; set; }
 }
 
 /// <summary>
