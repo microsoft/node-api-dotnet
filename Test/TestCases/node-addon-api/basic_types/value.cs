@@ -23,7 +23,7 @@ public class TestBasicTypesValue : TestHelper, ITestObject
     private static JSValue ToString(JSCallbackArgs args) => args[0].CoerceToString();
     private static JSValue ToObject(JSCallbackArgs args) => args[0].CoerceToObject();
 
-    private static JSValue StrictlyEquals(JSCallbackArgs args) => args[0].StrictEquals(args[1]);
+    private static JSValue StrictlyEquals(JSCallbackArgs args) => args[0].Equals(args[1]);
 
     // Helper methods
     private static JSValue CreateDefaultValue(JSCallbackArgs _) => default;

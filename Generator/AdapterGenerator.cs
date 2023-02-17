@@ -219,11 +219,21 @@ internal class AdapterGenerator : SourceGenerator
     /// </summary>
     private string GetProxyFieldName(INamedTypeSymbol targetType)
     {
-        string fieldName = ProxyPrefix + targetType.Name + "_of";
-        foreach (ITypeSymbol typeArgument in targetType.TypeArguments)
+        static string GetTypeName(ITypeSymbol type)
         {
-            fieldName += "_" + typeArgument.Name;
+            string name = type.Name;
+            if (type is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)
+            {
+                name += "_of";
+                foreach (ITypeSymbol typeArgument in namedType.TypeArguments)
+                {
+                    name += "_" + GetTypeName(typeArgument);
+                }
+            }
+            return name;
         }
+
+        string fieldName = ProxyPrefix + GetTypeName(targetType);
         if (!_proxiedCollections.ContainsKey(fieldName))
         {
             _proxiedCollections.Add(fieldName, targetType);
@@ -594,29 +604,58 @@ internal class AdapterGenerator : SourceGenerator
          *     LazyThreadSafetyMode.ExecutionAndPublication);
          */
 
-        s += $"private static readonly System.Lazy<JSProxy.Handler> {fieldName} " +
-            "= new(";
+        s += $"private static readonly System.Lazy<JSProxy.Handler> {fieldName} = new(";
 
         ITypeSymbol elementType = targetType.TypeArguments[0];
+        ITypeSymbol keyType = targetType.TypeArguments[0];
+        ITypeSymbol? valueType = targetType.TypeArguments.Length > 1 ? targetType.TypeArguments[1] : null;
         s += targetType.OriginalDefinition.Name switch
         {
             "IEnumerable" =>
-                $"\t() => JSIterable.CreateProxyHandlerForEnumerable<{elementType}>(JSContext.Current, " +
-                $"(item) => {ConvertFrom("item", elementType)}),",
+                $"() => JSIterable.CreateProxyHandlerForEnumerable<{elementType}>(" +
+                "\nJSContext.Current, " +
+                $"\n(item) => {ConvertFrom("item", elementType)}),",
             "IReadOnlyCollection" =>
-                $"\t() => JSIterable.CreateProxyHandlerForReadOnlyCollection<{elementType}>(JSContext.Current, " +
-                $"(item) => {ConvertFrom("item", elementType)}),",
+                $"() => JSIterable.CreateProxyHandlerForReadOnlyCollection<{elementType}>(" +
+                "\nJSContext.Current, " +
+                $"\n(item) => {ConvertFrom("item", elementType)}),",
             "ICollection" =>
-                $"\t() => JSIterable.CreateProxyHandlerForCollection<{elementType}>(JSContext.Current, " +
-                $"(item) => {ConvertFrom("item", elementType)}, " +
-                $"(value) => {ConvertTo("value", elementType)}),",
+                $"() => JSIterable.CreateProxyHandlerForCollection<{elementType}>(" +
+                "\nJSContext.Current, " +
+                $"\n(item) => {ConvertFrom("item", elementType)}, " +
+                $"\n(value) => {ConvertTo("value", elementType)}),",
             "IReadOnlyList" =>
-                $"\t() => JSArray.CreateProxyHandlerForReadOnlyList<{elementType}>(JSContext.Current, " +
-                $"(item) => {ConvertFrom("item", elementType)}),",
+                $"() => JSArray.CreateProxyHandlerForReadOnlyList<{elementType}>(" +
+                "\nJSContext.Current, " +
+                $"\n(item) => {ConvertFrom("item", elementType)}),",
             "IList" =>
-                $"\t() => JSArray.CreateProxyHandlerForList<{elementType}>(JSContext.Current, " +
-                $"(item) => {ConvertFrom("item", elementType)}, " +
-                $"(value) => {ConvertTo("value", elementType)}),",
+                $"() => JSArray.CreateProxyHandlerForList<{elementType}>(" +
+                "\nJSContext.Current, " +
+                $"\n(item) => {ConvertFrom("item", elementType)}, " +
+                $"\n(value) => {ConvertTo("value", elementType)}),",
+            "IReadOnlySet" =>
+                $"() => JSSet.CreateProxyHandlerForReadOnlySet<{elementType}>(" +
+                "\nJSContext.Current, " +
+                $"\n(item) => {ConvertFrom("item", elementType)}, " +
+                $"\n(value) => {ConvertTo("value", elementType)}),",
+            "ISet" =>
+                $"() => JSSet.CreateProxyHandlerForSet<{elementType}>(" +
+                "\nJSContext.Current, " +
+                $"\n(item) => {ConvertFrom("item", elementType)}, " +
+                $"\n(value) => {ConvertTo("value", elementType)}),",
+            "IReadOnlyDictionary" =>
+                $"() => JSMap.CreateProxyHandlerForReadOnlyDictionary<{keyType}, {valueType!}>(" +
+                "\nJSContext.Current, " +
+                $"\n(key) => {ConvertFrom("key", keyType)}, " +
+                $"\n(value) => {ConvertFrom("value", valueType!)}, " +
+                $"\n(key) => {ConvertTo("key", keyType)}),",
+            "IDictionary" =>
+                $"() => JSMap.CreateProxyHandlerForDictionary<{keyType}, {valueType!}>(" +
+                "\nJSContext.Current, " +
+                $"\n(key) => {ConvertFrom("key", keyType)}, " +
+                $"\n(value) => {ConvertFrom("value", valueType!)}, " +
+                $"\n(key) => {ConvertTo("key", keyType)}, " +
+                $"\n(value) => {ConvertTo("value", valueType!)}),",
             _ => throw new NotSupportedException("Unsupported proxy target type: " + targetType),
         };
 
@@ -712,8 +751,8 @@ internal class AdapterGenerator : SourceGenerator
         (toType, bool isNullable) = SplitNullable(toType);
         if (isNullable)
         {
-            return $"({fromExpression}).IsNullOrUndefined() ? " +
-                $"({toType}?)null : {ConvertTo(fromExpression, toType)}";
+            return $"({fromExpression}).IsNullOrUndefined() " +
+                $"?\n({toType}?)null :\n{ConvertTo(fromExpression, toType)}";
         }
 
         if (CanCast(toType!))
@@ -755,32 +794,57 @@ internal class AdapterGenerator : SourceGenerator
         {
             string collectionTypeName = toType.OriginalDefinition.Name;
             if (collectionTypeName == "IList" ||
+                collectionTypeName == "ISet" ||
+                collectionTypeName == "IReadOnlySet" ||
                 collectionTypeName == "ICollection")
             {
                 // A collection passed from JS to C# may be either a previously wrapped/proxied
                 // C# collection object or a regular JS array that needs to be adapted to the
                 // C# collection interface.
                 // Read-write collections require bi-directional element conversion lamdas.
+                string jsTypeName = collectionTypeName.EndsWith("Set") ? "Set" : "Array";
                 ITypeSymbol elementType = namedType.TypeArguments[0];
                 return $"(JSNativeApi.TryUnwrap({fromExpression}, out var __collection) " +
-                    $"? ({toType})__collection! : ((JSArray){fromExpression})" +
+                    $"?\n({toType})__collection! :\n((JS{jsTypeName}){fromExpression})" +
                     $".As{collectionTypeName.Substring(1)}<{elementType}>(" +
-                    $"(value) => {ConvertTo("value", elementType)}, " +
-                    $"(value) => {ConvertFrom("value", elementType)}))";
+                    $"\n(value) => {ConvertTo("value", elementType)}, " +
+                    $"\n(value) => {ConvertFrom("value", elementType)}))";
             }
             else if (collectionTypeName == "IReadOnlyList" ||
                 collectionTypeName == "IReadOnlyCollection" ||
                 collectionTypeName == "IEnumerable")
             {
-                // Read-only collections require an element conversion lamda in only one direction.
+                // Some collections only require an element conversion lamda in one direction.
+                string jsTypeName = collectionTypeName.EndsWith("Enumerable") ? "Iterable" : "Array";
                 ITypeSymbol elementType = namedType.TypeArguments[0];
                 return $"(JSNativeApi.TryUnwrap({fromExpression}, out var __collection) " +
-                    $"? ({toType})__collection! : ((JSArray){fromExpression})" +
+                    $"?\n({toType})__collection! :\n((JS{jsTypeName}){fromExpression})" +
                     $".As{collectionTypeName.Substring(1)}<{elementType}>(" +
-                    $"(value) => {ConvertTo("value", elementType)}))";
+                    $"\n(value) => {ConvertTo("value", elementType)}))";
             }
-
-            // TODO: Handle other generic collection interfaces.
+            else if (collectionTypeName == "IDictionary")
+            {
+                ITypeSymbol keyType = namedType.TypeArguments[0];
+                ITypeSymbol valueType = namedType.TypeArguments[1];
+                return $"(JSNativeApi.TryUnwrap({fromExpression}, out var __collection) " +
+                    $"?\n({toType})__collection! :\n((JSMap){fromExpression})" +
+                    $".AsDictionary<{keyType}, {valueType}>(" +
+                    $"\n(key) => {ConvertTo("key", keyType)}, " +
+                    $"\n(value) => {ConvertTo("value", valueType)}," +
+                    $"\n(key) => {ConvertFrom("key", keyType)}, " +
+                    $"\n(value) => {ConvertFrom("value", valueType)}))";
+            }
+            else if (collectionTypeName == "IReadOnlyDictionary")
+            {
+                ITypeSymbol keyType = namedType.TypeArguments[0];
+                ITypeSymbol valueType = namedType.TypeArguments[1];
+                return $"(JSNativeApi.TryUnwrap({fromExpression}, out var __collection) " +
+                    $"?\n({toType})__collection! :\n((JSMap){fromExpression})" +
+                    $".AsReadOnlyDictionary<{keyType}, {valueType}>(" +
+                    $"\n(key) => {ConvertTo("key", keyType)}, " +
+                    $"\n(value) => {ConvertTo("value", valueType)}," +
+                    $"\n(key) => {ConvertFrom("key", keyType)}))";
+            }
         }
 
         // TODO: Handle other kinds of conversions from JSValue.
@@ -855,6 +919,10 @@ internal class AdapterGenerator : SourceGenerator
             string collectionTypeName = fromType.OriginalDefinition.Name;
             if (collectionTypeName == "IList" ||
                 collectionTypeName == "IReadOnlyList" ||
+                collectionTypeName == "ISet" ||
+                collectionTypeName == "IReadOnlySet" ||
+                collectionTypeName == "IDictionary" ||
+                collectionTypeName == "IReadOnlyDictionary" ||
                 collectionTypeName == "ICollection" ||
                 collectionTypeName == "IReadOnlyCollection" ||
                 collectionTypeName == "IEnumerable")
@@ -865,8 +933,6 @@ internal class AdapterGenerator : SourceGenerator
                 return $"JSContext.Current.GetOrCreateCollectionWrapper({fromExpression}, " +
                     $"{GetProxyFieldName(namedType)}.Value)";
             }
-
-            // TODO: Handle other generic collection interfaces.
         }
 
         // TODO: Handle other kinds of conversions to JSValue.

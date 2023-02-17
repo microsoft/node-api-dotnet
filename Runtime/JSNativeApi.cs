@@ -300,7 +300,8 @@ public static partial class JSNativeApi
     public static int GetArrayLength(this JSValue thisValue)
         => napi_get_array_length(Env, (napi_value)thisValue, out uint result).ThrowIfFailed((int)result);
 
-    public static bool StrictEquals(this JSValue thisValue, JSValue other)
+    // Internal because JSValue structs all implement IEquatable<JSValue>, which calls this method.
+    internal static bool StrictEquals(this JSValue thisValue, JSValue other)
         => napi_strict_equals(Env, (napi_value)thisValue, (napi_value)other, out c_bool result).ThrowIfFailed((bool)result);
 
     public static unsafe JSValue Call(this JSValue thisValue)

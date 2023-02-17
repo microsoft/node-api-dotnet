@@ -1,16 +1,17 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace NodeApi;
 
-public partial struct JSIterable
+public partial struct JSMap
 {
-    public struct Enumerator : IEnumerator<JSValue>, IEnumerator
+    public struct Enumerator :
+        IEnumerator<KeyValuePair<JSValue, JSValue>>,
+        System.Collections.IEnumerator
     {
         private readonly JSValue _iterable;
         private JSValue _iterator;
-        private JSValue? _current;
+        private KeyValuePair<JSValue, JSValue>? _current;
 
         internal Enumerator(JSValue iterable)
         {
@@ -30,17 +31,18 @@ public partial struct JSIterable
             }
             else
             {
-                _current = nextResult["value"];
+                JSArray currentEntry = (JSArray)nextResult["value"];
+                _current = new KeyValuePair<JSValue, JSValue>(currentEntry[0], currentEntry[1]);
                 return true;
             }
         }
 
-        public JSValue Current
+        public KeyValuePair<JSValue, JSValue> Current
             => _current ?? throw new InvalidOperationException("Unexpected enumerator state");
 
-        object? IEnumerator.Current => Current;
+        object? System.Collections.IEnumerator.Current => Current;
 
-        void IEnumerator.Reset()
+        void System.Collections.IEnumerator.Reset()
         {
             _iterator = _iterable.CallMethod(JSSymbol.Iterator);
             _current = default;
@@ -51,4 +53,3 @@ public partial struct JSIterable
         }
     }
 }
-

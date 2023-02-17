@@ -36,7 +36,7 @@ public partial struct JSArray
                     }
                 }
 
-                return target[property];
+                return JSIterable.ProxyGet(list, target, property, toJS);
             },
         };
     }
@@ -74,7 +74,7 @@ public partial struct JSArray
                     }
                 }
 
-                return target[property];
+                return JSIterable.ProxyGet(list, target, property, toJS);
             },
             Set = (JSObject target, JSValue property, JSValue value, JSObject receiver) =>
             {
