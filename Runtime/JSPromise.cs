@@ -5,7 +5,7 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public struct JSPromise : IEquatable<JSValue>
+public readonly struct JSPromise : IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
