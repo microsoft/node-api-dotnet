@@ -6,9 +6,11 @@ namespace NodeApi;
 public class JSSynchronizationContext : SynchronizationContext, IDisposable
 {
     private readonly JSThreadSafeFunction _tsfn;
-    private readonly SynchronizationContext? _previousSyncContext;
 
     public bool IsDisposed { get; private set; }
+
+    public static new JSSynchronizationContext? Current
+        => SynchronizationContext.Current as JSSynchronizationContext;
 
     public JSSynchronizationContext()
     {
@@ -17,13 +19,8 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
             initialThreadCount: 1,
             asyncResourceName: (JSValue)"SynchronizationContext");
 
-        _previousSyncContext = Current;
-        SetSynchronizationContext(this);
-    }
-
-    ~JSSynchronizationContext()
-    {
-        Dispose(disposing: false);
+        // Unref TSFN to indicate that this TSFN is not preventing Node.JS shutdown.
+        _tsfn.Unref();
     }
 
     public void Dispose()
@@ -34,10 +31,9 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
 
     public override void Post(SendOrPostCallback callback, object? state)
     {
-        if (!IsDisposed)
-        {
-            _tsfn.NonBlockingCall(() => callback(state));
-        }
+        if (IsDisposed) return;
+
+        _tsfn.NonBlockingCall(() => callback(state));
     }
 
     public override void Send(SendOrPostCallback callback, object? state)
@@ -45,26 +41,46 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
         if (this == Current)
         {
             callback(state);
+            return;
         }
-        else if (!IsDisposed)
+
+        if (IsDisposed) return;
+
+        using ManualResetEvent syncEvent = new(false);
+        _tsfn.NonBlockingCall(() =>
         {
-            using ManualResetEvent syncEvent = new(false);
-            _tsfn.NonBlockingCall(() => { callback(state); syncEvent.Set(); });
-            syncEvent.WaitOne();
-        }
+            callback(state);
+            syncEvent.Set();
+        });
+        syncEvent.WaitOne();
+    }
+
+    /// <summary>
+    /// Increment reference count for the main loop async resource.
+    /// Non-zero count prevents Node.JS process from exiting.
+    /// </summary>
+    public void OpenAsyncScope()
+    {
+        _tsfn.Ref();
+    }
+
+    /// <summary>
+    /// Decrement reference count for the main loop async resource.
+    /// Non-zero count prevents Node.JS process from exiting.
+    /// </summary>
+    public void CloseAsyncScope()
+    {
+        _tsfn.Unref();
     }
 
     protected virtual void Dispose(bool disposing)
     {
-        if (!IsDisposed)
-        {
-            IsDisposed = true;
-            if (disposing)
-            {
-                SetSynchronizationContext(_previousSyncContext);
-            }
+        if (IsDisposed) return;
 
-            _tsfn.Release();
-        }
+        IsDisposed = true;
+
+        // Destroy TSFN by releasing last thread use count.
+        // TSFN is deleted after this point and must not be used.
+        _tsfn.Release();
     }
 }

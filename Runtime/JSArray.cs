@@ -1,9 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly partial struct JSArray : IList<JSValue>
+public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
@@ -12,6 +14,9 @@ public readonly partial struct JSArray : IList<JSValue>
 
     public static explicit operator JSArray(JSObject obj) => (JSArray)(JSValue)obj;
     public static implicit operator JSObject(JSArray arr) => (JSObject)arr._value;
+
+    public static explicit operator JSArray(JSIterable obj) => (JSArray)(JSValue)obj;
+    public static implicit operator JSIterable(JSArray arr) => (JSIterable)arr._value;
 
     private JSArray(JSValue value)
     {
@@ -42,14 +47,10 @@ public readonly partial struct JSArray : IList<JSValue>
 
     public void CopyTo(JSValue[] array, int arrayIndex)
     {
-        int index = arrayIndex;
-        int maxIndex = array.Length - 1;
+        int i = arrayIndex;
         foreach (JSValue item in this)
         {
-            if (index <= maxIndex)
-            {
-                array[index] = item;
-            }
+            array[i++] = item;
         }
     }
 
@@ -70,4 +71,30 @@ public readonly partial struct JSArray : IList<JSValue>
     bool ICollection<JSValue>.Contains(JSValue item) => throw new System.NotImplementedException();
 
     bool ICollection<JSValue>.Remove(JSValue item) => throw new System.NotImplementedException();
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSArray a, JSArray b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSArray a, JSArray b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public bool Equals(JSValue other) => _value.StrictEquals(other);
+
+    public override bool Equals([NotNullWhen(true)] object? obj)
+    {
+        return obj is JSValue other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        throw new NotSupportedException(
+            "Hashing JS values is not supported. Use JSSet or JSMap instead.");
+    }
 }

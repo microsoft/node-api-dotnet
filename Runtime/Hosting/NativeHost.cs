@@ -41,7 +41,7 @@ internal partial class NativeHost : IDisposable
         ResolveImports();
         try
         {
-            using var scope = new JSValueScope(env);
+            using var scope = new JSValueScope(JSValueScopeType.RootNoContext, env);
 
             // Constructing the native host also loads the CLR and initializes the managed host.
             var host = new NativeHost(env, exports);

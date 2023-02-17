@@ -300,7 +300,8 @@ public static partial class JSNativeApi
     public static int GetArrayLength(this JSValue thisValue)
         => napi_get_array_length(Env, (napi_value)thisValue, out uint result).ThrowIfFailed((int)result);
 
-    public static bool StrictEquals(this JSValue thisValue, JSValue other)
+    // Internal because JSValue structs all implement IEquatable<JSValue>, which calls this method.
+    internal static bool StrictEquals(this JSValue thisValue, JSValue other)
         => napi_strict_equals(Env, (napi_value)thisValue, (napi_value)other, out c_bool result).ThrowIfFailed((bool)result);
 
     public static unsafe JSValue Call(this JSValue thisValue)
@@ -758,9 +759,9 @@ public static partial class JSNativeApi
           out napi_value result).ThrowIfFailed(result);
     }
 
-    internal static unsafe void SetInstanceData(object? data)
+    internal static unsafe void SetInstanceData(napi_env env, object? data)
     {
-        napi_get_instance_data(Env, out nint handlePtr).ThrowIfFailed();
+        napi_get_instance_data(env, out nint handlePtr).ThrowIfFailed();
         if (handlePtr != nint.Zero)
         {
             // Current napi_set_instance_data implementation does not call finalizer when we replace existing instance data.
@@ -772,16 +773,16 @@ public static partial class JSNativeApi
         {
             GCHandle handle = GCHandle.Alloc(data);
             napi_set_instance_data(
-              Env,
+              env,
               (nint)handle,
               new napi_finalize(&FinalizeGCHandle),
               DisposeHint).ThrowIfFailed();
         }
     }
 
-    internal static object? GetInstanceData()
+    internal static object? GetInstanceData(napi_env env)
     {
-        napi_get_instance_data(Env, out nint data).ThrowIfFailed();
+        napi_get_instance_data(env, out nint data).ThrowIfFailed();
         return (data != nint.Zero) ? GCHandle.FromIntPtr(data).Target : null;
     }
 
@@ -823,7 +824,7 @@ public static partial class JSNativeApi
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe napi_value InvokeJSCallback(napi_env env, napi_callback_info callbackInfo)
     {
-        using var scope = new JSValueScope(env);
+        using var scope = new JSValueScope(JSValueScopeType.Callback, env);
         try
         {
             JSCallbackArgs args = new(scope, callbackInfo);
@@ -841,7 +842,7 @@ public static partial class JSNativeApi
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
     {
-        using var scope = new JSValueScope(env);
+        using var scope = new JSValueScope(JSValueScopeType.Callback, env);
         JSCallbackArgs args = new(scope, callbackInfo);
         JSPropertyDescriptor desc = (JSPropertyDescriptor)args.Data!;
         args.Data = desc.Data;
@@ -851,7 +852,7 @@ public static partial class JSNativeApi
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
     {
-        using var scope = new JSValueScope(env);
+        using var scope = new JSValueScope(JSValueScopeType.Callback, env);
         JSCallbackArgs args = new(scope, callbackInfo);
         JSPropertyDescriptor desc = (JSPropertyDescriptor)args.Data!;
         args.Data = desc.Data;
@@ -861,7 +862,7 @@ public static partial class JSNativeApi
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSSetter(napi_env env, napi_callback_info callbackInfo)
     {
-        using var scope = new JSValueScope(env);
+        using var scope = new JSValueScope(JSValueScopeType.Callback, env);
         JSCallbackArgs args = new(scope, callbackInfo);
         JSPropertyDescriptor desc = (JSPropertyDescriptor)args.Data!;
         args.Data = desc.Data;
@@ -897,7 +898,7 @@ public static partial class JSNativeApi
         {
             // TODO: [vmoroz] In future we will be not allowed to run JS in finalizers.
             // We must remove creation of the scope.
-            using var scope = new JSValueScope(env);
+            using var scope = new JSValueScope(JSValueScopeType.Callback, env);
             ((Action)gcHandle.Target!)();
         }
         finally

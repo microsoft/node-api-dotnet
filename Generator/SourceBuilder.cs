@@ -8,6 +8,7 @@ internal class SourceBuilder : SourceText
 {
     private readonly StringBuilder _text;
     private string _currentIndent = string.Empty;
+    private int _extraIndentLevel;
 
     public SourceBuilder(string indent = "\t")
     {
@@ -48,6 +49,16 @@ internal class SourceBuilder : SourceText
 
     private void AppendLine(string line)
     {
+        if (line.Contains('\n'))
+        {
+            foreach (string singleLine in line.Split('\n'))
+            {
+                AppendLine(singleLine);
+            }
+            ResetExtraIndent();
+            return;
+        }
+
         if (line.StartsWith("}"))
         {
             DecreaseIndent();
@@ -63,6 +74,31 @@ internal class SourceBuilder : SourceText
         if (line.EndsWith("{"))
         {
             IncreaseIndent();
+        }
+        else if (line.EndsWith("(") || line.EndsWith(" ?"))
+        {
+            // The "extra" indent persists until the end of the set of lines appended together
+            // (before the split) or until a line ending with a semicolon."
+            IncreaseExtraIndent();
+        }
+        else if (line.EndsWith(";"))
+        {
+            ResetExtraIndent();
+        }
+    }
+
+    private void IncreaseExtraIndent()
+    {
+        _extraIndentLevel++;
+        IncreaseIndent();
+    }
+
+    private void ResetExtraIndent()
+    {
+        while (_extraIndentLevel > 0)
+        {
+            DecreaseIndent();
+            _extraIndentLevel--;
         }
     }
 

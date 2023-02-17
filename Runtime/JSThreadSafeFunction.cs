@@ -10,9 +10,10 @@ public delegate void JSThreadSafeCallback(JSValue jsFunction, object? functionCo
 
 public delegate void JSThreadSafeFinalizeCallback(object? functionContext);
 
-public struct JSThreadSafeFunction
+public class JSThreadSafeFunction
 {
     private napi_threadsafe_function _tsfn;
+    private int _refCount = 1;
 
     public static explicit operator napi_threadsafe_function(JSThreadSafeFunction function) => function._tsfn;
     public static implicit operator JSThreadSafeFunction(napi_threadsafe_function tsfn) => new(tsfn);
@@ -119,7 +120,10 @@ public struct JSThreadSafeFunction
     {
         if (_tsfn.Handle != nint.Zero)
         {
-            napi_ref_threadsafe_function((napi_env)JSValueScope.Current, _tsfn).ThrowIfFailed();
+            if (++_refCount == 1)
+            {
+                napi_ref_threadsafe_function((napi_env)JSValueScope.Current, _tsfn).ThrowIfFailed();
+            }
         }
     }
 
@@ -128,7 +132,10 @@ public struct JSThreadSafeFunction
     {
         if (_tsfn.Handle != nint.Zero)
         {
-            napi_unref_threadsafe_function((napi_env)JSValueScope.Current, _tsfn).ThrowIfFailed();
+            if (--_refCount == 0)
+            {
+                napi_unref_threadsafe_function((napi_env)JSValueScope.Current, _tsfn); //TODO: .ThrowIfFailed();
+            }
         }
     }
 
@@ -198,7 +205,7 @@ public struct JSThreadSafeFunction
 
         try
         {
-            using JSValueScope scope = new(env);
+            using JSValueScope scope = new(JSValueScopeType.Callback, env);
 
             object? callbackData = null;
             if (data != nint.Zero)
@@ -228,7 +235,7 @@ public struct JSThreadSafeFunction
 
         try
         {
-            using JSValueScope scope = new(env);
+            using JSValueScope scope = new(JSValueScopeType.Callback, env);
 
             if (data != nint.Zero)
             {

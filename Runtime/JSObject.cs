@@ -1,16 +1,13 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly partial struct JSObject : IDictionary<JSValue, JSValue>
+public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquatable<JSValue>
 {
     private readonly JSValue _value;
-
-    public int Count => throw new System.NotImplementedException();
-
-    public bool IsReadOnly => throw new System.NotImplementedException();
 
     public static explicit operator JSObject(JSValue value) => new(value);
     public static implicit operator JSValue(JSObject obj) => obj._value;
@@ -23,6 +20,11 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>
     public JSObject() : this(JSValue.CreateObject())
     {
     }
+
+    int ICollection<KeyValuePair<JSValue, JSValue>>.Count
+        => _value.GetPropertyNames().GetArrayLength();
+
+    bool ICollection<KeyValuePair<JSValue, JSValue>>.IsReadOnly => false;
 
     public void DefineProperties(params JSPropertyDescriptor[] descriptors)
     {
@@ -82,14 +84,10 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>
 
     public void CopyTo(KeyValuePair<JSValue, JSValue>[] array, int arrayIndex)
     {
-        int index = arrayIndex;
-        int maxIndex = array.Length - 1;
-        foreach (KeyValuePair<JSValue, JSValue> entry in this)
+        int i = arrayIndex;
+        foreach (KeyValuePair<JSValue, JSValue> item in this)
         {
-            if (index <= maxIndex)
-            {
-                array[index] = entry;
-            }
+            array[i++] = item;
         }
     }
 
@@ -97,13 +95,40 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>
 
     public Enumerator GetEnumerator() => new(_value);
 
-    ICollection<JSValue> IDictionary<JSValue, JSValue>.Keys => throw new System.NotImplementedException();
+    ICollection<JSValue> IDictionary<JSValue, JSValue>.Keys => (JSArray)_value.GetPropertyNames();
 
-    ICollection<JSValue> IDictionary<JSValue, JSValue>.Values => throw new System.NotImplementedException();
+    ICollection<JSValue> IDictionary<JSValue, JSValue>.Values => throw new NotSupportedException();
 
-    void ICollection<KeyValuePair<JSValue, JSValue>>.Clear() => throw new System.NotImplementedException();
+    void ICollection<KeyValuePair<JSValue, JSValue>>.Clear() => throw new NotSupportedException();
 
-    IEnumerator<KeyValuePair<JSValue, JSValue>> IEnumerable<KeyValuePair<JSValue, JSValue>>.GetEnumerator() => GetEnumerator();
+    IEnumerator<KeyValuePair<JSValue, JSValue>> IEnumerable<KeyValuePair<JSValue, JSValue>>.GetEnumerator()
+        => GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator ==(JSObject a, JSObject b) => a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public static bool operator !=(JSObject a, JSObject b) => !a._value.StrictEquals(b);
+
+    /// <summary>
+    /// Compares two JS values using JS "strict" equality.
+    /// </summary>
+    public bool Equals(JSValue other) => _value.StrictEquals(other);
+
+    public override bool Equals([NotNullWhen(true)] object? obj)
+    {
+        return obj is JSValue other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        throw new NotSupportedException(
+            "Hashing JS values is not supported. Use JSSet or JSMap instead.");
+    }
 }

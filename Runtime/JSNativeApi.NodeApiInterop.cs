@@ -14,7 +14,6 @@ public static partial class JSNativeApi
     [SuppressUnmanagedCodeSecurity]
     public static unsafe partial class NodeApiInterop
     {
-
         public record struct napi_callback_scope(nint Handle);
         public record struct napi_async_context(nint Handle);
         public record struct napi_async_work(nint Handle);
