@@ -256,6 +256,10 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         {
             tsType = type.Name;
         }
+        else if (type.Name == "DateTime")
+        {
+            tsType = "Date";
+        }
 
         if (type.NullableAnnotation == NullableAnnotation.Annotated &&
             tsType != "any" && !tsType.EndsWith(" | null"))

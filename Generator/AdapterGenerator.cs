@@ -772,9 +772,14 @@ internal class AdapterGenerator : SourceGenerator
         }
         else if (toType.TypeKind == TypeKind.Struct)
         {
+            if (GetFullName(toType) == "System.DateTime")
+            {
+                return $"((JSDate){fromExpression}).ToDateTime()";
+            }
+
             if (toType is INamedTypeSymbol namedType &&
                 namedType.TypeParameters.Length == 1 &&
-                namedType.OriginalDefinition.Name == "Memory" &&
+                GetFullName(namedType) == "System.Memory" &&
                 IsTypedArrayType(namedType.TypeArguments[0]))
             {
                 // For supported Memory<T> element types, assume the JS value is a typed-array.
@@ -900,9 +905,14 @@ internal class AdapterGenerator : SourceGenerator
         }
         else if (fromType.TypeKind == TypeKind.Struct)
         {
+            if (GetFullName(fromType) == "System.DateTime")
+            {
+                return $"JSDate.FromDateTime({fromExpression})";
+            }
+
             if (fromType is INamedTypeSymbol namedType &&
                 namedType.TypeParameters.Length == 1 &&
-                namedType.OriginalDefinition.Name == "Memory" &&
+                GetFullName(namedType) == "System.Memory" &&
                 IsTypedArrayType(namedType.TypeArguments[0]))
             {
                 // For supported element types, wrap Memory<T> in a JSTypedArray.
@@ -968,15 +978,28 @@ internal class AdapterGenerator : SourceGenerator
             case SpecialType.System_Collections_Generic_ICollection_T:
             case SpecialType.System_Collections_Generic_IReadOnlyList_T:
             case SpecialType.System_Collections_Generic_IList_T:
+            case SpecialType.System_DateTime:
                 return;
             default: break;
+        }
+
+        if (type is INamedTypeSymbol genericType && genericType.TypeParameters.Length > 0)
+        {
+            switch (GetFullName(genericType))
+            {
+                case "System.Collections.Generic.ISet":
+                case "System.Collections.Generic.IReadOnlySet":
+                case "System.Collections.Generic.IDictionary":
+                case "System.Collections.Generic.IReadOnlyDictionary":
+                    return;
+            }
         }
 
         // Memory<T> doesn't have a SpecialType enumeration.
         // Conversion methods above handle it specially, but only for typed-array element types.
         if (type is INamedTypeSymbol namedType &&
             namedType.TypeParameters.Length == 1 &&
-            namedType.OriginalDefinition.Name == "Memory" &&
+            GetFullName(namedType) == "System.Memory" &&
             IsTypedArrayType(namedType.TypeArguments[0]))
         {
             return;

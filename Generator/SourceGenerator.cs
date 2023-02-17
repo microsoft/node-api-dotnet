@@ -52,6 +52,13 @@ public abstract class SourceGenerator
         return ns;
     }
 
+    public static string GetFullName(ISymbol symbol)
+    {
+        string ns = GetNamespace(symbol);
+        string name = (symbol as INamedTypeSymbol)?.OriginalDefinition?.Name ?? symbol.Name;
+        return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
+    }
+
     public static string ToCamelCase(string name)
     {
         StringBuilder sb = new(name);
