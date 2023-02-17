@@ -54,6 +54,4 @@ public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSV
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
-
-    public static bool operator ==()
 }
