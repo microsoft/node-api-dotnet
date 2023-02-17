@@ -32,10 +32,14 @@ internal class TypeDefinitionsGenerator : SourceGenerator
 
         foreach (ISymbol exportItem in _exportItems)
         {
-            if (exportItem is ITypeSymbol exportType &&
-                (exportType.TypeKind == TypeKind.Class || exportType.TypeKind == TypeKind.Struct))
+            if (exportItem is ITypeSymbol exportClass &&
+                (exportClass.TypeKind == TypeKind.Class || exportClass.TypeKind == TypeKind.Struct))
             {
-                GenerateClassTypeDefinitions(ref s, exportType);
+                GenerateClassDefinition(ref s, exportClass);
+            }
+            else if (exportItem is ITypeSymbol exportEnum && exportEnum.TypeKind == TypeKind.Enum)
+            {
+                GenerateEnumDefinition(ref s, exportEnum);
             }
             else if (exportItem is IMethodSymbol exportMethod)
             {
@@ -60,7 +64,7 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         return s;
     }
 
-    private void GenerateClassTypeDefinitions(ref SourceBuilder s, ITypeSymbol exportClass)
+    private void GenerateClassDefinition(ref SourceBuilder s, ITypeSymbol exportClass)
     {
         s++;
         GenerateDocComments(ref s, exportClass);
@@ -122,6 +126,24 @@ internal class TypeDefinitionsGenerator : SourceGenerator
                         $"{propertyType};";
                 }
             }
+        }
+
+        s += "}";
+    }
+
+    private void GenerateEnumDefinition(ref SourceBuilder s, ITypeSymbol exportEnum)
+    {
+        s++;
+        GenerateDocComments(ref s, exportEnum);
+        string exportName = ModuleGenerator.GetExportName(exportEnum);
+        s += $"export declare enum {exportName} {{";
+
+        bool isFirstMember = true;
+        foreach (IFieldSymbol field in exportEnum.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (isFirstMember) isFirstMember = false; else s++;
+            GenerateDocComments(ref s, field);
+            s += $"{field.Name} = {field.ConstantValue},";
         }
 
         s += "}";

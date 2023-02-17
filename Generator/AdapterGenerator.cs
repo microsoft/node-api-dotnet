@@ -759,6 +759,10 @@ internal class AdapterGenerator : SourceGenerator
         {
             return $"({toType})({fromExpression})";
         }
+        else if (toType.TypeKind == TypeKind.Enum)
+        {
+            return $"({toType})({((INamedTypeSymbol)toType).EnumUnderlyingType})({fromExpression})";
+        }
         else if (toType.TypeKind == TypeKind.Class)
         {
             VerifyReferencedTypeIsExported(toType);
@@ -884,6 +888,10 @@ internal class AdapterGenerator : SourceGenerator
         if (CanCast(fromType!))
         {
             return $"(JSValue)({fromExpression})";
+        }
+        else if (fromType.TypeKind == TypeKind.Enum)
+        {
+            return $"(JSValue)({((INamedTypeSymbol)fromType).EnumUnderlyingType})({fromExpression})";
         }
         else if (fromType.TypeKind == TypeKind.Class)
         {

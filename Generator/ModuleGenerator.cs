@@ -197,7 +197,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         type,
                         "Exporting interfaces is not currently supported.");
                 }
-                else if (type.TypeKind != TypeKind.Class && type.TypeKind != TypeKind.Struct)
+                else if (type.TypeKind != TypeKind.Class &&
+                    type.TypeKind != TypeKind.Struct &&
+                    type.TypeKind != TypeKind.Enum)
                 {
                     ReportError(
                         DiagnosticId.UnsupportedTypeKind,
@@ -412,7 +414,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
                 // Export all the class members, then define the class.
                 ExportMembers(ref s, exportClass, adapterGenerator);
-                s += ".DefineClass())";
+                s += exportClass.IsStatic ? ".DefineStaticClass())" : ".DefineClass())";
                 s.DecreaseIndent();
             }
             else if (exportItem is ITypeSymbol exportStruct &&
@@ -430,7 +432,14 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             }
             else if (exportItem is ITypeSymbol exportEnum && exportEnum.TypeKind == TypeKind.Enum)
             {
-                // TODO: Export enums.
+                s += $".AddProperty(\"{exportName}\",";
+                s.IncreaseIndent();
+
+                // Exported enums are similar to static classes with integer properties.
+                s += $"new JSClassBuilder<object>(context, \"{exportName}\")";
+                ExportMembers(ref s, exportEnum, adapterGenerator);
+                s += ".DefineEnum())";
+                s.DecreaseIndent();
             }
             else if (exportItem is IPropertySymbol exportProperty)
             {
@@ -486,6 +495,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 ExportProperty(ref s, property, adapterGenerator);
             }
+            else if (type.TypeKind == TypeKind.Enum && member is IFieldSymbol field)
+            {
+                s += $".AddProperty(\"{field.Name}\", {field.ConstantValue}, " +
+                    "JSPropertyAttributes.Static | JSPropertyAttributes.Enumerable)";
+            }
         }
     }
 
@@ -503,19 +517,21 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // An adapter method may be used to support marshalling arbitrary parameters,
         // if the method does not match the `JSCallback` signature.
         string? adapterName = adapterGenerator.GetMethodAdapterName(method);
+        string attributes = "JSPropertyAttributes.DefaultMethod" +
+            (method.IsStatic ? "| JSPropertyAttributes.Static" : string.Empty);
         if (adapterName != null)
         {
-            s += $".AddMethod(\"{exportName}\", {adapterName})";
+            s += $".AddMethod(\"{exportName}\", {adapterName},\n{attributes})";
         }
         else if (method.IsStatic)
         {
             string ns = GetNamespace(method);
             string className = method.ContainingType.Name;
-            s += $".AddMethod(\"{exportName}\", () => {ns}.{className}.{method.Name})";
+            s += $".AddMethod(\"{exportName}\", () => {ns}.{className}.{method.Name},\n{attributes})";
         }
         else
         {
-            s += $".AddMethod(\"{exportName}\", (obj) => obj.{method.Name})";
+            s += $".AddMethod(\"{exportName}\", (obj) => obj.{method.Name},\n{attributes})";
         }
     }
 
@@ -530,6 +546,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         exportName ??= ToCamelCase(property.Name);
 
+        string attributes = "JSPropertyAttributes.DefaultProperty" +
+            (property.IsStatic ? " | JSPropertyAttributes.Static" : string.Empty);
+
         // Getter and setter adapter methods may be used if the property type is not `JSValue`.
         (string? getterAdapterName, string? setterAdapterName) =
             adapterGenerator.GetPropertyAdapterNames(property);
@@ -539,7 +558,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             // Struct properties are not backed by getter/setter methods. The entire struct is
             // always passed by value. Properties are converted to/from `JSValue` by the struct
             // adapter method.
-            s += $".AddProperty(\"{exportName}\"{(property.IsStatic ? ", isStatic: true" : "")})";
+            s += $".AddProperty(\"{exportName}\", {attributes})";
             return;
         }
 
@@ -568,20 +587,22 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         if (setterAdapterName != null)
         {
-            s += $"setter: {setterAdapterName})";
+            s += $"setter: {setterAdapterName},";
         }
         else if (property.SetMethod?.DeclaredAccessibility != Accessibility.Public)
         {
-            s += $"setter: null)";
+            s += $"setter: null,";
         }
         else if (property.IsStatic)
         {
-            s += $"setter: (value) => {ns}.{className}.{property.Name} = value)";
+            s += $"setter: (value) => {ns}.{className}.{property.Name} = value,";
         }
         else
         {
-            s += $"setter: (obj, value) => obj.{property.Name} = value)";
+            s += $"setter: (obj, value) => obj.{property.Name} = value,";
         }
+
+        s += $"{attributes})";
 
         s.DecreaseIndent();
     }

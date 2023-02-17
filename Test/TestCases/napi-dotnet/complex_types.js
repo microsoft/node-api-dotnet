@@ -150,3 +150,13 @@ assert.strictEqual(mapValue2.get(3), 'three');
 const mapEnumerableResult = [];
 for (let value of mapValue2) mapEnumerableResult.push(value);
 assert.deepStrictEqual(mapEnumerableResult, [[1, 'one'], [2, 'two'], [3, 'three']]);
+
+// C# enums are projected as objects with two-way value mappings.
+const enumType = binding.TestEnum;
+assert.strictEqual(typeof enumType, 'object');
+assert.strictEqual(enumType.Zero, 0);
+assert.strictEqual(enumType.One, 1);
+assert.strictEqual(enumType[enumType.One], 'One');
+assert.strictEqual(ComplexTypes.enum, enumType.Zero);
+ComplexTypes.enum = enumType.Two;
+assert.strictEqual(ComplexTypes.enum, enumType.Two);
