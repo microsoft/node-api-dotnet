@@ -1,5 +1,9 @@
 // Ported from https://github.com/agracio/edge-js/blob/master/performance/marshal_clr2v8.js
 
+// If using the test runner, the measurement results can be found in:
+// out/obj\$(Configuration)\TestCases\edgejs-perf\hosted-measure-latency.log
+// out/obj\$(Configuration)\TestCases\edgejs-perf\aot-measure-latency.log
+
 // Load the addon module, using either hosted or native AOT mode.
 const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
 const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
