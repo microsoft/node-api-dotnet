@@ -119,14 +119,4 @@ public partial struct JSSet
             return Count > countBeforeAdd;
         }
     }
-
-    public static bool operator ==(JSSet left, JSSet right)
-    {
-        return left.Equals(right);
-    }
-
-    public static bool operator !=(JSSet left, JSSet right)
-    {
-        return !(left == right);
-    }
 }
