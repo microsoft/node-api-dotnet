@@ -50,8 +50,7 @@ public class ManagedHost : IDisposable
             AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
                 e.Name.Split(',')[0] == nameof(NodeApi) ? nodeApiAssembly : null;
 
-            using var scope = new JSValueScope(env);
-            JSContext context = new(env);
+            using var scope = new JSValueScope(JSValueScopeType.Root, env);
             var exportsValue = new JSValue(scope, exports);
             new JSModuleBuilder<ManagedHost>()
                 .AddMethod("require", (host) => host.LoadModule)

@@ -122,7 +122,7 @@ public class JSThreadSafeFunction
         {
             if (++_refCount == 1)
             {
-                napi_ref_threadsafe_function((napi_env)JSValueScope.Current, _tsfn); //TODO: .ThrowIfFailed();
+                napi_ref_threadsafe_function((napi_env)JSValueScope.Current, _tsfn).ThrowIfFailed();
             }
         }
     }
@@ -205,7 +205,7 @@ public class JSThreadSafeFunction
 
         try
         {
-            using JSValueScope scope = new(env);
+            using JSValueScope scope = new(JSValueScopeType.Callback, env);
 
             object? callbackData = null;
             if (data != nint.Zero)
@@ -235,7 +235,7 @@ public class JSThreadSafeFunction
 
         try
         {
-            using JSValueScope scope = new(env);
+            using JSValueScope scope = new(JSValueScopeType.Callback, env);
 
             if (data != nint.Zero)
             {

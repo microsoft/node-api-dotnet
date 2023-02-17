@@ -18,7 +18,7 @@ public static class AsyncMethod
     // Below the `Task.Delay(50)` is executed in a background thread.
     private static async void AsyncGreeter(JSDeferred deferred, string greeter)
     {
-        using JSAsyncScope asyncScope = new();
+        using var asyncScope = new JSAsyncScope();
         await Task.Delay(50);
         deferred.Resolve((JSValue)$"Hey {greeter}!");
     }
