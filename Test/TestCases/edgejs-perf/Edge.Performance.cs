@@ -3,6 +3,7 @@
 using System;
 using NodeApi;
 
+#pragma warning disable IDE0060 // Unused parameter 'input'
 
 namespace Edge.Performance
 {

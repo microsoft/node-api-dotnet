@@ -11,7 +11,7 @@ const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
 /** @type {import('./edgejs-perf')} */
 const binding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
 
-const callCount = process.env.EDGE_CALL_COUNT || 100000;
+const callCount = process.env.EDGE_CALL_COUNT || 10000;
 
 const measure = function (func) {
 	var start = Date.now();
