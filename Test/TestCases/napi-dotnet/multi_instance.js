@@ -1,9 +1,12 @@
 const assert = require('assert');
 const { Worker, isMainThread, parentPort } = require('worker_threads');
 
-/** @typedef {import('./napi-dotnet')} Binding */
-/** @type Binding */
-const binding = require('../node-addon-api/common').binding;
+
+  /** @typedef {import('./napi-dotnet')} Binding */
+  /** @type Binding */
+const  binding = require('../node-addon-api/common').binding;
+
+const { dotnetHost, dotnetModule } = require('../node-addon-api/common');
 
 if (isMainThread) {
   // Increment the static counter to 2.
