@@ -67,7 +67,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
         _value = JSValue.CreatePromise(out Deferred deferred);
         async void AsyncCallback()
         {
-            using var __asyncScope = new JSAsyncScope();
+            using var asyncScope = new JSAsyncScope();
             try
             {
                 await callback(deferred.Resolve);
@@ -95,7 +95,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
         _value = JSValue.CreatePromise(out Deferred deferred);
         async void AsyncCallback()
         {
-            using var __asyncScope = new JSAsyncScope();
+            using var asyncScope = new JSAsyncScope();
             try
             {
                 await callback(deferred.Resolve, deferred.Reject);
