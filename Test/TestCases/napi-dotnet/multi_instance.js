@@ -1,13 +1,12 @@
 const assert = require('assert');
 const { Worker, isMainThread, parentPort } = require('worker_threads');
 
-// Load the addon module, using either hosted or native AOT mode.
-const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
-const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
 
-/** @typedef {import('./napi-dotnet')} Binding */
-/** @type Binding */
-const binding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
+  /** @typedef {import('./napi-dotnet')} Binding */
+  /** @type Binding */
+const  binding = require('../node-addon-api/common').binding;
+
+const { dotnetHost, dotnetModule } = require('../node-addon-api/common');
 
 if (isMainThread) {
   // Increment the static counter to 2.
