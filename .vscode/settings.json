@@ -1,4 +1,9 @@
 {
     // Don't show the "Required assets are missing..." dialog on startup. We'll manage tasks.json / launch.json manually.
-    "csharp.suppressBuildAssetsNotification": true
+    "csharp.suppressBuildAssetsNotification": true,
+
+    // We try to limit the length of code lines to 100 columns.
+    "editor.rulers": [
+      100,
+  ]
 }
