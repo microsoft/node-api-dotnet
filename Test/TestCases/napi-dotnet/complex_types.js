@@ -157,6 +157,13 @@ assert.strictEqual(typeof enumType, 'object');
 assert.strictEqual(enumType.Zero, 0);
 assert.strictEqual(enumType.One, 1);
 assert.strictEqual(enumType[enumType.One], 'One');
-assert.strictEqual(ComplexTypes.enum, enumType.Zero);
-ComplexTypes.enum = enumType.Two;
-assert.strictEqual(ComplexTypes.enum, enumType.Two);
+assert.strictEqual(ComplexTypes.testEnum, enumType.Zero);
+ComplexTypes.testEnum = enumType.Two;
+assert.strictEqual(ComplexTypes.testEnum, enumType.Two);
+
+// Date
+const dateValue = ComplexTypes.date;
+assert(dateValue instanceof Date);
+assert.deepStrictEqual(dateValue, new Date("2023-02-01"));
+ComplexTypes.date = new Date("2024-03-02T11:00");
+assert.deepStrictEqual(ComplexTypes.date, new Date("2024-03-02T11:00"));
