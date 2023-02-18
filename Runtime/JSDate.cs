@@ -17,17 +17,17 @@ public readonly struct JSDate : IEquatable<JSValue>
 
     public JSDate()
     {
-        _value = JSValue.Global["Date"].CallAsConstructor();
+        _value = JSContext.Current.Import("Date").CallAsConstructor();
     }
 
     public JSDate(long dateValue)
     {
-        _value = JSValue.Global["Date"].CallAsConstructor(dateValue);
+        _value = JSContext.Current.Import("Date").CallAsConstructor(dateValue);
     }
 
     public JSDate(string dateString)
     {
-        _value = JSValue.Global["Date"].CallAsConstructor(dateString);
+        _value = JSContext.Current.Import("Date").CallAsConstructor(dateString);
     }
 
     public long DateValue => (long)_value.CallMethod("valueOf");
