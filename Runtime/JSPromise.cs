@@ -1,11 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public readonly struct JSPromise : IEquatable<JSValue>
+/// <summary>
+/// Represents a JavaScript Promise object.
+/// </summary>
+/// <seealso cref="TaskExtensions"/>
+public readonly struct JSPromise : IJSValue
 {
     private readonly JSValue _value;
 
@@ -20,15 +25,17 @@ public readonly struct JSPromise : IEquatable<JSValue>
         _value = value;
     }
 
-    public delegate void Resolve(Action<JSValue> resolve);
+    JSValue IJSValue.Value => _value;
 
-    public delegate Task AsyncResolve(Action<JSValue> resolve);
+    public delegate void ResolveCallback(Action<JSValue> resolve);
 
-    public delegate void ResolveReject(
+    public delegate Task AsyncResolveCallback(Action<JSValue> resolve);
+
+    public delegate void ResolveRejectCallback(
         Action<JSValue> resolve,
         Action<JSValue> reject); // TODO: Change reject type argument to JSError?
 
-    public delegate Task AsyncResolveReject(
+    public delegate Task AsyncResolveRejectCallback(
         Action<JSValue> resolve,
         Action<JSValue> reject); // TODO: Change reject type argument to JSError?
 
@@ -40,12 +47,34 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// <remarks>
     /// Any exception thrown by the callback will be caught and used as a promise rejection error.
     /// </remarks>
-    public JSPromise(Resolve callback)
+    public JSPromise(ResolveCallback callback)
     {
         _value = JSValue.CreatePromise(out Deferred deferred);
         try
         {
             callback(deferred.Resolve);
+        }
+        catch (Exception ex)
+        {
+            deferred.Reject(ex);
+        }
+    }
+
+    /// <summary>
+    /// Creates a new JS Promise with a resolve/reject callback.
+    /// </summary>
+    /// <param name="callback">Callback that is invoked immediately and must _eventually_ invoke
+    /// either the resolve function with a <see cref="JSValue"/>, invoke the reject function with
+    /// a JS Error, or throw an exception.</param>
+    /// <remarks>
+    /// Any exception thrown by the callback will be caught and used as a promise rejection error.
+    /// </remarks>
+    public JSPromise(ResolveRejectCallback callback)
+    {
+        _value = JSValue.CreatePromise(out Deferred deferred);
+        try
+        {
+            callback(deferred.Resolve, deferred.Reject);
         }
         catch (Exception ex)
         {
@@ -62,7 +91,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// Any (sync or async) exception thrown by the callback will be caught and used as a promise
     /// rejection error.
     /// </remarks>
-    public JSPromise(AsyncResolve callback)
+    public JSPromise(AsyncResolveCallback callback)
     {
         _value = JSValue.CreatePromise(out Deferred deferred);
         async void AsyncCallback()
@@ -90,7 +119,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// Any (sync or async) exception thrown by the callback will be caught and used as a promise
     /// rejection error.
     /// </remarks>
-    public JSPromise(AsyncResolveReject callback)
+    public JSPromise(AsyncResolveRejectCallback callback)
     {
         _value = JSValue.CreatePromise(out Deferred deferred);
         async void AsyncCallback()
@@ -106,6 +135,109 @@ public readonly struct JSPromise : IEquatable<JSValue>
             }
         }
         AsyncCallback();
+    }
+
+    /// <summary>
+    /// Registers callbacks that are invoked when a promise is fulfilled and/or rejected,
+    /// and returns a new chained promise.
+    /// </summary>
+    public JSPromise Then(Action<JSValue>? fulfilled, Action<JSValue>? rejected)
+    {
+        JSValue fulfilledFunction = fulfilled == null ? JSValue.Undefined :
+            JSValue.CreateFunction(nameof(fulfilled), (args) =>
+            {
+                fulfilled(args[0]);
+                return JSValue.Undefined;
+            });
+        JSValue rejectedFunction = rejected == null ? JSValue.Undefined :
+            JSValue.CreateFunction(nameof(rejected), (args) =>
+            {
+                rejected(args[0]);
+                return JSValue.Undefined;
+            });
+        return (JSPromise)_value.CallMethod("then", fulfilledFunction, rejectedFunction);
+    }
+
+    /// <summary>
+    /// Registers a callback that is invoked when a promise is rejected, and returns a new
+    /// chained promise.
+    /// </summary>
+    public JSPromise Catch(Action<JSValue> rejected)
+    {
+        JSValue rejectedFunction = JSValue.CreateFunction(nameof(rejected), (args) =>
+        {
+            rejected(args[0]);
+            return JSValue.Undefined;
+        });
+        return (JSPromise)_value.CallMethod("catch", rejectedFunction);
+    }
+
+    /// <summary>
+    /// Registers a callback that is invoked after a promise is fulfilled or rejected, and
+    /// returns a new chained promise.
+    /// </summary>
+    public JSPromise Finally(Action completed)
+    {
+        JSValue completedFunction = JSValue.CreateFunction(nameof(completed), (_) =>
+        {
+            completed();
+            return JSValue.Undefined;
+        });
+        return (JSPromise)_value.CallMethod("finally", completedFunction);
+    }
+
+    /// <summary>
+    /// Creates a new promise that resolves to a value of `undefined`.
+    /// </summary>
+    public static JSPromise Resolve()
+    {
+        return (JSPromise)JSContext.Current.Import("Promise").CallMethod("resolve");
+    }
+
+    /// <summary>
+    /// Creates a new promise that resolves to the provided value.
+    /// </summary>
+    public static JSPromise Resolve(JSValue value)
+    {
+        return (JSPromise)JSContext.Current.Import("Promise").CallMethod("resolve", value);
+    }
+
+    /// <summary>
+    /// Creates a new promise that is rejected with the provided reason.
+    /// </summary>
+    public static JSPromise Reject(JSValue reason)
+    {
+        return (JSPromise)JSContext.Current.Import("Promise").CallMethod("reject", reason);
+    }
+
+    public static JSPromise All(params JSPromise[] promises) => Select("all", promises);
+
+    public static JSPromise All(IEnumerable<JSPromise> promises) => Select("all", promises);
+
+    public static JSPromise All(JSArray promises) => Select("all", promises);
+
+    public static JSPromise Any(params JSPromise[] promises) => Select("any", promises);
+
+    public static JSPromise Any(IEnumerable<JSPromise> promises) => Select("any", promises);
+
+    public static JSPromise Any(JSArray promises) => Select("any", promises);
+
+    public static JSPromise Race(params JSPromise[] promises) => Select("race", promises);
+
+    public static JSPromise Race(IEnumerable<JSPromise> promises) => Select("race", promises);
+
+    public static JSPromise Race(JSArray promises) => Select("race", promises);
+
+    private static JSPromise Select(string operation, IEnumerable<JSPromise> promises)
+    {
+        JSArray promiseArray = new();
+        foreach (JSPromise promise in promises) promiseArray.Add(promise);
+        return Select(operation, promiseArray);
+    }
+
+    private static JSPromise Select(string operation, JSArray promiseArray)
+    {
+        return (JSPromise)JSContext.Current.Import("Promise").CallMethod(operation, promiseArray);
     }
 
     /// <summary>
@@ -134,11 +266,14 @@ public readonly struct JSPromise : IEquatable<JSValue>
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
 
+    /// <summary>
+    /// Supports resolving or rejecting a created JavaScript Promise.
+    /// </summary>
     public struct Deferred
     {
         private napi_deferred _handle;
 
-        public Deferred(napi_deferred handle)
+        internal Deferred(napi_deferred handle)
         {
             _handle = handle;
         }

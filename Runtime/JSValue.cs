@@ -7,7 +7,7 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public readonly struct JSValue : IEquatable<JSValue>
+public readonly struct JSValue : IJSValue
 {
     private readonly napi_value _handle;
     private readonly JSValueScope? _scope;
@@ -30,6 +30,8 @@ public readonly struct JSValue : IEquatable<JSValue>
         _scope = scope;
         _handle = handle;
     }
+
+    JSValue IJSValue.Value => this;
 
     public napi_value? Handle => !Scope.IsDisposed ? (_handle.Handle != nint.Zero ? _handle : Undefined._handle) : null;
 

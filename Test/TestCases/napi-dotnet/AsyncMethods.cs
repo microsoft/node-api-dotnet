@@ -24,4 +24,30 @@ public static class AsyncMethods
         await Task.Delay(50);
         return $"Hey {greeter}!";
     }
+
+    [JSExport("async_interface")]
+    public static IAsyncInterface InterfaceTest { get; set; } = new AsyncTest();
+
+    [JSExport("async_interface_reverse")]
+    public static async Task<string> ReverseInterfaceItest(
+        IAsyncInterface jsInterface, string greeter)
+    {
+        // Invoke a method on a JS object that implements the interface.
+        return await jsInterface.TestAsync(greeter);
+    }
+
+    private class AsyncTest : IAsyncInterface
+    {
+        public async Task<string> TestAsync(string greeter)
+        {
+            await Task.Delay(50);
+            return $"Hey {greeter}!";
+        }
+    }
+}
+
+[JSExport]
+public interface IAsyncInterface
+{
+    public Task<string> TestAsync(string greeter);
 }

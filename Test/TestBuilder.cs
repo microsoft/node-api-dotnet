@@ -221,7 +221,12 @@ internal static class TestBuilder
         // This assumes the `node` executable is on the current PATH.
         string nodeExe = "node";
 
-        StreamWriter outputWriter = File.CreateText(logFilePath);
+        StreamWriter outputWriter = new(logFilePath, new FileStreamOptions
+        {
+            Mode = FileMode.Create,
+            Access = FileAccess.Write,
+            Share = FileShare.Read,
+        });
         bool hasErrorOutput = false;
 
         var startInfo = new ProcessStartInfo(nodeExe, $"--expose-gc {jsFilePath}")
@@ -269,11 +274,29 @@ internal static class TestBuilder
         nodeProcess.BeginErrorReadLine();
 
         nodeProcess.WaitForExit();
+        outputWriter.Close();
 
         if (nodeProcess.ExitCode != 0)
         {
-            Assert.Fail("Node process exited with code: " + nodeProcess.ExitCode + ". " +
-                "Check the log for details: " + logFilePath);
+            string failMessage = "Node process exited with code: " + nodeProcess.ExitCode + ". " +
+                "Check the log for details: " + logFilePath;
+
+            string jsFileName = Path.GetFileName(jsFilePath);
+            string[] logLines = File.ReadAllLines(logFilePath);
+            for (int i = 0; i < logLines.Length; i++)
+            {
+                // Scan for a line that looks like a node error or an assertion with filename:#.
+                if (logLines[i].StartsWith("node:") ||
+                    logLines[i].Contains(jsFileName + ":"))
+                {
+                    string assertion = string.Join(Environment.NewLine, logLines.Skip(i));
+                    failMessage = assertion +
+                        Environment.NewLine + Environment.NewLine + failMessage;
+                    break;
+                }
+            }
+
+            Assert.Fail(failMessage);
         }
         else if (hasErrorOutput)
         {

@@ -135,7 +135,7 @@ public sealed class JSContext : IDisposable
     /// for <see cref="JSNativeApi.DefineClass"/>.</param>
     /// <param name="obj">New or existing instance of the class to be wrapped.</param>
     /// <returns>The JS wrapper.</returns>
-    internal unsafe JSValue InitializeObjectWrapper<T>(JSValue wrapper, T obj) where T : class
+    internal JSValue InitializeObjectWrapper<T>(JSValue wrapper, T obj) where T : class
     {
         // The reference returned by Wrap() is weak (refcount=0), which is good:
         // if the JS object is released then the reference will fail to resolve, and

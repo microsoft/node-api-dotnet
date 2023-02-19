@@ -19,6 +19,8 @@ public static class ComplexTypes
 
     public static ClassObject ClassObject { get; set; } = new() { Value = "test" };
 
+    public static ITestInterface InterfaceObject { get; set; } = ClassObject;
+
     public static ClassObject? NullableClassObject { get; set; }
 
     public static string[] StringArray { get; set; } = Array.Empty<string>();
@@ -68,12 +70,29 @@ public struct StructObject
 }
 
 /// <summary>
+/// Tests marshalling class objects via interfaces.
+/// </summary>
+[JSExport]
+public interface ITestInterface
+{
+    string? Value { get; set; }
+
+    string? AppendValue(string append);
+}
+
+/// <summary>
 /// Tests marshalling class objects (passed by reference).
 /// </summary>
 [JSExport]
-public class ClassObject
+public class ClassObject : ITestInterface
 {
     public string? Value { get; set; }
+
+    public string? AppendValue(string append)
+    {
+        Value = (Value ?? "") + append;
+        return Value;
+    }
 
     public static string? StaticValue { get; set; }
 

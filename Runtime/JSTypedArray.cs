@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace NodeApi;
 
-public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
+public readonly struct JSTypedArray<T> : IJSValue where T : struct
 {
     private readonly JSValue _value;
 
@@ -111,6 +111,8 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
     public JSTypedArray(T[] data, int start, int length) : this(data.AsMemory().Slice(start, length))
     {
     }
+
+    JSValue IJSValue.Value => _value;
 
     public int Length => _value.GetTypedArrayLength(out _);
 

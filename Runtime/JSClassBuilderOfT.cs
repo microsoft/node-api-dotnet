@@ -99,6 +99,40 @@ public class JSClassBuilder<T>
         return obj;
     }
 
+    /// <summary>
+    /// Defines a JS class that represents a C# interface.
+    /// </summary>
+    /// <remarks>
+    /// A JS class defined this way may not be constructed directly from JS. An instance of the
+    /// class may be constructed when passing a C# object (that implements the interface) to JS
+    /// via <see cref="JSContext.GetOrCreateCollectionWrapper()" />.
+    /// </remarks>
+    public JSValue DefineInterface()
+    {
+        foreach (JSPropertyDescriptor property in Properties)
+        {
+            if (property.Attributes.HasFlag(JSPropertyAttributes.Static))
+            {
+                throw new InvalidOperationException("Interface properties must not be static.");
+            }
+        }
+
+        return Context.RegisterClass<T>(JSNativeApi.DefineClass(
+            ClassName,
+            (args) =>
+            {
+                if (args.Length != 1 || !args[0].IsExternal())
+                {
+                    throw new InvalidOperationException("Cannot instantiate an interface.");
+                }
+
+                // Constructing a JS instance to wrap a C# instance that implements the interface.
+                T instance = (T)args[0].GetValueExternal();
+                return Context.InitializeObjectWrapper(args.ThisArg, instance);
+            },
+            Properties.ToArray()));
+    }
+
     public JSValue DefineEnum()
     {
         foreach (JSPropertyDescriptor property in Properties)

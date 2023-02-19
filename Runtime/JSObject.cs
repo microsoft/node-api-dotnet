@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquatable<JSValue>
+public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IJSValue
 {
     private readonly JSValue _value;
 
@@ -20,6 +20,8 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
     public JSObject() : this(JSValue.CreateObject())
     {
     }
+
+    JSValue IJSValue.Value => _value;
 
     int ICollection<KeyValuePair<JSValue, JSValue>>.Count
         => _value.GetPropertyNames().GetArrayLength();

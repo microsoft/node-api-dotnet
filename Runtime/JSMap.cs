@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable<JSValue>
+public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IJSValue
 {
     private readonly JSValue _value;
 
@@ -35,6 +35,8 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
     {
         _value = JSContext.Current.Import("Map").CallAsConstructor(iterable);
     }
+
+    JSValue IJSValue.Value => _value;
 
     public int Count => (int)_value["size"];
 

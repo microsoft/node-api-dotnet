@@ -26,7 +26,8 @@ public partial struct JSMap
         JSValue.From<TValue> valueToJS) =>
         new Dictionary<TKey, TValue>(_value, keyFromJS, valueFromJS, keyToJS, valueToJS);
 
-    internal class ReadOnlyDictionary<TKey, TValue> : IReadOnlyDictionary<TKey, TValue>
+    internal class ReadOnlyDictionary<TKey, TValue> :
+        IReadOnlyDictionary<TKey, TValue>, IJSValue, IDisposable
     {
         internal ReadOnlyDictionary(
             JSValue map,
@@ -42,7 +43,9 @@ public partial struct JSMap
 
         private readonly JSReference _mapReference;
 
-        protected internal JSValue Value => _mapReference.GetValue()!.Value;
+        public JSValue Value => _mapReference.GetValue()!.Value;
+
+        bool IEquatable<JSValue>.Equals(JSValue other) => Value.Equals(other);
 
         protected JSValue.To<TKey> KeyFromJS { get; }
         protected JSValue.To<TValue> ValueFromJS { get; }
@@ -93,6 +96,21 @@ public partial struct JSMap
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _mapReference.Dispose();
+            }
+        }
     }
 
     internal class Dictionary<TKey, TValue> :

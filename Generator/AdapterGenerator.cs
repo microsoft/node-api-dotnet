@@ -44,9 +44,14 @@ internal class AdapterGenerator : SourceGenerator
     private const string AdapterToPrefix = "to_";
 
     /// <summary>
-    /// Prefix for a proxy handler field for a collection type.
+    /// Prefix for a JS proxy handler field for a C# collection type.
     /// </summary>
     private const string ProxyPrefix = "proxy_";
+
+    /// <summary>
+    /// Prefix for a generated C# proxy class for an interface implemented by JS.
+    /// </summary>
+    private const string InterfaceClassPrefix = "proxy_";
 
     /// <summary>
     /// Maps from property and method adapter names to property or method symbols.
@@ -54,12 +59,17 @@ internal class AdapterGenerator : SourceGenerator
     private readonly Dictionary<string, ISymbol> _adaptedMembers = new();
 
     /// <summary>
-    /// Maps from struct adapter names to struct type symbols.
+    /// Maps from interface adapter class names to interface type symbols.
+    /// </summary>
+    private readonly Dictionary<string, ITypeSymbol> _adaptedInterfaces = new();
+
+    /// <summary>
+    /// Maps from struct adapter method names to struct type symbols.
     /// </summary>
     private readonly Dictionary<string, ITypeSymbol> _adaptedStructs = new();
 
     /// <summary>
-    /// Maps from array adapter names to array element type symbols.
+    /// Maps from array adapter method names to array element type symbols.
     /// </summary>
     private readonly Dictionary<string, ITypeSymbol> _adaptedArrays = new();
 
@@ -146,6 +156,21 @@ internal class AdapterGenerator : SourceGenerator
         string className = method.ContainingType.Name;
         string adapterName = $"{ns.Replace('.', '_')}_{className}_{method.Name}";
         _adaptedMembers.Add(adapterName, method);
+        return adapterName;
+    }
+
+    /// <summary>
+    /// Gets the name of an adapter class to be generated that is a proxy to a JS value
+    /// that implements the interface.
+    /// </summary>
+    private string GetInterfaceAdapterName(ITypeSymbol interfaceType)
+    {
+        string ns = GetNamespace(interfaceType);
+        string adapterName = $"{InterfaceClassPrefix}{ns.Replace('.', '_')}_{interfaceType.Name}";
+        if (!_adaptedInterfaces.ContainsKey(adapterName))
+        {
+            _adaptedInterfaces.Add(adapterName, interfaceType);
+        }
         return adapterName;
     }
 
@@ -272,6 +297,20 @@ internal class AdapterGenerator : SourceGenerator
             {
                 GeneratePropertyAdapter(ref s, adapterName, (IPropertySymbol)symbol);
             }
+        }
+
+        if (_adaptedInterfaces.Count > 0)
+        {
+            s++;
+            GenerateInterfaceAdapterBase(ref s);
+        }
+
+        foreach (KeyValuePair<string, ITypeSymbol> nameAndSymbol in _adaptedInterfaces)
+        {
+            s++;
+            string adapterName = nameAndSymbol.Key;
+            ITypeSymbol interfaceSymbol = nameAndSymbol.Value;
+            GenerateInterfaceAdapter(ref s, adapterName, interfaceSymbol);
         }
 
         foreach (KeyValuePair<string, ITypeSymbol> nameAndSymbol in _adaptedStructs)
@@ -521,6 +560,138 @@ internal class AdapterGenerator : SourceGenerator
         }
     }
 
+    /// <summary>
+    /// Generates a base class for generated interface adapters that holds a reference
+    /// to the JS value.
+    /// </summary>
+    private void GenerateInterfaceAdapterBase(ref SourceBuilder s)
+    {
+        s += "private abstract class __JSInterface : IJSValue";
+        s += "{";
+
+        // The constructor saves a strong reference to the JS object. The reference enables the
+        // same adapter instance to be re-used across multiple scopes.
+        s += "protected __JSInterface(JSValue value)";
+        s += "{";
+        s += "__jsReference = new JSReference(value);";
+        s += "}";
+        s += "private readonly JSReference __jsReference;";
+
+        // IJSValue.Value is implemented explicitly to avoid potential naming conflicts.
+        s += "JSValue IJSValue.Value => __jsReference.GetValue()!.Value;";
+        s += "protected JSValue __Value => __jsReference.GetValue()!.Value;";
+        s += "bool System.IEquatable<JSValue>.Equals(JSValue other) => __Value.Equals(other);";
+        s += "}";
+    }
+
+    /// <summary>
+    /// Generates a class that implements an interface by making calls to a JS value.
+    /// </summary>
+    private void GenerateInterfaceAdapter(
+        ref SourceBuilder s,
+        string adapterName,
+        ITypeSymbol interfaceType)
+    {
+        /*
+         * private sealed class proxy_IInterfaceName : __JSInterface, IInterfaceName
+         * {
+         *     public proxy_IInterfaceName(JSValue value) : base(value) { }
+         *
+         */
+        s += $"private sealed class {adapterName} : __JSInterface, {interfaceType}";
+        s += "{";
+        s += $"public {adapterName}(JSValue value) : base(value) {{ }}";
+
+        foreach (ISymbol member in interfaceType.GetMembers())
+        {
+            if (member is IPropertySymbol property)
+            {
+                /*
+                 * public PropertyTYpe PropertyName
+                 * {
+                 *     get => (PropertyType)__Value.GetProperty("propertyName");
+                 *     set => __Value.SetProperty("propertyName", (JSValue)value);
+                 * }
+                 */
+                s++;
+                s += $"public {property.Type} {property.Name}";
+                s += "{";
+                string jsPropertyName = ToCamelCase(property.Name);
+                if (!property.IsWriteOnly)
+                {
+                    s += "get => " +
+                        ConvertTo($"__Value.GetProperty(\"{jsPropertyName}\")", property.Type) +
+                        ";";
+                }
+                if (!property.IsReadOnly)
+                {
+                    s += $"set => __Value.SetProperty(\"{jsPropertyName}\", " +
+                        ConvertFrom("value", property.Type) + ");";
+                }
+                s += "}";
+            }
+            else if (member is IMethodSymbol method &&
+                method.MethodKind == MethodKind.Ordinary)
+            {
+                /*
+                 * public ReturnType MethodName(Param0Type param0Name, ...)
+                 * {
+                 *     var __result = __Value.CallMethod(
+                 *         "methodName",
+                 *         (JSValue)param0Name,
+                 *         ...);
+                 *     return (ReturnType)__result;
+                 * }
+                 */
+                s++;
+                bool isAsync = GetFullName(method.ReturnType) == "System.Threading.Tasks.Task";
+                s += $"public {(isAsync ? "async " : "")}{method.ReturnType} {method.Name}(" +
+                    (method.Parameters.Length == 0 ? ")" : string.Empty);
+                for (int i = 0; i < method.Parameters.Length; i++)
+                {
+                    IParameterSymbol parameter = method.Parameters[i];
+                    s += $"{parameter.Type} {parameter.Name}" +
+                        (i < method.Parameters.Length - 1 ? "," : ")");
+                }
+                s += "{";
+
+                string jsMethodName = ToCamelCase(method.Name);
+                IReadOnlyList<IParameterSymbol> parameters = method.Parameters;
+                string returnAssignment = method.ReturnsVoid ? string.Empty : "var __result = ";
+                s += $"{returnAssignment}__Value.CallMethod(\n\"{jsMethodName}\"" +
+                    (parameters.Count > 0 ? "," : ");");
+                for (int i = 0; i < parameters.Count; i++)
+                {
+                    s += "\t" + ConvertFrom(parameters[i].Name, parameters[i].Type) +
+                        (i < parameters.Count - 1 ? "," : ");");
+                }
+
+                if (isAsync)
+                {
+                    IReadOnlyList<ITypeSymbol> typeArguments =
+                        ((INamedTypeSymbol)method.ReturnType).TypeArguments;
+                    if (typeArguments.Count == 1)
+                    {
+                        s += $"return await ((JSPromise)__result).AsTask(";
+                        s += $"(value) => {ConvertTo("value", typeArguments[0])});";
+                    }
+                    else
+                    {
+                        s += $"await ((JSPromise)__result).AsTask();";
+                    }
+
+                }
+                else if (!method.ReturnsVoid)
+                {
+                    s += "return " + ConvertTo("__result", method.ReturnType) + ";";
+                }
+                s += "}";
+            }
+        }
+
+        s += "}";
+    }
+
     private void GenerateStructAdapter(
         ref SourceBuilder s,
         string adapterName,
@@ -668,7 +839,7 @@ internal class AdapterGenerator : SourceGenerator
         string fieldName,
         INamedTypeSymbol targetType)
     {
-        /**
+        /*
          * private static readonly Lazy<JSProxy.Handler> proxy_ICollection_of_Int32 = new(
          *     () => JSIterable.CreateProxyHandlerForCollection<int>(JSContext.Current, (item) => (JSValue)(item)),
          *     LazyThreadSafetyMode.ExecutionAndPublication);
@@ -759,28 +930,28 @@ internal class AdapterGenerator : SourceGenerator
     /// </summary>
     private void AdaptThisArg(ref SourceBuilder s, ISymbol symbol)
     {
-        string ns = GetNamespace(symbol);
-        string typeName = symbol.ContainingType.Name;
+        string fullTypeName = GetFullName(symbol.ContainingType);
 
         if (symbol.ContainingType.GetAttributes().Any(
             (a) => a.AttributeClass?.Name == "JSModuleAttribute"))
         {
             // For a method on a module class, the .NET object is stored in module instance data.
             // Note `ThisArg` is ignored for module-level methods.
-            s += $"if (!(JSContext.Current.Module is {ns}.{typeName} __obj)) " +
+            s += $"if (!(JSContext.Current.Module is {fullTypeName} __obj)) " +
                 "return JSValue.Undefined;";
         }
-        else if (symbol.ContainingType.TypeKind == TypeKind.Class)
+        else if (symbol.ContainingType.TypeKind == TypeKind.Class ||
+            symbol.ContainingType.TypeKind == TypeKind.Interface)
         {
             // For normal instance methods, the .NET object is wrapped by the JS object.
-            s += $"if (!(__args.ThisArg.Unwrap() is {ns}.{typeName} __obj)) " +
+            s += $"if (!(__args.ThisArg.Unwrap() is {fullTypeName} __obj)) " +
                 "return JSValue.Undefined;";
         }
         else if (symbol.ContainingType.TypeKind == TypeKind.Struct)
         {
             // Structs are not wrapped; they are passed by value via an adapter method.
             string adapterName = GetStructAdapterName(symbol.ContainingType, toJS: false);
-            s += $"{ns}.{typeName} __obj = {adapterName}(__args.ThisArg);";
+            s += $"{fullTypeName} __obj = {adapterName}(__args.ThisArg);";
         }
     }
 
@@ -926,7 +1097,15 @@ internal class AdapterGenerator : SourceGenerator
             }
         }
 
-        // TODO: Handle other kinds of conversions from JSValue.
+        if (toType.TypeKind == TypeKind.Interface)
+        {
+            VerifyReferencedTypeIsExported(toType);
+
+            string adapterName = GetInterfaceAdapterName(toType);
+            return $"JSNativeApi.TryUnwrap({fromExpression}, out var __obj) " +
+                $"?\n({toType})__obj! :\nnew {adapterName}({fromExpression})";
+        }
+
         // TODO: Handle unwrapping external values.
         return $"default({toType})" + (toType.IsValueType ? string.Empty : "!");
     }
@@ -967,11 +1146,6 @@ internal class AdapterGenerator : SourceGenerator
         else if (fromType.TypeKind == TypeKind.Enum)
         {
             return $"(JSValue)({((INamedTypeSymbol)fromType).EnumUnderlyingType})({fromExpression})";
-        }
-        else if (fromType.TypeKind == TypeKind.Class)
-        {
-            VerifyReferencedTypeIsExported(fromType);
-            return $"JSContext.Current.GetOrCreateObjectWrapper({fromExpression})";
         }
         else if (fromType.TypeKind == TypeKind.Struct)
         {
@@ -1023,7 +1197,21 @@ internal class AdapterGenerator : SourceGenerator
             }
         }
 
-        // TODO: Handle other kinds of conversions to JSValue.
+        if (fromType.TypeKind == TypeKind.Class)
+        {
+            VerifyReferencedTypeIsExported(fromType);
+            return $"JSContext.Current.GetOrCreateObjectWrapper({fromExpression})";
+        }
+        else if (fromType.TypeKind == TypeKind.Interface)
+        {
+            VerifyReferencedTypeIsExported(fromType);
+
+            // The object may implement IJSValue if it is a generated interface proxy class.
+            // Otherwise it is a C# class implementing the interface, that needs a class wrapper.
+            return $"({fromExpression} as IJSValue)?.Value ??\n" +
+                $"JSContext.Current.GetOrCreateObjectWrapper({fromExpression})";
+        }
+
         // TODO: Consider wrapping unsupported types in a value of type "external".
         return "JSValue.Undefined";
     }

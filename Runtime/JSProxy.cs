@@ -8,7 +8,7 @@ namespace NodeApi;
 /// <summary>
 /// Enables creation of JS Proxy objects with C# handler callbacks.
 /// </summary>
-public readonly partial struct JSProxy : IEquatable<JSValue>
+public readonly partial struct JSProxy : IJSValue
 {
     private readonly JSValue _value;
     private readonly JSValue _revoke;
@@ -20,6 +20,8 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
     {
         _value = value;
     }
+
+    JSValue IJSValue.Value => _value;
 
     /// <summary>
     /// Creates a new JS proxy for a target.

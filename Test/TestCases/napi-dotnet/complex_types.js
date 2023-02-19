@@ -34,6 +34,12 @@ classInstance2.value = 'test2';
 assert.strictEqual(classInstance2.value, classInstance.value);
 assert.strictEqual(classInstance.value, 'test2');
 
+// Class instances can be passed via interfaces also.
+const iterfaceInstance = ComplexTypes.interfaceObject;
+assert.strictEqual(iterfaceInstance.value, 'test');
+ComplexTypes.classObject.value = 'test2';
+assert.strictEqual(iterfaceInstance.value, 'test2');
+
 // Test an exported struct.
 const StructObject = binding.StructObject;
 assert.strictEqual(typeof StructObject, 'function');

@@ -35,7 +35,9 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         foreach (ISymbol exportItem in _exportItems)
         {
             if (exportItem is ITypeSymbol exportClass &&
-                (exportClass.TypeKind == TypeKind.Class || exportClass.TypeKind == TypeKind.Struct))
+                (exportClass.TypeKind == TypeKind.Class ||
+                exportClass.TypeKind == TypeKind.Struct ||
+                exportClass.TypeKind == TypeKind.Interface))
             {
                 GenerateClassDefinition(ref s, exportClass);
             }
@@ -92,9 +94,19 @@ internal class TypeDefinitionsGenerator : SourceGenerator
     {
         s++;
         GenerateDocComments(ref s, exportClass);
-        string classKind = exportClass.IsStatic ? "namespace" : "class";
+        string classKind = exportClass.TypeKind == TypeKind.Interface ? "interface" :
+            exportClass.IsStatic ? "declare namespace" : "declare class";
+
+        string implements = string.Empty;
+        foreach (INamedTypeSymbol? implemented in exportClass.Interfaces.Where(
+            (type) => _exportItems.Contains(type, SymbolEqualityComparer.Default)))
+        {
+            implements += (implements.Length == 0 ? " implements " : ", ");
+            implements += implemented.Name;
+        }
+
         string exportName = ModuleGenerator.GetExportName(exportClass);
-        s += $"export declare {classKind} {exportName} {{";
+        s += $"export {classKind} {exportName}{implements} {{";
 
         bool isFirstMember = true;
         foreach (ISymbol member in exportClass.GetMembers()
