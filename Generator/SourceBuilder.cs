@@ -63,6 +63,10 @@ internal class SourceBuilder : SourceText
         {
             DecreaseIndent();
         }
+        else if (line.StartsWith("{"))
+        {
+            ResetExtraIndent();
+        }
 
         if (line.Length > 0)
         {

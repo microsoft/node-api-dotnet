@@ -58,7 +58,7 @@ public partial struct JSIterable
         }
     }
 
-    internal class Enumerable<T> : IEnumerable<T>, IDisposable
+    internal class Enumerable<T> : IEnumerable<T>, IEquatable<JSValue>, IDisposable
     {
         internal Enumerable(JSValue iterable, JSValue.To<T> fromJS)
         {
@@ -68,15 +68,15 @@ public partial struct JSIterable
 
         private readonly JSReference _iterableReference;
 
-        protected internal JSValue Value => _iterableReference.GetValue()!.Value;
+        public JSValue Value => _iterableReference.GetValue()!.Value;
+
+        bool IEquatable<JSValue>.Equals(JSValue other) => Value.Equals(other);
 
         protected JSValue.To<T> FromJS { get; }
 
         public IEnumerator<T> GetEnumerator() => new Enumerator<T>(Value, FromJS);
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public bool IsDisposed { get; private set; }
 
         public void Dispose()
         {
@@ -87,14 +87,9 @@ public partial struct JSIterable
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!IsDisposed)
+            if (disposing)
             {
-                if (disposing)
-                {
-                    _iterableReference.Dispose();
-                }
-
-                IsDisposed = true;
+                _iterableReference.Dispose();
             }
         }
     }

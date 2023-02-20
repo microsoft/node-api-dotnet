@@ -190,15 +190,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         type,
                         "Exporting delegates is not currently supported.");
                 }
-                else if (type.TypeKind == TypeKind.Interface)
-                {
-                    ReportError(
-                        DiagnosticId.UnsupportedTypeKind,
-                        type,
-                        "Exporting interfaces is not currently supported.");
-                }
                 else if (type.TypeKind != TypeKind.Class &&
                     type.TypeKind != TypeKind.Struct &&
+                    type.TypeKind != TypeKind.Interface &&
                     type.TypeKind != TypeKind.Enum)
                 {
                     ReportError(
@@ -217,7 +211,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
                 yield return type;
             }
-            else if (type.TypeKind == TypeKind.Class)
+            else if (type.TypeKind == TypeKind.Class || type.TypeKind == TypeKind.Struct)
             {
                 foreach (ISymbol? member in type.GetMembers())
                 {
@@ -379,15 +373,21 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         {
             string exportName = GetExportName(exportItem);
             if (exportItem is ITypeSymbol exportClass &&
-                exportClass.TypeKind == TypeKind.Class)
+                (exportClass.TypeKind == TypeKind.Class ||
+                exportClass.TypeKind == TypeKind.Interface))
             {
                 s += $".AddProperty(\"{exportName}\",";
                 s.IncreaseIndent();
 
                 string ns = GetNamespace(exportClass);
-                if (exportClass.IsStatic)
+                if (exportClass.TypeKind == TypeKind.Interface)
                 {
-                    // Static classes are projected as simple JS objects with defined properties.
+                    // Interfaces do not have constructors.
+                    s += $"new JSClassBuilder<{exportClass}>(context, \"{exportName}\")";
+                }
+                else if (exportClass.IsStatic)
+                {
+                    // Static classes do not have constructors, and cannot be used as type params.
                     s += $"new JSClassBuilder<object>(context, \"{exportName}\")";
                 }
                 else
@@ -414,7 +414,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
                 // Export all the class members, then define the class.
                 ExportMembers(ref s, exportClass, adapterGenerator);
-                s += exportClass.IsStatic ? ".DefineStaticClass())" : ".DefineClass())";
+                s += exportClass.TypeKind == TypeKind.Interface ? ".DefineInterface())" :
+                    exportClass.IsStatic ? ".DefineStaticClass())" : ".DefineClass())";
                 s.DecreaseIndent();
             }
             else if (exportItem is ITypeSymbol exportStruct &&
