@@ -566,7 +566,7 @@ internal class AdapterGenerator : SourceGenerator
     /// </summary>
     private void GenerateInterfaceAdapterBase(ref SourceBuilder s)
     {
-        s += "private abstract class __JSInterface : IJSValue";
+        s += "private abstract class __JSInterface";
         s += "{";
 
         // The constructor saves a strong reference to the JS object. The reference enables the
@@ -576,11 +576,7 @@ internal class AdapterGenerator : SourceGenerator
         s += "__jsReference = new JSReference(value);";
         s += "}";
         s += "private readonly JSReference __jsReference;";
-
-        // IJSValue.Value is implemented explicitly to avoid potential naming conflicts.
-        s += "JSValue IJSValue.Value => __jsReference.GetValue()!.Value;";
-        s += "protected JSValue __Value => __jsReference.GetValue()!.Value;";
-        s += "bool System.IEquatable<JSValue>.Equals(JSValue other) => __Value.Equals(other);";
+        s += "public JSValue __Value => __jsReference.GetValue()!.Value;";
         s += "}";
     }
 
@@ -1206,9 +1202,9 @@ internal class AdapterGenerator : SourceGenerator
         {
             VerifyReferencedTypeIsExported(fromType);
 
-            // The object may implement IJSValue if it is a generated interface proxy class.
+            // The object may extend __JSInterface if it is a generated interface proxy class.
             // Otherwise it is a C# class implementing the interface, that needs a class wrapper.
-            return $"({fromExpression} as IJSValue)?.Value ??\n" +
+            return $"({fromExpression} as __JSInterface)?.__Value ??\n" +
                 $"JSContext.Current.GetOrCreateObjectWrapper({fromExpression})";
         }
 

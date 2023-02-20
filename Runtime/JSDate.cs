@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly struct JSDate : IJSValue
+public readonly struct JSDate : IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
@@ -29,8 +29,6 @@ public readonly struct JSDate : IJSValue
     {
         _value = JSContext.Current.Import("Date").CallAsConstructor(dateString);
     }
-
-    JSValue IJSValue.Value => _value;
 
     public long DateValue => (long)_value.CallMethod("valueOf");
 

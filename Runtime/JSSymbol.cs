@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly struct JSSymbol : IJSValue
+public readonly struct JSSymbol : IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
@@ -22,8 +22,6 @@ public readonly struct JSSymbol : IJSValue
     {
         _value = JSValue.CreateSymbol(description ?? JSValue.Undefined);
     }
-
-    JSValue IJSValue.Value => _value;
 
     public static JSSymbol For(ReadOnlySpan<byte> utf8Name)
     {

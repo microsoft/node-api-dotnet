@@ -58,7 +58,7 @@ public partial struct JSIterable
         }
     }
 
-    internal class Enumerable<T> : IEnumerable<T>, IJSValue, IDisposable
+    internal class Enumerable<T> : IEnumerable<T>, IEquatable<JSValue>, IDisposable
     {
         internal Enumerable(JSValue iterable, JSValue.To<T> fromJS)
         {

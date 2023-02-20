@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly partial struct JSArray : IList<JSValue>, IJSValue
+public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
@@ -30,8 +30,6 @@ public readonly partial struct JSArray : IList<JSValue>, IJSValue
     public JSArray(int length) : this(JSValue.CreateArray(length))
     {
     }
-
-    JSValue IJSValue.Value => _value;
 
     public int Length => _value.GetArrayLength();
 

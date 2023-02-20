@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace NodeApi;
 
-public readonly partial struct JSSet : ISet<JSValue>, IJSValue
+public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
@@ -39,8 +39,6 @@ public readonly partial struct JSSet : ISet<JSValue>, IJSValue
     {
         _value = JSContext.Current.Import("Set").CallAsConstructor(iterable);
     }
-
-    JSValue IJSValue.Value => _value;
 
     public int Count => (int)_value["size"];
 

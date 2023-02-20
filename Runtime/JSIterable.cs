@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NodeApi;
 
-public readonly partial struct JSIterable : IEnumerable<JSValue>, IJSValue
+public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
@@ -22,8 +22,6 @@ public readonly partial struct JSIterable : IEnumerable<JSValue>, IJSValue
     {
         _value = value;
     }
-
-    JSValue IJSValue.Value => _value;
 
     public Enumerator GetEnumerator() => new(_value);
 

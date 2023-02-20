@@ -10,7 +10,7 @@ namespace NodeApi;
 /// Represents a JavaScript Promise object.
 /// </summary>
 /// <seealso cref="TaskExtensions"/>
-public readonly struct JSPromise : IJSValue
+public readonly struct JSPromise : IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
@@ -24,8 +24,6 @@ public readonly struct JSPromise : IJSValue
     {
         _value = value;
     }
-
-    JSValue IJSValue.Value => _value;
 
     public delegate void ResolveCallback(Action<JSValue> resolve);
 

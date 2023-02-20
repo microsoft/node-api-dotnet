@@ -27,7 +27,7 @@ public partial struct JSMap
         new Dictionary<TKey, TValue>(_value, keyFromJS, valueFromJS, keyToJS, valueToJS);
 
     internal class ReadOnlyDictionary<TKey, TValue> :
-        IReadOnlyDictionary<TKey, TValue>, IJSValue, IDisposable
+        IReadOnlyDictionary<TKey, TValue>, IEquatable<JSValue>, IDisposable
     {
         internal ReadOnlyDictionary(
             JSValue map,
