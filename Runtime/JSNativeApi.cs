@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -286,6 +287,13 @@ public static partial class JSNativeApi
 
     public static bool DeleteElement(this JSValue thisValue, int index)
         => napi_delete_element(Env, (napi_value)thisValue, (uint)index, out c_bool result).ThrowIfFailed((bool)result);
+
+    public static unsafe void DefineProperties(this JSValue thisValue, IReadOnlyCollection<JSPropertyDescriptor> descriptors)
+    {
+        nint[] handles = ToUnmanagedPropertyDescriptors(ReadOnlySpan<byte>.Empty, descriptors, (_, count, descriptorsPtr) =>
+          napi_define_properties(Env, (napi_value)thisValue, count, descriptorsPtr).ThrowIfFailed());
+        Array.ForEach(handles, handle => thisValue.AddGCHandleFinalizer(handle));
+    }
 
     public static unsafe void DefineProperties(this JSValue thisValue, params JSPropertyDescriptor[] descriptors)
     {
@@ -912,14 +920,17 @@ public static partial class JSNativeApi
         }
     }
 
-    private static unsafe nint[] ToUnmanagedPropertyDescriptors(ReadOnlySpan<byte> name, JSPropertyDescriptor[] descriptors, UseUnmanagedDescriptors action)
+    private static unsafe nint[] ToUnmanagedPropertyDescriptors(
+        ReadOnlySpan<byte> name,
+        IReadOnlyCollection<JSPropertyDescriptor> descriptors,
+        UseUnmanagedDescriptors action)
     {
-        nint[] handlesToFinalize = new nint[descriptors.Length];
-        int count = descriptors.Length;
+        nint[] handlesToFinalize = new nint[descriptors.Count];
+        int count = descriptors.Count;
         napi_property_descriptor* descriptorsPtr = stackalloc napi_property_descriptor[count];
-        for (int i = 0; i < count; i++)
+        int i = 0;
+        foreach (JSPropertyDescriptor descriptor in descriptors)
         {
-            JSPropertyDescriptor descriptor = descriptors[i];
             napi_property_descriptor* descriptorPtr = &descriptorsPtr[i];
             descriptorPtr->name = (napi_value)descriptor.Name;
             descriptorPtr->utf8name = nint.Zero;
@@ -936,6 +947,7 @@ public static partial class JSNativeApi
             {
                 handlesToFinalize[i] = descriptorPtr->data = nint.Zero;
             }
+            i++;
         }
         action(name, (nuint)count, descriptorsPtr);
         return handlesToFinalize;

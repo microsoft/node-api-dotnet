@@ -88,7 +88,7 @@ internal static class TestBuilder
         return testCasesDir;
     }
 
-    public static IEnumerable<object[]> ListTestCases()
+    public static IEnumerable<object[]> ListTestCases(Predicate<string>? filter = null)
     {
         var dirQueue = new Queue<string>();
         dirQueue.Enqueue(TestCasesDirectory);
@@ -113,7 +113,10 @@ internal static class TestBuilder
             {
                 if (jsFile.EndsWith(".d.ts")) continue;
                 string testCaseName = Path.GetFileNameWithoutExtension(jsFile);
-                yield return new[] { moduleName + "/" + testCaseName };
+                if (filter == null || filter(moduleName + "/" + testCaseName))
+                {
+                    yield return new[] { moduleName + "/" + testCaseName };
+                }
             }
         }
     }

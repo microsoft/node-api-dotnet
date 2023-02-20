@@ -31,6 +31,11 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
         _value.DefineProperties(descriptors);
     }
 
+    public void DefineProperties(IReadOnlyCollection<JSPropertyDescriptor> descriptors)
+    {
+        _value.DefineProperties(descriptors);
+    }
+
     public JSObject Wrap(object target)
     {
         JSNativeApi.Wrap(_value, target);
