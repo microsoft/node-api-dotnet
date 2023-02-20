@@ -12,13 +12,12 @@ public partial struct JSSet
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForReadOnlySet<T>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForReadOnlySet<T>(
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
         return new JSProxy.Handler(
-            context, $"{nameof(IReadOnlySet<T>)}<{typeof(T).Name}>")
+            $"{nameof(IReadOnlySet<T>)}<{typeof(T).Name}>")
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
             {
@@ -55,13 +54,12 @@ public partial struct JSSet
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForSet<T>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForSet<T>(
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
         return new JSProxy.Handler(
-            context, $"{nameof(ISet<T>)}<{typeof(T).Name}>")
+            $"{nameof(ISet<T>)}<{typeof(T).Name}>")
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
             {

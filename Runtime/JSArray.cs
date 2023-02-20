@@ -54,6 +54,38 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
         }
     }
 
+    /// <summary>
+    /// Copies array elements to a destination array, converting each element from JS
+    /// values using a conversion delegate.
+    /// </summary>
+    /// <param name="array">Destination array.</param>
+    /// <param name="arrayIndex">Starting index in the destination array.</param>
+    /// <param name="fromJS">Delegate that converts from JS value to array element type.</param>
+    public void CopyTo<T>(T[] array, int arrayIndex, JSValue.To<T> fromJS)
+    {
+        int i = arrayIndex;
+        foreach (JSValue item in this)
+        {
+            array[i++] = fromJS(item);
+        }
+    }
+
+    /// <summary>
+    /// Copies array elements from a source array, converting each element to JS values
+    /// using a conversion delegate.
+    /// </summary>
+    /// <param name="array">Source array.</param>
+    /// <param name="arrayIndex">Starting index in the destination array.</param>
+    /// <param name="toJS">Delegate that converts from array element type to JS value.</param>
+    public void CopyFrom<T>(T[] array, int arrayIndex, JSValue.From<T> toJS)
+    {
+        int i = arrayIndex;
+        foreach (T item in array)
+        {
+            this[i++] = toJS(item);
+        }
+    }
+
     public Enumerator GetEnumerator() => new(_value);
 
     IEnumerator<JSValue> IEnumerable<JSValue>.GetEnumerator() => GetEnumerator();

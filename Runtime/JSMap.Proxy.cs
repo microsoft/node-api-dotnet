@@ -12,14 +12,12 @@ public partial struct JSMap
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForReadOnlyDictionary<TKey, TValue>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForReadOnlyDictionary<TKey, TValue>(
         JSValue.From<TKey> keyToJS,
         JSValue.From<TValue> valueToJS,
         JSValue.To<TKey> keyFromJS)
     {
         return new JSProxy.Handler(
-            context,
             $"{nameof(IReadOnlyDictionary<TKey, TValue>)}<{typeof(TKey).Name}, {typeof(TValue).Name}>")
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
@@ -66,15 +64,14 @@ public partial struct JSMap
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForDictionary<TKey, TValue>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForDictionary<TKey, TValue>(
         JSValue.From<TKey> keyToJS,
         JSValue.From<TValue> valueToJS,
         JSValue.To<TKey> keyFromJS,
         JSValue.To<TValue> valueFromJS)
     {
         return new JSProxy.Handler(
-            context, $"{nameof(IDictionary<TKey, TValue>)}<{typeof(TKey).Name}, {typeof(TValue).Name}>")
+            $"{nameof(IDictionary<TKey, TValue>)}<{typeof(TKey).Name}, {typeof(TValue).Name}>")
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
             {

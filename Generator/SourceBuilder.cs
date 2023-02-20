@@ -79,7 +79,7 @@ internal class SourceBuilder : SourceText
         {
             IncreaseIndent();
         }
-        else if (line.EndsWith("(") || line.EndsWith(" ?"))
+        else if (line.EndsWith("(") || line.EndsWith("?"))
         {
             // The "extra" indent persists until the end of the set of lines appended together
             // (before the split) or until a line ending with a semicolon."

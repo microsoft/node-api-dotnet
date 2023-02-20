@@ -263,11 +263,11 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static implicit operator JSValue(ulong? value) => ValueOrNull(value, value => CreateNumber(value));
     public static implicit operator JSValue(float? value) => ValueOrNull(value, value => CreateNumber(value));
     public static implicit operator JSValue(double? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(string value) => CreateStringUtf16(value);
-    public static implicit operator JSValue(char[] value) => CreateStringUtf16(value);
+    public static implicit operator JSValue(string value) => value == null ? JSValue.Null : CreateStringUtf16(value);
+    public static implicit operator JSValue(char[] value) => value == null ? JSValue.Null : CreateStringUtf16(value);
     public static implicit operator JSValue(Span<char> value) => CreateStringUtf16(value);
     public static implicit operator JSValue(ReadOnlySpan<char> value) => CreateStringUtf16(value);
-    public static implicit operator JSValue(byte[] value) => CreateStringUtf8(value);
+    public static implicit operator JSValue(byte[] value) => value == null ? JSValue.Null : CreateStringUtf8(value);
     public static implicit operator JSValue(Span<byte> value) => CreateStringUtf8(value);
     public static implicit operator JSValue(ReadOnlySpan<byte> value) => CreateStringUtf8(value);
     public static implicit operator JSValue(JSCallback callback) => CreateFunction("Unknown", callback);
@@ -283,9 +283,9 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static explicit operator ulong(JSValue value) => (ulong)value.GetValueInt64();
     public static explicit operator float(JSValue value) => (float)value.GetValueDouble();
     public static explicit operator double(JSValue value) => value.GetValueDouble();
-    public static explicit operator string(JSValue value) => value.GetValueStringUtf16();
-    public static explicit operator char[](JSValue value) => value.GetValueStringUtf16AsCharArray();
-    public static explicit operator byte[](JSValue value) => value.GetValueStringUtf8();
+    public static explicit operator string(JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf16();
+    public static explicit operator char[](JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf16AsCharArray();
+    public static explicit operator byte[](JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf8();
     public static explicit operator bool?(JSValue value) => ValueOrNull(value, value => value.GetValueBool());
     public static explicit operator sbyte?(JSValue value) => ValueOrNull(value, value => (sbyte)value.GetValueInt32());
     public static explicit operator byte?(JSValue value) => ValueOrNull(value, value => (byte)value.GetValueUInt32());

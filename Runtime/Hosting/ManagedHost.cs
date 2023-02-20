@@ -11,20 +11,44 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi.Hosting;
 
+/// <summary>
+/// Supports loading and invoking managed .NET assemblies in a JavaScript process.
+/// </summary>
 [RequiresUnreferencedCode("Managed host is not used in trimmed assembly.")]
-public class ManagedHost : IDisposable
+[RequiresDynamicCode("Managed host is not used in trimmed assembly.")]
+public sealed class ManagedHost : IDisposable
 {
-    private ManagedHost()
-    {
-    }
-
     /// <summary>
     /// Each instance of a managed host uses a separate assembly load context.
     /// That way, static data is not shared across multiple host instances.
     /// </summary>
     private readonly AssemblyLoadContext _loadContext = new(name: default);
 
+    /// <summary>
+    /// The marshaler dynamically generates adapter delegates for calls to & from JS,
+    /// for assemblies that were not pre-built as Node API modules.
+    /// </summary>
+    private readonly JSMarshaler _marshaler = new();
+
     private readonly Dictionary<string, JSReference> _loadedModules = new();
+    private readonly Dictionary<string, AssemblyExporter> _loadedAssemblies = new();
+    private readonly AssemblyExporter _systemAssembly;
+
+    private ManagedHost()
+    {
+        Dictionary<string, JSReference> hostMethods = new()
+        {
+            // The require() method loads a .NET assembly that was built to be a Node API module.
+            // It uses static binding to the APIs the module specifically exports to JS.
+            ["require"] = new JSReference(JSValue.CreateFunction("require", LoadModule)),
+
+            // The load() method loads any .NET assembly and enables dynamic invocation of any APIs.
+            ["load"] = new JSReference(JSValue.CreateFunction("load", LoadAssembly)),
+        };
+
+        // Export the .NET core library assembly by default, along with additional methods above.
+        _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _marshaler, hostMethods);
+    }
 
     public static bool IsTracingEnabled { get; } =
         Environment.GetEnvironmentVariable("NODE_API_DOTNET_TRACE") == "1";
@@ -43,6 +67,13 @@ public class ManagedHost : IDisposable
     {
         Trace($"> ManagedHost.InitializeModule({env.Handle:X8})");
 
+#if DEBUG
+        if (Environment.GetEnvironmentVariable("DEBUG_NODE_API_RUNTIME") != null)
+        {
+            System.Diagnostics.Debugger.Launch();
+        }
+#endif
+
         try
         {
             // Ensure references to this assembly can be resolved when loading other assemblies.
@@ -50,34 +81,35 @@ public class ManagedHost : IDisposable
             AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
                 e.Name.Split(',')[0] == nameof(NodeApi) ? nodeApiAssembly : null;
 
-            using var scope = new JSValueScope(JSValueScopeType.Root, env);
-            var exportsValue = new JSValue(exports, scope);
-            new JSModuleBuilder<ManagedHost>()
-                .AddMethod("require", (host) => host.LoadModule)
-                .AddMethod("loadAssembly", (host) => LoadAssembly)
-                .ExportModule(new ManagedHost(), (JSObject)exportsValue);
+            using JSValueScope scope = new(JSValueScopeType.Root, env);
+            ManagedHost host = new();
+            exports = (napi_value)host._systemAssembly.AssemblyObject;
+
+            Trace("< ManagedHost.InitializeModule()");
+            return exports;
         }
         catch (Exception ex)
         {
             Trace($"Failed to load CLR managed host module: {ex}");
             JSError.ThrowError(ex);
+            return exports;
         }
-
-        Trace("< ManagedHost.InitializeModule()");
-
-        return exports;
     }
 
+    /// <summary>
+    /// Loads a .NET assembly that was built to be a Node API module, using static binding to
+    /// the APIs the module specifically exports to JS.
+    /// </summary>
     public JSValue LoadModule(JSCallbackArgs args)
     {
         string assemblyFilePath = (string)args[0];
+        Trace($"> ManagedHost.LoadModule({assemblyFilePath})");
 
         if (_loadedModules.TryGetValue(assemblyFilePath, out JSReference? exportsRef))
         {
+            Trace("< ManagedHost.LoadModule() => already loaded");
             return exportsRef.GetValue()!.Value;
         }
-
-        Trace($"> ManagedHost.LoadModule({assemblyFilePath})");
 
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 
@@ -129,7 +161,7 @@ public class ManagedHost : IDisposable
             _loadedModules.Add(assemblyFilePath, exportsRef);
         }
 
-        Trace("< ManagedHost.LoadModule()");
+        Trace("< ManagedHost.LoadModule() => newly loaded");
 
         return exports;
     }
@@ -154,21 +186,34 @@ public class ManagedHost : IDisposable
         return null;
     }
 
-    public static JSValue LoadAssembly(JSCallbackArgs args)
+    /// <summary>
+    /// Loads an arbitrary .NET assembly that isn't necessarily designed as a JS module,
+    /// enabling dynamic invocation of any APIs in the assembly.
+    /// </summary>
+    /// <returns>A JS object that represents the loaded assembly; each property of the object
+    /// is a public type.</returns>
+    public JSValue LoadAssembly(JSCallbackArgs args)
     {
-        // TODO: This can be used to load an arbitrary .NET assembly that isn't designed specially
-        // as a JS module. Then additional methods on the returned JS object can be used by JS code
-        // to "reflect" on the loaded assembly and invoke members.
-        return default;
+        string assemblyFilePath = (string)args[0];
+        Trace($"> ManagedHost.LoadAssembly({assemblyFilePath})");
+
+        if (_loadedAssemblies.TryGetValue(assemblyFilePath, out AssemblyExporter? assemblyExporter))
+        {
+            Trace("< ManagedHost.LoadAssembly() => already loaded");
+            return assemblyExporter.AssemblyObject;
+        }
+
+        Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+        assemblyExporter = new(assembly, _marshaler);
+        _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);
+        JSValue assemblyValue = assemblyExporter.AssemblyObject;
+
+        Trace("< ManagedHost.LoadAssembly() => newly loaded");
+        return assemblyValue;
     }
 
     public void Dispose()
     {
-        Dispose(disposing: true);
         GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
     }
 }

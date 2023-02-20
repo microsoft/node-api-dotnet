@@ -29,7 +29,7 @@ public static class AsyncMethods
     public static IAsyncInterface InterfaceTest { get; set; } = new AsyncTest();
 
     [JSExport("async_interface_reverse")]
-    public static async Task<string> ReverseInterfaceItest(
+    public static async Task<string> ReverseInterfaceTest(
         IAsyncInterface jsInterface, string greeter)
     {
         // Invoke a method on a JS object that implements the interface.
