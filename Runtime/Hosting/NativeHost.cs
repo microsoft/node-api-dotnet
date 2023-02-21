@@ -3,7 +3,6 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using static NodeApi.Hosting.HostFxr;
 using static NodeApi.JSNativeApi.Interop;
 

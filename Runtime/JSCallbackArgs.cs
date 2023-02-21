@@ -1,7 +1,5 @@
 using System;
 using System.Runtime.InteropServices;
-using static System.Formats.Asn1.AsnWriter;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
@@ -13,11 +11,11 @@ public readonly ref struct JSCallbackArgs
     private readonly ReadOnlySpan<napi_value> _args;
 
     internal unsafe JSCallbackArgs(JSValueScope scope,
-                                   napi_env env,
                                    napi_callback_info callbackInfo,
                                    Span<napi_value> args,
                                    object? data = null)                    
     {
+        napi_env env = (napi_env)scope;
         nint dataPointer;
         napi_value thisArgHandle;
         if (args.Length == 0)

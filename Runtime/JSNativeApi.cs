@@ -831,7 +831,7 @@ public static partial class JSNativeApi
             JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
             Span<napi_value> args = stackalloc napi_value[length];
             JSCallback callback = (JSCallback)data!;
-            return (napi_value)callback(new JSCallbackArgs(scope, env, callbackInfo, args));
+            return (napi_value)callback(new JSCallbackArgs(scope, callbackInfo, args));
         }
         catch (JSException ex)
         {
@@ -849,7 +849,7 @@ public static partial class JSNativeApi
         Span<napi_value> args = stackalloc napi_value[length];
         JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
         return (napi_value)desc.Method!.Invoke(
-            new JSCallbackArgs(scope, env, callbackInfo, args, desc.Data));
+            new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -860,7 +860,7 @@ public static partial class JSNativeApi
         Span<napi_value> args = stackalloc napi_value[length];
         JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
         return (napi_value)desc.Getter!.Invoke(
-            new JSCallbackArgs(scope, env, callbackInfo, args, desc.Data));
+            new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -871,7 +871,7 @@ public static partial class JSNativeApi
         Span<napi_value> args = stackalloc napi_value[length];
         JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
         return (napi_value)desc.Setter!.Invoke(
-            new JSCallbackArgs(scope, env, callbackInfo, args, desc.Data));
+            new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
