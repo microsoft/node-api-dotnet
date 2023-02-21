@@ -51,7 +51,7 @@ public class ManagedHost : IDisposable
                 e.Name.Split(',')[0] == nameof(NodeApi) ? nodeApiAssembly : null;
 
             using var scope = new JSValueScope(JSValueScopeType.Root, env);
-            var exportsValue = new JSValue(scope, exports);
+            var exportsValue = new JSValue(exports, scope);
             new JSModuleBuilder<ManagedHost>()
                 .AddMethod("require", (host) => host.LoadModule)
                 .AddMethod("loadAssembly", (host) => LoadAssembly)
@@ -115,11 +115,11 @@ public class ManagedHost : IDisposable
         JSValue exports = JSValue.CreateObject();
 
         var result = (napi_value?)initializeMethod.Invoke(
-            null, new object[] { (napi_env)args.Scope, (napi_value)exports });
+            null, new object[] { (napi_env)JSValueScope.Current, (napi_value)exports });
 
         if (result != null && result.Value != default)
         {
-            exports = new JSValue(args.Scope, result.Value);
+            exports = new JSValue(result.Value);
         }
 
         if (exports.IsObject())

@@ -9,9 +9,9 @@ public static class AsyncMethods
     [JSExport("async_method")]
     public static JSValue JSTest(JSCallbackArgs args)
     {
+        string greeter = (string)args[0];
         return new JSPromise(async (resolve) =>
         {
-            string greeter = (string)args[0];
             await Task.Delay(50);
             resolve((JSValue)$"Hey {greeter}!");
         });

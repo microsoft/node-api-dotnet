@@ -3,7 +3,6 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using static NodeApi.Hosting.HostFxr;
 using static NodeApi.JSNativeApi.Interop;
 
@@ -48,7 +47,7 @@ internal partial class NativeHost : IDisposable
 
             // The managed host defined several properties/methods already.
             // Add on a dispose method implemented by the native host that closes the CLR context.
-            new JSValue(scope, exports).DefineProperties(new JSPropertyDescriptor(
+            new JSValue(exports, scope).DefineProperties(new JSPropertyDescriptor(
                 nameof(NativeHost.Dispose),
                 (_) => { host.Dispose(); return default; }));
         }

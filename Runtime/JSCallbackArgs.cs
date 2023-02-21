@@ -1,51 +1,61 @@
+using System;
 using System.Runtime.InteropServices;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
 
-public class JSCallbackArgs
+public readonly ref struct JSCallbackArgs
 {
-    private readonly JSValue[] _args;
+    private readonly JSValueScope _scope;
+    private readonly napi_value _thisArg;
+    private readonly ReadOnlySpan<napi_value> _args;
 
-    public JSValue this[int index] => _args[index];
+    internal unsafe JSCallbackArgs(JSValueScope scope,
+                                   napi_callback_info callbackInfo,
+                                   Span<napi_value> args,
+                                   object? data = null)
+    {
+        napi_env env = (napi_env)scope;
+        nint dataPointer;
+        napi_value thisArgHandle;
+        if (args.Length == 0)
+        {
+            napi_get_cb_info(env, callbackInfo, null, null, &thisArgHandle, &dataPointer)
+                .ThrowIfFailed();
+        }
+        else
+        {
+            fixed (napi_value* argv = &args[0])
+            {
+                nuint argc = (nuint)args.Length;
+                napi_get_cb_info(env, callbackInfo, &argc, argv, &thisArgHandle, &dataPointer)
+                    .ThrowIfFailed();
+            }
+        }
+        _scope = scope;
+        _thisArg = thisArgHandle;
+        _args = args;
+        Data = data;
+    }
+
+    public JSValue ThisArg => new(_thisArg, _scope);
+
+    public JSValue this[int index] => new(_args[index], _scope);
 
     public int Length => _args.Length;
 
-    public JSValue ThisArg { get; }
+    public object? Data { get; }
 
-    public object? Data { get; set; }
-
-    public JSValue GetNewTarget()
+    internal static unsafe void GetDataAndLength(
+        napi_env env,
+        napi_callback_info callbackInfo,
+        out object? data,
+        out int length)
     {
-        napi_get_new_target((napi_env)Scope, CallbackInfo, out napi_value result).ThrowIfFailed();
-        return result;
-    }
-
-    internal JSValueScope Scope { get; }
-
-    internal napi_callback_info CallbackInfo { get; }
-
-    public JSCallbackArgs(JSValueScope scope, napi_callback_info callbackInfo)
-    {
-        Scope = scope;
-        CallbackInfo = callbackInfo;
-        unsafe
-        {
-            nuint argc = 0;
-            napi_get_cb_info((napi_env)scope, callbackInfo, &argc, null, null, nint.Zero).ThrowIfFailed();
-            napi_value* argv = stackalloc napi_value[(int)argc];
-            napi_value thisArg;
-            nint data;
-            napi_get_cb_info((napi_env)scope, callbackInfo, &argc, argv, &thisArg, new nint(&data)).ThrowIfFailed();
-
-            _args = new JSValue[(int)argc];
-            for (int i = 0; i < (int)argc; ++i)
-            {
-                _args[i] = argv[i];
-            }
-
-            ThisArg = thisArg;
-            Data = data != nint.Zero ? GCHandle.FromIntPtr(data).Target : null;
-        }
+        nuint argc = 0;
+        nint dataPointer;
+        napi_get_cb_info(env, callbackInfo, &argc, null, null, &dataPointer).ThrowIfFailed();
+        data = dataPointer != 0 ? GCHandle.FromIntPtr(dataPointer).Target : null;
+        length = (int)argc;
     }
 }

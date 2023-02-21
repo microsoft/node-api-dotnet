@@ -38,6 +38,16 @@ public sealed class JSContext : IDisposable
     private readonly ConcurrentDictionary<Type, JSReference> _classMap = new();
 
     /// <summary>
+    /// Maps from exported static class names to (strong references to) JS objects for each class.
+    /// </summary>
+    /// <remarks>
+    /// Used primarily to prevent the JS GC from collecting the class object, which can cause
+    /// class property descriptors to be finalized while a class method is still referenced and
+    /// called from JS.
+    /// </remarks>
+    private readonly ConcurrentDictionary<string, JSReference> _staticClassMap = new();
+
+    /// <summary>
     /// Maps from C# objects to (weak references to) JS wrappers for each object.
     /// </summary>
     /// <remarks>
@@ -105,6 +115,23 @@ public sealed class JSContext : IDisposable
             (_, _) => throw new InvalidOperationException(
                 "Class already registered for JS export: " + typeof(T)));
         return constructorFunction;
+    }
+
+    /// <summary>
+    /// Registers a static class JS object, preventing it from being GC'd before the module is
+    /// unloaded.
+    /// </summary>
+    /// <param name="name">Name of the static class.</param>
+    /// <param name="classObject">Object that has the class properties and methods.</param>
+    /// <returns>The JS object.</returns>
+    internal JSValue RegisterStaticClass(string name, JSValue classObject)
+    {
+        _staticClassMap.AddOrUpdate(
+            name,
+            (_) => new JSReference(classObject, isWeak: false),
+            (_, _) => throw new InvalidOperationException(
+                "Class already registered for JS export: " + name));
+        return classObject;
     }
 
     /// <summary>
@@ -432,6 +459,7 @@ public sealed class JSContext : IDisposable
 
         DisposeReferences(_objectMap);
         DisposeReferences(_classMap);
+        DisposeReferences(_staticClassMap);
         DisposeReferences(_structMap);
         SynchronizationContext.Dispose();
 

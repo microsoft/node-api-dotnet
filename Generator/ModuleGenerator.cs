@@ -286,7 +286,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "{";
         s += "using var scope = new JSValueScope(JSValueScopeType.Root, env);";
         s += "JSContext context = scope.ModuleContext;";
-        s += "JSValue exportsValue = new(scope, exports);";
+        s += "JSValue exportsValue = new(exports, scope);";
         s++;
 
         AdapterGenerator adapterGenerator = new(Context);
@@ -305,8 +305,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             string ns = GetNamespace(moduleInitializerMethod);
             string className = moduleInitializerMethod.ContainingType.Name;
             string methodName = moduleInitializerMethod.Name;
-            s += $"return {ns}.{className}.{methodName}(context, (JSObject)exportsValue)";
-            s += "\t.GetCheckedHandle();";
+            s += $"return (napi_value){ns}.{className}.{methodName}(";
+            s += "context, (JSObject)exportsValue);";
         }
         else
         {
@@ -314,7 +314,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
             ExportModule(ref s, moduleInitializer as ITypeSymbol, exportItems, adapterGenerator);
             s++;
-            s += "return exportsValue.GetCheckedHandle();";
+            s += "return (napi_value)exportsValue;";
         }
 
         s += "}";
@@ -519,20 +519,21 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // if the method does not match the `JSCallback` signature.
         string? adapterName = adapterGenerator.GetMethodAdapterName(method);
         string attributes = "JSPropertyAttributes.DefaultMethod" +
-            (method.IsStatic ? "| JSPropertyAttributes.Static" : string.Empty);
+            (method.IsStatic ? " | JSPropertyAttributes.Static" : string.Empty);
         if (adapterName != null)
         {
-            s += $".AddMethod(\"{exportName}\", {adapterName},\n{attributes})";
+            s += $".AddMethod(\"{exportName}\", {adapterName},\n\t{attributes})";
         }
         else if (method.IsStatic)
         {
             string ns = GetNamespace(method);
             string className = method.ContainingType.Name;
-            s += $".AddMethod(\"{exportName}\", () => {ns}.{className}.{method.Name},\n{attributes})";
+            s += $".AddMethod(\"{exportName}\", " +
+                $"() => {ns}.{className}.{method.Name},\n\t{attributes})";
         }
         else
         {
-            s += $".AddMethod(\"{exportName}\", (obj) => obj.{method.Name},\n{attributes})";
+            s += $".AddMethod(\"{exportName}\", (obj) => obj.{method.Name},\n\t{attributes})";
         }
     }
 

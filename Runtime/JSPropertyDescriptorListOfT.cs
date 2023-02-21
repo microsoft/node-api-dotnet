@@ -101,7 +101,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
 
     public TDerived AddMethod(
       string name,
-      Func<TObject, Action<JSCallbackArgs>> getMethod,
+      Func<TObject, JSCallbackAction> getMethod,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
     {
         return AddMethod(
@@ -148,7 +148,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
 
     public TDerived AddMethod(
       string name,
-      Func<TObject, Func<JSCallbackArgs, JSValue>> getMethod,
+      Func<TObject, JSCallback> getMethod,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
     {
         return AddMethod(
@@ -174,7 +174,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
 
     public TDerived AddMethod(
       string name,
-      Func<Action<JSCallbackArgs>> getMethod,
+      Func<JSCallbackAction> getMethod,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod | JSPropertyAttributes.Static)
     {
         return AddMethod(
@@ -200,7 +200,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
 
     public TDerived AddMethod(
       string name,
-      Func<Func<JSCallbackArgs, JSValue>> getMethod,
+      Func<JSCallback> getMethod,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod | JSPropertyAttributes.Static)
     {
         return AddMethod(

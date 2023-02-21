@@ -279,20 +279,23 @@ public readonly struct JSPromise : IEquatable<JSValue>
         public void Resolve(JSValue resolution)
         {
             // _handle becomes invalid after this call
-            napi_resolve_deferred((napi_env)resolution.Scope, _handle, (napi_value)resolution).ThrowIfFailed();
+            napi_resolve_deferred((napi_env)JSValueScope.Current, _handle, (napi_value)resolution)
+                .ThrowIfFailed();
         }
 
         public void Reject(JSValue rejection)
         {
             // _handle becomes invalid after this call
-            napi_resolve_deferred((napi_env)rejection.Scope, _handle, (napi_value)rejection).ThrowIfFailed();
+            napi_resolve_deferred((napi_env)JSValueScope.Current, _handle, (napi_value)rejection)
+                .ThrowIfFailed();
         }
 
         public void Reject(Exception ex)
         {
             // TODO: Create JSError type?
             JSValue error = JSValue.Global["Error"].CallAsConstructor(ex.Message);
-            napi_resolve_deferred((napi_env)JSValueScope.Current, _handle, error.GetCheckedHandle()).ThrowIfFailed();
+            napi_resolve_deferred((napi_env)JSValueScope.Current, _handle, (napi_value)error)
+                .ThrowIfFailed();
         }
     }
 }

@@ -417,7 +417,7 @@ public static partial class JSNativeApi
         //     void** data)               // [out] Receives the data pointer for the callback.
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static unsafe partial napi_status napi_get_cb_info(napi_env env, napi_callback_info cbinfo,
-          nuint* argc, napi_value* argv, napi_value* this_arg, nint data);
+          nuint* argc, napi_value* argv, napi_value* this_arg, nint* data);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_get_new_target(napi_env env, napi_callback_info cbinfo, out napi_value result);

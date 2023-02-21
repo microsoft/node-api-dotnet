@@ -17,18 +17,18 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public JSValue() { }
 
-    public JSValue(napi_value handle) : this(JSValueScope.Current, handle)
+    public JSValue(napi_value handle) : this(handle, JSValueScope.Current)
     {
     }
 
-    public JSValue(JSValueScope? scope, napi_value handle)
+    public JSValue(napi_value handle, JSValueScope? scope)
     {
-        if (handle.Handle != nint.Zero)
+        if (!handle.IsNull)
         {
             ArgumentNullException.ThrowIfNull(scope);
         }
-        _scope = scope;
         _handle = handle;
+        _scope = scope;
     }
 
     public napi_value? Handle => !Scope.IsDisposed ? (_handle.Handle != nint.Zero ? _handle : Undefined._handle) : null;
@@ -298,7 +298,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static implicit operator JSValue(napi_value handle) => new(handle);
 
     public static explicit operator napi_value(JSValue? value) => value?.Handle ?? new napi_value(nint.Zero);
-    public static implicit operator JSValue?(napi_value handle) => handle.Handle != nint.Zero ? new JSValue?(new JSValue(handle)) : null;
+    public static implicit operator JSValue?(napi_value handle) => handle.Handle != nint.Zero ? new JSValue(handle) : (JSValue?)null;
 
     private static JSValue ValueOrNull<T>(T? value, Func<T, JSValue> convert) where T : struct
         => value.HasValue ? convert(value.Value) : JSValue.Null;
