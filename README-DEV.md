@@ -17,7 +17,7 @@ dotnet test --filter "DisplayName~hello"
 
 The list of test cases is automatically derived from the set of `.js` files under the `Test/TestCases` directory. Within each subdirectory there, all `.cs` files are compiled into one assembly, then all `.js` test files execute against the assembly.
 
-Most test cases run twice, once for "hosted" CLR mode and once for "aot" ahead-of-time compiled mode with no CLR.
+Most test cases run twice, once for "hosted" CLR mode and once for AOT ahead-of-time compiled mode with no CLR.
 
 ## Roadmap
 

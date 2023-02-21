@@ -15,8 +15,8 @@ Console.WriteLine('Hello from .NET!');
 ### Dynamically load .NET assemblies
 .NET core library types are available directly on the main module. Additional .NET assemblies can be loaded by file path:
 ```JavaScript
-const ExampleAssembly = require('node-api-dotnet')
-    .loadAssembly('path/to/ExampleAssembly.dll');
+const dotnet = require('node-api-dotnet');
+const ExampleAssembly = dotnet.load('path/to/ExampleAssembly.dll');
 const exampleObj = new ExampleAssembly.ExampleClass(...args);
 ```
 
@@ -37,7 +37,7 @@ import { ExampleClass } from './ExampleAssembly';
 ExampleClass.ExampleMethod(...args); // This call is type-checked!
 ```
 
-For reference, there is a paging [listing C# type projections to TypeScript](/Docs/typescript.md).
+For reference, there is a [list of C# type projections to TypeScript](/Docs/typescript.md).
 
 ### Full async support
 JavaScript code can `await` a call to a .NET method that returns a `Task`. The marshaler automatically sets up a `SynchronizationContext` so that the .NET result is returned back to the JS thread.
@@ -91,7 +91,7 @@ public static JSPromise JSAsyncExample(JSValue input)
 There are two ways to get automatic marshaling between C# and JavaScript types:
   1. Compile a C# class library with `[JSExport]` attributes like the examples above. The source generator generates marshaling code that is compiled with the assembly.
 
-  2. Load a pre-built .NET assembly, as in the earlier examples. The loader will use reflection to scan the APIs, then emit marshaling code on-demand for each type that is referenced. The code is logically equivalent to that from the source generator, but is instead emitted as IL using the [.NET System.Reflection.Emit APIs](https://learn.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/emitting-dynamic-methods-and-assemblies). So there is a small startup cost from that reflection and IL emitting, but subsequent calls to the same APIs may be just as fast as the pre-compiled marshaling code (and are just as likely to be JITted).
+  2. Load a pre-built .NET assembly, as in the earlier examples. The loader will use reflection to scan the APIs, then emit marshaling code on-demand for each type that is referenced by JS. The code is logically equivalent to that from the source generator, but is instead emitted as IL using the [.NET System.Reflection.Emit APIs](https://learn.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/emitting-dynamic-methods-and-assemblies). So there is a small startup cost from that reflection and IL emitting, but subsequent calls to the same APIs may be just as fast as the pre-compiled marshaling code (and are just as likely to be JITted).
 
 The marshaler uses the strong typing information from the C# API declarations as hints about how to convert values beteen JavaScript and C#. Here's a general summary of conversions:
   - Primitives (numbers, strings, etc.) are passed by value directy.
@@ -107,7 +107,7 @@ The marshaler uses the strong typing information from the C# API declarations as
 This library supports hosting the .NET Runtime in the same process as the JavaScript engine. Alternatively, it also supports building [native ahead-of-time (AOT) compiled C#](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/) libraries that are loadable as a JavaScript module _without depending on the .NET Runtime_.
 
 There are advantages and disadvantages to either approach:
-|                 | .NET Runtime | .NET Native AoT |
+|                 | .NET Runtime | .NET Native AOT |
 |-----------------|--------------|-----------------|
 | API compatibility | Broad compatibility with .NET APIs | Limited compatibility with APIs designed to support AOT |
 | Ease of deployment | Requires a matching version of .NET to be installed on the target system | A .NET installation is not required (though some platform libs may be required on Linux/Mac)
@@ -127,11 +127,11 @@ Thanks to these design choices, JS to .NET calls are [more than twice as fast](h
 
 ## Requirements
  - .NET 6 or later
-    - .NET 7 or later is required for AoT support.
+    - .NET 7 or later is required for AOT support.
  - Node.js v16 or later
     - Other JS engines may be supported in the future.
  - OS: Windows, Mac, or Linux
-    - It should work any platform where .NET 6 is supported.
+    - It should work on any platform where .NET 6 is supported.
 
 ## Getting Started
 _To be written: instructions for installing npm/nuget packages_
