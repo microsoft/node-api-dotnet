@@ -1,5 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
+using static System.Formats.Asn1.AsnWriter;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
@@ -10,11 +12,30 @@ public readonly ref struct JSCallbackArgs
     private readonly napi_value _thisArg;
     private readonly ReadOnlySpan<napi_value> _args;
 
-    internal JSCallbackArgs(
-        JSValueScope scope, napi_value thisArg, ReadOnlySpan<napi_value> args, object? data = null)
+    internal unsafe JSCallbackArgs(JSValueScope scope,
+                                   napi_env env,
+                                   napi_callback_info callbackInfo,
+                                   Span<napi_value> args,
+                                   object? data = null)                    
     {
+        nint dataPointer;
+        napi_value thisArgHandle;
+        if (args.Length == 0)
+        {
+            napi_get_cb_info(env, callbackInfo, null, null, &thisArgHandle, &dataPointer)
+                .ThrowIfFailed();
+        }
+        else
+        {
+            fixed (napi_value* argv = &args[0])
+            {
+                nuint argc = (nuint)args.Length;
+                napi_get_cb_info(env, callbackInfo, &argc, argv, &thisArgHandle, &dataPointer)
+                    .ThrowIfFailed();
+            }
+        }
         _scope = scope;
-        _thisArg = thisArg;
+        _thisArg = thisArgHandle;
         _args = args;
         Data = data;
     }
@@ -28,40 +49,15 @@ public readonly ref struct JSCallbackArgs
     public object? Data { get; }
 
     internal static unsafe void GetDataAndLength(
-        napi_env scope,
+        napi_env env,
         napi_callback_info callbackInfo,
         out object? data,
         out int length)
     {
         nuint argc = 0;
         nint dataPointer;
-        napi_get_cb_info(scope, callbackInfo, &argc, null, null, &dataPointer)
-            .ThrowIfFailed();
+        napi_get_cb_info(env, callbackInfo, &argc, null, null, &dataPointer).ThrowIfFailed();
         data = dataPointer != 0 ? GCHandle.FromIntPtr(dataPointer).Target : null;
         length = (int)argc;
-    }
-
-    internal static unsafe void GetArgs(
-        napi_env env,
-        napi_callback_info callbackInfo,
-        out napi_value thisArg,
-        ref Span<napi_value> args)
-    {
-        napi_value thisArgHandle;
-        if (args.Length == 0)
-        {
-            napi_get_cb_info(env, callbackInfo, null, null, &thisArgHandle, null)
-                .ThrowIfFailed();
-        }
-        else
-        {
-            fixed (napi_value* argv = &args[0])
-            {
-                nuint argc = (nuint)args.Length;
-                napi_get_cb_info(env, callbackInfo, &argc, argv, &thisArgHandle, null)
-                    .ThrowIfFailed();
-            }
-        }
-        thisArg = thisArgHandle;
     }
 }
