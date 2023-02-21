@@ -95,7 +95,7 @@ public sealed class JSValueScope : IDisposable
             new napi_escapable_handle_scope(_scopeHandle),
             (napi_value)value,
             out napi_value result);
-        return new JSValue(_parentScope, result);
+        return new JSValue(result, _parentScope);
     }
 
     public static explicit operator napi_env(JSValueScope? scope)

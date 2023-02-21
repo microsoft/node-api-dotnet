@@ -12,17 +12,20 @@ public class JSClassBuilder<T>
 
     public string ClassName { get; }
 
-    private readonly Func<T>? _constructor;
-    private readonly Func<JSCallbackArgs, T>? _constructorWithArgs;
+    public delegate T Constructor();
+    public delegate T ConstructorWithArgs(JSCallbackArgs args);
 
-    public JSClassBuilder(JSContext context, string className, Func<T>? constructor = null)
+    private readonly Constructor? _constructor;
+    private readonly ConstructorWithArgs? _constructorWithArgs;
+
+    public JSClassBuilder(JSContext context, string className, Constructor? constructor = null)
     {
         Context = context;
         ClassName = className;
         _constructor = constructor;
     }
 
-    public JSClassBuilder(JSContext context, string className, Func<JSCallbackArgs, T> constructor)
+    public JSClassBuilder(JSContext context, string className, ConstructorWithArgs constructor)
     {
         Context = context;
         ClassName = className;
@@ -96,6 +99,7 @@ public class JSClassBuilder<T>
 
         JSValue obj = JSValue.CreateObject();
         obj.DefineProperties(Properties.ToArray());
+        Context.RegisterStaticClass(ClassName, obj);
         return obj;
     }
 
