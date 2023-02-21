@@ -292,7 +292,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "{";
         s += "using var scope = new JSValueScope(JSValueScopeType.Root, env);";
         s += "JSContext context = scope.ModuleContext;";
-        s += "JSValue exportsValue = new(exports, env);";
+        s += "JSValue exportsValue = new(exports, scope);";
         s++;
 
         AdapterGenerator adapterGenerator = new(Context);

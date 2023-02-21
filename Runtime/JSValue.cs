@@ -10,29 +10,31 @@ namespace NodeApi;
 public readonly struct JSValue : IEquatable<JSValue>
 {
     private readonly napi_value _handle;
-    private readonly napi_env _scope;
+    private readonly JSValueScope? _scope;
+
+    public readonly JSValueScope Scope =>
+        _scope ?? JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
 
     public JSValue() { }
 
-    public JSValue(napi_value handle) : this(handle, (napi_env)JSValueScope.Current)
+    public JSValue(napi_value handle) : this(handle, JSValueScope.Current)
     {
     }
 
-    public JSValue(napi_value handle, JSValueScope? scope) : this(handle, (napi_env)scope)
+    public JSValue(napi_value handle, JSValueScope? scope)
     {
-    }
-
-    public JSValue(napi_value handle, napi_env scope)
-    {
-        if (handle.Handle != nint.Zero && scope.Handle == nint.Zero)
+        if (!handle.IsNull)
         {
-            throw new ArgumentNullException(nameof(scope));
+            ArgumentNullException.ThrowIfNull(scope);
         }
         _handle = handle;
         _scope = scope;
     }
 
-    public napi_value? Handle => _handle.Handle != nint.Zero ? _handle : Undefined._handle;
+    public napi_value? Handle => !Scope.IsDisposed ? (_handle.Handle != nint.Zero ? _handle : Undefined._handle) : null;
+
+    public napi_value GetCheckedHandle()
+        => Handle ?? throw new InvalidOperationException("The value handle is invalid because its scope is closed");
 
     private static napi_env Env => (napi_env)JSValueScope.Current;
 
@@ -292,7 +294,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static explicit operator float?(JSValue value) => ValueOrNull(value, value => (float)value.GetValueDouble());
     public static explicit operator double?(JSValue value) => ValueOrNull(value, value => value.GetValueDouble());
 
-    public static explicit operator napi_value(JSValue value) => value._handle;
+    public static explicit operator napi_value(JSValue value) => value.GetCheckedHandle();
     public static implicit operator JSValue(napi_value handle) => new(handle);
 
     public static explicit operator napi_value(JSValue? value) => value?.Handle ?? new napi_value(nint.Zero);

@@ -6,18 +6,22 @@ namespace NodeApi;
 
 public readonly ref struct JSCallbackArgs
 {
-    private readonly Span<JSValue> _args;
+    private readonly JSValueScope _scope;
+    private readonly napi_value _thisArg;
+    private readonly ReadOnlySpan<napi_value> _args;
 
-    internal JSCallbackArgs(JSValue thisArg, Span<JSValue> args, object? data = null)
+    internal JSCallbackArgs(
+        JSValueScope scope, napi_value thisArg, ReadOnlySpan<napi_value> args, object? data = null)
     {
-        ThisArg = thisArg;
+        _scope = scope;
+        _thisArg = thisArg;
         _args = args;
         Data = data;
     }
 
-    public JSValue ThisArg { get; }
+    public JSValue ThisArg => new(_thisArg, _scope);
 
-    public JSValue this[int index] => _args[index];
+    public JSValue this[int index] => new(_args[index], _scope);
 
     public int Length => _args.Length;
 
@@ -38,20 +42,26 @@ public readonly ref struct JSCallbackArgs
     }
 
     internal static unsafe void GetArgs(
-        napi_env scope,
+        napi_env env,
         napi_callback_info callbackInfo,
-        out JSValue thisArg,
-        ref Span<JSValue> args)
+        out napi_value thisArg,
+        ref Span<napi_value> args)
     {
-        nuint argc = (nuint)args.Length;
-        napi_value* argv = stackalloc napi_value[args.Length];
         napi_value thisArgHandle;
-        napi_get_cb_info(scope, callbackInfo, &argc, argv, &thisArgHandle, null)
-            .ThrowIfFailed();
-        for (int i = 0; i < args.Length; i++)
+        if (args.Length == 0)
         {
-            args[i] = i < (int)argc ? new JSValue(argv[i], scope) : default;
+            napi_get_cb_info(env, callbackInfo, null, null, &thisArgHandle, null)
+                .ThrowIfFailed();
         }
-        thisArg = new JSValue(thisArgHandle, scope);
+        else
+        {
+            fixed (napi_value* argv = &args[0])
+            {
+                nuint argc = (nuint)args.Length;
+                napi_get_cb_info(env, callbackInfo, &argc, argv, &thisArgHandle, null)
+                    .ThrowIfFailed();
+            }
+        }
+        thisArg = thisArgHandle;
     }
 }
