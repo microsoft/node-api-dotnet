@@ -13,7 +13,7 @@ public readonly ref struct JSCallbackArgs
     internal unsafe JSCallbackArgs(JSValueScope scope,
                                    napi_callback_info callbackInfo,
                                    Span<napi_value> args,
-                                   object? data = null)                    
+                                   object? data = null)
     {
         napi_env env = (napi_env)scope;
         nint dataPointer;
