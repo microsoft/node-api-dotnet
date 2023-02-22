@@ -1,11 +1,11 @@
 const assert = require('assert');
 
-const dotnetHost = require(process.env.TEST_DOTNET_HOST_PATH);
+const dotnet = require(process.env.TEST_DOTNET_HOST_PATH);
 
 // There's a regular .NET assembly .dll file in the same directory as the test .node module.
-const dotnetAssemblyPath = process.env.TEST_DOTNET_MODULE_PATH.replace(/.node$/, 'dll');
+const assemblyPath = process.env.TEST_DOTNET_MODULE_PATH.replace(/.node$/, 'dll');
 
-const assembly = dotnetHost.loadAssembly(dotnetAssemblyPath);
+const assembly = dotnet.load(assemblyPath);
 console.dir(Object.keys(assembly)); // Print all public types in the loaded assembly.
 
 const Hello = assembly['NodeApi.TestCases.Hello'];

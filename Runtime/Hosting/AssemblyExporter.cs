@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
-using System.Reflection.Emit;
 
 namespace NodeApi.Hosting;
 
@@ -16,17 +15,11 @@ internal class AssemblyExporter
 {
     private readonly JSReference _assemblyObject;
     private readonly Dictionary<Type, JSReference> _typeObjects = new();
-    private readonly AssemblyBuilder _assemblyBuilder;
-    private readonly ModuleBuilder _moduleBuilder;
 
     public AssemblyExporter(Assembly assembly)
     {
         Assembly = assembly;
         _assemblyObject = new JSReference(ExportAssembly());
-        _assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
-            new AssemblyName("JS." + assembly.FullName),
-            AssemblyBuilderAccess.Run);
-        _moduleBuilder = _assemblyBuilder.DefineDynamicModule("JS");
     }
 
     public Assembly Assembly { get; }
@@ -93,37 +86,15 @@ internal class AssemblyExporter
             return typeObjectReference!.GetValue()!.Value;
         }
 
-        TypeBuilder typeBuilder = _moduleBuilder.DefineType(classType.FullName!.Replace(".", "_"));
         List<JSPropertyDescriptor> classProperties = new();
-
-        foreach (var member in classType.GetMembers(BindingFlags.Public | BindingFlags.Static))
-        {
-            if (member is MethodInfo method && !method.IsSpecialName)
-            {
-                EmitStaticMethod(typeBuilder, method);
-            }
-            else if (member is PropertyInfo property)
-            {
-                if (property.GetMethod?.IsPublic == true)
-                {
-                    EmitStaticPropertyGet(typeBuilder, property);
-                }
-                if (property.SetMethod?.IsPublic == true)
-                {
-                    EmitStaticPropertySet(typeBuilder, property);
-                }
-            }
-        }
-
-        Type builtType = typeBuilder.CreateType();
 
         var attributes = JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable;
         foreach (var member in classType.GetMembers(BindingFlags.Public | BindingFlags.Static))
         {
             if (member is MethodInfo method && !method.IsSpecialName)
             {
-                MethodInfo builtMethod = builtType.GetMethod(method.Name)!;
-                var methodDelegate = (JSCallback)builtMethod.CreateDelegate(typeof(JSCallback));
+                LambdaExpression lambda = BuildStaticMethodLambda(method);
+                JSCallback methodDelegate = (JSCallback)lambda.Compile();
                 classProperties.Add(JSPropertyDescriptor.Function(
                     member.Name,
                     methodDelegate,
@@ -131,19 +102,18 @@ internal class AssemblyExporter
             }
             else if (member is PropertyInfo property)
             {
-                /*
                 JSCallback? getterDelegate = null;
                 if (property.GetMethod != null)
                 {
-                    MethodInfo builtGetMethod = builtType.GetMethod(property.GetMethod.Name)!;
-                    getterDelegate = (JSCallback)builtGetMethod.CreateDelegate(typeof(JSCallback));
+                    LambdaExpression lambda = BuildStaticPropertyGetLambda(property);
+                    getterDelegate = (JSCallback)lambda.Compile();
                 }
 
                 JSCallback? setterDelegate = null;
                 if (property.SetMethod != null)
                 {
-                    MethodInfo builtSetMethod = builtType.GetMethod(property.SetMethod.Name)!;
-                    setterDelegate = (JSCallback)builtSetMethod.CreateDelegate(typeof(JSCallback));
+                    LambdaExpression lambda = BuildStaticPropertySetLambda(property);
+                    setterDelegate = (JSCallback)lambda.Compile();
                 }
 
                 classProperties.Add(JSPropertyDescriptor.Accessor(
@@ -151,7 +121,6 @@ internal class AssemblyExporter
                     getterDelegate,
                     setterDelegate,
                     attributes));
-                */
             }
         }
 
@@ -169,7 +138,7 @@ internal class AssemblyExporter
             return typeObjectReference!.GetValue()!.Value;
         }
 
-        // TODO: Emit static and instance property and method adapter methods,
+        // TODO: Build static and instance property and method adapter methods,
         // then define the class.
 
         return new JSObject();
@@ -182,7 +151,7 @@ internal class AssemblyExporter
             return typeObjectReference!.GetValue()!.Value;
         }
 
-        // TODO: Export struct proeprties and methods.
+        // TODO: Build struct proeprties and methods.
 
         return new JSObject();
     }
@@ -199,15 +168,8 @@ internal class AssemblyExporter
         return new JSObject();
     }
 
-    private void EmitStaticMethod(TypeBuilder typeBuilder, MethodInfo method)
+    private LambdaExpression BuildStaticMethodLambda(MethodInfo method)
     {
-        MethodBuilder methodBuilder = typeBuilder.DefineMethod(
-            method.Name,
-            MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.Final,
-            returnType: typeof(JSValue),
-            parameterTypes: new[] { typeof(JSCallbackArgs) });
-        ILGenerator il = methodBuilder.GetILGenerator();
-
         /*
          * private static JSValue MethodClass_MethodName(JSCallbackArgs __args)
          * {
@@ -218,78 +180,113 @@ internal class AssemblyExporter
          * }
          */
 
-        var parameters = method.GetParameters();
+        List<ParameterExpression> argVariables = new();
+        IEnumerable<ParameterExpression> variables;
+        ParameterInfo[] parameters = method.GetParameters();
+        List<Expression> statements = new(parameters.Length + 2);
+
         for (int i = 0; i < parameters.Length; i++)
         {
-            il.DeclareLocal(parameters[i].ParameterType);
+            argVariables.Add(Expression.Parameter(parameters[i].ParameterType, parameters[i].Name));
+            statements.Add(Expression.Assign(argVariables[i],
+                BuildArgumentExpression(s_argsParameter, i, parameters[i].ParameterType)));
         }
 
-        il.Emit(OpCodes.Nop);
-        for (int i = 0; i < parameters.Length; i++)
+        if (method.ReturnType == typeof(void))
         {
-            EmitLoadAndConvertArg(il, argumentIndex: i, parameters[i].ParameterType, localIndex: i);
-        }
-
-        // Load all the local vars onto the stack.
-        for (int i = 0; i < parameters.Length; i++)
-        {
-            il.Emit(OpCodes.Ldloc, i);
-        }
-        il.Emit(OpCodes.Call, method); // Call the target (static) method!
-
-        EmitConvertAndReturnResult(il, method.ReturnType);
-    }
-
-    private void EmitStaticPropertyGet(TypeBuilder typeBuilder, PropertyInfo property)
-    {
-        // TODO
-    }
-
-    private void EmitStaticPropertySet(TypeBuilder typeBuilder, PropertyInfo property)
-    {
-        // TODO
-    }
-
-    private static void EmitLoadAndConvertArg(
-        ILGenerator il,
-        int argumentIndex,
-        Type parameterType,
-        int localIndex)
-    {
-        il.Emit(OpCodes.Ldarg_0);  // Callback args
-        il.Emit(OpCodes.Ldc_I4, argumentIndex);
-
-        // This is a 'callvirt' opcode instead of 'call' because it's a class instance method.
-        // If JSCallbackArgs changes to a struct, this should be 'call'.
-        Debug.Assert(!typeof(JSCallbackArgs).IsValueType);
-        il.Emit(OpCodes.Callvirt, s_getCallbackArg); // Get args[i]
-
-        EmitConvertTo(il, parameterType); // Convert from JSValue to arg type
-        il.Emit(OpCodes.Stloc, localIndex); // Store result in local var [i]
-    }
-
-    private static void EmitConvertAndReturnResult(ILGenerator il, Type returnType)
-    {
-        if (returnType == typeof(void))
-        {
-            il.Emit(OpCodes.Call, s_getUndefined);
+            variables = argVariables;
+            statements.Add(Expression.Call(instance: null, method, argVariables));
+            statements.Add(Expression.Property(null, s_getUndefined));
         }
         else
         {
-            EmitConvertFrom(il, returnType);
+            ParameterExpression resultVariable =
+                Expression.Parameter(method.ReturnType, "__result");
+            variables = argVariables.Append(resultVariable);
+            statements.Add(Expression.Assign(resultVariable,
+                Expression.Call(instance: null, method, argVariables)));
+            statements.Add(BuildResultExpression(resultVariable, method.ReturnType));
         }
 
-        il.Emit(OpCodes.Ret);
+        return Expression.Lambda(
+            delegateType: typeof(JSCallback),
+            body: Expression.Block(typeof(JSValue), variables, statements),
+            name: method.Name,
+            parameters: s_argsArray);
     }
 
-    private static void EmitConvertTo(ILGenerator il, Type toType)
+    private LambdaExpression BuildStaticPropertyGetLambda(PropertyInfo property)
     {
-        EmitCastTo(il, toType);
+        /*
+         * private static JSValue get_PropertyClass_PropertyName(JSCallbackArgs __args)
+         * {
+         *     var __result = PropertyClass.PropertyName;
+         *     return (JSValue)__result;
+         * }
+         */
 
-        // TODO: Emit code for more conversions beyond simple casts.
+        List<Expression> statements = new(2);
+        ParameterExpression resultVariable =
+            Expression.Parameter(property.PropertyType, "__result");
+        IEnumerable<ParameterExpression> variables = new[] { resultVariable };
+        statements.Add(Expression.Assign(resultVariable,
+            Expression.Property(null, property)));
+        statements.Add(BuildResultExpression(resultVariable, property.PropertyType));
+
+        return Expression.Lambda(
+            delegateType: typeof(JSCallback),
+            body: Expression.Block(typeof(JSValue), variables, statements),
+            name: property.GetMethod!.Name,
+            parameters: s_argsArray);
     }
 
-    private static void EmitCastTo(ILGenerator il, Type toType)
+    private LambdaExpression BuildStaticPropertySetLambda(PropertyInfo property)
+    {
+        /*
+         * private static JSValue get_PropertyClass_PropertyName(JSCallbackArgs __args)
+         * {
+         *     var __value = (PropertyType)__args[0];
+         *     __obj.PropertyName = __value;
+         *     return JSValue.Undefined;
+         * }
+         */
+
+        List<Expression> statements = new(3);
+        ParameterExpression valueVariable = Expression.Parameter(property.PropertyType, "__value");
+        IEnumerable<ParameterExpression> variables = new[] { valueVariable };
+        statements.Add(Expression.Assign(valueVariable,
+                BuildArgumentExpression(s_argsParameter, 0, property.PropertyType)));
+        statements.Add(Expression.Call(null, property.SetMethod!, valueVariable));
+        statements.Add(Expression.Call(null, s_getUndefined));
+
+        return Expression.Lambda(
+            delegateType: typeof(JSCallback),
+            body: Expression.Block(typeof(JSValue), variables, statements),
+            name: property.SetMethod!.Name,
+            parameters: s_argsArray);
+    }
+
+    private static Expression BuildArgumentExpression(
+        ParameterExpression args,
+        int index,
+        Type parameterType)
+    {
+        // TODO: Build expressions for more conversions beyond simple casts.
+
+        return Expression.Call(instance: null, GetCastFromJSValueMethod(parameterType),
+                Expression.Call(args, s_getCallbackArg, Expression.Constant(index)));
+    }
+
+    private static Expression BuildResultExpression(
+        ParameterExpression resultVariable,
+        Type resultType)
+    {
+        // TODO: Build expressions for more conversions beyond simple casts.
+
+        return Expression.Call(instance: null, GetCastToJSValueMethod(resultType), resultVariable);
+    }
+
+    private static MethodInfo GetCastFromJSValueMethod(Type toType)
     {
         MethodInfo? castMethod =
             typeof(JSValue).GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -301,18 +298,10 @@ internal class AssemblyExporter
         {
             throw new NotSupportedException($"Cannot cast to {toType.Name} from JSValue.");
         }
-
-        il.Emit(OpCodes.Call, castMethod);
+        return castMethod;
     }
 
-    private static void EmitConvertFrom(ILGenerator il, Type fromType)
-    {
-        EmitCastFrom(il, fromType);
-
-        // TODO: Emit code for more conversions beyond simple casts.
-    }
-
-    private static void EmitCastFrom(ILGenerator il, Type fromType)
+    private static MethodInfo GetCastToJSValueMethod(Type fromType)
     {
         MethodInfo? castMethod =
             typeof(JSValue).GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -324,9 +313,13 @@ internal class AssemblyExporter
         {
             throw new NotSupportedException($"Cannot cast from {fromType.Name} to JSValue.");
         }
-
-        il.Emit(OpCodes.Call, castMethod);
+        return castMethod;
     }
+
+    private static readonly ParameterExpression s_argsParameter =
+        Expression.Parameter(typeof(JSCallbackArgs), "__args");
+    private static readonly IEnumerable<ParameterExpression> s_argsArray =
+        new[] { s_argsParameter };
 
     private static readonly MethodInfo s_getUndefined =
         typeof(JSValue).GetMethod("get_Undefined")!;

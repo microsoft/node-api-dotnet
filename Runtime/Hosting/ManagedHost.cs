@@ -56,7 +56,7 @@ public sealed class ManagedHost : IDisposable
             var exportsValue = new JSValue(exports, scope);
             new JSModuleBuilder<ManagedHost>()
                 .AddMethod("require", (host) => host.LoadModule)
-                .AddMethod("loadAssembly", (host) => host.LoadAssembly)
+                .AddMethod("load", (host) => host.LoadAssembly)
                 .ExportModule(new ManagedHost(), (JSObject)exportsValue);
         }
         catch (Exception ex)
