@@ -99,7 +99,7 @@ public struct JSError
             _ => JSValue.CreateError(ToJSValue(code), (JSValue)_message),
         });
 
-        JSValue? ToJSValue(string? value)
+        static JSValue? ToJSValue(string? value)
             => value is not null ? (JSValue)value : (JSValue?)null;
     }
 
