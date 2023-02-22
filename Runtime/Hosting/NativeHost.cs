@@ -55,6 +55,7 @@ internal partial class NativeHost : IDisposable
         {
             Console.Error.WriteLine($"Failed to load CLR native host module: {ex}");
             Console.Error.Flush();
+            JSError.ThrowError(ex);
         }
 
         Trace("< NativeHost.InitializeModule()");

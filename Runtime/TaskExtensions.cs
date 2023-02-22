@@ -12,11 +12,9 @@ public static class TaskExtensions
         TaskCompletionSource<JSValue> completion = new();
         promise.Then(
             completion.SetResult,
-            (JSValue error) =>
+            (JSError error) =>
             {
-                // TODO: Pass the error value to the exception?
-                // It is likely (but not always) an instance of a JS Error.
-                completion.SetException(new JSException("Promise was rejected."));
+                completion.SetException(new JSException(error));
             });
         return completion.Task;
     }

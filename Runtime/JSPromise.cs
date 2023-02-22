@@ -31,11 +31,11 @@ public readonly struct JSPromise : IEquatable<JSValue>
 
     public delegate void ResolveRejectCallback(
         Action<JSValue> resolve,
-        Action<JSValue> reject); // TODO: Change reject type argument to JSError?
+        Action<JSError> reject);
 
     public delegate Task AsyncResolveRejectCallback(
         Action<JSValue> resolve,
-        Action<JSValue> reject); // TODO: Change reject type argument to JSError?
+        Action<JSError> reject);
 
     /// <summary>
     /// Creates a new JS Promise with a resolve callback.
@@ -139,7 +139,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// Registers callbacks that are invoked when a promise is fulfilled and/or rejected,
     /// and returns a new chained promise.
     /// </summary>
-    public JSPromise Then(Action<JSValue>? fulfilled, Action<JSValue>? rejected)
+    public JSPromise Then(Action<JSValue>? fulfilled, Action<JSError>? rejected)
     {
         JSValue fulfilledFunction = fulfilled == null ? JSValue.Undefined :
             JSValue.CreateFunction(nameof(fulfilled), (args) =>
@@ -150,7 +150,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
         JSValue rejectedFunction = rejected == null ? JSValue.Undefined :
             JSValue.CreateFunction(nameof(rejected), (args) =>
             {
-                rejected(args[0]);
+                rejected(new JSError(args[0]));
                 return JSValue.Undefined;
             });
         return (JSPromise)_value.CallMethod("then", fulfilledFunction, rejectedFunction);
@@ -283,19 +283,17 @@ public readonly struct JSPromise : IEquatable<JSValue>
                 .ThrowIfFailed();
         }
 
-        public void Reject(JSValue rejection)
+        public void Reject(JSError rejection)
         {
             // _handle becomes invalid after this call
-            napi_resolve_deferred((napi_env)JSValueScope.Current, _handle, (napi_value)rejection)
+            napi_resolve_deferred(
+                (napi_env)JSValueScope.Current, _handle, (napi_value)rejection.Value)
                 .ThrowIfFailed();
         }
 
-        public void Reject(Exception ex)
+        public void Reject(Exception exception)
         {
-            // TODO: Create JSError type?
-            JSValue error = JSValue.Global["Error"].CallAsConstructor(ex.Message);
-            napi_resolve_deferred((napi_env)JSValueScope.Current, _handle, (napi_value)error)
-                .ThrowIfFailed();
+            Reject(new JSError(exception));
         }
     }
 }

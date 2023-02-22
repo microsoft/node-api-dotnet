@@ -156,17 +156,21 @@ public readonly struct JSValue : IEquatable<JSValue>
         return CreateFunction(utf8Name, callback);
     }
 
-    public static JSValue CreateError(JSValue code, JSValue message)
-        => napi_create_error(Env, (napi_value)code, (napi_value)message, out napi_value result).ThrowIfFailed(result);
+    public static JSValue CreateError(JSValue? code, JSValue message)
+        => napi_create_error(Env, code.AsNapiValueOrNull(), (napi_value)message,
+            out napi_value result).ThrowIfFailed(result);
 
-    public static JSValue CreateTypeError(JSValue code, JSValue message)
-        => napi_create_type_error(Env, (napi_value)code, (napi_value)message, out napi_value result).ThrowIfFailed(result);
+    public static JSValue CreateTypeError(JSValue? code, JSValue message)
+        => napi_create_type_error(Env, code.AsNapiValueOrNull(), (napi_value)message,
+            out napi_value result).ThrowIfFailed(result);
 
-    public static JSValue CreateRangeError(JSValue code, JSValue message)
-        => napi_create_range_error(Env, (napi_value)code, (napi_value)message, out napi_value result).ThrowIfFailed(result);
+    public static JSValue CreateRangeError(JSValue? code, JSValue message)
+        => napi_create_range_error(Env, code.AsNapiValueOrNull(), (napi_value)message,
+            out napi_value result).ThrowIfFailed(result);
 
-    public static JSValue CreateSyntaxError(JSValue code, JSValue message)
-        => node_api_create_syntax_error(Env, (napi_value)code, (napi_value)message, out napi_value result).ThrowIfFailed(result);
+    public static JSValue CreateSyntaxError(JSValue? code, JSValue message)
+        => node_api_create_syntax_error(Env, code.AsNapiValueOrNull(), (napi_value)message,
+            out napi_value result).ThrowIfFailed(result);
 
     public static unsafe JSValue CreateExternal(object value)
     {
@@ -341,4 +345,10 @@ public readonly struct JSValue : IEquatable<JSValue>
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
+}
+
+public static class JSValueExtensions
+{
+    public static napi_value AsNapiValueOrNull(this JSValue? value)
+        => value is not null ? (napi_value)value.Value : napi_value.Null;
 }

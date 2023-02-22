@@ -16,93 +16,6 @@ public static partial class JSNativeApi
     /// </summary>
     private const nint DisposeHint = (nint)1;
 
-    // Crash if we experience any errors while reading error info
-    private class ErrorReadingMode : IDisposable
-    {
-        private bool _isDisposed = false;
-        [ThreadStatic] private static ErrorReadingMode? s_current;
-
-        public ErrorReadingMode()
-        {
-            // Crash if we already in the error reading mode.
-            if (s_current != null)
-            {
-                //TODO: use napi_fatal_error
-                GCHandle.FromIntPtr(new nint(0xDEADBEEF));
-            }
-
-            s_current = this;
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_isDisposed)
-            {
-                if (disposing)
-                {
-                    s_current = null;
-                }
-                _isDisposed = true;
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-    }
-
-    public static void ThrowIfFailed(this napi_status status)
-    {
-        if (status == napi_status.napi_ok)
-        {
-            return;
-        }
-
-        // Crash on any error in this mode.
-        using var errorReadingMode = new ErrorReadingMode();
-
-        // We must retrieve the last error info before doing anything else because
-        // doing anything else will replace the last error info.
-        JSErrorInfo errorInfo = GetLastErrorInfo();
-
-        // A pending JS exception takes precedence over any internal error status.
-        if (IsExceptionPending())
-        {
-            JSValue jsError = GetAndClearLastException();
-            if (jsError.IsError())
-            {
-                JSValue message = jsError["message"];
-                if (message.TypeOf() == JSValueType.String)
-                {
-                    errorInfo = new JSErrorInfo((string)message, errorInfo.Status);
-                }
-            }
-        }
-
-        throw new JSException(errorInfo);
-    }
-
-    // Throw if status is no napi_ok. Otherwise, return the provided value.
-    // This function helps writing compact wrappers for the interop calls.
-    public static T ThrowIfFailed<T>(this napi_status status, T value)
-    {
-        status.ThrowIfFailed();
-        return value;
-    }
-
-    public static unsafe JSErrorInfo GetLastErrorInfo()
-    {
-        napi_get_last_error_info(Env, out napi_extended_error_info* errorInfo).ThrowIfFailed();
-        if (errorInfo->error_message != null)
-        {
-            string message = Encoding.UTF8.GetString(MemoryMarshal.CreateReadOnlySpanFromNullTerminated(errorInfo->error_message));
-            return new JSErrorInfo(message, (JSStatus)errorInfo->error_code);
-        }
-        return new JSErrorInfo("Error", (JSStatus)errorInfo->error_code);
-    }
-
     public static unsafe void AddGCHandleFinalizer(this JSValue thisValue, nint handle)
     {
         if (handle != nint.Zero)
@@ -570,21 +483,6 @@ public static partial class JSNativeApi
     public static JSReference CreateWeakReference(this JSValue thisValue)
         => new(thisValue, isWeak: true);
 
-    public static void Throw(this JSValue thisValue)
-        => napi_throw(Env, (napi_value)thisValue).ThrowIfFailed();
-
-    public static void ThrowError(string code, string message)
-        => napi_throw_error(Env, code, message).ThrowIfFailed();
-
-    public static void ThrowTypeError(string code, string message)
-        => napi_throw_type_error(Env, code, message).ThrowIfFailed();
-
-    public static void ThrowRangeError(string code, string message)
-        => napi_throw_range_error(Env, code, message).ThrowIfFailed();
-
-    public static void ThrowSyntaxError(string code, string message)
-        => node_api_throw_syntax_error(Env, code, message).ThrowIfFailed();
-
     public static bool IsError(this JSValue thisValue)
         => napi_is_error(Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
 
@@ -833,11 +731,10 @@ public static partial class JSNativeApi
             JSCallback callback = (JSCallback)data!;
             return (napi_value)callback(new JSCallbackArgs(scope, callbackInfo, args));
         }
-        catch (JSException ex)
+        catch (Exception ex)
         {
-            //TODO: [vmoroz] Make JSException to wrap up the original error object instead.
-            ThrowError("", ex.Message);
-            return new napi_value(nint.Zero);
+            JSError.ThrowError(ex);
+            return napi_value.Null;
         }
     }
 
@@ -845,33 +742,57 @@ public static partial class JSNativeApi
     private static unsafe napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
     {
         using var scope = new JSValueScope(JSValueScopeType.Callback, env);
-        JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
-        Span<napi_value> args = stackalloc napi_value[length];
-        JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
-        return (napi_value)desc.Method!.Invoke(
-            new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
+        try
+        {
+            JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
+            Span<napi_value> args = stackalloc napi_value[length];
+            JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
+            return (napi_value)desc.Method!.Invoke(
+                new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
+        }
+        catch (Exception ex)
+        {
+            JSError.ThrowError(ex);
+            return napi_value.Null;
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
     {
         using var scope = new JSValueScope(JSValueScopeType.Callback, env);
-        JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
-        Span<napi_value> args = stackalloc napi_value[length];
-        JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
-        return (napi_value)desc.Getter!.Invoke(
-            new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
+        try
+        {
+            JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
+            Span<napi_value> args = stackalloc napi_value[length];
+            JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
+            return (napi_value)desc.Getter!.Invoke(
+                new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
+        }
+        catch (Exception ex)
+        {
+            JSError.ThrowError(ex);
+            return napi_value.Null;
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSSetter(napi_env env, napi_callback_info callbackInfo)
     {
         using var scope = new JSValueScope(JSValueScopeType.Callback, env);
-        JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
-        Span<napi_value> args = stackalloc napi_value[length];
-        JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
-        return (napi_value)desc.Setter!.Invoke(
-            new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
+        try
+        {
+            JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
+            Span<napi_value> args = stackalloc napi_value[length];
+            JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
+            return (napi_value)desc.Setter!.Invoke(
+                new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
+        }
+        catch (Exception ex)
+        {
+            JSError.ThrowError(ex);
+            return napi_value.Null;
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
