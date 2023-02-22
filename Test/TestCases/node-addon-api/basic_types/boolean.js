@@ -2,7 +2,7 @@
 
 const assert = require('assert');
 
-module.exports = require('../common').runTest(test);
+module.exports = require('../../common').runTest(test);
 
 function test(binding) {
   const bool1 = binding.basicTypesBoolean.createBoolean(true);

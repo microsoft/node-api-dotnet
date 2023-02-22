@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('assert');
 
-module.exports = require('../common').runTest(test);
+module.exports = require('../../common').runTest(test);
 
 function test(binding) {
   // create empty array

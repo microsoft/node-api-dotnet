@@ -1,7 +1,7 @@
 const assert = require('assert');
 
 /** @type {import('./napi-dotnet')} */
-const binding = require('../node-addon-api/common').binding;
+const binding = require('../common').binding;
 
 assert.strictEqual(typeof binding, 'object');
 
