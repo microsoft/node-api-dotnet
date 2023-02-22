@@ -219,9 +219,9 @@ public class JSThreadSafeFunction
             FunctionData functionData = (FunctionData)contextHandle.Target!;
             functionData.JSCaller!((JSValue)jsCallback, functionData.FunctionContext, callbackData);
         }
-        catch
+        catch (Exception ex)
         {
-            //TODO: terminate - there is no way to propagate exceptions
+            JSError.Fatal(ex.Message);
         }
     }
 
@@ -262,9 +262,9 @@ public class JSThreadSafeFunction
                 ((JSValue)jsCallback).Call();
             }
         }
-        catch
+        catch (Exception ex)
         {
-            //TODO: terminate - there is no way to propagate exceptions
+            JSError.Fatal(ex.Message);
         }
     }
 

@@ -321,6 +321,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "catch (System.Exception ex)";
         s += "{";
         s += "System.Console.Error.WriteLine($\"Failed to export module: {ex}\");";
+        s += "JSError.ThrowError(ex);";
         s += "return exports;";
         s += "}";
         s += "}";

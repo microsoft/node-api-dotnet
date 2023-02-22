@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi;
@@ -40,6 +41,24 @@ public class JSReference : IDisposable
         IsWeak = isWeak;
     }
 
+    public static bool TryCreateReference(
+        JSValue value, bool isWeak, [NotNullWhen(true)] out JSReference? result)
+    {
+        napi_status status = napi_create_reference(
+                  (napi_env)JSValueScope.Current,
+                  (napi_value)value,
+                  isWeak ? 0u : 1u,
+                  out napi_ref handle);
+        if (status == napi_status.napi_ok)
+        {
+            result = new JSReference(handle, isWeak);
+            return true;
+        }
+
+        result = null;
+        return false;
+    }
+
     public void MakeWeak()
     {
         ThrowIfDisposed();
@@ -62,7 +81,8 @@ public class JSReference : IDisposable
     public JSValue? GetValue()
     {
         ThrowIfDisposed();
-        napi_get_reference_value((napi_env)_context, _handle, out napi_value result).ThrowIfFailed();
+        napi_get_reference_value(
+            (napi_env)_context, _handle, out napi_value result).ThrowIfFailed();
         return result;
     }
 

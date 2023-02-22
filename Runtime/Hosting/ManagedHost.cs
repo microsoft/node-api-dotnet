@@ -59,7 +59,8 @@ public class ManagedHost : IDisposable
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to load CLR managed host module: {ex}");
+            Trace($"Failed to load CLR managed host module: {ex}");
+            JSError.ThrowError(ex);
         }
 
         Trace("< ManagedHost.InitializeModule()");

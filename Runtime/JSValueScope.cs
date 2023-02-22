@@ -8,9 +8,9 @@ public enum JSValueScopeType { Handle, Escapable, Callback, Root, RootNoContext,
 
 public sealed class JSValueScope : IDisposable
 {
-    private readonly napi_env _env;
     private readonly JSValueScopeType _scopeType;
     private readonly JSValueScope? _parentScope;
+    private readonly napi_env _env;
     private readonly SynchronizationContext? _previousSyncContext;
     private readonly nint _scopeHandle;
 
@@ -22,20 +22,25 @@ public sealed class JSValueScope : IDisposable
 
     public JSContext ModuleContext { get; }
 
-    public JSValueScope(JSValueScopeType scopeType = JSValueScopeType.Handle, napi_env env = default)
+    public JSValueScope(
+        JSValueScopeType scopeType = JSValueScopeType.Handle, napi_env env = default)
     {
         _scopeType = scopeType;
-        _env = env;
 
         _parentScope = s_currentScope;
         s_currentScope = this;
 
+        _env = !env.IsNull
+               ? env
+               : _parentScope?._env ?? throw new ArgumentException("env is null", nameof(env));
+
         ModuleContext = scopeType switch
         {
-            JSValueScopeType.Root => new JSContext(env),
-            JSValueScopeType.Callback => (JSContext)env,
+            JSValueScopeType.Root => new JSContext(_env),
+            JSValueScopeType.Callback => (JSContext)_env,
             JSValueScopeType.RootNoContext => null!,
-            _ => _parentScope?.ModuleContext ?? throw new InvalidOperationException("Parent scope not found"),
+            _ => _parentScope?.ModuleContext
+                 ?? throw new InvalidOperationException("Parent scope not found"),
         };
 
         if (scopeType == JSValueScopeType.Root || scopeType == JSValueScopeType.Callback)
@@ -47,10 +52,11 @@ public sealed class JSValueScope : IDisposable
         _scopeHandle = _scopeType switch
         {
             JSValueScopeType.Handle
-                => napi_open_handle_scope(env, out napi_handle_scope handleScope)
+                => napi_open_handle_scope(_env, out napi_handle_scope handleScope)
                    .ThrowIfFailed(handleScope).Handle,
             JSValueScopeType.Escapable
-                => napi_open_escapable_handle_scope(env, out napi_escapable_handle_scope handleScope)
+                => napi_open_escapable_handle_scope(
+                    _env, out napi_escapable_handle_scope handleScope)
                    .ThrowIfFailed(handleScope).Handle,
             _ => nint.Zero,
         };
@@ -68,10 +74,12 @@ public sealed class JSValueScope : IDisposable
             switch (_scopeType)
             {
                 case JSValueScopeType.Handle:
-                    napi_close_handle_scope(env, new napi_handle_scope(_scopeHandle)).ThrowIfFailed();
+                    napi_close_handle_scope(
+                        env, new napi_handle_scope(_scopeHandle)).ThrowIfFailed();
                     break;
                 case JSValueScopeType.Escapable:
-                    napi_close_escapable_handle_scope(env, new napi_escapable_handle_scope(_scopeHandle)).ThrowIfFailed();
+                    napi_close_escapable_handle_scope(
+                        env, new napi_escapable_handle_scope(_scopeHandle)).ThrowIfFailed();
                     break;
                 default:
                     SynchronizationContext.SetSynchronizationContext(_previousSyncContext);
@@ -88,7 +96,8 @@ public sealed class JSValueScope : IDisposable
             throw new InvalidOperationException("Parent scope must not be null.");
 
         if (_scopeType != JSValueScopeType.Escapable)
-            throw new InvalidOperationException("It can be called only for Escapable value scopes.");
+            throw new InvalidOperationException(
+                "It can be called only for Escapable value scopes.");
 
         napi_escape_handle(
             (napi_env)this,

@@ -496,19 +496,19 @@ public static partial class JSNativeApi
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_throw_error(napi_env env,
-           [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
+           [MarshalAs(UnmanagedType.LPUTF8Str)] string? code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_throw_type_error(napi_env env,
-           [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
+           [MarshalAs(UnmanagedType.LPUTF8Str)] string? code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_throw_range_error(napi_env env,
-           [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
+           [MarshalAs(UnmanagedType.LPUTF8Str)] string? code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status node_api_throw_syntax_error(napi_env env,
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string? code, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg);
 
         [LibraryImport(nameof(NodeApi)), UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
         internal static partial napi_status napi_is_error(napi_env env, napi_value value, out c_bool result);
