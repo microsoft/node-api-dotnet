@@ -40,10 +40,11 @@ public struct JSError
     private const string ErrorWrapValue = "4bda9e7e-4913-4dbc-95de-891cbf66598e-errorVal";
     private const string DefaultMessage = "Error in native callback";
 
-    public unsafe JSError(string? message = null, JSErrorType errorType = JSErrorType.Error)
+    public unsafe JSError(
+        string? message = null, JSErrorType errorType = JSErrorType.Error, string? code = null)
     {
         // Fatal error instead of exception to avoid stack overflows
-        using var fataScope = new FatalIfFailedScope();
+        using var fatalScope = new FatalIfFailedScope();
 
         // We must retrieve the last error info before doing anything else because
         // doing anything else will replace the last error info.
@@ -82,18 +83,24 @@ public struct JSError
         {
             napi_status.napi_ok => errorType switch
             {
-                JSErrorType.TypeError => JSValue.CreateTypeError(null, (JSValue)_message),
-                JSErrorType.RangeError => JSValue.CreateRangeError(null, (JSValue)_message),
-                JSErrorType.SyntaxError => JSValue.CreateSyntaxError(null, (JSValue)_message),
-                _ => JSValue.CreateError(null, (JSValue)_message),
+                JSErrorType.TypeError
+                  => JSValue.CreateTypeError(ToJSValue(code), (JSValue)_message),
+                JSErrorType.RangeError
+                  => JSValue.CreateRangeError(ToJSValue(code), (JSValue)_message),
+                JSErrorType.SyntaxError
+                  => JSValue.CreateSyntaxError(ToJSValue(code), (JSValue)_message),
+                _ => JSValue.CreateError(ToJSValue(code), (JSValue)_message),
             },
             napi_status.napi_object_expected or
             napi_status.napi_string_expected or
             napi_status.napi_boolean_expected or
             napi_status.napi_number_expected
-              => JSValue.CreateTypeError(null, (JSValue)_message),
-            _ => JSValue.CreateError(null, (JSValue)_message),
+              => JSValue.CreateTypeError(ToJSValue(code), (JSValue)_message),
+            _ => JSValue.CreateError(ToJSValue(code), (JSValue)_message),
         });
+
+        JSValue? ToJSValue(string? value)
+            => value is not null ? (JSValue)value : (JSValue?)null;
     }
 
     public JSError(JSValue? error)
@@ -138,22 +145,28 @@ public struct JSError
         }
     }
 
-    public JSValue? Value
+    public JSValue Value
     {
         get
         {
             JSValue? error = _errorRef?.GetValue();
-            if (error is null)
-                return null;
+            if (error is JSValue jsError)
+            {
+                if (jsError.TypeOf() != JSValueType.Object)
+                {
+                    return jsError;
+                }
 
-            if (error.Value.TypeOf() != JSValueType.Object)
-                return error;
+                // We are checking if the object is wrapped
+                if (jsError.HasOwnProperty(ErrorWrapValue))
+                {
+                    return jsError[ErrorWrapValue];
+                }
 
-            // We are checking if the object is wrapped
-            if (error.Value.HasOwnProperty(ErrorWrapValue))
-                return error.Value[ErrorWrapValue];
+                return jsError;
+            }
 
-            return error;
+            return JSValue.Undefined;
         }
     }
 

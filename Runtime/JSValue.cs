@@ -347,7 +347,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     }
 }
 
-public static class JSValueExtensions
+internal static class JSValueExtensions
 {
     public static napi_value AsNapiValueOrNull(this JSValue? value)
         => value is not null ? (napi_value)value.Value : napi_value.Null;
