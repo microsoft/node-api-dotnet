@@ -12,12 +12,11 @@ public partial struct JSIterable
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForEnumerable<T>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForEnumerable<T>(
         JSValue.From<T> toJS)
     {
         return new JSProxy.Handler(
-            context, $"{nameof(IEnumerable<T>)}<{typeof(T).Name}>")
+            $"{nameof(IEnumerable<T>)}<{typeof(T).Name}>")
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
             {
@@ -35,12 +34,11 @@ public partial struct JSIterable
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForReadOnlyCollection<T>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForReadOnlyCollection<T>(
         JSValue.From<T> toJS)
     {
         return new JSProxy.Handler(
-            context, $"{nameof(IReadOnlyCollection<T>)}<{typeof(T).Name}>")
+            $"{nameof(IReadOnlyCollection<T>)}<{typeof(T).Name}>")
         {
             // There is no equivalent to IReadOnlyCollection in JS.
             // Return an iterable proxy that also has a length property.
@@ -66,13 +64,12 @@ public partial struct JSIterable
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForCollection<T>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForCollection<T>(
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
         return new JSProxy.Handler(
-            context, $"{nameof(ICollection<T>)}<{typeof(T).Name}>")
+            $"{nameof(ICollection<T>)}<{typeof(T).Name}>")
         {
             // There is no equivalent to ICollection in JS.
             // (A JS Set is slightly different, more equivalent to C# ISet<T>.)

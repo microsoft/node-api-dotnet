@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -199,6 +200,13 @@ public static partial class JSNativeApi
 
     public static bool DeleteElement(this JSValue thisValue, int index)
         => napi_delete_element(Env, (napi_value)thisValue, (uint)index, out c_bool result).ThrowIfFailed((bool)result);
+
+    public static unsafe void DefineProperties(this JSValue thisValue, IReadOnlyCollection<JSPropertyDescriptor> descriptors)
+    {
+        nint[] handles = ToUnmanagedPropertyDescriptors(ReadOnlySpan<byte>.Empty, descriptors, (_, count, descriptorsPtr) =>
+          napi_define_properties(Env, (napi_value)thisValue, count, descriptorsPtr).ThrowIfFailed());
+        Array.ForEach(handles, handle => thisValue.AddGCHandleFinalizer(handle));
+    }
 
     public static unsafe void DefineProperties(this JSValue thisValue, params JSPropertyDescriptor[] descriptors)
     {
@@ -437,6 +445,26 @@ public static partial class JSNativeApi
         status.ThrowIfFailed();
         value = GCHandle.FromIntPtr(result).Target;
         return true;
+    }
+
+    /// <summary>
+    /// Attempts to get the object that was previously attached to a JS wrapper.
+    /// </summary>
+    /// <param name="thisValue">The JS wrapper value.</param>
+    /// <returns>The unwrapped object, or null if nothing was wrapped.</returns>
+    public static object? TryUnwrap(this JSValue thisValue)
+    {
+        napi_status status = napi_unwrap(Env, (napi_value)thisValue, out nint result);
+
+        // The invalid arg error code is returned if there was nothing to unwrap. It doesn't
+        // distinguish from an invalid handle, but either way the unwrap failed.
+        if (status == napi_status.napi_invalid_arg)
+        {
+            return null;
+        }
+
+        status.ThrowIfFailed();
+        return GCHandle.FromIntPtr(result).Target;
     }
 
     /// <summary>
@@ -833,14 +861,17 @@ public static partial class JSNativeApi
         }
     }
 
-    private static unsafe nint[] ToUnmanagedPropertyDescriptors(ReadOnlySpan<byte> name, JSPropertyDescriptor[] descriptors, UseUnmanagedDescriptors action)
+    private static unsafe nint[] ToUnmanagedPropertyDescriptors(
+        ReadOnlySpan<byte> name,
+        IReadOnlyCollection<JSPropertyDescriptor> descriptors,
+        UseUnmanagedDescriptors action)
     {
-        nint[] handlesToFinalize = new nint[descriptors.Length];
-        int count = descriptors.Length;
+        nint[] handlesToFinalize = new nint[descriptors.Count];
+        int count = descriptors.Count;
         napi_property_descriptor* descriptorsPtr = stackalloc napi_property_descriptor[count];
-        for (int i = 0; i < count; i++)
+        int i = 0;
+        foreach (JSPropertyDescriptor descriptor in descriptors)
         {
-            JSPropertyDescriptor descriptor = descriptors[i];
             napi_property_descriptor* descriptorPtr = &descriptorsPtr[i];
             descriptorPtr->name = (napi_value)descriptor.Name;
             descriptorPtr->utf8name = nint.Zero;
@@ -857,6 +888,7 @@ public static partial class JSNativeApi
             {
                 handlesToFinalize[i] = descriptorPtr->data = nint.Zero;
             }
+            i++;
         }
         action(name, (nuint)count, descriptorsPtr);
         return handlesToFinalize;

@@ -8,6 +8,10 @@ using static NodeApi.JSNativeApi.Interop;
 
 namespace NodeApi.Hosting;
 
+/// <summary>
+/// When AOT-compiled, exposes a native entry-point that supports loading the .NET runtime
+/// and the Node API <see cref="ManagedHost" />.
+/// </summary>
 internal partial class NativeHost : IDisposable
 {
     private static Version MinimumDotnetVersion { get; } = new(7, 0, 0);
@@ -16,6 +20,7 @@ internal partial class NativeHost : IDisposable
     private const string ManagedHostTypeName =
         $"{nameof(NodeApi)}.{nameof(NodeApi.Hosting)}.ManagedHost";
 
+    private readonly string _nodeApiHostDir;
     private hostfxr_handle _hostContextHandle;
 
     public static bool IsTracingEnabled { get; } =
@@ -42,14 +47,23 @@ internal partial class NativeHost : IDisposable
         {
             using var scope = new JSValueScope(JSValueScopeType.RootNoContext, env);
 
-            // Constructing the native host also loads the CLR and initializes the managed host.
-            var host = new NativeHost(env, exports);
+            var host = new NativeHost();
 
-            // The managed host defined several properties/methods already.
-            // Add on a dispose method implemented by the native host that closes the CLR context.
+            // Define a dispose method implemented by the native host that closes the CLR context.
+            // The managed host proxy will pass through dispoose calls to this callback.
             new JSValue(exports, scope).DefineProperties(new JSPropertyDescriptor(
-                nameof(NativeHost.Dispose),
-                (_) => { host.Dispose(); return default; }));
+                "dispose", (_) => { host.Dispose(); return default; }));
+
+            try
+            {
+                exports = host.InitializeManagedHost(env, exports);
+            }
+            catch
+            {
+                host.Dispose();
+                throw;
+            }
+
         }
         catch (Exception ex)
         {
@@ -86,30 +100,21 @@ internal partial class NativeHost : IDisposable
             });
     }
 
-    public NativeHost(napi_env env, napi_value exports)
+    public NativeHost()
     {
         string currentModuleFilePath = GetCurrentModuleFilePath();
         Trace("    Current module path: " + currentModuleFilePath);
 
-        string nodeApiHostDir = Path.GetDirectoryName(currentModuleFilePath)!;
+        _nodeApiHostDir = Path.GetDirectoryName(currentModuleFilePath)!;
 
-        _hostContextHandle = InitializeManagedRuntime(nodeApiHostDir);
-        try
-        {
-            InitializeManagedHost(_hostContextHandle, env, exports, nodeApiHostDir);
-        }
-        catch
-        {
-            hostfxr_close(_hostContextHandle);
-            throw;
-        }
+        _hostContextHandle = InitializeManagedRuntime();
     }
 
-    private static unsafe hostfxr_handle InitializeManagedRuntime(string nodeApiHostDir)
+    private unsafe hostfxr_handle InitializeManagedRuntime()
     {
         Trace("> NativeHost.InitializeManagedRuntime()");
 
-        string runtimeConfigPath = Path.Join(nodeApiHostDir, @"NodeApi.runtimeconfig.json");
+        string runtimeConfigPath = Path.Join(_nodeApiHostDir, @"NodeApi.runtimeconfig.json");
         Trace("    Runtime config: " + runtimeConfigPath);
 
         string hostfxrPath = HostFxr.GetHostFxrPath(MinimumDotnetVersion);
@@ -141,21 +146,17 @@ internal partial class NativeHost : IDisposable
         return hostContextHandle;
     }
 
-    private static unsafe void InitializeManagedHost(
-        hostfxr_handle hostContextHandle,
-        napi_env env,
-        napi_value exports,
-        string nodeApiHostDir)
+    private unsafe napi_value InitializeManagedHost(napi_env env, napi_value exports)
     {
         Trace($"> NativeHost.InitializeManagedHost({env.Handle:X8}, {exports.Handle:X8})");
 
-        string managedHostPath = Path.Join(nodeApiHostDir, @"NodeApi.dll");
+        string managedHostPath = Path.Join(_nodeApiHostDir, @"NodeApi.dll");
         Trace("    Managed host: " + managedHostPath);
 
         // Get a CLR function that can load an assembly.
         Trace("    Getting runtime load-assembly delegate...");
         hostfxr_status status = hostfxr_get_runtime_delegate(
-            hostContextHandle,
+            _hostContextHandle,
             hostfxr_delegate_type.load_assembly_and_get_function_pointer,
             out load_assembly_and_get_function_pointer loadAssembly);
         CheckStatus(status, "Failed to get CLR load-assembly function.");
@@ -201,9 +202,10 @@ internal partial class NativeHost : IDisposable
         napi_register_module_v1 initializeModule =
             Marshal.GetDelegateForFunctionPointer<napi_register_module_v1>(
                 initializeModulePointer);
-        initializeModule(env, exports);
+        exports = initializeModule(env, exports);
 
         Trace("< NativeHost.InitializeManagedHost()");
+        return exports;
     }
 
     public void Dispose()

@@ -15,10 +15,13 @@ file record struct JSErrorInfo(string? Message, napi_status Status)
 {
     public static unsafe JSErrorInfo GetLastErrorInfo()
     {
-        napi_get_last_error_info((napi_env)JSValueScope.Current,
-                                 out napi_extended_error_info* errorInfo).ThrowIfFailed();
+        napi_get_last_error_info(
+            (napi_env)JSValueScope.Current,
+            out napi_extended_error_info* errorInfo).ThrowIfFailed();
         if (errorInfo == null)
+        {
             return new JSErrorInfo(null, napi_status.napi_ok);
+        }
 
         if (errorInfo->error_message != null)
         {
@@ -115,9 +118,13 @@ public struct JSError
     {
         if (exception is JSException jsException)
         {
-            _message = jsException.Error._message;
-            _errorRef = jsException.Error._errorRef;
-            return;
+            JSError? error = jsException.Error;
+            if (error.HasValue)
+            {
+                _message = error.Value._message;
+                _errorRef = error.Value._errorRef;
+                return;
+            }
         }
 
         var tempError = new JSError(exception.Message);
@@ -253,15 +260,6 @@ public struct JSError
             s_isFatal = _previousIsFatal;
         }
     }
-}
-
-public class JSException : Exception
-{
-    public JSException(JSError error) => Error = error;
-
-    public JSError Error { get; }
-
-    public override string Message => Error.Message;
 }
 
 public static partial class JSNativeApi

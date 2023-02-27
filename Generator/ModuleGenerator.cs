@@ -2,10 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using NodeApi.Hosting;
 
 namespace NodeApi.Generator;
+
+// An analyzer bug results in incorrect reports of CA1822 against methods in this class.
+#pragma warning disable CA1822 // Mark members as static
 
 /// <summary>
 /// Generates JavaScript module registration code for C# APIs exported to JS.
@@ -17,22 +22,29 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private const string ModuleInitializeMethodName = "Initialize";
     private const string ModuleRegisterFunctionName = "napi_register_module_v1";
 
-#pragma warning disable CA1822 // Mark members as static
+    private readonly JSMarshaler _marshaler = new();
+    private readonly Dictionary<string, LambdaExpression> _callbackAdapters = new();
+    private readonly List<ITypeSymbol> _exportedInterfaces = new();
+
     public void Initialize(GeneratorInitializationContext context)
     {
 #if DEBUG
         // Note source generators are not covered by normal debugging,
         // because the generator runs at build time, not at application run-time.
-        // Un-comment the line below to enable debugging at build time.
+        // Set the environment variable to trigger debugging at build time.
 
-        ////System.Diagnostics.Debugger.Launch();
+        if (Environment.GetEnvironmentVariable("DEBUG_NODE_API_GENERATOR") != null)
+        {
+            System.Diagnostics.Debugger.Launch();
+        }
 #endif
     }
-#pragma warning restore CA1822 // Mark members as static
 
     public void Execute(GeneratorExecutionContext context)
     {
         Context = context;
+        string generatedSourceFileName =
+            (context.Compilation.AssemblyName ?? "Assembly") + ".NodeApi.g.cs";
 
         try
         {
@@ -41,7 +53,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
             SourceText initializerSource = GenerateModuleInitializer(
                 moduleInitializer, exportItems);
-            context.AddSource($"{nameof(NodeApi)}.{ModuleInitializerClassName}", initializerSource);
+            context.AddSource(generatedSourceFileName, initializerSource);
 
             // Also write the generated code to a file under obj/ for diagnostics.
             // Depends on <CompilerVisibleProperty Include="BaseIntermediateOutputPath" />
@@ -49,8 +61,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 "build_property.BaseIntermediateOutputPath", out string? intermediateOutputPath))
             {
                 string generatedSourcePath = Path.Combine(
-                    intermediateOutputPath,
-                    $"{nameof(NodeApi)}.{ModuleInitializerClassName}.cs");
+                    intermediateOutputPath, generatedSourceFileName);
                 File.WriteAllText(generatedSourcePath, initializerSource.ToString());
             }
 
@@ -70,7 +81,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         catch (Exception ex)
         {
-            ReportError(DiagnosticId.GeneratorError, null, "Generator failed.", ex.Message);
+            while (ex != null)
+            {
+                ReportException(ex);
+                ex = ex.InnerException!;
+            }
         }
     }
 
@@ -289,7 +304,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "JSValue exportsValue = new(exports, scope);";
         s++;
 
-        AdapterGenerator adapterGenerator = new(Context);
         if (moduleInitializer is IMethodSymbol moduleInitializerMethod)
         {
             // Just call the custom module initialization method. Additional tagged exports aren't supported.
@@ -312,7 +326,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         {
             // Export the custom module class and/or additional types and static methods tagged for export.
 
-            ExportModule(ref s, moduleInitializer as ITypeSymbol, exportItems, adapterGenerator);
+            ExportModule(ref s, moduleInitializer as ITypeSymbol, exportItems);
             s++;
             s += "return (napi_value)exportsValue;";
         }
@@ -326,8 +340,13 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "}";
         s += "}";
 
-        // Generate any supporting adapter methods that the module initialization depended on.
-        adapterGenerator.GenerateAdapters(ref s);
+        GenerateCallbackAdapters(ref s);
+
+        foreach (ITypeSymbol interfaceSymbol in _exportedInterfaces)
+        {
+            s++;
+            GenerateInterfaceAdapter(ref s, interfaceSymbol, _marshaler);
+        }
 
         s += "}";
 
@@ -337,11 +356,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     /// <summary>
     /// Generates code to define all the properties of the module and return the module exports.
     /// </summary>
-    private static void ExportModule(
+    private void ExportModule(
       ref SourceBuilder s,
       ITypeSymbol? moduleType,
-      IEnumerable<ISymbol> exportItems,
-      AdapterGenerator adapterGenerator)
+      IEnumerable<ISymbol> exportItems)
     {
         if (moduleType != null)
         {
@@ -355,11 +373,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
                 {
-                    ExportMethod(ref s, method, adapterGenerator);
+                    ExportMethod(ref s, method);
                 }
                 else if (member is IPropertySymbol property)
                 {
-                    ExportProperty(ref s, property, adapterGenerator);
+                    ExportProperty(ref s, property);
                 }
             }
         }
@@ -385,6 +403,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 {
                     // Interfaces do not have constructors.
                     s += $"new JSClassBuilder<{exportClass}>(context, \"{exportName}\")";
+                    _exportedInterfaces.Add(exportClass);
                 }
                 else if (exportClass.IsStatic)
                 {
@@ -397,13 +416,16 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
                     // The class constructor may take no parameter, or a single JSCallbackArgs
                     // parameter, or may use an adapter to support arbitrary parameters.
-                    string? constructorAdapterName =
-                        adapterGenerator.GetConstructorAdapterName(exportClass);
-                    if (constructorAdapterName != null)
+                    if (IsConstructorCallbackAdapterRequired(exportClass))
                     {
-                        s += $"\t{constructorAdapterName})";
+                        LambdaExpression adapter = _marshaler.BuildFromJSConstructorExpression(
+                            exportClass.GetMembers().OfType<IMethodSymbol>()
+                                .Where((m) => m.MethodKind == MethodKind.Constructor)
+                                .First().AsConstructorInfo());
+                        s += $"\t{adapter.Name})";
                     }
-                    else if (AdapterGenerator.HasNoArgsConstructor(exportClass))
+                    else if (exportClass.GetMembers().OfType<IMethodSymbol>().Any((m) =>
+                        m.MethodKind == MethodKind.Constructor && m.Parameters.Length == 0))
                     {
                         s += $"\t() => new {ns}.{exportClass.Name}())";
                     }
@@ -414,7 +436,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 }
 
                 // Export all the class members, then define the class.
-                ExportMembers(ref s, exportClass, adapterGenerator);
+                ExportMembers(ref s, exportClass);
                 s += exportClass.TypeKind == TypeKind.Interface ? ".DefineInterface())" :
                     exportClass.IsStatic ? ".DefineStaticClass())" : ".DefineClass())";
                 s.DecreaseIndent();
@@ -428,7 +450,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 string ns = GetNamespace(exportStruct);
                 s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(context, \"{exportName}\")";
 
-                ExportMembers(ref s, exportStruct, adapterGenerator);
+                ExportMembers(ref s, exportStruct);
                 s += ".DefineStruct())";
                 s.DecreaseIndent();
             }
@@ -439,19 +461,19 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
                 // Exported enums are similar to static classes with integer properties.
                 s += $"new JSClassBuilder<object>(context, \"{exportName}\")";
-                ExportMembers(ref s, exportEnum, adapterGenerator);
+                ExportMembers(ref s, exportEnum);
                 s += ".DefineEnum())";
                 s.DecreaseIndent();
             }
             else if (exportItem is IPropertySymbol exportProperty)
             {
                 // Export tagged static properties as properties on the module.
-                ExportProperty(ref s, exportProperty, adapterGenerator, exportName);
+                ExportProperty(ref s, exportProperty, exportName);
             }
             else if (exportItem is IMethodSymbol exportMethod)
             {
                 // Export tagged static methods as top-level functions on the module.
-                ExportMethod(ref s, exportMethod, adapterGenerator, exportName);
+                ExportMethod(ref s, exportMethod, exportName);
             }
         }
 
@@ -481,21 +503,20 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     /// <summary>
     /// Generates code to define properties and methods for an exported class or struct type.
     /// </summary>
-    private static void ExportMembers(
+    private void ExportMembers(
       ref SourceBuilder s,
-      ITypeSymbol type,
-      AdapterGenerator adapterGenerator)
+      ITypeSymbol type)
     {
         foreach (ISymbol? member in type.GetMembers()
           .Where((m) => m.DeclaredAccessibility == Accessibility.Public))
         {
             if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
             {
-                ExportMethod(ref s, method, adapterGenerator);
+                ExportMethod(ref s, method);
             }
             else if (member is IPropertySymbol property)
             {
-                ExportProperty(ref s, property, adapterGenerator);
+                ExportProperty(ref s, property);
             }
             else if (type.TypeKind == TypeKind.Enum && member is IFieldSymbol field)
             {
@@ -508,53 +529,45 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     /// <summary>
     /// Generate code for a method exported on a class, struct, or module.
     /// </summary>
-    private static void ExportMethod(
+    private void ExportMethod(
       ref SourceBuilder s,
       IMethodSymbol method,
-      AdapterGenerator adapterGenerator,
       string? exportName = null)
     {
         exportName ??= ToCamelCase(method.Name);
 
         // An adapter method may be used to support marshalling arbitrary parameters,
         // if the method does not match the `JSCallback` signature.
-        string? adapterName = adapterGenerator.GetMethodAdapterName(method);
         string attributes = "JSPropertyAttributes.DefaultMethod" +
             (method.IsStatic ? " | JSPropertyAttributes.Static" : string.Empty);
-        if (adapterName != null)
+        if (IsMethodCallbackAdapterRequired(method))
         {
-            s += $".AddMethod(\"{exportName}\", {adapterName},\n\t{attributes})";
+            Expression<JSCallback> adapter =
+                _marshaler.BuildFromJSMethodExpression(method.AsMethodInfo());
+            _callbackAdapters.Add(adapter.Name!, adapter);
+            s += $".AddMethod(\"{exportName}\", {adapter.Name},\n\t{attributes})";
         }
-        else if (method.IsStatic)
+        else
         {
             string ns = GetNamespace(method);
             string className = method.ContainingType.Name;
             s += $".AddMethod(\"{exportName}\", " +
                 $"() => {ns}.{className}.{method.Name},\n\t{attributes})";
         }
-        else
-        {
-            s += $".AddMethod(\"{exportName}\", (obj) => obj.{method.Name},\n\t{attributes})";
-        }
     }
 
     /// <summary>
     /// Generates code for a property exported on a class, struct, or module.
     /// </summary>
-    private static void ExportProperty(
+    private void ExportProperty(
       ref SourceBuilder s,
       IPropertySymbol property,
-      AdapterGenerator adapterGenerator,
       string? exportName = null)
     {
         exportName ??= ToCamelCase(property.Name);
 
         string attributes = "JSPropertyAttributes.DefaultProperty" +
             (property.IsStatic ? " | JSPropertyAttributes.Static" : string.Empty);
-
-        // Getter and setter adapter methods may be used if the property type is not `JSValue`.
-        (string? getterAdapterName, string? setterAdapterName) =
-            adapterGenerator.GetPropertyAdapterNames(property);
 
         if (property.ContainingType.TypeKind == TypeKind.Struct)
         {
@@ -571,13 +584,16 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         string ns = GetNamespace(property);
         string className = property.ContainingType.Name;
 
-        if (getterAdapterName != null)
-        {
-            s += $"getter: {getterAdapterName},";
-        }
-        else if (property.GetMethod?.DeclaredAccessibility != Accessibility.Public)
+        if (property.GetMethod?.DeclaredAccessibility != Accessibility.Public)
         {
             s += $"getter: () => default,";
+        }
+        else if (property.Type.AsType() != typeof(JSValue))
+        {
+            Expression<JSCallback> adapter =
+                _marshaler.BuildFromJSMethodExpression(property.AsPropertyInfo().GetMethod!);
+            _callbackAdapters.Add(adapter.Name!, adapter);
+            s += $"getter: {adapter.Name},";
         }
         else if (property.IsStatic)
         {
@@ -588,13 +604,16 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             s += $"getter: (obj) => obj.{property.Name},";
         }
 
-        if (setterAdapterName != null)
-        {
-            s += $"setter: {setterAdapterName},";
-        }
-        else if (property.SetMethod?.DeclaredAccessibility != Accessibility.Public)
+        if (property.SetMethod?.DeclaredAccessibility != Accessibility.Public)
         {
             s += $"setter: null,";
+        }
+        else if (property.Type.AsType() != typeof(JSValue))
+        {
+            Expression<JSCallback> adapter =
+                _marshaler.BuildFromJSMethodExpression(property.AsPropertyInfo().SetMethod!);
+            _callbackAdapters.Add(adapter.Name!, adapter);
+            s += $"setter: {adapter.Name},";
         }
         else if (property.IsStatic)
         {
@@ -633,5 +652,177 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         return symbol.GetAttributes().SingleOrDefault(
             (a) => a.AttributeClass?.Name == "JSExportAttribute");
+    }
+
+    /// <summary>
+    /// Checks whether an adapter must be generated for a constructor. An adapter is unnecessary
+    /// if the constructor takes either no parameters or a single JSCallbackArgs parameter.
+    /// </summary>
+    private bool IsConstructorCallbackAdapterRequired(ITypeSymbol type)
+    {
+        IMethodSymbol[] constructors = type.GetMembers().OfType<IMethodSymbol>()
+            .Where((m) => m.MethodKind == MethodKind.Constructor)
+            .ToArray();
+        if (!constructors.Any() || constructors.Any((c) => c.Parameters.Length == 0 ||
+            (c.Parameters.Length == 1 && c.Parameters[0].Type.AsType() == typeof(JSCallbackArgs))))
+        {
+            return false;
+        }
+
+        // TODO: Look for [JSExport] attribute among multiple constructors, and/or
+        // implement overload resolution in the adapter.
+        if (constructors.Length > 1)
+        {
+            ReportError(
+                DiagnosticId.UnsupportedOverloads,
+                constructors.Skip(1).First(),
+                "Exported class cannot have an overloaded constructor.");
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Checks whether an adapter must be generated for a method. An adapter is unnecessary if
+    /// the method takes either no parameters or a single JSCallbackArgs parameter and returns
+    /// either void or JSValue.
+    /// </summary>
+    private bool IsMethodCallbackAdapterRequired(IMethodSymbol method)
+    {
+        if (method.IsStatic &&
+            (method.Parameters.Length == 0 ||
+            (method.Parameters.Length == 1 &&
+            method.Parameters[0].Type.AsType() == typeof(JSCallbackArgs))) &&
+            (method.ReturnsVoid ||
+            method.ReturnType.AsType() == typeof(JSValue)))
+        {
+            return false;
+        }
+
+        foreach (IParameterSymbol parameter in method.Parameters)
+        {
+            if (parameter.RefKind != RefKind.None)
+            {
+                ReportError(
+                    DiagnosticId.UnsupportedMethodParameterType,
+                    parameter,
+                    "Parameters with 'ref' or 'out' modifiers are not supported " +
+                        "in exported methods.");
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Generates a class that implements an interface by making calls to a JS value.
+    /// </summary>
+    private static void GenerateInterfaceAdapter(
+        ref SourceBuilder s,
+        ITypeSymbol interfaceType,
+        JSMarshaler _marshaler)
+    {
+        string ns = GetNamespace(interfaceType);
+        string adapterName = $"proxy_{ns.Replace('.', '_')}_{interfaceType.Name}";
+
+        static string ReplaceMethodVariables(string cs) =>
+            cs.Replace(typeof(JSValue).Namespace + ".", "")
+            .Replace("JSValue __this, ", "")
+            .Replace("__this", "Value")
+            .Replace("__value", "value");
+
+        /*
+         * private sealed class proxy_IInterfaceName : JSInterface, IInterfaceName
+         * {
+         *     public proxy_IInterfaceName(JSValue value) : base(value) { }
+         *
+         */
+        s += $"private sealed class {adapterName} : Hosting.JSInterface, {interfaceType}";
+        s += "{";
+        s += $"public {adapterName}(JSValue value) : base(value) {{ }}";
+
+        foreach (ISymbol member in interfaceType.GetMembers())
+        {
+            if (member is IPropertySymbol property)
+            {
+                s++;
+                s += $"{property.Type.WithNullableAnnotation(NullableAnnotation.NotAnnotated)} " +
+                    $"{GetFullName(interfaceType)}.{property.Name}";
+                s += "{";
+
+                if (!property.IsWriteOnly)
+                {
+                    LambdaExpression getterAdapter =
+                        _marshaler.BuildToJSPropertyGetExpression(property.AsPropertyInfo());
+                    s += "get";
+                    string cs = ReplaceMethodVariables(getterAdapter.ToCS());
+                    s += string.Join("\n", cs.Split("\n").Skip(1));
+                }
+
+                if (!property.IsReadOnly)
+                {
+                    LambdaExpression setterAdapter =
+                        _marshaler.BuildToJSPropertySetExpression(property.AsPropertyInfo());
+                    s += "set";
+                    string cs = ReplaceMethodVariables(setterAdapter.ToCS());
+                    s += string.Join("\n", cs.Split("\n").Skip(1));
+                }
+
+                s += "}";
+            }
+            else if (member is IMethodSymbol method &&
+                method.MethodKind == MethodKind.Ordinary)
+            {
+                s++;
+
+                LambdaExpression methodAdapter =
+                    _marshaler.BuildToJSMethodExpression(method.AsMethodInfo());
+                s += ReplaceMethodVariables(methodAdapter.ToCS());
+            }
+        }
+
+        s += "}";
+    }
+
+    /// <summary>
+    /// Generate supporting adapter methods that the module initialization depended on.
+    /// </summary>
+    private void GenerateCallbackAdapters(ref SourceBuilder s)
+    {
+        // First search through the callback expression trees to collect any additional
+        // adapter lambdas that they depend on, so the dependencies can be generated also.
+        CallbackAdapterCollector callbackAdapterFinder = new(_callbackAdapters);
+        foreach (LambdaExpression? callbackAdapter in _callbackAdapters.Values.ToArray())
+        {
+            callbackAdapterFinder.Visit(callbackAdapter);
+        }
+
+        foreach (LambdaExpression callbackAdapter in _callbackAdapters.Values)
+        {
+            s++;
+            s += "private static " + callbackAdapter.ToCS();
+        }
+    }
+
+    private class CallbackAdapterCollector : ExpressionVisitor
+    {
+        private readonly Dictionary<string, LambdaExpression> _callbackAdapters;
+
+        public CallbackAdapterCollector(
+            Dictionary<string, LambdaExpression> callbackAdapters)
+        {
+            _callbackAdapters = callbackAdapters;
+        }
+
+        protected override Expression VisitInvocation(InvocationExpression node)
+        {
+            if (node.Expression is LambdaExpression callbackAdapter &&
+                !_callbackAdapters.ContainsKey(callbackAdapter.Name!))
+            {
+                _callbackAdapters.Add(callbackAdapter.Name!, callbackAdapter);
+            }
+
+            return base.VisitInvocation(node);
+        }
     }
 }

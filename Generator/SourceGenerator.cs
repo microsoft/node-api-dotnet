@@ -66,6 +66,15 @@ public abstract class SourceGenerator
         return sb.ToString();
     }
 
+    public void ReportException(Exception ex)
+    {
+        // The compiler diagnostic will only show up to the first \r or \n.
+        // So concatenate the first few lines of the stack trace with no newlines.
+        string message = string.Concat(new[] { ": ", ex.Message }.Concat(
+            (ex.StackTrace ?? string.Empty).Replace("\r", "").Split('\n').Take(10)));
+        ReportError(DiagnosticId.GeneratorError, null, ex.GetType().Name, message);
+    }
+
     public void ReportError(
         DiagnosticId id,
         ISymbol? symbol,
@@ -79,7 +88,6 @@ public abstract class SourceGenerator
             title,
             description);
     }
-#pragma warning restore CA1822 // Mark members as static
 
     public void ReportDiagnostic(
         DiagnosticSeverity severity,

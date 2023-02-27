@@ -12,12 +12,11 @@ public partial struct JSArray
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForReadOnlyList<T>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForReadOnlyList<T>(
         JSValue.From<T> toJS)
     {
         return new JSProxy.Handler(
-            context, $"{nameof(IReadOnlyList<T>)}<{typeof(T).Name}>")
+            $"{nameof(IReadOnlyList<T>)}<{typeof(T).Name}>")
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
             {
@@ -49,13 +48,12 @@ public partial struct JSArray
     /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
     /// efficient creation of proxies.
     /// </remarks>
-    public static JSProxy.Handler CreateProxyHandlerForList<T>(
-        JSContext context,
+    internal static JSProxy.Handler CreateProxyHandlerForList<T>(
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
         return new JSProxy.Handler(
-            context, $"{nameof(IList<T>)}<{typeof(T).Name}>")
+            $"{nameof(IList<T>)}<{typeof(T).Name}>")
         {
             Get = (JSObject target, JSValue property, JSObject receiver) =>
             {

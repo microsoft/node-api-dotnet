@@ -69,6 +69,8 @@ public sealed class JSContext : IDisposable
     /// </remarks>
     private readonly ConcurrentDictionary<Type, JSReference> _structMap = new();
 
+    private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
+
     public object? Module { get; set; }
 
     public bool IsDisposed { get; private set; }
@@ -232,86 +234,142 @@ public sealed class JSContext : IDisposable
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         IEnumerable<T> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<T> toJS)
     {
         return collection is JSIterable.Enumerable<T> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(IEnumerable<T>),
+                    (_) => JSIterable.CreateProxyHandlerForEnumerable(toJS));
+                return new JSProxy(new JSObject(), proxyHandler, collection);
+            });
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         IReadOnlyCollection<T> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<T> toJS)
     {
         return collection is JSArray.ReadOnlyCollection<T> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(IReadOnlyCollection<T>),
+                    (_) => JSIterable.CreateProxyHandlerForReadOnlyCollection(toJS));
+                return new JSProxy(new JSObject(), proxyHandler, collection);
+            });
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         ICollection<T> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<T> toJS,
+        JSValue.To<T> fromJS)
     {
         return collection is JSArray.Collection<T> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSObject(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(ICollection<T>),
+                    (_) => JSIterable.CreateProxyHandlerForCollection(toJS, fromJS));
+                return new JSProxy(new JSObject(), proxyHandler, collection);
+            });
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         IReadOnlyList<T> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<T> toJS)
     {
         return collection is JSArray.ReadOnlyList<T> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSArray(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(IReadOnlyList<T>),
+                    (_) => JSArray.CreateProxyHandlerForReadOnlyList(toJS));
+                return new JSProxy(new JSArray(), proxyHandler, collection);
+            });
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         IList<T> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<T> toJS,
+        JSValue.To<T> fromJS)
     {
         return collection is JSArray.List<T> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSArray(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(IList<T>),
+                    (_) => JSArray.CreateProxyHandlerForList(toJS, fromJS));
+                return new JSProxy(new JSArray(), proxyHandler, collection);
+            });
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         IReadOnlySet<T> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<T> toJS,
+        JSValue.To<T> fromJS)
     {
         return collection is JSSet.ReadOnlySet<T> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSSet(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(IReadOnlySet<T>),
+                    (_) => JSSet.CreateProxyHandlerForReadOnlySet(toJS, fromJS));
+                return new JSProxy(new JSSet(), proxyHandler, collection);
+            });
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         ISet<T> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<T> toJS,
+        JSValue.To<T> fromJS)
     {
         return collection is JSSet.Set<T> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSSet(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(ISet<T>),
+                    (_) => JSSet.CreateProxyHandlerForSet(toJS, fromJS));
+                return new JSProxy(new JSSet(), proxyHandler, collection);
+            });
     }
 
     public JSValue GetOrCreateCollectionWrapper<TKey, TValue>(
         IReadOnlyDictionary<TKey, TValue> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<TKey> keyToJS,
+        JSValue.From<TValue> valueToJS,
+        JSValue.To<TKey> keyFromJS)
     {
         return collection is JSMap.ReadOnlyDictionary<TKey, TValue> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSMap(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                typeof(IReadOnlyDictionary<TKey, TValue>),
+                    (_) => JSMap.CreateProxyHandlerForReadOnlyDictionary(
+                        keyToJS, valueToJS, keyFromJS));
+                return new JSProxy(new JSMap(), proxyHandler, collection);
+            });
     }
 
     public JSValue GetOrCreateCollectionWrapper<TKey, TValue>(
         IDictionary<TKey, TValue> collection,
-        JSProxy.Handler proxyHandler)
+        JSValue.From<TKey> keyToJS,
+        JSValue.From<TValue> valueToJS,
+        JSValue.To<TKey> keyFromJS,
+        JSValue.To<TValue> valueFromJS)
     {
         return collection is JSMap.Dictionary<TKey, TValue> adapter ? adapter.Value :
-            GetOrCreateCollectionWrapper(
-                collection, () => new JSProxy(new JSMap(), proxyHandler, collection));
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                typeof(IDictionary<TKey, TValue>),
+                    (_) => JSMap.CreateProxyHandlerForDictionary(
+                        keyToJS, valueToJS, keyFromJS, valueFromJS));
+                return new JSProxy(new JSMap(), proxyHandler, collection);
+            });
     }
 
-    private JSValue GetOrCreateCollectionWrapper(
+    private JSValue GetOrCreateCollectionProxy(
         object collection,
         Func<JSValue> createWrapper)
     {

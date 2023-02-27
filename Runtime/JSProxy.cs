@@ -46,7 +46,7 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
             jsTarget.Wrap(target);
         }
 
-        JSValue proxyConstructor = handler.Context.Import("Proxy");
+        JSValue proxyConstructor = JSContext.Current.Import("Proxy");
 
         if (revocable)
         {
@@ -95,19 +95,13 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
     /// </summary>
     public sealed class Handler : IDisposable
     {
-        public Handler(JSContext context, string? name = null)
+        public Handler(string? name = null)
         {
-            ArgumentNullException.ThrowIfNull(context);
-
-            Context = context;
             Name = name;
-
             JSHandlerReference = new Lazy<JSReference>(
                 () => new JSReference(CreateJSHandler()),
                 LazyThreadSafetyMode.ExecutionAndPublication);
         }
-
-        internal JSContext Context { get; }
 
         /// <summary>
         /// Gets the name that was given to the handler (for diagnostic purposes),
