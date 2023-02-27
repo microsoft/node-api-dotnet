@@ -100,7 +100,7 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
 
     public Enumerator GetEnumerator() => new(_value);
 
-    ICollection<JSValue> IDictionary<JSValue, JSValue>.Keys => (JSArray)_value.GetPropertyNames();
+    public ICollection<JSValue> Keys => (JSArray)_value.GetPropertyNames();
 
     ICollection<JSValue> IDictionary<JSValue, JSValue>.Values => throw new NotSupportedException();
 

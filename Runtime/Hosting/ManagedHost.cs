@@ -34,20 +34,18 @@ public sealed class ManagedHost : IDisposable
     private readonly Dictionary<string, AssemblyExporter> _loadedAssemblies = new();
     private readonly AssemblyExporter _systemAssembly;
 
-    private ManagedHost()
+    private ManagedHost(JSObject exports)
     {
-        Dictionary<string, JSReference> hostMethods = new()
-        {
+        exports.DefineProperties(
             // The require() method loads a .NET assembly that was built to be a Node API module.
             // It uses static binding to the APIs the module specifically exports to JS.
-            ["require"] = new JSReference(JSValue.CreateFunction("require", LoadModule)),
+            JSPropertyDescriptor.ForValue("require", JSValue.CreateFunction("require", LoadModule)),
 
             // The load() method loads any .NET assembly and enables dynamic invocation of any APIs.
-            ["load"] = new JSReference(JSValue.CreateFunction("load", LoadAssembly)),
-        };
+            JSPropertyDescriptor.ForValue("load", JSValue.CreateFunction("load", LoadAssembly)));
 
         // Export the .NET core library assembly by default, along with additional methods above.
-        _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _marshaler, hostMethods);
+        _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _marshaler, exports);
     }
 
     public static bool IsTracingEnabled { get; } =
@@ -82,7 +80,7 @@ public sealed class ManagedHost : IDisposable
                 e.Name.Split(',')[0] == nameof(NodeApi) ? nodeApiAssembly : null;
 
             using JSValueScope scope = new(JSValueScopeType.Root, env);
-            ManagedHost host = new();
+            ManagedHost host = new((JSObject)new JSValue(exports, scope));
             exports = (napi_value)host._systemAssembly.AssemblyObject;
 
             Trace("< ManagedHost.InitializeModule()");
@@ -204,7 +202,7 @@ public sealed class ManagedHost : IDisposable
         }
 
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
-        assemblyExporter = new(assembly, _marshaler);
+        assemblyExporter = new(assembly, _marshaler, target: new JSObject());
         _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);
         JSValue assemblyValue = assemblyExporter.AssemblyObject;
 

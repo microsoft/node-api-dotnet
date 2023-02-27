@@ -19,15 +19,22 @@ internal class AssemblyExporter
     private readonly JSReference _assemblyObject;
     private readonly Dictionary<Type, JSReference> _typeObjects = new();
 
+    /// <summary>
+    /// Creates a new instance of the <see cref="AssemblyExporter" /> class.
+    /// </summary>
+    /// <param name="assembly">The assembly to be exported.</param>
+    /// <param name="marshaler">Marshaler that supports dynamic binding to .NET APIs.</param>
+    /// <param name="target">Proxy target object; any properties/methods on this object
+    /// will be exposed on the exported assembly object in addition to assembly types.</param>
     public AssemblyExporter(
         Assembly assembly,
         JSMarshaler marshaler,
-        IDictionary<string, JSReference>? additionalProperties = null)
+        JSObject target)
     {
         Assembly = assembly;
         _marshaler = marshaler;
 
-        JSProxy proxy = new(new JSObject(), CreateProxyHandler(additionalProperties));
+        JSProxy proxy = new(target, CreateProxyHandler());
         _assemblyObject = new JSReference(proxy);
     }
 
@@ -45,76 +52,73 @@ internal class AssemblyExporter
     /// Creates a proxy handler that enables deferred enumeration and loading of types in the
     /// assembly.
     /// </summary>
-    /// <param name="additionalProperties">Properties to be exposed by the proxy in addition to
-    /// types in the assembly.
-    /// </param>
-    private JSProxy.Handler CreateProxyHandler(
-        IDictionary<string, JSReference>? additionalProperties) => new()
+    private JSProxy.Handler CreateProxyHandler() => new()
+    {
+        Get = (JSObject target, JSValue property, JSObject receiver) =>
         {
-            Get = (JSObject target, JSValue property, JSObject receiver) =>
+            if (target.ContainsKey(property))
             {
-                string? propertyName = property.IsString() ? (string?)property : null;
-                if (propertyName == null)
-                {
-                    return JSValue.Undefined;
-                }
+                // The host may define some properties on the target object.
+                return target[property];
+            }
 
-                if (additionalProperties?.TryGetValue(propertyName, out JSReference? reference) == true)
-                {
-                    return reference!.GetValue()!.Value;
-                }
-
-                return TryExportType(propertyName);
-            },
-
-            OwnKeys = (JSObject target) =>
+            string? propertyName = property.IsString() ? (string?)property : null;
+            if (propertyName == null)
             {
-                JSArray keys = new();
+                return JSValue.Undefined;
+            }
 
-                foreach (string method in additionalProperties?.Keys ?? Enumerable.Empty<string>())
-                {
-                    keys.Add(method);
-                }
+            return TryExportType(propertyName);
+        },
 
-                // TODO: Enumerate types in the assembly?
+        OwnKeys = (JSObject target) =>
+        {
+            JSArray keys = new();
 
-                return keys;
-            },
-
-            GetOwnPropertyDescriptor = (JSObject target, JSValue property) =>
+            foreach (JSValue key in target.Keys.Select(v => (string)v))
             {
-                string? propertyName = property.IsString() ? (string?)property : null;
-                if (propertyName == null)
-                {
-                    return (JSObject)JSValue.Undefined;
-                }
+                keys.Add(key);
+            }
 
-                if (additionalProperties?.TryGetValue(propertyName, out JSReference? reference) == true)
-                {
-                    JSObject descriptor = new()
-                    {
-                        ["enumerable"] = false, // Additional properties are not enumerable.
-                        ["configurable"] = false,
-                        ["value"] = reference!.GetValue()!.Value,
-                    };
-                    return descriptor;
-                }
+            // TODO: Enumerate types in the assembly?
 
-                JSValue typeValue = TryExportType(propertyName);
-                if (!typeValue.IsUndefined())
-                {
-                    JSObject descriptor = new()
-                    {
-                        ["enumerable"] = true, // Type properties are enumerable.
-                        ["configurable"] = false,
-                        ["value"] = typeValue,
-                    };
-                    return descriptor;
-                }
+            return keys;
+        },
 
+        GetOwnPropertyDescriptor = (JSObject target, JSValue property) =>
+        {
+            if (target.TryGetValue(property, out JSValue value))
+            {
+                JSObject descriptor = new()
+                {
+                    ["enumerable"] = false, // Target properties are not enumerable.
+                    ["configurable"] = false,
+                    ["value"] = value,
+                };
+                return descriptor;
+            }
+
+            string? propertyName = property.IsString() ? (string?)property : null;
+            if (propertyName == null)
+            {
                 return (JSObject)JSValue.Undefined;
-            },
-        };
+            }
+
+            JSValue typeValue = TryExportType(propertyName);
+            if (!typeValue.IsUndefined())
+            {
+                JSObject descriptor = new()
+                {
+                    ["enumerable"] = true, // Type properties are enumerable.
+                    ["configurable"] = false,
+                    ["value"] = typeValue,
+                };
+                return descriptor;
+            }
+
+            return (JSObject)JSValue.Undefined;
+        },
+    };
 
     /// <summary>
     /// Attempts to load and export a type, either by simple name or full type name.

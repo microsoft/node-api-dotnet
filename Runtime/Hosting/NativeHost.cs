@@ -48,6 +48,12 @@ internal partial class NativeHost : IDisposable
             using var scope = new JSValueScope(JSValueScopeType.RootNoContext, env);
 
             var host = new NativeHost();
+
+            // Define a dispose method implemented by the native host that closes the CLR context.
+            // The managed host proxy will pass through dispoose calls to this callback.
+            new JSValue(exports, scope).DefineProperties(new JSPropertyDescriptor(
+                "dispose", (_) => { host.Dispose(); return default; }));
+
             try
             {
                 exports = host.InitializeManagedHost(env, exports);
@@ -58,13 +64,6 @@ internal partial class NativeHost : IDisposable
                 throw;
             }
 
-            /*
-            // The managed host defined several properties/methods already.
-            // Add on a dispose method implemented by the native host that closes the CLR context.
-            new JSValue(exports, scope).DefineProperties(new JSPropertyDescriptor(
-                nameof(NativeHost.Dispose),
-                (_) => { host.Dispose(); return default; }));
-            */
         }
         catch (Exception ex)
         {
