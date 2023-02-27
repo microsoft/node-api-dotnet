@@ -746,7 +746,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             if (member is IPropertySymbol property)
             {
                 s++;
-                s += $"{property.Type} {GetFullName(interfaceType)}.{property.Name}";
+                s += $"{property.Type.WithNullableAnnotation(NullableAnnotation.NotAnnotated)} " +
+                    $"{GetFullName(interfaceType)}.{property.Name}";
                 s += "{";
 
                 if (!property.IsWriteOnly)
