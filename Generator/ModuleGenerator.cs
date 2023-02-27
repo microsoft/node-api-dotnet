@@ -9,6 +9,9 @@ using NodeApi.Hosting;
 
 namespace NodeApi.Generator;
 
+// An analyzer bug results in incorrect reports of CA1822 against methods in this class.
+#pragma warning disable CA1822 // Mark members as static
+
 /// <summary>
 /// Generates JavaScript module registration code for C# APIs exported to JS.
 /// </summary>

@@ -89,8 +89,6 @@ public abstract class SourceGenerator
             description);
     }
 
-#pragma warning restore CA1822 // Mark members as static
-
     public void ReportDiagnostic(
         DiagnosticSeverity severity,
         DiagnosticId id,
