@@ -26,7 +26,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private readonly Dictionary<string, LambdaExpression> _callbackAdapters = new();
     private readonly List<ITypeSymbol> _exportedInterfaces = new();
 
-#pragma warning disable CA1822 // Mark members as static
     public void Initialize(GeneratorInitializationContext context)
     {
 #if DEBUG
@@ -40,7 +39,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
 #endif
     }
-#pragma warning restore CA1822 // Mark members as static
 
     public void Execute(GeneratorExecutionContext context)
     {
