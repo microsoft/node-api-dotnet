@@ -8,28 +8,39 @@ public class JSClassBuilder<T>
   , IJSObjectUnwrap<T>
   where T : class
 {
-    public JSContext Context { get; }
+    private readonly JSCallbackDescriptor? _constructorDescriptor;
 
     public string ClassName { get; }
 
     public delegate T Constructor();
     public delegate T ConstructorWithArgs(JSCallbackArgs args);
 
-    private readonly Constructor? _constructor;
-    private readonly ConstructorWithArgs? _constructorWithArgs;
-
-    public JSClassBuilder(JSContext context, string className, Constructor? constructor = null)
+    public JSClassBuilder(string className)
     {
-        Context = context;
         ClassName = className;
-        _constructor = constructor;
     }
 
-    public JSClassBuilder(JSContext context, string className, ConstructorWithArgs constructor)
+    public JSClassBuilder(string className, Constructor constructorCallback)
+        : this(className, new JSCallbackDescriptor(
+            (args) => JSValue.CreateExternal(constructorCallback())))
     {
-        Context = context;
+    }
+
+    public JSClassBuilder(string className, ConstructorWithArgs constructorCallback)
+        : this(className, new JSCallbackDescriptor(
+            (args) => JSValue.CreateExternal(constructorCallback(args))))
+    {
+    }
+
+    public JSClassBuilder(string className, JSCallback constructorCallback)
+        : this(className, new JSCallbackDescriptor(constructorCallback))
+    {
+    }
+
+    public JSClassBuilder(string className, JSCallbackDescriptor constructorDescriptor)
+    {
         ClassName = className;
-        _constructorWithArgs = constructor;
+        _constructorDescriptor = constructorDescriptor;
     }
 
     static T? IJSObjectUnwrap<T>.Unwrap(JSCallbackArgs args)
@@ -39,56 +50,45 @@ public class JSClassBuilder<T>
 
     public JSValue DefineClass()
     {
-        if (_constructor != null)
+        if (_constructorDescriptor == null)
         {
-            return Context.RegisterClass<T>(JSNativeApi.DefineClass(
-                ClassName,
+            throw new InvalidOperationException("A class constructor is required.");
+        }
+
+        return JSContext.Current.RegisterClass<T>(JSNativeApi.DefineClass(
+            ClassName,
+            new JSCallbackDescriptor(
                 (args) =>
                 {
-                    T instance;
+                    JSValue instance;
                     if (args.Length == 1 && args[0].IsExternal())
                     {
                         // Constructing a JS instance to wrap a pre-existing C# instance.
-                        instance = (T)args[0].GetValueExternal();
+                        instance = args[0];
                     }
                     else
                     {
-                        instance = _constructor();
+                        instance = _constructorDescriptor.Value.Callback(args);
                     }
 
-                    return Context.InitializeObjectWrapper(args.ThisArg, instance);
+                    return JSContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
                 },
-                Properties.ToArray()));
-        }
-        else if (_constructorWithArgs != null)
-        {
-            return Context.RegisterClass<T>(JSNativeApi.DefineClass(
-                ClassName,
-                (args) =>
-                {
-                    T instance;
-                    if (args.Length == 1 && args[0].IsExternal())
-                    {
-                        // Constructing a JS instance to wrap a pre-existing C# instance.
-                        instance = (T)args[0].GetValueExternal();
-                    }
-                    else
-                    {
-                        instance = _constructorWithArgs(args);
-                    }
-
-                    return Context.InitializeObjectWrapper(args.ThisArg, instance);
-                },
-                Properties.ToArray()));
-        }
-        else
-        {
-            throw new InvalidOperationException("A constructor is required.");
-        }
+                _constructorDescriptor.Value.Data),
+            Properties.ToArray()));
     }
 
+    /// <summary>
+    /// Creates a JS object that represents a static class. The object that represents the
+    /// class has (static) properties, but is not a constructor function so it cannot be
+    /// instantiated.
+    /// </summary>
     public JSValue DefineStaticClass()
     {
+        if (_constructorDescriptor != null)
+        {
+            throw new InvalidOperationException("A static class may not have a constructor.");
+        }
+
         foreach (JSPropertyDescriptor property in Properties)
         {
             if (!property.Attributes.HasFlag(JSPropertyAttributes.Static))
@@ -99,20 +99,25 @@ public class JSClassBuilder<T>
 
         JSValue obj = JSValue.CreateObject();
         obj.DefineProperties(Properties.ToArray());
-        Context.RegisterStaticClass(ClassName, obj);
+        JSContext.Current.RegisterStaticClass(ClassName, obj);
         return obj;
     }
 
     /// <summary>
-    /// Defines a JS class that represents a C# interface.
+    /// Defines a JS class that represents a .NET interface.
     /// </summary>
     /// <remarks>
     /// A JS class defined this way may not be constructed directly from JS. An instance of the
-    /// class may be constructed when passing a C# object (that implements the interface) to JS
-    /// via <see cref="JSContext.GetOrCreateCollectionWrapper()" />.
+    /// class may be constructed when passing a .NET object (that implements the interface) to JS
+    /// via <see cref="JSContext.GetOrCreateObjectWrapper()" />.
     /// </remarks>
     public JSValue DefineInterface()
     {
+        if (_constructorDescriptor != null)
+        {
+            throw new InvalidOperationException("An interface may not have a constructor.");
+        }
+
         foreach (JSPropertyDescriptor property in Properties)
         {
             if (property.Attributes.HasFlag(JSPropertyAttributes.Static))
@@ -121,9 +126,9 @@ public class JSClassBuilder<T>
             }
         }
 
-        return Context.RegisterClass<T>(JSNativeApi.DefineClass(
+        return JSContext.Current.RegisterClass<T>(JSNativeApi.DefineClass(
             ClassName,
-            (args) =>
+            new JSCallbackDescriptor((args) =>
             {
                 if (args.Length != 1 || !args[0].IsExternal())
                 {
@@ -131,14 +136,23 @@ public class JSClassBuilder<T>
                 }
 
                 // Constructing a JS instance to wrap a C# instance that implements the interface.
-                T instance = (T)args[0].GetValueExternal();
-                return Context.InitializeObjectWrapper(args.ThisArg, instance);
-            },
+                JSValue instance = args[0];
+                return JSContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
+            }),
             Properties.ToArray()));
     }
 
+    /// <summary>
+    /// Creates a JS Object for a TypeScript-style enumeration. The object has readonly integer
+    /// properties along with a reverse number-to-string mapping.
+    /// </summary>
     public JSValue DefineEnum()
     {
+        if (_constructorDescriptor != null)
+        {
+            throw new InvalidOperationException("An enum may not have a constructor.");
+        }
+
         foreach (JSPropertyDescriptor property in Properties)
         {
             if (!property.Attributes.HasFlag(JSPropertyAttributes.Static))

@@ -140,20 +140,21 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
     }
 
-    public static unsafe JSValue CreateFunction(ReadOnlySpan<byte> utf8Name, JSCallback callback)
+    public static unsafe JSValue CreateFunction(
+        ReadOnlySpan<byte> utf8Name, JSCallback callback, object? callbackData = null)
     {
-        GCHandle callbackHandle = GCHandle.Alloc(callback);
+        GCHandle callbackHandle = GCHandle.Alloc(new JSCallbackDescriptor(callback, callbackData));
         JSValue func = CreateFunction(utf8Name, new napi_callback(&InvokeJSCallback), (nint)callbackHandle);
         func.AddGCHandleFinalizer((nint)callbackHandle);
         return func;
     }
 
-    public static JSValue CreateFunction(string name, JSCallback callback)
+    public static JSValue CreateFunction(string name, JSCallback callback, object? callbackData = null)
     {
         int byteCount = Encoding.UTF8.GetByteCount(name);
         Span<byte> utf8Name = stackalloc byte[byteCount];
         Encoding.UTF8.GetBytes(name, utf8Name);
-        return CreateFunction(utf8Name, callback);
+        return CreateFunction(utf8Name, callback, callbackData);
     }
 
     public static JSValue CreateError(JSValue? code, JSValue message)

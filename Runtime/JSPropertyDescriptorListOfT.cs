@@ -3,8 +3,6 @@ using System.Collections.Generic;
 
 namespace NodeApi;
 
-// TODO: Add interceptors for C# exceptions
-
 public abstract class JSPropertyDescriptorList<TDerived, TObject>
   where TDerived : class, IJSObjectUnwrap<TObject>
   where TObject : class
@@ -13,6 +11,20 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
 
     protected JSPropertyDescriptorList() { }
 
+    /// <summary>
+    /// Adds a property with an initial value of undefined.
+    /// </summary>
+    public TDerived AddProperty(
+        string name,
+        JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
+    {
+        Properties.Add(JSPropertyDescriptor.ForValue(name, JSValue.Undefined, attributes));
+        return (TDerived)(object)this;
+    }
+
+    /// <summary>
+    /// Adds a property with a specified initial value.
+    /// </summary>
     public TDerived AddProperty(
       string name,
       JSValue value,
@@ -22,6 +34,9 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
         return (TDerived)(object)this;
     }
 
+    /// <summary>
+    /// Adds a property with getter and/or setter callbacks.
+    /// </summary>
     public TDerived AddProperty(
       string name,
       JSCallback? getter,
@@ -32,6 +47,29 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
         return (TDerived)(object)this;
     }
 
+    /// <summary>
+    /// Adds a property with getter and/or setter callbacks.
+    /// </summary>
+    public TDerived AddProperty(
+      string name,
+      Func<JSValue>? getter,
+      Action<JSValue>? setter,
+      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
+    {
+        return AddProperty(
+          name,
+          getter == null ? null : args => getter(),
+          setter == null ? null : args =>
+          {
+              setter(args[0]);
+              return JSValue.Undefined;
+          },
+          attributes);
+    }
+
+    /// <summary>
+    /// Adds a property with getter and/or setter callbacks obtained from the wrapped object.
+    /// </summary>
     public TDerived AddProperty(
       string name,
       Func<TObject, JSValue>? getter,
@@ -55,35 +93,63 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
           attributes);
     }
 
-    public TDerived AddProperty(
+    /// <summary>
+    /// Adds a method with a void no-args callback.
+    /// </summary>
+    public TDerived AddMethod(
       string name,
-      Func<JSValue>? getter,
-      Action<JSValue>? setter,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty | JSPropertyAttributes.Static)
+      Action callback,
+      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
     {
-        return AddProperty(
+        return AddMethod(
           name,
-          getter == null ? null : args => getter(),
-          setter == null ? null : args =>
+          args =>
           {
-              setter(args[0]);
+              callback.Invoke();
               return JSValue.Undefined;
           },
           attributes);
     }
 
+    /// <summary>
+    /// Adds a method with a void callback.
+    /// </summary>
+    public TDerived AddMethod(
+      string name,
+      JSActionCallback callback,
+      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod,
+      object? data = null)
+    {
+        return AddMethod(
+          name,
+          args =>
+          {
+              callback.Invoke(args);
+              return JSValue.Undefined;
+          },
+          attributes,
+          data);
+    }
+
+    /// <summary>
+    /// Adds a method with a callback.
+    /// </summary>
     public TDerived AddMethod(
       string name,
       JSCallback callback,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
+      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod,
+      object? data = null)
     {
-        Properties.Add(JSPropertyDescriptor.Function(name, callback, attributes));
+        Properties.Add(JSPropertyDescriptor.Function(name, callback, attributes, data));
         return (TDerived)(object)this;
     }
 
+    /// <summary>
+    /// Adds a method with a void no-args callback obtained from the wrapped object.
+    /// </summary>
     public TDerived AddMethod(
       string name,
-      Func<TObject, Action> getMethod,
+      Func<TObject, Action> getCallback,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
     {
         return AddMethod(
@@ -92,17 +158,21 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
           {
               if (TDerived.Unwrap(args) is TObject obj)
               {
-                  getMethod(obj).Invoke();
+                  getCallback(obj).Invoke();
               }
               return JSValue.Undefined;
           },
           attributes);
     }
 
+    /// <summary>
+    /// Adds a method with a void callback obtained from the wrapped object.
+    /// </summary>
     public TDerived AddMethod(
       string name,
-      Func<TObject, JSCallbackAction> getMethod,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
+      Func<TObject, JSActionCallback> getCallback,
+      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod,
+      object? data = null)
     {
         return AddMethod(
           name,
@@ -110,102 +180,28 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
           {
               if (TDerived.Unwrap(args) is TObject obj)
               {
-                  getMethod(obj).Invoke(args);
+                  getCallback(obj).Invoke(args);
               }
               return JSValue.Undefined;
           },
-          attributes);
+          attributes,
+          data);
     }
 
+    /// <summary>
+    /// Adds a method with a callback obtained from the wrapped object.
+    /// </summary>
     public TDerived AddMethod(
       string name,
-      Func<TObject, Action<JSValue>> getMethod,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
+      Func<TObject, JSCallback> getCallback,
+      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod,
+      object? data = null)
     {
         return AddMethod(
           name,
-          args =>
-          {
-              if (TDerived.Unwrap(args) is TObject obj)
-              {
-                  getMethod(obj).Invoke(args[0]);
-              }
-              return JSValue.Undefined;
-          },
-          attributes);
-    }
-
-    public TDerived AddMethod(
-      string name,
-      Func<TObject, Func<JSValue>> getMethod,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
-    {
-        return AddMethod(
-          name,
-          args => (TDerived.Unwrap(args) is TObject obj) ? getMethod(obj).Invoke() : JSValue.Undefined,
-          attributes);
-    }
-
-    public TDerived AddMethod(
-      string name,
-      Func<TObject, JSCallback> getMethod,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
-    {
-        return AddMethod(
-          name,
-          args => (TDerived.Unwrap(args) is TObject obj) ? getMethod(obj).Invoke(args) : JSValue.Undefined,
-          attributes);
-    }
-
-    public TDerived AddMethod(
-      string name,
-      Func<Action> getMethod,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod | JSPropertyAttributes.Static)
-    {
-        return AddMethod(
-          name,
-          args =>
-          {
-              getMethod().Invoke();
-              return JSValue.Undefined;
-          },
-          attributes);
-    }
-
-    public TDerived AddMethod(
-      string name,
-      Func<JSCallbackAction> getMethod,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod | JSPropertyAttributes.Static)
-    {
-        return AddMethod(
-          name,
-          args =>
-          {
-              getMethod().Invoke(args);
-              return JSValue.Undefined;
-          },
-          attributes);
-    }
-
-    public TDerived AddMethod(
-      string name,
-      Func<Func<JSValue>> getMethod,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod | JSPropertyAttributes.Static)
-    {
-        return AddMethod(
-          name,
-          args => getMethod().Invoke(),
-          attributes);
-    }
-
-    public TDerived AddMethod(
-      string name,
-      Func<JSCallback> getMethod,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod | JSPropertyAttributes.Static)
-    {
-        return AddMethod(
-          name,
-          args => getMethod().Invoke(args),
-          attributes);
+          args => (TDerived.Unwrap(args) is TObject obj) ?
+            getCallback(obj).Invoke(args) : JSValue.Undefined,
+          attributes,
+          data);
     }
 }

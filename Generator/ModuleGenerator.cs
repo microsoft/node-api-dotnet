@@ -388,22 +388,23 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 if (exportClass.TypeKind == TypeKind.Interface)
                 {
                     // Interfaces do not have constructors.
-                    s += $"new JSClassBuilder<{exportClass}>(context, \"{exportName}\")";
+                    s += $"new JSClassBuilder<{exportClass}>(\"{exportName}\")";
                     _exportedInterfaces.Add(exportClass);
                 }
                 else if (exportClass.IsStatic)
                 {
                     // Static classes do not have constructors, and cannot be used as type params.
-                    s += $"new JSClassBuilder<object>(context, \"{exportName}\")";
+                    s += $"new JSClassBuilder<object>(\"{exportName}\")";
                 }
                 else
                 {
-                    s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(context, \"{exportName}\",";
+                    s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(\"{exportName}\",";
 
                     // The class constructor may take no parameter, or a single JSCallbackArgs
                     // parameter, or may use an adapter to support arbitrary parameters.
                     if (IsConstructorCallbackAdapterRequired(exportClass))
                     {
+                        // TODO: Overload resolution if more than one constructor.
                         LambdaExpression adapter = _marshaler.BuildFromJSConstructorExpression(
                             exportClass.GetMembers().OfType<IMethodSymbol>()
                                 .Where((m) => m.MethodKind == MethodKind.Constructor)
@@ -434,7 +435,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 s.IncreaseIndent();
 
                 string ns = GetNamespace(exportStruct);
-                s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(context, \"{exportName}\")";
+                s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(\"{exportName}\")";
 
                 ExportMembers(ref s, exportStruct);
                 s += ".DefineStruct())";
@@ -446,7 +447,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 s.IncreaseIndent();
 
                 // Exported enums are similar to static classes with integer properties.
-                s += $"new JSClassBuilder<object>(context, \"{exportName}\")";
+                s += $"new JSClassBuilder<object>(\"{exportName}\")";
                 ExportMembers(ref s, exportEnum);
                 s += ".DefineEnum())";
                 s.DecreaseIndent();
@@ -538,7 +539,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             string ns = GetNamespace(method);
             string className = method.ContainingType.Name;
             s += $".AddMethod(\"{exportName}\", " +
-                $"() => {ns}.{className}.{method.Name},\n\t{attributes})";
+                $"{ns}.{className}.{method.Name},\n\t{attributes})";
         }
     }
 
@@ -552,14 +553,17 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         exportName ??= ToCamelCase(property.Name);
 
-        string attributes = "JSPropertyAttributes.DefaultProperty" +
+        bool writable = property.SetMethod != null ||
+            (!property.IsStatic && property.ContainingType.TypeKind == TypeKind.Struct);
+        string attributes = "JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable" +
+            (writable ? " | JSPropertyAttributes.Writable" : string.Empty) +
             (property.IsStatic ? " | JSPropertyAttributes.Static" : string.Empty);
 
-        if (property.ContainingType.TypeKind == TypeKind.Struct)
+        if (property.ContainingType.TypeKind == TypeKind.Struct && !property.IsStatic)
         {
-            // Struct properties are not backed by getter/setter methods. The entire struct is
-            // always passed by value. Properties are converted to/from `JSValue` by the struct
-            // adapter method.
+            // Struct instance properties are not backed by getter/setter methods. The entire
+            // struct is always passed by value. Properties are converted to/from `JSValue` by
+            // the struct adapter method.
             s += $".AddProperty(\"{exportName}\", {attributes})";
             return;
         }

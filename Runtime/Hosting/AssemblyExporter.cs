@@ -140,112 +140,275 @@ internal class AssemblyExporter
             }
         }
 
-        if (type.IsClass)
+        try
         {
-            return ExportClass(type);
+            if (type.IsEnum)
+            {
+                return ExportEnum(type);
+            }
+            if (type.IsClass || type.IsInterface || type.IsValueType)
+            {
+                return ExportClass(type);
+            }
+            else
+            {
+                return JSValue.Undefined;
+            }
         }
-        else if (type.IsEnum)
+        catch (Exception ex)
         {
-            return ExportEnum(type);
-        }
-        else if (type.IsValueType)
-        {
-            return ExportStruct(type);
-        }
-        else
-        {
-            return JSValue.Undefined;
+            Trace($"Failed to export type {type}: {ex}");
+            throw;
         }
     }
 
-    private JSValue ExportClass(Type classType)
+    private JSValue ExportClass(Type type)
     {
-        Trace($"> AssemblyExporter.ExportStaticClass({classType.FullName})");
+        Trace($"> AssemblyExporter.ExportClass({type.FullName})");
 
-        if (_typeObjects.TryGetValue(classType, out JSReference? typeObjectReference))
+        if (_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
         {
-            Trace($"< AssemblyExporter.ExportStaticClass() => already exported");
+            Trace($"< AssemblyExporter.ExportClass() => already exported");
             return typeObjectReference!.GetValue()!.Value;
         }
 
-        List<JSPropertyDescriptor> classProperties = new();
+        bool isStatic = type.IsAbstract && type.IsSealed;
+        Type classBuilderType =
+            (type.IsValueType ? typeof(JSStructBuilder<>) : typeof(JSClassBuilder<>))
+            .MakeGenericType(isStatic ? typeof(object) : type);
 
-        // TODO: Non-static class members
+        object classBuilder;
+        if (type.IsInterface || isStatic || type.IsValueType)
+        {
+            classBuilder = classBuilderType.CreateInstance(
+                new[] { typeof(string) }, new[] { type.Name });
+        }
+        else
+        {
+            ConstructorInfo[] constructors =
+                type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+            JSCallbackDescriptor constructorDescriptor;
+            if (constructors.Length == 1)
+            {
+                constructorDescriptor = 
+                    _marshaler.BuildFromJSConstructorExpression(constructors[0]).Compile();
+            }
+            else
+            {
+                // Multiple constructors require overload resolution.
+                constructorDescriptor =
+                    _marshaler.BuildConstructorOverloadDescriptor(constructors);
+            }
+
+            classBuilder = classBuilderType.CreateInstance(
+                new[] { typeof(string), typeof(JSCallbackDescriptor) },
+                new object[] { type.Name, constructorDescriptor });
+        }
+
+        ExportProperties(type, classBuilder);
+        ExportMethods(type, classBuilder);
+
+        string defineMethodName = type.IsInterface ? "DefineInterface" :
+            isStatic ? "DefineStaticClass" : type.IsValueType ? "DefineStruct" : "DefineClass";
+        JSValue classObject = (JSValue)classBuilderType.GetInstanceMethod(defineMethodName)
+                .Invoke(classBuilder, null)!;
+
+        Trace($"< AssemblyExporter.ExportClass()");
+        return classObject;
+    }
+
+    private void ExportProperties(Type type, object classBuilder)
+    {
+        Type classBuilderType = classBuilder.GetType();
+        MethodInfo? addValuePropertyMethod = classBuilderType.GetInstanceMethod(
+            "AddProperty", new[] { typeof(string), typeof(JSPropertyAttributes) });
+        MethodInfo addPropertyMethod = classBuilderType.GetInstanceMethod(
+            "AddProperty",
+            new[]
+            {
+                typeof(string),
+                typeof(JSCallback),
+                typeof(JSCallback),
+                typeof(JSPropertyAttributes),
+            });
 
         JSPropertyAttributes attributes =
             JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable;
-        foreach (MemberInfo member in classType.GetMembers(
-            BindingFlags.Public | BindingFlags.Static))
+        bool isStatic = type.IsAbstract && type.IsSealed;
+
+        foreach (PropertyInfo property in type.GetProperties(
+            BindingFlags.Public | BindingFlags.Static |
+            (isStatic ? default : BindingFlags.Instance)))
         {
-            if (member is MethodInfo method && !method.IsSpecialName)
+            JSPropertyAttributes propertyAttributes = attributes;
+            bool isStaticProperty = property.GetMethod?.IsStatic == true ||
+                property.SetMethod?.IsStatic == true;
+
+            Trace($"    {(isStaticProperty ? "static " : string.Empty)}{property.Name}");
+
+            if (type.IsValueType && !isStaticProperty)
             {
-                // TODO: Implement overload resolution for dynamically invoked methods.
-                // For an initial demo, overload resolution is hardcoded for the WriteLine method.
-                if (method.Name == "WriteLine" && (method.GetParameters().Length != 1 ||
-                    method.GetParameters()[0].ParameterType != typeof(string)))
+                // Struct instance properties are not backed by getter/setter methods. The
+                // entire struct is always passed by value. Properties are converted to/from
+                // `JSValue` by the struct adapter method.
+                propertyAttributes |= JSPropertyAttributes.Writable;
+                addValuePropertyMethod.Invoke(
+                    classBuilder,
+                    new object[] { property.Name, propertyAttributes });
+            }
+            else
+            {
+                if (isStaticProperty)
                 {
-                    continue;
+                    propertyAttributes |= JSPropertyAttributes.Static;
                 }
 
-                LambdaExpression lambda = _marshaler.BuildFromJSMethodExpression(method);
-                JSCallback methodDelegate = (JSCallback)lambda.Compile();
-                classProperties.Add(JSPropertyDescriptor.Function(
-                    member.Name,
-                    methodDelegate,
-                    attributes));
-            }
-            else if (member is PropertyInfo property)
-            {
+                if (property.SetMethod != null)
+                {
+                    propertyAttributes |= JSPropertyAttributes.Writable;
+                }
+
                 JSCallback? getterDelegate = null;
                 if (property.GetMethod != null)
                 {
-                    LambdaExpression lambda = _marshaler.BuildFromJSPropertyGetExpression(property);
+                    LambdaExpression lambda =
+                        _marshaler.BuildFromJSPropertyGetExpression(property);
                     getterDelegate = (JSCallback)lambda.Compile();
                 }
 
                 JSCallback? setterDelegate = null;
                 if (property.SetMethod != null)
                 {
-                    LambdaExpression lambda = _marshaler.BuildFromJSPropertySetExpression(property);
+                    LambdaExpression lambda =
+                        _marshaler.BuildFromJSPropertySetExpression(property);
                     setterDelegate = (JSCallback)lambda.Compile();
                 }
 
-                classProperties.Add(JSPropertyDescriptor.Accessor(
-                    member.Name,
-                    getterDelegate,
-                    setterDelegate,
-                    attributes));
+                addPropertyMethod.Invoke(
+                    classBuilder,
+                    new object?[]
+                    {
+                        property.Name,
+                        getterDelegate,
+                        setterDelegate,
+                        propertyAttributes,
+                    });
             }
         }
-
-        JSObject staticClassObject = new();
-        staticClassObject.DefineProperties(classProperties);
-
-        Trace($"< AssemblyExporter.ExportStaticClass() => [{classProperties.Count}]");
-        return staticClassObject;
     }
 
-    private JSValue ExportStruct(Type structType)
+    private void ExportMethods(Type type, object classBuilder)
     {
-        if (_typeObjects.TryGetValue(structType, out JSReference? typeObjectReference))
+        Type classBuilderType = classBuilder.GetType();
+        MethodInfo addMethodMethod = classBuilderType.GetInstanceMethod(
+            "AddMethod",
+            new[]
+            {
+                typeof(string),
+                typeof(JSCallback),
+                typeof(JSPropertyAttributes),
+                typeof(object),
+            });
+
+        JSPropertyAttributes attributes =
+            JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable;
+        bool isStatic = type.IsAbstract && type.IsSealed;
+
+        foreach (IGrouping<(bool IsStatic, string Name), MethodInfo> methodGroup in type.GetMethods(
+            BindingFlags.Public | BindingFlags.Static |
+            (isStatic ? default : BindingFlags.Instance))
+            .Where((m) => !m.IsSpecialName)
+            .GroupBy((m) => (m.IsStatic, m.Name)))
+        {
+            bool methodIsStatic = methodGroup.Key.IsStatic;
+            string methodName = methodGroup.Key.Name;
+            MethodInfo[] methods = methodGroup
+                .Where((m) => m.GetParameters().All(IsSupportedParameter))
+                .ToArray();
+            if (methods.Length == 0)
+            {
+                continue;
+            }
+
+            JSCallbackDescriptor methodDescriptor;
+            if (methods.Length == 1)
+            {
+                MethodInfo method = methods[0];
+                Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}(" +
+                    string.Join(", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
+
+                methodDescriptor = _marshaler.BuildFromJSMethodExpression(method).Compile();
+            }
+            else
+            {
+                // Set up overload resolution for multiple methods with the same name.
+                Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}[" +
+                    methods.Length + "]");
+                foreach (MethodInfo method in methods)
+                {
+                    Trace($"        {methodName}(" + string.Join(
+                        ", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
+
+                }
+
+                methodDescriptor = _marshaler.BuildMethodOverloadDescriptor(methods);
+            }
+
+            addMethodMethod.Invoke(
+                classBuilder,
+                new object?[]
+                {
+                    methodName,
+                    methodDescriptor.Callback,
+                    attributes | (methodIsStatic ? JSPropertyAttributes.Static : default),
+                    methodDescriptor.Data,
+                });
+            if (!methodIsStatic && methodName == nameof(Object.ToString))
+            {
+                // Also export non-uppercased toString(), which is a special method in JavaScript.
+                addMethodMethod.Invoke(
+                    classBuilder,
+                    new object?[]
+                    {
+                        "toString",
+                        methodDescriptor.Callback,
+                        attributes,
+                        methodDescriptor.Data,
+                    });
+            }
+        }
+    }
+
+    private JSValue ExportEnum(Type type)
+    {
+        Trace($"> AssemblyExporter.ExportEnum({type.FullName})");
+
+        if (_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
         {
             return typeObjectReference!.GetValue()!.Value;
         }
 
-        // TODO: Build struct proeprties and methods.
+        JSClassBuilder<object> enumBuilder = new(type.Name);
 
-        return new JSObject();
-    }
-
-    private JSValue ExportEnum(Type enumType)
-    {
-        if (_typeObjects.TryGetValue(enumType, out JSReference? typeObjectReference))
+        foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
         {
-            return typeObjectReference!.GetValue()!.Value;
+            enumBuilder.AddProperty(
+                field.Name,
+                (JSValue)Convert.ToInt64(field.GetRawConstantValue()),
+                JSPropertyAttributes.Static | JSPropertyAttributes.Enumerable);
         }
 
-        // TODO: Export enum values as properties on an object.
+        JSValue enumObject = enumBuilder.DefineEnum();
 
-        return new JSObject();
+        Trace($"< AssemblyExporter.ExportEnum()");
+        return enumObject;
+    }
+
+    private static bool IsSupportedParameter(ParameterInfo parameter)
+    {
+        // TODO: Check for other kinds of types that can't be marshaled.
+
+        return !parameter.IsOut && // out parameters
+            !parameter.ParameterType.IsByRefLike; // ref structs like Span<T>
     }
 }

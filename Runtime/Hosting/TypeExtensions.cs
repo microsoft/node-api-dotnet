@@ -32,6 +32,14 @@ internal static class TypeExtensions
         Type.MakeGenericMethodParameter(1),
     };
 
+    public static object CreateInstance(
+        this Type type, Type[]? types = null, object?[]? args = null)
+        => type.GetInstanceConstructor(types ?? Array.Empty<Type>()).Invoke(args);
+
+    public static ConstructorInfo GetInstanceConstructor(this Type type, Type[] types)
+        => type.GetConstructor(PublicInstance, types) ??
+            throw new MissingMemberException($"Constructor not found on type {type.Name}.");
+
     public static PropertyInfo GetStaticProperty(this Type type, string name)
         => type.GetProperty(name, PublicStatic) ??
             throw new MissingMemberException(
