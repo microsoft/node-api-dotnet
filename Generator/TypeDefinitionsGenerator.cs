@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using Microsoft.CodeAnalysis;
+using System.Xml.Linq;
 using Microsoft.CodeAnalysis.Text;
 
 namespace NodeApi.Generator;
@@ -11,66 +14,195 @@ namespace NodeApi.Generator;
 // An analyzer bug results in incorrect reports of CA1822 against methods in this class.
 #pragma warning disable CA1822 // Mark members as static
 
-internal class TypeDefinitionsGenerator : SourceGenerator
+/// <summary>
+/// Generats TypeScript type definitions for .NET APIs exported to JavaScript.
+/// </summary>
+/// <remarks>
+/// If some specific types or static methods in the assembly are tagged with
+/// <see cref="JSExportAttribute"/>, then type definitions are generated for only those items.
+/// Otherwise, type definitions are generated for all public APIs in the assembly that are
+/// usable by JavaScript.
+/// <para />
+/// If there is a documentation comments XML file in the same directory as the assembly then
+/// the doc-comments will be automatically included with the generated type definitions.
+/// </remarks>
+public class TypeDefinitionsGenerator : SourceGenerator
 {
     private static readonly Regex s_newlineRegex = new("\n *");
-    private static readonly Regex s_summaryRegex = new("<summary>(.*)</summary>");
-    private static readonly Regex s_remarksRegex = new("<remarks>(.*)</remarks>");
 
-    private readonly IEnumerable<ISymbol> _exportItems;
+    private readonly NullabilityInfoContext _nullabilityContext = new();
+
+    private readonly Assembly _assembly;
+    private readonly XDocument? _assemblyDoc;
+    private bool _autoCamelCase;
     private bool _emitDisposable;
     private bool _emitCancellation;
 
-    public TypeDefinitionsGenerator(IEnumerable<ISymbol> exportItems)
+    public static void GenerateTypeDefinitions(
+        string assemblyFilePath,
+        string typeDefinitionsFilePath)
     {
-        _exportItems = exportItems;
+        // Create a metadata load context that includes a resolver for .NET runtime assemblies
+        // along with the NodeAPI assembly and the target assembly.
+
+        // TODO: Add an option for additional reference assemblies.
+
+        string[] runtimeAssemblies = Directory.GetFiles(
+            RuntimeEnvironment.GetRuntimeDirectory(), "*.dll");
+        PathAssemblyResolver assemblyResolver = new(runtimeAssemblies.Concat(new[]
+        {
+            assemblyFilePath,
+            typeof(JSExportAttribute).Assembly.Location,
+        }));
+        using MetadataLoadContext loadContext = new(
+            assemblyResolver, typeof(object).Assembly.GetName().Name);
+
+        Assembly assembly = loadContext.LoadFromAssemblyPath(assemblyFilePath);
+
+        XDocument? assemblyDoc = null;
+        string? assemblyDocFilePath = Path.ChangeExtension(assemblyFilePath, ".xml");
+        if (File.Exists(assemblyDocFilePath))
+        {
+            assemblyDoc = XDocument.Load(assemblyDocFilePath);
+        }
+
+        TypeDefinitionsGenerator generator = new(assembly, assemblyDoc);
+        SourceText generatedSource = generator.GenerateTypeDefinitions();
+
+        File.WriteAllText(typeDefinitionsFilePath, generatedSource.ToString());
     }
 
-    internal SourceText GenerateTypeDefinitions()
+    public TypeDefinitionsGenerator(Assembly assembly, XDocument? assemblyDoc)
+    {
+        _assembly = assembly;
+        _assemblyDoc = assemblyDoc;
+    }
+
+    public SourceText GenerateTypeDefinitions()
     {
         var s = new SourceBuilder();
 
         s += "// Generated type definitions for .NET module";
 
-        foreach (ISymbol exportItem in _exportItems)
+        bool exportAll = !AreAnyItemsExported();
+        _autoCamelCase = !exportAll;
+
+        foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
         {
-            if (exportItem is ITypeSymbol exportClass &&
-                (exportClass.TypeKind == TypeKind.Class ||
-                exportClass.TypeKind == TypeKind.Struct ||
-                exportClass.TypeKind == TypeKind.Interface))
+            if (exportAll || IsTypeExported(type))
             {
-                GenerateClassDefinition(ref s, exportClass);
+                ExportType(ref s, type);
             }
-            else if (exportItem is ITypeSymbol exportEnum && exportEnum.TypeKind == TypeKind.Enum)
+            else
             {
-                GenerateEnumDefinition(ref s, exportEnum);
-            }
-            else if (exportItem is IMethodSymbol exportMethod)
-            {
-                s++;
-                GenerateDocComments(ref s, exportItem);
-                string exportName = ModuleGenerator.GetExportName(exportItem);
-                string parameters = GetTSParameters(exportMethod, s.Indent);
-                string returnType = GetTSType(exportMethod.ReturnType);
-                s += $"export declare function {exportName}({parameters}): {returnType};";
-            }
-            else if (exportItem is IPropertySymbol exportProperty)
-            {
-                s++;
-                GenerateDocComments(ref s, exportItem);
-                string exportName = ModuleGenerator.GetExportName(exportItem);
-                string propertyType = GetTSType(exportProperty.Type);
-                string varKind = exportProperty.SetMethod == null ? "const " : "var ";
-                s += $"export declare {varKind}{exportName}: {propertyType};";
+                foreach (MemberInfo member in type.GetMembers(
+                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                {
+                    if (IsMemberExported(member))
+                    {
+                        ExportMember(ref s, member);
+                    }
+                }
             }
         }
 
-        EmitSupportingInterfaces(ref s);
+        GenerateSupportingInterfaces(ref s);
 
         return s;
     }
 
-    private void EmitSupportingInterfaces(ref SourceBuilder s)
+    private static bool IsTypeExported(Type type)
+    {
+        return type.GetCustomAttributesData().Any((a) =>
+            a.AttributeType.FullName == typeof(JSModuleAttribute).FullName ||
+            a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
+    }
+
+    private static bool IsMemberExported(MemberInfo member)
+    {
+        return member.GetCustomAttributesData().Any((a) =>
+            a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
+    }
+
+    private static bool IsCustomModuleInitMethod(MemberInfo member)
+    {
+        return member is MethodInfo && member.GetCustomAttributesData().Any((a) =>
+            a.AttributeType.FullName == typeof(JSModuleAttribute).FullName);
+    }
+
+    private bool AreAnyItemsExported()
+    {
+        foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
+        {
+            if (IsTypeExported(type))
+            {
+                return true;
+            }
+            else
+            {
+                foreach (MemberInfo member in type.GetMembers(
+                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                {
+                    if (IsMemberExported(member))
+                    {
+                        return true;
+                    }
+                    else if (IsCustomModuleInitMethod(member))
+                    {
+                        throw new InvalidOperationException(
+                            "Cannot generate type definitions for an assembly with a " +
+                            "custom [JSModule] initialization method.");
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void ExportType(ref SourceBuilder s, Type type)
+    {
+        if (type.IsClass || type.IsInterface ||
+            (type.IsValueType && !type.IsEnum))
+        {
+            GenerateClassDefinition(ref s, type);
+        }
+        else if (type.IsEnum)
+        {
+            GenerateEnumDefinition(ref s, type);
+        }
+        else
+        {
+        }
+    }
+
+    private void ExportMember(ref SourceBuilder s, MemberInfo member)
+    {
+        if (member is MethodInfo method)
+        {
+            s++;
+            GenerateDocComments(ref s, method);
+            string exportName = GetExportName(method);
+            string parameters = GetTSParameters(method.GetParameters());
+            string returnType = GetTSType(method.ReturnParameter);
+            s += $"export declare function {exportName}({parameters}): {returnType};";
+        }
+        else if (member is PropertyInfo property)
+        {
+            s++;
+            GenerateDocComments(ref s, property);
+            string exportName = GetExportName(property);
+            string propertyType = GetTSType(property);
+            string varKind = property.SetMethod == null ? "const " : "var ";
+            s += $"export declare {varKind}{exportName}: {propertyType};";
+        }
+        else
+        {
+            // TODO: Events, const fields?
+        }
+    }
+
+    private void GenerateSupportingInterfaces(ref SourceBuilder s)
     {
         if (_emitCancellation)
         {
@@ -90,75 +222,75 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         }
     }
 
-    private void GenerateClassDefinition(ref SourceBuilder s, ITypeSymbol exportClass)
+    private void GenerateClassDefinition(ref SourceBuilder s, Type type)
     {
         s++;
-        GenerateDocComments(ref s, exportClass);
-        string classKind = exportClass.TypeKind == TypeKind.Interface ? "interface" :
-            exportClass.IsStatic ? "declare namespace" : "declare class";
+        GenerateDocComments(ref s, type);
+        string classKind = type.IsInterface ? "interface" :
+            (type.IsAbstract && type.IsSealed) ? "declare namespace" : "declare class";
 
         string implements = string.Empty;
+        /*
         foreach (INamedTypeSymbol? implemented in exportClass.Interfaces.Where(
             (type) => _exportItems.Contains(type, SymbolEqualityComparer.Default)))
         {
             implements += (implements.Length == 0 ? " implements " : ", ");
             implements += implemented.Name;
         }
+        */
 
-        string exportName = ModuleGenerator.GetExportName(exportClass);
+        string exportName = GetExportName(type);
         s += $"export {classKind} {exportName}{implements} {{";
 
         bool isFirstMember = true;
-        foreach (ISymbol member in exportClass.GetMembers()
-            .Where((m) => m.DeclaredAccessibility == Accessibility.Public))
+        foreach (MemberInfo member in type.GetMembers(
+            BindingFlags.Public | BindingFlags.DeclaredOnly |
+            BindingFlags.Static | BindingFlags.Instance))
         {
             string memberName = ToCamelCase(member.Name);
 
-            if (!exportClass.IsStatic &&
-                member is IMethodSymbol exportConstructor &&
-                exportConstructor.MethodKind == MethodKind.Constructor &&
-                !exportConstructor.IsImplicitlyDeclared)
+            if (!(type.IsAbstract && type.IsSealed) && member is ConstructorInfo constructor)
             {
                 if (isFirstMember) isFirstMember = false; else s++;
-                GenerateDocComments(ref s, member);
-                string parameters = GetTSParameters(exportConstructor, s.Indent);
+                GenerateDocComments(ref s, constructor);
+                string parameters = GetTSParameters(constructor.GetParameters());
                 s += $"constructor({parameters});";
             }
-            else if (member is IMethodSymbol exportMethod &&
-                exportMethod.MethodKind == MethodKind.Ordinary)
+            else if (member is MethodInfo method && !method.IsSpecialName)
             {
                 if (isFirstMember) isFirstMember = false; else s++;
-                GenerateDocComments(ref s, member);
-                string parameters = GetTSParameters(exportMethod, s.Indent);
-                string returnType = GetTSType(exportMethod.ReturnType);
+                GenerateDocComments(ref s, method);
+                string parameters = GetTSParameters(method.GetParameters());
+                string returnType = GetTSType(method.ReturnParameter);
 
-                if (exportClass.IsStatic)
+                if (type.IsAbstract && type.IsSealed)
                 {
-                    s += "export declare function " +
+                    s += "export function " +
                         $"{memberName}({parameters}): {returnType};";
                 }
                 else
                 {
-                    s += $"{(member.IsStatic ? "static " : "")}{memberName}({parameters}): " +
+                    s += $"{(method.IsStatic ? "static " : "")}{memberName}({parameters}): " +
                         $"{returnType};";
                 }
             }
-            else if (member is IPropertySymbol exportProperty)
+            else if (member is PropertyInfo property)
             {
                 if (isFirstMember) isFirstMember = false; else s++;
                 GenerateDocComments(ref s, member);
-                string propertyType = GetTSType(exportProperty.Type);
+                string propertyType = GetTSType(property);
 
-                if (exportClass.IsStatic)
+                if (type.IsAbstract && type.IsSealed)
                 {
-                    string varKind = exportProperty.SetMethod == null ? "const " : "var ";
-                    s += $"export declare {varKind}{memberName}: {propertyType};";
+                    string varKind = property.SetMethod == null ? "const " : "var ";
+                    s += $"export {varKind}{memberName}: {propertyType};";
                 }
                 else
                 {
-                    string readonlyModifier =
-                        exportProperty.SetMethod == null ? "readonly " : "";
-                    s += $"{(member.IsStatic ? "static " : "")}{readonlyModifier}{memberName}: " +
+                    bool isStatic = property.GetMethod?.IsStatic ??
+                        property.SetMethod?.IsStatic ?? false;
+                    string readonlyModifier = property.SetMethod == null ? "readonly " : "";
+                    s += $"{(isStatic ? "static " : "")}{readonlyModifier}{memberName}: " +
                         $"{propertyType};";
                 }
             }
@@ -167,44 +299,50 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         s += "}";
     }
 
-    private void GenerateEnumDefinition(ref SourceBuilder s, ITypeSymbol exportEnum)
+    private void GenerateEnumDefinition(ref SourceBuilder s, Type type)
     {
         s++;
-        GenerateDocComments(ref s, exportEnum);
-        string exportName = ModuleGenerator.GetExportName(exportEnum);
+        GenerateDocComments(ref s, type);
+        string exportName = GetExportName(type);
         s += $"export declare enum {exportName} {{";
 
         bool isFirstMember = true;
-        foreach (IFieldSymbol field in exportEnum.GetMembers().OfType<IFieldSymbol>())
+        foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
         {
             if (isFirstMember) isFirstMember = false; else s++;
             GenerateDocComments(ref s, field);
-            s += $"{field.Name} = {field.ConstantValue},";
+            s += $"{field.Name} = {field.GetRawConstantValue()},";
         }
 
         s += "}";
     }
 
-    private string GetTSType(ITypeSymbol type)
+    private string GetTSType(PropertyInfo property)
+        => GetTSType(property.PropertyType, _nullabilityContext.Create(property));
+
+    private string GetTSType(ParameterInfo parameter)
+        => GetTSType(parameter.ParameterType, _nullabilityContext.Create(parameter));
+
+    private string GetTSType(Type type, NullabilityInfo nullability)
     {
         string tsType = "unknown";
 
-        string? specialType = type.SpecialType switch
+        string? specialType = type.FullName switch
         {
-            SpecialType.System_Void => "void",
-            SpecialType.System_Boolean => "boolean",
-            SpecialType.System_SByte => "number",
-            SpecialType.System_Int16 => "number",
-            SpecialType.System_Int32 => "number",
-            SpecialType.System_Int64 => "number",
-            SpecialType.System_Byte => "number",
-            SpecialType.System_UInt16 => "number",
-            SpecialType.System_UInt32 => "number",
-            SpecialType.System_UInt64 => "number",
-            SpecialType.System_Single => "number",
-            SpecialType.System_Double => "number",
-            SpecialType.System_String => "string",
-            ////SpecialType.System_DateTime => "Date",
+            "System.Void" => "void",
+            "System.Boolean" => "boolean",
+            "System.SByte" => "number",
+            "System.Int16" => "number",
+            "System.Int32" => "number",
+            "System.Int64" => "number",
+            "System.Byte" => "number",
+            "System.UInt16" => "number",
+            "System.UInt32" => "number",
+            "System.UInt64" => "number",
+            "System.Single" => "number",
+            "System.Double" => "number",
+            "System.String" => "string",
+            "System.DateTime" => "Date",
             _ => null,
         };
 
@@ -212,92 +350,95 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         {
             tsType = specialType;
         }
-        else if (type.Name == "JSValue")
+        else if (type.FullName == typeof(JSValue).FullName)
         {
             tsType = "any";
         }
-        else if (type.Name == "JSCallbackArgs")
+        else if (type.Name == typeof(JSCallbackArgs).FullName)
         {
             tsType = "...any[]";
         }
-        else if (type.TypeKind == TypeKind.Array)
+        else if (type.IsArray)
         {
-            ITypeSymbol elementType = ((IArrayTypeSymbol)type).ElementType;
-            tsType = GetTSType(elementType) + "[]";
+            Type elementType = type.GetElementType()!;
+            tsType = GetTSType(elementType, nullability.ElementType!) + "[]";
         }
-        else if (type is INamedTypeSymbol namedType && namedType.TypeParameters.Length > 0)
+        else if (type.IsGenericType)
         {
-            string typeName = namedType.OriginalDefinition.Name;
-            if (typeName == "Nullable")
+            string typeDefinitionName = type.GetGenericTypeDefinition().FullName!;
+            Type[] typeArguments = type.GetGenericArguments();
+            NullabilityInfo[] typeArgumentsNullability = nullability.GenericTypeArguments;
+            if (typeDefinitionName == typeof(Nullable<>).FullName)
             {
-                tsType = GetTSType(namedType.TypeArguments[0]) + " | null";
+                tsType = GetTSType(typeArguments[0], typeArgumentsNullability[0]) + " | null";
             }
-            else if (typeName == "Task")
+            else if (typeDefinitionName == "Task")
             {
-                tsType = $"Promise<{GetTSType(namedType.TypeArguments[0])}>";
+                tsType = $"Promise<{GetTSType(typeArguments[0], typeArgumentsNullability[0])}>";
             }
-            else if (typeName == "Memory")
+            else if (typeDefinitionName == "Memory")
             {
-                ITypeSymbol elementType = namedType.TypeArguments[0];
-                tsType = elementType.SpecialType switch
+                Type elementType = typeArguments[0];
+                tsType = elementType.FullName switch
                 {
-                    SpecialType.System_SByte => "Int8Array",
-                    SpecialType.System_Int16 => "Int16Array",
-                    SpecialType.System_Int32 => "Int32Array",
-                    SpecialType.System_Int64 => "BigInt64Array",
-                    SpecialType.System_Byte => "Uint8Array",
-                    SpecialType.System_UInt16 => "Uint16Array",
-                    SpecialType.System_UInt32 => "Uint32Array",
-                    SpecialType.System_UInt64 => "BigUint64Array",
-                    SpecialType.System_Single => "Float32Array",
-                    SpecialType.System_Double => "Float64Array",
+                    "System.SByte" => "Int8Array",
+                    "System.Int16" => "Int16Array",
+                    "System.Int32" => "Int32Array",
+                    "System.Int64" => "BigInt64Array",
+                    "System.Byte" => "Uint8Array",
+                    "System.UInt16" => "Uint16Array",
+                    "System.UInt32" => "Uint32Array",
+                    "System.UInt64" => "BigUint64Array",
+                    "System.Single" => "Float32Array",
+                    "System.Double" => "Float64Array",
                     _ => "unknown",
                 };
             }
-            else if (typeName == "IList")
+            else if (typeDefinitionName == typeof(IList<>).FullName)
             {
-                tsType = GetTSType(namedType.TypeArguments[0]) + "[]";
+                tsType = GetTSType(typeArguments[0], typeArgumentsNullability[0]) + "[]";
             }
-            else if (typeName == "IReadOnlyList")
+            else if (typeDefinitionName == typeof(IReadOnlyList<>).FullName)
             {
-                tsType = "readonly " + GetTSType(namedType.TypeArguments[0]) + "[]";
+                tsType = "readonly " + GetTSType(typeArguments[0], typeArgumentsNullability[0]) +
+                    "[]";
             }
-            else if (typeName == "ICollection")
+            else if (typeDefinitionName == typeof(ICollection<>).FullName)
             {
-                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability[0]);
                 return $"Iterable<{elementTsType}> & {{ length: number }}";
             }
-            else if (typeName == "IReadOnlyCollection")
+            else if (typeDefinitionName == typeof(IReadOnlyCollection<>).FullName)
             {
-                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability[0]);
                 return $"Iterable<{elementTsType}> & {{ length: number, " +
-                    $"add(item: {elementTsType}): this, delete(item: {elementTsType}): boolean }}";
+                    $"add(item: {elementTsType}): void, delete(item: {elementTsType}): boolean }}";
             }
-            else if (typeName == "ISet")
+            else if (typeDefinitionName == typeof(ISet<>).FullName)
             {
-                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability[0]);
                 return $"Set<{elementTsType}>";
             }
-            else if (typeName == "IReadOnlySet")
+            else if (typeDefinitionName == typeof(IReadOnlySet<>).FullName)
             {
-                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability[0]);
                 return $"ReadonlySet<{elementTsType}>";
             }
-            else if (typeName == "IEnumerable")
+            else if (typeDefinitionName == typeof(IEnumerable<>).FullName)
             {
-                string elementTsType = GetTSType(namedType.TypeArguments[0]);
+                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability[0]);
                 return $"Iterable<{elementTsType}>";
             }
-            else if (typeName == "IDictionary")
+            else if (typeDefinitionName == typeof(IDictionary<,>).FullName)
             {
-                string keyTSType = GetTSType(namedType.TypeArguments[0]);
-                string valueTSType = GetTSType(namedType.TypeArguments[1]);
+                string keyTSType = GetTSType(typeArguments[0], typeArgumentsNullability[0]);
+                string valueTSType = GetTSType(typeArguments[1], typeArgumentsNullability[1]);
                 tsType = $"Map<{keyTSType}, {valueTSType}>";
             }
-            else if (typeName == "IReadOnlyDictionary")
+            else if (typeDefinitionName == typeof(IReadOnlyDictionary<,>).FullName)
             {
-                string keyTSType = GetTSType(namedType.TypeArguments[0]);
-                string valueTSType = GetTSType(namedType.TypeArguments[1]);
+                string keyTSType = GetTSType(typeArguments[0], typeArgumentsNullability[0]);
+                string valueTSType = GetTSType(typeArguments[1], typeArgumentsNullability[1]);
                 tsType = $"ReadonlyMap<{keyTSType}, {valueTSType}>";
             }
         }
@@ -315,7 +456,7 @@ internal class TypeDefinitionsGenerator : SourceGenerator
             tsType = type.Name;
             _emitDisposable = true;
         }
-        else if (_exportItems.Contains(type, SymbolEqualityComparer.Default))
+        else if (IsTypeExported(type))
         {
             tsType = type.Name;
         }
@@ -324,7 +465,7 @@ internal class TypeDefinitionsGenerator : SourceGenerator
             tsType = "Date";
         }
 
-        if (type.NullableAnnotation == NullableAnnotation.Annotated &&
+        if (nullability?.ReadState == NullabilityState.Nullable &&
             tsType != "any" && !tsType.EndsWith(" | null"))
         {
             tsType += " | null";
@@ -333,57 +474,79 @@ internal class TypeDefinitionsGenerator : SourceGenerator
         return tsType;
     }
 
-    private string GetTSParameters(IMethodSymbol method, string indent)
+    private string GetTSParameters(ParameterInfo[] parameters)
     {
-        if (method.Parameters.Length == 0)
+        if (parameters.Length == 0)
         {
             return string.Empty;
         }
-        else if (method.Parameters.Length == 1)
+        else if (parameters.Length == 1)
         {
-            string parameterType = GetTSType(method.Parameters[0].Type);
+            string parameterType = GetTSType(parameters[0]);
             if (parameterType.StartsWith("..."))
             {
-                return $"...{method.Parameters[0].Name}: {parameterType.Substring(3)}";
+                return $"...{parameters[0].Name}: {parameterType.Substring(3)}";
             }
             else
             {
-                return $"{method.Parameters[0].Name}: {parameterType}";
+                return $"{parameters[0].Name}: {parameterType}";
             }
         }
 
         var s = new StringBuilder();
         s.AppendLine();
 
-        foreach (IParameterSymbol p in method.Parameters)
+        foreach (ParameterInfo p in parameters)
         {
-            string parameterType = GetTSType(p.Type);
-            s.AppendLine($"{indent}\t{p.Name}: {parameterType},");
+            string parameterType = GetTSType(p);
+            s.AppendLine($"{p.Name}: {parameterType},");
         }
 
-        s.Append(indent);
         return s.ToString();
     }
 
-    private static void GenerateDocComments(ref SourceBuilder s, ISymbol symbol)
+    private string GetExportName(MemberInfo member)
     {
-        string? comment = symbol.GetDocumentationCommentXml();
-        if (string.IsNullOrEmpty(comment))
+        CustomAttributeData? attribute = member.GetCustomAttributesData().FirstOrDefault(
+            (a) => a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
+        if (attribute != null && attribute.ConstructorArguments.Count > 0 &&
+            !string.IsNullOrEmpty(attribute.ConstructorArguments[0].Value as string))
+        {
+            return (string)attribute.ConstructorArguments[0].Value!;
+        }
+        else
+        {
+            return _autoCamelCase && member is not Type ? ToCamelCase(member.Name) : member.Name;
+        }
+    }
+
+    private void GenerateDocComments(ref SourceBuilder s, MemberInfo member)
+    {
+        string memberDocName = member switch
+        {
+            Type type => $"T:{type.FullName}",
+            PropertyInfo property => $"P:{property.DeclaringType!.FullName}.{property.Name}",
+            MethodInfo method => $"M:{method.DeclaringType!.FullName}.{method.Name}(" +
+                string.Join(", ", method.GetParameters().Select((p) => p.ParameterType.FullName)) +
+                ")",
+            _ => string.Empty,
+        };
+
+        XElement? memberElement = _assemblyDoc?.Root?.Element("members")?.Elements("member")
+            .FirstOrDefault((m) => m.Attribute("name")?.Value == memberDocName);
+
+        XElement? summaryElement = memberElement?.Element("summary");
+        XElement? remarksElement = memberElement?.Element("remarks");
+        if (memberElement == null || summaryElement == null ||
+            string.IsNullOrWhiteSpace(summaryElement.Value))
         {
             return;
         }
 
-        comment = comment.Replace("\r", "");
-        comment = s_newlineRegex.Replace(comment, " ");
-        /*
-        comment = new Regex($"<see cref=\".:({this.csNamespace}\\.)?(\\w+)\\.(\\w+)\" ?/>")
-            .Replace(comment, (m) => $"{{@link {m.Groups[2].Value}.{ToCamelCase(m.Groups[3].Value)}}}");
-        comment = new Regex($"<see cref=\".:({this.csNamespace}\\.)?([^\"]+)\" ?/>")
-            .Replace(comment, "{@link $2}");
-        */
-
-        string summary = s_summaryRegex.Match(comment).Groups[1].Value.Trim();
-        string remarks = s_remarksRegex.Match(comment).Groups[1].Value.Trim();
+        string summary = s_newlineRegex.Replace(
+            summaryElement.Value.Replace("\r", "").Trim(), " ");
+        string remarks = s_newlineRegex.Replace(
+            (remarksElement?.Value ?? string.Empty).Replace("\r", "").Trim(), " ");
 
         s += "/**";
 

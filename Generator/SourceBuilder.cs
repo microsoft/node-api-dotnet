@@ -53,7 +53,7 @@ internal class SourceBuilder : SourceText
         {
             foreach (string singleLine in line.Split('\n'))
             {
-                AppendLine(singleLine);
+                AppendLine(singleLine.TrimEnd());
             }
             ResetExtraIndent();
             return;
@@ -63,7 +63,7 @@ internal class SourceBuilder : SourceText
         {
             DecreaseIndent();
         }
-        else if (line.StartsWith("{"))
+        else if (line.StartsWith("{") || line.StartsWith(")"))
         {
             ResetExtraIndent();
         }

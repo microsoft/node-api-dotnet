@@ -30,7 +30,6 @@ public class NativeAotTests
 
             if (moduleFilePath != null)
             {
-                CopyTypeDefinitions(moduleName, moduleFilePath);
                 BuildTestModuleTypeScript(moduleName);
             }
 

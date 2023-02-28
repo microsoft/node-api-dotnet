@@ -35,7 +35,11 @@ public class HostedClrTests
 
             if (moduleFilePath != null)
             {
-                CopyTypeDefinitions(moduleName, moduleFilePath);
+                if (moduleName != "napi-dotnet-init")
+                {
+                    BuildTypeDefinitions(moduleName, moduleFilePath);
+                }
+
                 BuildTestModuleTypeScript(moduleName);
             }
 

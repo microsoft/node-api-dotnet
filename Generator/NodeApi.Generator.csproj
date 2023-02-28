@@ -3,12 +3,14 @@
   <PropertyGroup>
     <RootNamespace>NodeApi.Generator</RootNamespace>
     <AssemblyName>NodeApi.Generator</AssemblyName>
+    <OutputType>Exe</OutputType>
     <IsPackable>true</IsPackable>
     <NoWarn>$(NoWarn);SYSLIB1045</NoWarn><!-- Use GeneratedRegexAttribute -->
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="System.Reflection.MetadataLoadContext" />
   </ItemGroup>
 
   <!--

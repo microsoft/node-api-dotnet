@@ -8,6 +8,7 @@ using Microsoft.Build.Evaluation;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Locator;
 using Microsoft.Build.Logging;
+using NodeApi.Generator;
 using Xunit;
 
 namespace NodeApi.Test;
@@ -200,18 +201,11 @@ internal static class TestBuilder
         return returnValue;
     }
 
-    public static void CopyTypeDefinitions(string moduleName, string moduleFilePath)
+    public static void BuildTypeDefinitions(string moduleName, string moduleFilePath)
     {
-        string sourceFilePath = Path.ChangeExtension(moduleFilePath, ".d.ts");
-        string destFilePath = Path.Join(TestCasesDirectory, moduleName, moduleName + ".d.ts");
-        try
-        {
-            File.Copy(sourceFilePath, destFilePath, true);
-        }
-        catch (FileNotFoundException)
-        {
-            File.Delete(destFilePath);
-        }
+        string typeDefinitionsFilePath = Path.Join(
+            TestCasesDirectory, moduleName, moduleName + ".d.ts");
+        TypeDefinitionsGenerator.GenerateTypeDefinitions(moduleFilePath, typeDefinitionsFilePath);
     }
 
     public static void RunNodeTestCase(
