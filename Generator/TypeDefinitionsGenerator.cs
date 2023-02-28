@@ -30,7 +30,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
 {
     private static readonly Regex s_newlineRegex = new("\n *");
 
-    private static readonly NullabilityInfoContext _nullabilityContext = new();
+    private readonly NullabilityInfoContext _nullabilityContext = new();
 
     private readonly Assembly _assembly;
     private readonly XDocument? _assemblyDoc;
@@ -66,7 +66,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
             assemblyDoc = XDocument.Load(assemblyDocFilePath);
         }
 
-        TypeDefinitionsGenerator generator = new TypeDefinitionsGenerator(assembly, assemblyDoc);
+        TypeDefinitionsGenerator generator = new(assembly, assemblyDoc);
         SourceText generatedSource = generator.GenerateTypeDefinitions();
 
         File.WriteAllText(typeDefinitionsFilePath, generatedSource.ToString());
@@ -516,7 +516,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
         }
         else
         {
-            return _autoCamelCase && !(member is Type) ? ToCamelCase(member.Name) : member.Name;
+            return _autoCamelCase && member is not Type ? ToCamelCase(member.Name) : member.Name;
         }
     }
 
@@ -526,9 +526,9 @@ public class TypeDefinitionsGenerator : SourceGenerator
         {
             Type type => $"T:{type.FullName}",
             PropertyInfo property => $"P:{property.DeclaringType!.FullName}.{property.Name}",
-            MethodInfo method => $"M:{method.DeclaringType!.FullName}.{method.Name}({
-                string.Join(", ", method.GetParameters().Select((p) => p.ParameterType.FullName))
-                })",
+            MethodInfo method => $"M:{method.DeclaringType!.FullName}.{method.Name}(" +
+                string.Join(", ", method.GetParameters().Select((p) => p.ParameterType.FullName)) +
+                ")",
             _ => string.Empty,
         };
 
