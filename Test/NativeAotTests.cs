@@ -30,11 +30,6 @@ public class NativeAotTests
 
             if (moduleFilePath != null)
             {
-                if (moduleName != "napi-dotnet-init")
-                {
-                    BuildTypeDefinitions(moduleName, moduleFilePath);
-                }
-
                 BuildTestModuleTypeScript(moduleName);
             }
 
