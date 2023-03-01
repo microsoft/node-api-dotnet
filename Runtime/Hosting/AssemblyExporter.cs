@@ -190,7 +190,7 @@ internal class AssemblyExporter
             JSCallbackDescriptor constructorDescriptor;
             if (constructors.Length == 1)
             {
-                constructorDescriptor = 
+                constructorDescriptor =
                     _marshaler.BuildFromJSConstructorExpression(constructors[0]).Compile();
             }
             else

@@ -7,7 +7,7 @@ namespace NodeApi;
 /// Holds overload resolution information (parameter types) for one of multiple overloads
 /// for a .NET method.
 /// </summary>
-public struct JSCallbackOverload
+public readonly struct JSCallbackOverload
 {
     /// <summary>
     /// Specifies the number of parameters and the .NET type that each JS argument will be

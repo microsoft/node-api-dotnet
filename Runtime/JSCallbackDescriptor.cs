@@ -26,6 +26,5 @@ public readonly struct JSCallbackDescriptor
         Data = data;
     }
 
-    public static implicit operator JSCallbackDescriptor(JSCallback callback)
-        => new JSCallbackDescriptor(callback);
+    public static implicit operator JSCallbackDescriptor(JSCallback callback) => new(callback);
 }
