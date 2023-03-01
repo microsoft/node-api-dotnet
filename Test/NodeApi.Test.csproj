@@ -26,4 +26,15 @@
     <ProjectReference Include="..\Runtime\NodeApi.Runtime.csproj" />
   </ItemGroup>
 
+  <!--
+    Work around MSBuild.Locator NuGet.Frameworks version conflict.
+    https://github.com/microsoft/MSBuildLocator/issues/127
+    https://github.com/dotnet/roslyn/issues/61454
+  -->
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Copy SourceFiles="$([System.IO.Directory]::GetParent($(BundledRuntimeIdentifierGraphFile)))\NuGet.Frameworks.dll"
+          DestinationFolder="$(OutputPath)"
+          ContinueOnError="false" />
+  </Target>
+
 </Project>
