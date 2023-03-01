@@ -230,6 +230,7 @@ internal class AssemblyExporter
                 typeof(JSCallback),
                 typeof(JSCallback),
                 typeof(JSPropertyAttributes),
+                typeof(object),
             });
 
         JSPropertyAttributes attributes =
@@ -292,6 +293,7 @@ internal class AssemblyExporter
                         getterDelegate,
                         setterDelegate,
                         propertyAttributes,
+                        null,
                     });
             }
         }

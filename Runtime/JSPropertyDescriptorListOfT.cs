@@ -41,9 +41,10 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
       string name,
       JSCallback? getter,
       JSCallback? setter,
-      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
+      JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty,
+      object? data = null)
     {
-        Properties.Add(JSPropertyDescriptor.Accessor(name, getter, setter, attributes));
+        Properties.Add(JSPropertyDescriptor.Accessor(name, getter, setter, attributes, data));
         return (TDerived)(object)this;
     }
 
