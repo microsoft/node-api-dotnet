@@ -162,10 +162,13 @@ public sealed class JSContext : IDisposable
     /// </summary>
     /// <param name="wrapper">JS object passed as the 'this' argument to the constructor callback
     /// for <see cref="JSNativeApi.DefineClass"/>.</param>
-    /// <param name="obj">New or existing instance of the class to be wrapped.</param>
+    /// <param name="externalInstance">New or existing instance of the class to be wrapped,
+    /// passed as a JS "external" value.</param>
     /// <returns>The JS wrapper.</returns>
-    internal JSValue InitializeObjectWrapper<T>(JSValue wrapper, T obj) where T : class
+    internal JSValue InitializeObjectWrapper(JSValue wrapper, JSValue externalInstance)
     {
+        object obj = externalInstance.GetValueExternal();
+
         // The reference returned by Wrap() is weak (refcount=0), which is good:
         // if the JS object is released then the reference will fail to resolve, and
         // GetOrCreateObjectWrapper() will create a new JS wrapper if requested.

@@ -188,17 +188,55 @@ public class JSMarshaler
     /// from JS, invoke the constructor, then return the new instance of the class.
     /// </summary>
     /// <remarks>
-    /// The returned expression takes a single <see cref="JSCallbackArgs"/> parameter and
-    /// returns an instance of the class. The lambda expression may be converted to a
-    /// delegate with <see cref="LambdaExpression.Compile()"/>, and used as the constructor
-    /// delegate parameter for a <see cref="JSClassBuilder{T}"/>.
+    /// The returned expression takes a <see cref="JSCallbackArgs"/> parameter and returns an
+    /// instance of the class as an external JS value. The lambda expression may be converted to
+    /// a delegate with <see cref="LambdaExpression.Compile()"/>, and used as the constructor
+    /// callback parameter for a <see cref="JSClassBuilder{T}"/>.
     /// </remarks>
 #pragma warning disable CA1822 // Mark members as static
-    public LambdaExpression BuildFromJSConstructorExpression(ConstructorInfo constructor)
+    public Expression<JSCallback> BuildFromJSConstructorExpression(ConstructorInfo constructor)
     {
         ArgumentNullException.ThrowIfNull(constructor);
 
-        throw new NotImplementedException("Constructor parameter marshaling is not implemented.");
+        /*
+         * ConstructorClass(JSCallbackArgs __args)
+         * {
+         *     var param0Name = (Param0Type)__args[0];
+         *     ...
+         *     var __result = new ConstructorClass(param0, ...);
+         *     return JSValue.CreateExternal(__result);
+         * }
+         */
+
+        ParameterInfo[] parameters = constructor.GetParameters();
+        ParameterExpression[] argVariables = new ParameterExpression[parameters.Length];
+        IEnumerable<ParameterExpression> variables;
+        List<Expression> statements = new(parameters.Length + 2);
+
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            argVariables[i] = Expression.Variable(parameters[i].ParameterType, parameters[i].Name);
+            statements.Add(Expression.Assign(argVariables[i],
+                BuildArgumentExpression(i, parameters[i].ParameterType)));
+        }
+
+        ParameterExpression resultVariable = Expression.Variable(
+            constructor.DeclaringType!, "__result");
+        variables = argVariables.Append(resultVariable);
+        statements.Add(Expression.Assign(resultVariable,
+            Expression.New(constructor, argVariables)));
+
+        MethodInfo createExternalMethod = typeof(JSValue)
+            .GetStaticMethod(nameof(JSValue.CreateExternal));
+        statements.Add(Expression.Call(
+                createExternalMethod, resultVariable));
+
+        return (Expression<JSCallback>)Expression.Lambda(
+            delegateType: typeof(JSCallback),
+            body: Expression.Block(typeof(JSValue), variables, statements),
+            name: "new_" + FullTypeName(constructor.DeclaringType!),
+            parameters: s_argsArray);
+
     }
 #pragma warning restore CA1822 // Mark members as static
 
@@ -558,6 +596,44 @@ public class JSMarshaler
         }
     }
 
+    public JSCallbackDescriptor BuildConstructorOverloadDescriptor(ConstructorInfo[] constructors)
+    {
+        JSCallbackOverload[] overloads = new JSCallbackOverload[constructors.Length];
+        for (int i = 0; i < constructors.Length; i++)
+        {
+            Type[] parameterTypes = constructors[i].GetParameters()
+                    .Select(p => p.ParameterType).ToArray();
+            JSCallback constructorDelegate =
+                BuildFromJSConstructorExpression(constructors[i]).Compile();
+            overloads[i] = new JSCallbackOverload
+            {
+                ParameterTypes = parameterTypes,
+                Callback = constructorDelegate,
+            };
+        }
+
+        return new JSCallbackDescriptor(JSCallbackOverload.ResolveAndInvoke, overloads);
+    }
+
+    public JSCallbackDescriptor BuildMethodOverloadDescriptor(MethodInfo[] methods)
+    {
+        JSCallbackOverload[] overloads = new JSCallbackOverload[methods.Length];
+        for (int i = 0; i < methods.Length; i++)
+        {
+            Type[] parameterTypes = methods[i].GetParameters()
+                    .Select(p => p.ParameterType).ToArray();
+            JSCallback methodDelegate =
+                BuildFromJSMethodExpression(methods[i]).Compile();
+            overloads[i] = new JSCallbackOverload
+            {
+                ParameterTypes = parameterTypes,
+                Callback = methodDelegate,
+            };
+        }
+
+        return new JSCallbackDescriptor(JSCallbackOverload.ResolveAndInvoke, overloads);
+    }
+
     private Expression<JSCallback> BuildFromJSStaticMethodExpression(MethodInfo method)
     {
         /*
@@ -653,7 +729,7 @@ public class JSMarshaler
 
         return (Expression<JSCallback>)Expression.Lambda(
             delegateType: typeof(JSCallback),
-            body: Expression.Block(typeof(JSValue), variables, statements),
+            body: Expression.Block(typeof(JSValue), variables.Concat(argVariables), statements),
             name: FullMethodName(method),
             parameters: s_argsArray);
     }

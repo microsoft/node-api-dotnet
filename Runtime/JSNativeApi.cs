@@ -362,12 +362,14 @@ public static partial class JSNativeApi
         }
     }
 
-    public static unsafe JSValue DefineClass(ReadOnlySpan<byte> utf8Name, JSCallback callback, params JSPropertyDescriptor[] descriptors)
+    public static unsafe JSValue DefineClass(
+        ReadOnlySpan<byte> utf8Name,
+        JSCallbackDescriptor constructorDescriptor,
+        params JSPropertyDescriptor[] propertyDescriptors)
     {
-        int nameLength = utf8Name.Length;
-        GCHandle callbackHandle = GCHandle.Alloc(callback);
+        GCHandle callbackHandle = GCHandle.Alloc(constructorDescriptor);
         JSValue? func = null;
-        nint[] handles = ToUnmanagedPropertyDescriptors(utf8Name, descriptors, (name, count, descriptorsPtr) =>
+        nint[] handles = ToUnmanagedPropertyDescriptors(utf8Name, propertyDescriptors, (name, count, descriptorsPtr) =>
         {
             func = DefineClass(name, new napi_callback(&InvokeJSCallback), (nint)callbackHandle, count, descriptorsPtr);
         });
@@ -376,9 +378,12 @@ public static partial class JSNativeApi
         return func!.Value;
     }
 
-    public static unsafe JSValue DefineClass(string name, JSCallback callback, params JSPropertyDescriptor[] descriptors)
+    public static unsafe JSValue DefineClass(
+        string name,
+        JSCallbackDescriptor constructorDescriptor,
+        params JSPropertyDescriptor[] propertyDescriptors)
     {
-        return DefineClass(Encoding.UTF8.GetBytes(name), callback, descriptors);
+        return DefineClass(Encoding.UTF8.GetBytes(name), constructorDescriptor, propertyDescriptors);
     }
 
     /// <summary>
@@ -756,8 +761,9 @@ public static partial class JSNativeApi
         {
             JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
             Span<napi_value> args = stackalloc napi_value[length];
-            JSCallback callback = (JSCallback)data!;
-            return (napi_value)callback(new JSCallbackArgs(scope, callbackInfo, args));
+            JSCallbackDescriptor callbackDescriptor = (JSCallbackDescriptor)data!;
+            return (napi_value)callbackDescriptor.Callback(
+                new JSCallbackArgs(scope, callbackInfo, args, callbackDescriptor.Data));
         }
         catch (Exception ex)
         {
