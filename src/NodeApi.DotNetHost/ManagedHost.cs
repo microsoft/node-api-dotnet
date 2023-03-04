@@ -1,7 +1,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -14,8 +13,6 @@ namespace NodeApi.Hosting;
 /// <summary>
 /// Supports loading and invoking managed .NET assemblies in a JavaScript process.
 /// </summary>
-[RequiresUnreferencedCode("Managed host is not used in trimmed assembly.")]
-[RequiresDynamicCode("Managed host is not used in trimmed assembly.")]
 public sealed class ManagedHost : IDisposable
 {
     /// <summary>
@@ -36,6 +33,8 @@ public sealed class ManagedHost : IDisposable
 
     private ManagedHost(JSObject exports)
     {
+        _loadContext.Resolving += OnResolvingAssembly;
+
         exports.DefineProperties(
             // The require() method loads a .NET assembly that was built to be a Node API module.
             // It uses static binding to the APIs the module specifically exports to JS.
@@ -74,11 +73,6 @@ public sealed class ManagedHost : IDisposable
 
         try
         {
-            // Ensure references to this assembly can be resolved when loading other assemblies.
-            Assembly nodeApiAssembly = typeof(JSValue).Assembly;
-            AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
-                e.Name.Split(',')[0] == nameof(NodeApi) ? nodeApiAssembly : null;
-
             using JSValueScope scope = new(JSValueScopeType.Root, env);
             ManagedHost host = new((JSObject)new JSValue(exports, scope));
             exports = (napi_value)host._systemAssembly.AssemblyObject;
@@ -92,6 +86,26 @@ public sealed class ManagedHost : IDisposable
             JSError.ThrowError(ex);
             return exports;
         }
+    }
+
+    /// <summary>
+    /// Ensure references to Node API assemblies can be resolved when loading other
+    /// assemblies.
+    /// </summary>
+    private Assembly? OnResolvingAssembly(
+        AssemblyLoadContext loadContext,
+        AssemblyName assemblyName)
+    {
+        if (assemblyName.Name == typeof(JSValue).Assembly.GetName().Name)
+        {
+            return typeof(JSValue).Assembly;
+        }
+        else if (assemblyName.Name == typeof(ManagedHost).Assembly.GetName().Name)
+        {
+            return typeof(ManagedHost).Assembly;
+        }
+
+        return null;
     }
 
     /// <summary>

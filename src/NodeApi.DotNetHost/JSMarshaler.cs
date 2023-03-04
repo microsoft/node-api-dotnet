@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -20,8 +19,6 @@ namespace NodeApi.Hosting;
 /// <para/>
 /// All methods on this class are thread-safe.
 /// </remarks>
-[RequiresUnreferencedCode("Dynamic marshaling is not used in trimmed assembly.")]
-[RequiresDynamicCode("Dynamic marshaling is not used in trimmed assembly.")]
 public class JSMarshaler
 {
     private readonly ConcurrentDictionary<Type, Delegate> _fromJSDelegates = new();
@@ -1117,7 +1114,7 @@ public class JSMarshaler
             // It could be either a wrapped .NET object passed back from JS or a JS object
             // that implements a .NET interface. For the latter case, dynamically build
             // a class that implements the interface by proxying member access to JS.
-            Type adapterType = JSInterface.Implement(toType, this);
+            Type adapterType = JSInterfaceMarshaler.Implement(toType, this);
             ConstructorInfo adapterConstructor =
                 adapterType.GetConstructor(new[] { typeof(JSValue) })!;
             statements = new[]

@@ -51,6 +51,18 @@ public class HostedClrTests
             Assert.Fail("Build failed. Check the log for details: " + buildLogFilePath);
         }
 
+        // Copy the host file to the same directory as the module. Normally nuget + npm
+        // packaging should orchestrate getting these files in the right places.
+        string hostFilePath2 = Path.Combine(
+            Path.GetDirectoryName(moduleFilePath)!, Path.GetFileName(hostFilePath));
+        File.Copy(hostFilePath, hostFilePath2, overwrite: true);
+        File.Copy(hostFilePath + ".pdb", hostFilePath2 + ".pdb", overwrite: true);
+        File.Copy(
+            hostFilePath.Replace(".node", ".runtimeconfig.json"),
+            hostFilePath2.Replace(".node", ".runtimeconfig.json"),
+            overwrite: true);
+        hostFilePath = hostFilePath2;
+
         // TODO: Support compiling TS files to JS.
         string jsFilePath = Path.Join(TestCasesDirectory, moduleName, testCasePath + ".js");
 
@@ -68,7 +80,7 @@ public class HostedClrTests
 
     private static string BuildHostModule()
     {
-        string projectFilePath = Path.Join(RepoRootDirectory, "Runtime", "NodeApi.Runtime.csproj");
+        string projectFilePath = Path.Join(RepoRootDirectory, "src", "NodeApi", "NodeApi.csproj");
 
         string logDir = Path.Join(
             RepoRootDirectory, "out", "obj", Configuration);
@@ -97,7 +109,7 @@ public class HostedClrTests
 
         string publishDir = buildResult.Replace(
             Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-        string moduleFilePath = Path.Combine(publishDir, "NodeApi.node");
+        string moduleFilePath = Path.Combine(publishDir, "Microsoft.JavaScript.NodeApi.node");
         Assert.True(
             File.Exists(moduleFilePath), "Host module file was not built: " + moduleFilePath);
         return moduleFilePath;

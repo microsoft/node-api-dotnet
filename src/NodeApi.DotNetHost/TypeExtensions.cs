@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
@@ -14,8 +13,6 @@ namespace NodeApi.Hosting;
 /// member is not found, which allows for easier diagnosis compared to the null return
 /// values from the regular reflection APIs.
 /// </remarks>
-[RequiresUnreferencedCode("Dynamic marshaling is not used in trimmed assembly.")]
-[RequiresDynamicCode("Dynamic marshaling is not used in trimmed assembly.")]
 internal static class TypeExtensions
 {
     private const BindingFlags ExactPublic = BindingFlags.Public | BindingFlags.ExactBinding;

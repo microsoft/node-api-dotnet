@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>NodeApi</RootNamespace>
-    <AssemblyName>NodeApi</AssemblyName>
+    <AssemblyName>Microsoft.JavaScript.NodeApi</AssemblyName>
+    <RootNamespace>Microsoft.JavaScript.NodeApi</RootNamespace>
     <IsPackable>true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>

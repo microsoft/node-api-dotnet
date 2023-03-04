@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Microsoft.JavaScript.NodeApi.DotNetHost</AssemblyName>
+    <RootNamespace>Microsoft.JavaScript.NodeApi.DotNetHost</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NodeApi\NodeApi.csproj" GeneratePathProperty="true" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

@@ -1,20 +1,15 @@
-
 using System;
-using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
 using System.Reflection.Emit;
+using System.Reflection;
+using System.Collections.Concurrent;
 
 namespace NodeApi.Hosting;
 
 /// <summary>
-/// Base class for a dynamically generated interface adapter that enables a JS object to implement
-/// a .NET interface. Holds a reference to the underlying JS value.
+/// Supports dynamic implementation of .NET interfaces by JavaScript.
 /// </summary>
-[RequiresUnreferencedCode("Dynamic marshaling is not used in trimmed assembly.")]
-[RequiresDynamicCode("Dynamic marshaling is not used in trimmed assembly.")]
-public abstract class JSInterface
+internal static class JSInterfaceMarshaler
 {
     private static readonly ConcurrentDictionary<Type, Type> s_interfaceTypes = new();
     private static readonly AssemblyBuilder s_assemblyBuilder =
@@ -23,22 +18,6 @@ public abstract class JSInterface
             AssemblyBuilderAccess.Run);
     private static readonly ModuleBuilder s_moduleBuilder =
         s_assemblyBuilder.DefineDynamicModule(typeof(JSInterface).Name);
-
-    private readonly JSReference _jsReference;
-
-    protected JSInterface(JSValue value)
-    {
-        _jsReference = new JSReference(value, isWeak: false);
-    }
-
-    public static JSValue? GetJSValue(object obj)
-        => (obj as JSInterface)?.Value;
-
-    /// <summary>
-    /// Gets the underlying JS value. (The property name is prefixed with `__` to avoid
-    /// possible conflicts with interface
-    /// </summary>
-    protected internal JSValue Value => _jsReference.GetValue()!.Value;
 
     /// <summary>
     /// Defines a class type that extends <see cref="JSInterface" /> and implements the requested

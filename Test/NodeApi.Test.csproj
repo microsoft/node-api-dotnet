@@ -22,8 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Generator\NodeApi.Generator.csproj" />
-    <ProjectReference Include="..\Runtime\NodeApi.Runtime.csproj" />
+    <ProjectReference Include="..\src\NodeApi\NodeApi.csproj" />
+    <ProjectReference Include="..\src\NodeApi.DotNetHost\NodeApi.DotNetHost.csproj" />
+    <ProjectReference Include="..\src\NodeApi.Generator\NodeApi.Generator.csproj" />
   </ItemGroup>
 
   <!--
