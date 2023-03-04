@@ -1,0 +1,204 @@
+<svg host="65bd71144e" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="322px" height="331px" viewBox="-0.5 -0.5 322 331" content="&lt;mxfile&gt;&lt;diagram id=&quot;FI0aTGVjMI6zzmMXxxMC&quot; name=&quot;Page-1&quot;&gt;1VjbctowEP0aXjrTjC+BhMcE0lxmknbqTi9PHcVeQKmxXFkU06/v2pJsZMuBDKZNeWCk1WqlPXu0WmvgT5b5NSfp4p5FEA88J8oH/nTgecNTH/8LwUYK/LEjBXNOIylya0FAf4MSarUVjSAzFAVjsaCpKQxZkkAoDBnhnK1NtRmLzVVTMoeWIAhJ3JZ+oZFYSOn50KnlN0DnC72y66iRJdHKSpAtSMTWWyL/auBPOGNCtpb5BOICO42LnPeuY7TaGIdE7DPBG8kZv0i8Us6pjYmN9nbO2SpVasAF5DaMyaNWd9p7cCvPkBHAliD4BlW0IT1FscHzVX9dY+trncUWrr5WJCqe88p27TI2lNcdCJzuRgABSCIoJjgD/3K9oAKClITF6BoJjrKFWOICUxebM5aIQM21YFEh3oSyjc8u/8c9uO/uQYAXuX+QxxvTsV0AVMw5iAAtAB4wX12k9OSBCPoLBt4oxvUuHzm25qJ0UUqKSBtIjX6umB54m5Vp6wIVXCfN5TQ1rg0lJKXf32hzuFFpUa/yr8NQ5dtdcTjvIQzDVhjuAuxfJXOaYAycwpDnFKE5ecqw9XGVCLqEA88qjeMJixkv5/qzGYzCEOWZ4OwHbI1EZ+NHx+kL1335fdoDrmcvpvdJoVCAfwiyJoIRzMiqXCYi2aK0cTBJc03SoXl7eG1wxxZsR30kT6cT3CkTDyBuWCZey22iR13ztrVctpVfvePVmWsPT7JnHTn2LvhcrtZa4C54//hUVIeWkY8wAwQ5tE4r7QUhS+Eomds8OQnD7NfPSWnWWVVVuuOkVHoH3bLto6LRS63hjTHtv9XbkLcomhhaY/ziC9ntIIs+vYh+jNSgLMk6Y3w8wt4K4GU9bSHfBedkYxu4Rx49v1UUp8eg6BGTeyO3u5bc7jrD4yQrS2H4ihl7myBp2C4KHIOtE1SE3JpGJzHJsssVjSMopGRZ8KjU+lR1O/aHTM82Sfh8mv1veb0PsY9VtHi+hdcN1CCJLop3kvoCapYk8k3GLUCFnIqvCuCi/W2rPc23OxvdSXDPX5W5svNte6SeVPb0LCMKrQp9Vv6ejU/GVjwE46tPED4HYYggMh5/nv0sH1pipGUcYllgG69PlsCpFT4wWh7F3Kz9dVl71gi9dEZN2n7hadgZN+w0P5klAi07JYsqp/cjVvsT7oUJ87QzXzbKRPPI97TGyTUkePEKxntYpsfcf96RejEgeJSdQLLac1rbr7Ppp02RRZ0pzDKb4l9OrCqlHL1aGLZy6nk/ORW79ROtPCn1O7d/9Qc=&lt;/diagram&gt;&lt;/mxfile&gt;">
+    <defs/>
+    <g>
+        <rect x="0" y="0" width="320" height="90" fill="rgb(255, 255, 255)" stroke="rgb(0, 0, 0)" pointer-events="none"/>
+        <rect x="0" y="90" width="320" height="120" fill="rgb(255, 255, 255)" stroke="rgb(0, 0, 0)" pointer-events="none"/>
+        <rect x="0" y="210" width="320" height="80" fill="rgb(255, 255, 255)" stroke="rgb(0, 0, 0)" pointer-events="none"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 318px; height: 1px; padding-top: 250px; margin-left: 1px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: none; white-space: normal; overflow-wrap: normal;">
+                                NodeApi.Native
+                                <br/>
+                                <font style="font-size: 10px;">
+                                    napi_*
+                                </font>
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="160" y="254" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    NodeApi.Native...
+                </text>
+            </switch>
+        </g>
+        <rect x="0" y="290" width="320" height="40" fill="#ffe6cc" stroke="#d79b00" pointer-events="none"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 318px; height: 1px; padding-top: 310px; margin-left: 1px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: none; white-space: normal; overflow-wrap: normal;">
+                                JS Engine / Node.js Runtime
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="160" y="314" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    JS Engine / Node.js Runtime
+                </text>
+            </switch>
+        </g>
+        <rect x="215" y="220" width="90" height="60" fill="rgb(255, 255, 255)" stroke="rgb(0, 0, 0)" stroke-dasharray="3 3" pointer-events="none"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 88px; height: 1px; padding-top: 250px; margin-left: 216px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: none; white-space: normal; overflow-wrap: normal;">
+                                NodeApi.Native
+                                <br/>
+                                .NodeJS
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="260" y="254" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    NodeApi.Native...
+                </text>
+            </switch>
+        </g>
+        <rect x="110" y="30" width="210" height="60" fill="rgb(255, 255, 255)" stroke="rgb(0, 0, 0)" pointer-events="none"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 208px; height: 1px; padding-top: 60px; margin-left: 111px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: none; white-space: normal; overflow-wrap: normal;">
+                                NodeApi.DotNetHost
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="215" y="64" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    NodeApi.DotNetHost
+                </text>
+            </switch>
+        </g>
+        <rect x="120" y="100" width="90" height="100" fill="rgb(255, 255, 255)" stroke="none" pointer-events="none"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 88px; height: 1px; padding-top: 150px; margin-left: 121px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: none; white-space: normal; overflow-wrap: normal;">
+                                NodeApi
+                                <br/>
+                                <font style="font-size: 7px;">
+                                    JSValue
+                                    <br/>
+                                    JSObject
+                                    <br/>
+                                    JSReference
+                                    <br/>
+                                    JSValueScope
+                                </font>
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="165" y="154" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    NodeApi...
+                </text>
+            </switch>
+        </g>
+        <rect x="15" y="120" width="105" height="60" fill="rgb(255, 255, 255)" stroke="rgb(0, 0, 0)" stroke-dasharray="3 3" pointer-events="none"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 103px; height: 1px; padding-top: 150px; margin-left: 16px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: none; white-space: normal; overflow-wrap: normal;">
+                                <p style="line-height: 100%;">
+                                    <font style="font-size: 11px;">
+                                        NodeApi.Collections
+                                    </font>
+                                    <br/>
+                                    <font style="font-size: 7px;">
+                                        JSIterable
+                                        <br/>
+                                        JSArray
+                                        <br/>
+                                        JSMap
+                                    </font>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="68" y="154" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    NodeApi.Collectio...
+                </text>
+            </switch>
+        </g>
+        <rect x="215" y="120" width="90" height="60" fill="rgb(255, 255, 255)" stroke="rgb(0, 0, 0)" stroke-dasharray="3 3" pointer-events="none"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 88px; height: 1px; padding-top: 150px; margin-left: 216px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: none; white-space: normal; overflow-wrap: normal;">
+                                <p style="line-height: 100%;">
+                                    <font style="font-size: 11px;">
+                                        NodeApi.Interop
+                                    </font>
+                                    <br/>
+                                    <font style="font-size: 7px;">
+                                        JSContext
+                                        <br/>
+                                        JSClassBuilder&lt;T&gt;
+                                        <br/>
+                                        JSAsyncScope
+                                    </font>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="260" y="154" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    NodeApi.Interop...
+                </text>
+            </switch>
+        </g>
+        <path d="M 0 210 L 320 210" fill="none" stroke="#ffffff" stroke-miterlimit="10" stroke-dasharray="3 3" pointer-events="none"/>
+        <rect x="15" y="15" width="80" height="60" fill="rgb(255, 255, 255)" stroke="none" pointer-events="none"/>
+        <g transform="translate(-0.5 -0.5)">
+            <switch>
+                <foreignObject pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" style="overflow: visible; text-align: left;">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 78px; height: 1px; padding-top: 45px; margin-left: 16px;">
+                        <div data-drawio-colors="color: rgb(0, 0, 0); " style="box-sizing: border-box; font-size: 0px; text-align: center;">
+                            <div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.2; pointer-events: none; white-space: normal; overflow-wrap: normal;">
+                                <p style="line-height: 40%;">
+                                    NodeApi
+                                </p>
+                                <p style="line-height: 40%;">
+                                    .Generator
+                                </p>
+                                <p style="line-height: 100%;">
+                                    <font style="font-size: 8px;">
+                                        C# Source Generator
+                                        <br/>
+                                        Type Defs Generator
+                                    </font>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </foreignObject>
+                <text x="55" y="49" fill="rgb(0, 0, 0)" font-family="Helvetica" font-size="12px" text-anchor="middle">
+                    NodeApi...
+                </text>
+            </switch>
+        </g>
+    </g>
+    <switch>
+        <g requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"/>
+        <a transform="translate(0,-5)" xlink:href="https://www.diagrams.net/doc/faq/svg-export-text-problems" target="_blank">
+            <text text-anchor="middle" font-size="10px" x="50%" y="100%">
+                Text is not SVG - cannot display
+            </text>
+        </a>
+    </switch>
+</svg>
