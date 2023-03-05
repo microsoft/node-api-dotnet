@@ -112,9 +112,20 @@ exports.whichBuildType = whichBuildType;
 // Load the addon module, using either hosted or native AOT mode.
 exports.dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
 exports.dotnetModule = process.env.TEST_DOTNET_MODULE_PATH;
-exports.binding = exports.dotnetHost ?
-  require(exports.dotnetHost).require(exports.dotnetModule) :
-  require(exports.dotnetModule);
+
+exports.loadDotnetModule = function() {
+  if (exports.dotnetHost) {
+    // Normally the index.js script in the npm package takes care of locating the correct
+    // native host and managed host binaries for the current environment.
+    return require(exports.dotnetHost)
+      .initialize(exports.dotnetHost.replace(/\.node$/, '.DotNetHost.dll'))
+      .require(exports.dotnetModule);
+  } else {
+    return require(exports.dotnetModule);
+  }
+}
+
+exports.binding = exports.loadDotnetModule();
 
 exports.runTest = async function (test) {
   await Promise.resolve(test(exports.binding))

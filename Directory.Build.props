@@ -1,27 +1,24 @@
 <Project>
-	<PropertyGroup>
-		<TargetFramework>net7.0</TargetFramework>
-		<Nullable>enable</Nullable>
-		<SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
-		<Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
-		<BaseOutputPath>$(MSBuildThisFileDirectory)out/</BaseOutputPath>
-		<OutputPath>$(BaseOutputPath)bin/$(Configuration)/$(MSBuildProjectName)/</OutputPath>
-		<PackageOutputPath>$(BaseOutputPath)pkg/</PackageOutputPath>
-		<SymbolsOutputPath>$(BaseOutputPath)sym/</SymbolsOutputPath>
-		<BaseIntermediateOutputPath>$(BaseOutputPath)obj/$(Configuration)/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
-		<IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
-		<AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
-		<IsPackable>false</IsPackable>
-	</PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)out/</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)bin/$(Configuration)/$(MSBuildProjectName)/</OutputPath>
+    <PackageOutputPath>$(BaseOutputPath)pkg/</PackageOutputPath>
+    <SymbolsOutputPath>$(BaseOutputPath)sym/</SymbolsOutputPath>
+    <BaseIntermediateOutputPath>$(BaseOutputPath)obj/$(Configuration)/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <IsPackable>false</IsPackable>
 
-	<ItemGroup>
-		<CompilerVisibleProperty Include="BaseIntermediateOutputPath" /><!-- Used by NodeApi source generator. -->
-		<CompilerVisibleProperty Include="TargetPath" /><!-- Used by NodeApi TS source generator. -->
-	</ItemGroup>
+    <!-- Display each test case and passed/failed status when using `dotnet test`. -->
+    <VSTestLogger Condition="'$(VSTestLogger)' == ''">console%3Bverbosity=normal</VSTestLogger>
+  </PropertyGroup>
 
-	<ItemGroup>
-    <!--
-		<PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="All" />
-    -->
-	</ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="none" />
+  </ItemGroup>
+
+  <Import Project="./rid.props" />
 </Project>

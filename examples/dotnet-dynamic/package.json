@@ -1,0 +1,6 @@
+{
+  "name": "node-api-dotnet-examples-dotnet-dynamic",
+  "dependencies": {
+    "node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
+  }
+}

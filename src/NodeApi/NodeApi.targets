@@ -1,0 +1,14 @@
+<Project>
+  <Target Name="RenameToDotNode"
+    AfterTargets="CopyNativeBinary"
+    BeforeTargets="PublishManagedAssembly"
+    Condition=" '$(PublishNodeModule)' == 'true' "
+  >
+    <!-- Rename the native library (and its PDB) to have a .node extension. -->
+    <Move SourceFiles="$(PublishDir)$(TargetName)$(NativeBinaryExt)"
+      DestinationFiles="$(PublishDir)$(TargetName).node" />
+    <Move Condition="Exists('$(PublishDir)$(TargetName).pdb')"
+      SourceFiles="$(PublishDir)$(TargetName).pdb"
+      DestinationFiles="$(PublishDir)$(TargetName).node.pdb" />
+  </Target>
+</Project>

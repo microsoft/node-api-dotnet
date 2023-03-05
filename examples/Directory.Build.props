@@ -1,0 +1,9 @@
+<Project>
+  <!-- Don't include the project root Directory.Build.props; just get the default rid. -->
+  <Import Project="../rid.props" />
+
+  <PropertyGroup>
+    <!-- Use a local nuget package cache folder that is easy to wipe when testing. -->
+    <RestorePackagesPath>$(MSBuildThisFileDirectory)..\out\pkg</RestorePackagesPath>
+  </PropertyGroup>
+</Project>

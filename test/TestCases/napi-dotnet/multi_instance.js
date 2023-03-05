@@ -4,8 +4,7 @@ const { Worker, isMainThread, parentPort } = require('worker_threads');
 /** @typedef {import('./napi-dotnet')} Binding */
 /** @type Binding */
 const binding = require('../common').binding;
-
-const { dotnetHost, dotnetModule } = require('../common');
+const { loadDotnetModule, dotnetHost, dotnetModule } = require('../common');
 
 if (isMainThread) {
   // Increment the static counter to 2.
@@ -19,7 +18,7 @@ if (isMainThread) {
   delete require.cache[dotnetModule];
 
   /** @type Binding */
-  const rebinding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
+  const rebinding = loadDotnetModule();
 
   // The static counter should be reinitialized after rebinding.
   const count2 = rebinding.Counter.count();

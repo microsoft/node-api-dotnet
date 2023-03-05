@@ -4,12 +4,8 @@
 // out/obj\$(Configuration)\TestCases\edgejs-perf\hosted-measure-latency.log
 // out/obj\$(Configuration)\TestCases\edgejs-perf\aot-measure-latency.log
 
-// Load the addon module, using either hosted or native AOT mode.
-const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
-const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
-
 /** @type {import('./edgejs-perf')} */
-const binding = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
+const binding = require('../common').binding;
 
 const callCount = process.env.EDGE_CALL_COUNT || 10000;
 

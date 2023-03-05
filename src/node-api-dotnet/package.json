@@ -1,0 +1,11 @@
+{
+  "name": "node-api-dotnet",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+  },
+  "author": "",
+  "license": "MIT",
+  "types": "./index.d.ts"
+}

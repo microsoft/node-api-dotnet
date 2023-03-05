@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <GenerateNodeApiTypeDefinitions Condition=" '$(GenerateNodeApiTypeDefinitions)' == '' ">true</GenerateNodeApiTypeDefinitions>
+    <NodeApiTypeDefinitionsFileName Condition=" '$(NodeApiTypeDefinitionsFileName)' == '' ">$(TargetName).d.ts</NodeApiTypeDefinitionsFileName>
+
+    <NodeApiGeneratorAssemblyName>Microsoft.JavaScript.NodeApi.Generator</NodeApiGeneratorAssemblyName>
+    <NodeApiGeneratorAssemblyPath>$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/$(NodeApiGeneratorAssemblyName).dll</NodeApiGeneratorAssemblyPath>
+  </PropertyGroup>
+
+  <Target Name="GenerateNodeApiTypeDefinitions"
+    AfterTargets="Build"
+    Inputs="$(TargetPath)"
+    Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
+    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' "
+  >
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; &quot;$(TargetPath)&quot; &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot;"
+      ConsoleToMSBuild="true" />
+  </Target>
+  <Target Name="PublishNodeApiTypeDefinitions"
+    AfterTargets="Publish"
+    Inputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
+    Outputs="$(PublishDir)$(NodeApiTypeDefinitionsFileName)"
+    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' "
+  >
+    <Copy SourceFiles="$(TargetDir)$(NodeApiTypeDefinitionsFileName)" DestinationFolder="$(PublishDir)" />
+  </Target>
+
+  <Target Name="CleanNodeApiTypeDefinitions" AfterTargets="CoreClean">
+    <Delete Files="$(TargetDir)$(NodeApiTypeDefinitionsFileName)" />
+    <Delete Files="$(PublishDir)$(NodeApiTypeDefinitionsFileName)" />
+  </Target>
+</Project>

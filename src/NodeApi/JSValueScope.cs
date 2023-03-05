@@ -9,13 +9,14 @@ public enum JSValueScopeType { Handle, Escapable, Callback, Root, RootNoContext,
 
 public sealed class JSValueScope : IDisposable
 {
-    private readonly JSValueScopeType _scopeType;
     private readonly JSValueScope? _parentScope;
     private readonly napi_env _env;
     private readonly SynchronizationContext? _previousSyncContext;
     private readonly nint _scopeHandle;
 
     [ThreadStatic] private static JSValueScope? s_currentScope;
+
+    public JSValueScopeType ScopeType { get; }
 
     public static JSValueScope? Current => s_currentScope;
 
@@ -26,7 +27,7 @@ public sealed class JSValueScope : IDisposable
     public JSValueScope(
         JSValueScopeType scopeType = JSValueScopeType.Handle, napi_env env = default)
     {
-        _scopeType = scopeType;
+        ScopeType = scopeType;
 
         _parentScope = s_currentScope;
         s_currentScope = this;
@@ -50,7 +51,7 @@ public sealed class JSValueScope : IDisposable
             SynchronizationContext.SetSynchronizationContext(ModuleContext.SynchronizationContext);
         }
 
-        _scopeHandle = _scopeType switch
+        _scopeHandle = ScopeType switch
         {
             JSValueScopeType.Handle
                 => napi_open_handle_scope(_env, out napi_handle_scope handleScope)
@@ -68,11 +69,11 @@ public sealed class JSValueScope : IDisposable
         if (IsDisposed) return;
         IsDisposed = true;
 
-        if (_scopeType != JSValueScopeType.RootNoContext)
+        if (ScopeType != JSValueScopeType.RootNoContext)
         {
             napi_env env = (napi_env)ModuleContext;
 
-            switch (_scopeType)
+            switch (ScopeType)
             {
                 case JSValueScopeType.Handle:
                     napi_close_handle_scope(
@@ -96,7 +97,7 @@ public sealed class JSValueScope : IDisposable
         if (_parentScope == null)
             throw new InvalidOperationException("Parent scope must not be null.");
 
-        if (_scopeType != JSValueScopeType.Escapable)
+        if (ScopeType != JSValueScopeType.Escapable)
             throw new InvalidOperationException(
                 "It can be called only for Escapable value scopes.");
 

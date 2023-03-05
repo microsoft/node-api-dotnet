@@ -27,7 +27,12 @@ public static partial class JSNativeApi
               typeof(JSNativeApi).Assembly,
               (libraryName, _, _) =>
               {
-                  return libraryName == nameof(NodeApi) ? NativeLibrary.GetMainProgramHandle() : default;
+                  return libraryName switch
+                  {
+                      nameof(DotNetHost.HostFxr) => DotNetHost.HostFxr.Handle,
+                      nameof(NodeApi) => NativeLibrary.GetMainProgramHandle(),
+                      _ => default,
+                  };
               });
         }
 

@@ -12,4 +12,14 @@
     <ProjectReference Include="..\NodeApi\NodeApi.csproj" GeneratePathProperty="true" PrivateAssets="all" />
   </ItemGroup>
 
+  <Target Name="NpmPack"
+    AfterTargets="Pack"
+    Outputs="$(PackageOutputPath)node-api-dotnet-$(PackageVersion).tgz"
+  >
+    <PropertyGroup>
+      <NodeApiPackScript>$(MSBuildThisFileDirectory)..\node-api-dotnet\pack.js</NodeApiPackScript>
+    </PropertyGroup>
+    <Exec Command="node $(NodeApiPackScript) $(Configuration) $(RuntimeIdentifier)" />
+  </Target>
+
 </Project>

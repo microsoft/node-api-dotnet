@@ -71,9 +71,10 @@ public sealed class ManagedHost : IDisposable
         }
 #endif
 
+        using JSValueScope scope = new(JSValueScopeType.Root, env);
+
         try
         {
-            using JSValueScope scope = new(JSValueScopeType.Root, env);
             ManagedHost host = new((JSObject)new JSValue(exports, scope));
             exports = (napi_value)host._systemAssembly.AssemblyObject;
 
@@ -114,8 +115,13 @@ public sealed class ManagedHost : IDisposable
     /// </summary>
     public JSValue LoadModule(JSCallbackArgs args)
     {
-        string assemblyFilePath = (string)args[0];
+        string assemblyFilePath = System.IO.Path.GetFullPath((string)args[0]);
         Trace($"> ManagedHost.LoadModule({assemblyFilePath})");
+
+        if (!assemblyFilePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            assemblyFilePath += ".dll";
+        }
 
         if (_loadedModules.TryGetValue(assemblyFilePath, out JSReference? exportsRef))
         {
