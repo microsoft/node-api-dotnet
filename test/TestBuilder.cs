@@ -77,8 +77,8 @@ internal static class TestBuilder
 
     private static string GetTestCasesDirectory()
     {
-        // This assumes tests are organized in this Test/TestCases directory structure.
-        string testCasesDir = Path.Join(GetRootDirectory(), "Test", "TestCases");
+        // This assumes tests are organized in this test/TestCases directory structure.
+        string testCasesDir = Path.Join(GetRootDirectory(), "test", "TestCases");
 
         if (!Directory.Exists(testCasesDir))
         {

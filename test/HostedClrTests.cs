@@ -56,7 +56,10 @@ public class HostedClrTests
         string hostFilePath2 = Path.Combine(
             Path.GetDirectoryName(moduleFilePath)!, Path.GetFileName(hostFilePath));
         File.Copy(hostFilePath, hostFilePath2, overwrite: true);
-        File.Copy(hostFilePath + ".pdb", hostFilePath2 + ".pdb", overwrite: true);
+        if (File.Exists(hostFilePath + ".pdb"))
+        {
+            File.Copy(hostFilePath + ".pdb", hostFilePath2 + ".pdb", overwrite: true);
+        }
         File.Copy(
             hostFilePath.Replace(".node", ".runtimeconfig.json"),
             hostFilePath2.Replace(".node", ".runtimeconfig.json"),
