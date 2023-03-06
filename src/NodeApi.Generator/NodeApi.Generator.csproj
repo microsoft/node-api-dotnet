@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>NodeApi.Generator</RootNamespace>
-    <AssemblyName>NodeApi.Generator</AssemblyName>
+    <AssemblyName>Microsoft.JavaScript.NodeApi.Generator</AssemblyName>
+    <RootNamespace>Microsoft.JavaScript.NodeApi.Generator</RootNamespace>
     <OutputType>Exe</OutputType>
     <IsPackable>true</IsPackable>
+    <PublishAot>false</PublishAot>
     <NoWarn>$(NoWarn);SYSLIB1045</NoWarn><!-- Use GeneratedRegexAttribute -->
   </PropertyGroup>
 
@@ -18,7 +19,8 @@
     https://github.com/dotnet/roslyn-sdk/blob/main/samples/CSharp/SourceGenerators/SourceGeneratorSamples/CSharpSourceGeneratorSamples.csproj
   -->
   <ItemGroup>
-    <ProjectReference Include="..\Runtime\NodeApi.Runtime.csproj" GeneratePathProperty="true" PrivateAssets="all" />
+    <ProjectReference Include="..\NodeApi\NodeApi.csproj" GeneratePathProperty="true" PrivateAssets="all" />
+    <ProjectReference Include="..\NodeApi.DotNetHost\NodeApi.DotNetHost.csproj" GeneratePathProperty="true" PrivateAssets="all" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -27,7 +29,8 @@
 
   <Target Name="GetDependencyTargetPaths">
     <ItemGroup>
-      <TargetPathWithTargetPlatformMoniker Include="$(TargetDir)\NodeApi.dll" IncludeRuntimeDependency="false" />
+      <TargetPathWithTargetPlatformMoniker Include="$(TargetDir)\Microsoft.JavaScript.NodeApi.dll" IncludeRuntimeDependency="false" />
+      <TargetPathWithTargetPlatformMoniker Include="$(TargetDir)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" IncludeRuntimeDependency="false" />
     </ItemGroup>
   </Target>
 

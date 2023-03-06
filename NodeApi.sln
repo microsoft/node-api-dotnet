@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi.Test", "Test\NodeApi.Test.csproj", "{24A49A30-7C49-4F7E-89C4-E18F40AAA23F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi.Test", "test\NodeApi.Test.csproj", "{24A49A30-7C49-4F7E-89C4-E18F40AAA23F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi.Runtime", "Runtime\NodeApi.Runtime.csproj", "{BBB30CEB-CCF6-4E5C-822F-FF73502D86B2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi", "src\NodeApi\NodeApi.csproj", "{BBB30CEB-CCF6-4E5C-822F-FF73502D86B2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi.Generator", "Generator\NodeApi.Generator.csproj", "{BCD164BC-9F26-4E44-888E-52B18C6670FD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi.Generator", "src\NodeApi.Generator\NodeApi.Generator.csproj", "{BCD164BC-9F26-4E44-888E-52B18C6670FD}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Top Level Files", "Top Level Files", "{56FAAFF0-3EFF-4925-A9B6-5C9760D780DA}"
 	ProjectSection(SolutionItems) = preProject
@@ -27,6 +27,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub Workflows", "GitHub 
 		.github\workflows\build.yml = .github\workflows\build.yml
 	EndProjectSection
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NodeApi.DotNetHost", "src\NodeApi.DotNetHost\NodeApi.DotNetHost.csproj", "{50F53625-D418-4A39-8B3D-842D38229D40}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{BCD164BC-9F26-4E44-888E-52B18C6670FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BCD164BC-9F26-4E44-888E-52B18C6670FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BCD164BC-9F26-4E44-888E-52B18C6670FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{50F53625-D418-4A39-8B3D-842D38229D40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{50F53625-D418-4A39-8B3D-842D38229D40}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{50F53625-D418-4A39-8B3D-842D38229D40}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{50F53625-D418-4A39-8B3D-842D38229D40}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

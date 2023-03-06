@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -11,8 +10,6 @@ namespace NodeApi.Hosting;
 /// <summary>
 /// Dynamically exports APIs from a .NET assembly to JS.
 /// </summary>
-[RequiresUnreferencedCode("Dynamic binding is not available in trimmed assembly.")]
-[RequiresDynamicCode("Dynamic binding is not available in trimmed assembly.")]
 internal class AssemblyExporter
 {
     private readonly JSMarshaler _marshaler;

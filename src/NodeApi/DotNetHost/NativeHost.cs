@@ -16,7 +16,8 @@ internal partial class NativeHost : IDisposable
 {
     private static Version MinimumDotnetVersion { get; } = new(7, 0, 0);
 
-    private const string ManagedHostAssemblyName = nameof(NodeApi);
+    private const string NodeApiAssemblyName = "Microsoft.JavaScript.NodeApi";
+    private const string ManagedHostAssemblyName = NodeApiAssemblyName + ".DotNetHost";
     private const string ManagedHostTypeName =
         $"{nameof(NodeApi)}.{nameof(NodeApi.Hosting)}.ManagedHost";
 
@@ -42,11 +43,11 @@ internal partial class NativeHost : IDisposable
     {
         Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
 
+        using var scope = new JSValueScope(JSValueScopeType.RootNoContext, env);
+
         ResolveImports();
         try
         {
-            using var scope = new JSValueScope(JSValueScopeType.RootNoContext, env);
-
             var host = new NativeHost();
 
             // Define a dispose method implemented by the native host that closes the CLR context.
@@ -67,8 +68,9 @@ internal partial class NativeHost : IDisposable
         }
         catch (Exception ex)
         {
-            Trace($"Failed to load CLR native host module: {ex}");
-            JSError.ThrowError(ex);
+            string message = $"Failed to load CLR native host module: {ex}";
+            Trace(message);
+            napi_throw(env, (napi_value)JSValue.CreateError(null, (JSValue)message));
         }
 
         Trace("< NativeHost.InitializeModule()");
@@ -114,7 +116,8 @@ internal partial class NativeHost : IDisposable
     {
         Trace("> NativeHost.InitializeManagedRuntime()");
 
-        string runtimeConfigPath = Path.Join(_nodeApiHostDir, @"NodeApi.runtimeconfig.json");
+        string runtimeConfigPath = Path.Join(
+            _nodeApiHostDir, NodeApiAssemblyName + ".runtimeconfig.json");
         Trace("    Runtime config: " + runtimeConfigPath);
 
         string hostfxrPath = HostFxr.GetHostFxrPath(MinimumDotnetVersion);
@@ -150,7 +153,7 @@ internal partial class NativeHost : IDisposable
     {
         Trace($"> NativeHost.InitializeManagedHost({env.Handle:X8}, {exports.Handle:X8})");
 
-        string managedHostPath = Path.Join(_nodeApiHostDir, @"NodeApi.dll");
+        string managedHostPath = Path.Join(_nodeApiHostDir, ManagedHostAssemblyName + ".dll");
         Trace("    Managed host: " + managedHostPath);
 
         // Get a CLR function that can load an assembly.

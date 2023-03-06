@@ -727,7 +727,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
          *     public proxy_IInterfaceName(JSValue value) : base(value) { }
          *
          */
-        s += $"private sealed class {adapterName} : Hosting.JSInterface, {interfaceType}";
+        s += $"private sealed class {adapterName} : JSInterface, {interfaceType}";
         s += "{";
         s += $"public {adapterName}(JSValue value) : base(value) {{ }}";
 

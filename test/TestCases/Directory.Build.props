@@ -12,10 +12,14 @@
         <NoWarn>CS1591</NoWarn>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <NodeApiSrcDir>$(MSBuildThisFileDirectory)..\..\src\</NodeApiSrcDir>
+    </PropertyGroup>
     <ItemGroup>
-      <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Runtime\NodeApi.Runtime.csproj" />
-      <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Generator\NodeApi.Generator.csproj"
-        OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="$(NodeApiSrcDir)NodeApi\NodeApi.csproj" />
+        <ProjectReference Include="$(NodeApiSrcDir)NodeApi.DotNetHost\NodeApi.DotNetHost.csproj" />
+        <ProjectReference Include="$(NodeApiSrcDir)NodeApi.Generator\NodeApi.Generator.csproj"
+            OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
 </Project>
