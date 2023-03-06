@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace NodeApi.TestCases;
+namespace Microsoft.JavaScript.NodeApi.TestCases;
 
 public static class AsyncMethods
 {

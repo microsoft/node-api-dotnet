@@ -6,8 +6,9 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.JavaScript.NodeApi.Interop;
 
-namespace NodeApi.Hosting;
+namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
 /// <summary>
 /// Generates expressions and delegates that support marshaling between .NET and JS.

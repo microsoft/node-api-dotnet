@@ -1,6 +1,6 @@
 using System;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public class JSException : Exception
 {

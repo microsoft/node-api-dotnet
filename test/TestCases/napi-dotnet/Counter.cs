@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 
-namespace NodeApi.TestCases;
+namespace Microsoft.JavaScript.NodeApi.TestCases;
 
 /// <summary>
 /// Enables testing static state.

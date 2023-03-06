@@ -4,9 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using Xunit;
 
-using static NodeApi.Test.TestBuilder;
+using static Microsoft.JavaScript.NodeApi.Test.TestBuilder;
 
-namespace NodeApi.Test;
+namespace Microsoft.JavaScript.NodeApi.Test;
 
 public class NativeAotTests
 {

@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public partial struct JSArray
 {

@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 /// <summary>
 /// Extension methods for converting between .NET tasks and JS promises.

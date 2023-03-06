@@ -2,10 +2,11 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
-using static NodeApi.JSNativeApi;
-using static NodeApi.JSNativeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public readonly struct JSValue : IEquatable<JSValue>
 {

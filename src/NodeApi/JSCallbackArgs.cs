@@ -1,8 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
-using static NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public readonly ref struct JSCallbackArgs
 {

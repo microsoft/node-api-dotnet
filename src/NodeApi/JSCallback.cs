@@ -1,5 +1,5 @@
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public delegate JSValue JSCallback(JSCallbackArgs args);
 

@@ -1,6 +1,6 @@
 using System;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
 /// Designates a non-static class or static method that initializes the JS module.

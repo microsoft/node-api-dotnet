@@ -1,6 +1,6 @@
 using System;
 
-namespace NodeApi.Generator;
+namespace Microsoft.JavaScript.NodeApi.Generator;
 
 /// <summary>
 /// Command-line interface for the Node API TS type-definitions generator tool.

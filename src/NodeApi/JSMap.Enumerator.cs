@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public partial struct JSMap
 {

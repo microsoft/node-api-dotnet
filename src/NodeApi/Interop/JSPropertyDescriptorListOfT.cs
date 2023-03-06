@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public abstract class JSPropertyDescriptorList<TDerived, TObject>
   where TDerived : class, IJSObjectUnwrap<TObject>

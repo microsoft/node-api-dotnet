@@ -5,9 +5,10 @@ using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
-using NodeApi.Hosting;
+using Microsoft.JavaScript.NodeApi.DotNetHost;
+using Microsoft.JavaScript.NodeApi.Interop;
 
-namespace NodeApi.Generator;
+namespace Microsoft.JavaScript.NodeApi.Generator;
 
 // An analyzer bug results in incorrect reports of CA1822 against methods in this class.
 #pragma warning disable CA1822 // Mark members as static
@@ -94,7 +95,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         foreach (ITypeSymbol type in GetCompilationTypes())
         {
-            if (type.GetAttributes().Any((a) => a.AttributeClass?.Name == "JSModuleAttribute"))
+            if (type.GetAttributes().Any(
+                (a) => a.AttributeClass?.AsType() == typeof(JSModuleAttribute)))
             {
                 if (type.TypeKind != TypeKind.Class)
                 {
@@ -120,7 +122,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 foreach (ISymbol? member in type.GetMembers())
                 {
                     if (member.GetAttributes().Any(
-                        (a) => a.AttributeClass?.Name == "JSModuleAttribute"))
+                        (a) => a.AttributeClass?.AsType() == typeof(JSModuleAttribute)))
                     {
                         // TODO: Check method parameter and return types.
                         if (member is not IMethodSymbol)
@@ -262,10 +264,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         s += "using System.CodeDom.Compiler;";
         s += "using System.Runtime.InteropServices;";
-        s += "using static NodeApi.JSNativeApi.Interop;";
+        s += "using Microsoft.JavaScript.NodeApi.Interop;";
+        s += "using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;";
 
         s++;
-        s += "namespace NodeApi.Generated;";
+        s += "namespace Microsoft.JavaScript.NodeApi.Generated;";
         s++;
 
         string generatorName = typeof(ModuleGenerator).Assembly.GetName()!.Name!;

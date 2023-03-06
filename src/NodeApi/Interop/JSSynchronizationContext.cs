@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public class JSSynchronizationContext : SynchronizationContext, IDisposable
 {

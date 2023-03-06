@@ -1,6 +1,6 @@
 using System;
 
-namespace NodeApi.TestCases;
+namespace Microsoft.JavaScript.NodeApi.TestCases;
 
 public static class Hello
 {

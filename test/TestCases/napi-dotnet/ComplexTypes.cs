@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace NodeApi.TestCases;
+namespace Microsoft.JavaScript.NodeApi.TestCases;
 
 /// <summary>
 /// Tests marshalling of various non-primitive types.

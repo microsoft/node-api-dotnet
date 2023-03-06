@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Microsoft.CodeAnalysis;
 
-namespace NodeApi.Generator;
+namespace Microsoft.JavaScript.NodeApi.Generator;
 
 /// <summary>
 /// Extension methods for code-analysis symbol interfaces to support creation of fake
@@ -166,8 +166,8 @@ internal static class SymbolExtensions
         // Preserve JS attributes, which might be referenced by the marshaler.
         foreach (AttributeData attribute in typeSymbol.GetAttributes())
         {
-            if (attribute.AttributeClass!.ContainingNamespace.Name ==
-                typeof(JSExportAttribute).Namespace)
+            if (attribute.AttributeClass!.ContainingAssembly.Name ==
+                typeof(JSExportAttribute).Assembly.GetName().Name)
             {
                 Type attributeType = attribute.AttributeClass.AsType();
                 ConstructorInfo constructor = attributeType.GetConstructor(

@@ -1,8 +1,9 @@
 using System;
 using System.Threading;
-using static NodeApi.JSNativeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public enum JSValueScopeType { Handle, Escapable, Callback, Root, RootNoContext, }
 
