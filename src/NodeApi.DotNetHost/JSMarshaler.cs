@@ -1567,17 +1567,18 @@ public class JSMarshaler
              */
             Type jsCollectionType = typeDefinition.Name.Contains("Set") ?
                 typeof(JSSet) : typeof(JSArray);
-            MethodInfo asCollectionMethod = jsCollectionType.GetInstanceMethod(
+            MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
                 string.Concat("As",
-                    typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)))
-                !.MakeGenericMethod(elementType);
+                    typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)),
+                new[] { jsCollectionType, typeof(JSValue.To<>), typeof(JSValue.From<>) },
+                elementType);
             MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
                 typeof(JSValue), jsCollectionType);
             yield return Expression.Coalesce(
                 Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
                 Expression.Call(
-                    Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
                     asCollectionMethod,
+                    Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
                     GetFromJSValueExpression(elementType),
                     GetToJSValueExpression(elementType)));
         }
@@ -1589,17 +1590,20 @@ public class JSMarshaler
              * JSNativeApi.TryUnwrap(value) as IReadOnlyCollection<T> ??
              *     ((JSArray)value).AsReadOnlyCollection<T>((value) => (T)value);
              */
-            MethodInfo asCollectionMethod = typeof(JSArray).GetInstanceMethod(
+            Type jsCollectionType = typeDefinition == typeof(IEnumerable<>) ?
+                typeof(JSIterable) : typeof(JSArray);
+            MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
                 string.Concat("As",
-                    typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)))
-                !.MakeGenericMethod(elementType);
-            MethodInfo asJSArrayMethod = typeof(JSArray).GetExplicitConversion(
-                typeof(JSValue), typeof(JSArray));
+                    typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)),
+                new[] { jsCollectionType, typeof(JSValue.To<>) },
+                elementType);
+            MethodInfo asJSArrayMethod = jsCollectionType.GetExplicitConversion(
+                typeof(JSValue), jsCollectionType);
             yield return Expression.Coalesce(
                 Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
                 Expression.Call(
-                    Expression.Convert(valueExpression, typeof(JSArray), asJSArrayMethod),
                     asCollectionMethod,
+                    Expression.Convert(valueExpression, jsCollectionType, asJSArrayMethod),
                     GetFromJSValueExpression(elementType)));
         }
         else if (typeDefinition == typeof(IDictionary<,>))
@@ -1615,15 +1619,15 @@ public class JSMarshaler
              *         (key) => (JSValue)key);
              *         (value) => (JSValue)value);
              */
-            MethodInfo asDictionaryMethod = typeof(JSMap).GetInstanceMethod(
-                nameof(JSMap.AsDictionary))!.MakeGenericMethod(keyType, valueType);
+            MethodInfo asDictionaryMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                nameof(JSCollectionExtensions.AsDictionary))!.MakeGenericMethod(keyType, valueType);
             MethodInfo asJSMapMethod = typeof(JSMap).GetExplicitConversion(
                 typeof(JSValue), typeof(JSMap));
             yield return Expression.Coalesce(
                 Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
                 Expression.Call(
-                    Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
                     asDictionaryMethod,
+                    Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
                     GetFromJSValueExpression(keyType),
                     GetFromJSValueExpression(valueType),
                     GetToJSValueExpression(keyType),
@@ -1641,15 +1645,16 @@ public class JSMarshaler
              *         (value) => (TValue)value,
              *         (key) => (JSValue)key);
              */
-            MethodInfo asDictionaryMethod = typeof(JSMap).GetInstanceMethod(
-                nameof(JSMap.AsReadOnlyDictionary))!.MakeGenericMethod(keyType, valueType);
+            MethodInfo asDictionaryMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                nameof(JSCollectionExtensions.AsReadOnlyDictionary))
+                !.MakeGenericMethod(keyType, valueType);
             MethodInfo asJSMapMethod = typeof(JSMap).GetExplicitConversion(
                 typeof(JSValue), typeof(JSMap));
             yield return Expression.Coalesce(
                 Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
                 Expression.Call(
-                    Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
                     asDictionaryMethod,
+                    Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
                     GetFromJSValueExpression(keyType),
                     GetFromJSValueExpression(valueType),
                     GetToJSValueExpression(keyType)));

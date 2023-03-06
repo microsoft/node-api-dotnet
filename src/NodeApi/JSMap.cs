@@ -67,9 +67,9 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
         return !value.IsUndefined();
     }
 
-    public JSIterable.Collection Keys => new((JSIterable)_value["keys"], GetCount);
+    public JSMap.Collection Keys => new((JSIterable)_value["keys"], GetCount);
 
-    public JSIterable.Collection Values => new((JSIterable)_value["values"], GetCount);
+    public JSMap.Collection Values => new((JSIterable)_value["values"], GetCount);
 
     private int GetCount() => Count;
 
@@ -130,5 +130,40 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
     {
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
+    }
+
+    public readonly struct Collection : ICollection<JSValue>, IReadOnlyCollection<JSValue>
+    {
+        private readonly JSIterable _iterable;
+        private readonly Func<int> _getCount;
+
+        internal Collection(JSIterable iterable, Func<int> getCount)
+        {
+            _iterable = iterable;
+            _getCount = getCount;
+        }
+
+        public int Count => _getCount();
+
+        public bool IsReadOnly => true;
+
+        public IEnumerator<JSValue> GetEnumerator() => _iterable.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+            => GetEnumerator();
+
+        public bool Contains(JSValue item) => throw new NotImplementedException();
+
+        public void CopyTo(JSValue[] array, int arrayIndex)
+        {
+            int i = arrayIndex;
+            foreach (JSValue item in this)
+            {
+                array[i++] = item;
+            }
+        }
+
+        public void Add(JSValue item) => throw new NotSupportedException();
+        public bool Remove(JSValue item) => throw new NotSupportedException();
+        public void Clear() => throw new NotSupportedException();
     }
 }

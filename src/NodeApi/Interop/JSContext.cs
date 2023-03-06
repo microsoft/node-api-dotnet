@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using static NodeApi.JSCollectionProxies;
 using static NodeApi.JSNativeApi;
 using napi_env = NodeApi.JSNativeApi.Interop.napi_env;
 
@@ -239,12 +240,12 @@ public sealed class JSContext : IDisposable
         IEnumerable<T> collection,
         JSValue.From<T> toJS)
     {
-        return collection is JSIterable.Enumerable<T> adapter ? adapter.Value :
+        return collection is JSIterableEnumerable<T> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IEnumerable<T>),
-                    (_) => JSIterable.CreateProxyHandlerForEnumerable(toJS));
+                    (_) => CreateIterableProxyHandlerForEnumerable(toJS));
                 return new JSProxy(new JSObject(), proxyHandler, collection);
             });
     }
@@ -253,12 +254,12 @@ public sealed class JSContext : IDisposable
         IReadOnlyCollection<T> collection,
         JSValue.From<T> toJS)
     {
-        return collection is JSArray.ReadOnlyCollection<T> adapter ? adapter.Value :
+        return collection is JSArrayReadOnlyCollection<T> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IReadOnlyCollection<T>),
-                    (_) => JSIterable.CreateProxyHandlerForReadOnlyCollection(toJS));
+                    (_) => CreateIterableProxyHandlerForReadOnlyCollection(toJS));
                 return new JSProxy(new JSObject(), proxyHandler, collection);
             });
     }
@@ -268,12 +269,12 @@ public sealed class JSContext : IDisposable
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
-        return collection is JSArray.Collection<T> adapter ? adapter.Value :
+        return collection is JSArrayCollection<T> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(ICollection<T>),
-                    (_) => JSIterable.CreateProxyHandlerForCollection(toJS, fromJS));
+                    (_) => CreateIterableProxyHandlerForCollection(toJS, fromJS));
                 return new JSProxy(new JSObject(), proxyHandler, collection);
             });
     }
@@ -282,12 +283,12 @@ public sealed class JSContext : IDisposable
         IReadOnlyList<T> collection,
         JSValue.From<T> toJS)
     {
-        return collection is JSArray.ReadOnlyList<T> adapter ? adapter.Value :
+        return collection is JSArrayReadOnlyList<T> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IReadOnlyList<T>),
-                    (_) => JSArray.CreateProxyHandlerForReadOnlyList(toJS));
+                    (_) => CreateArrayProxyHandlerForReadOnlyList(toJS));
                 return new JSProxy(new JSArray(), proxyHandler, collection);
             });
     }
@@ -297,12 +298,12 @@ public sealed class JSContext : IDisposable
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
-        return collection is JSArray.List<T> adapter ? adapter.Value :
+        return collection is JSArrayList<T> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IList<T>),
-                    (_) => JSArray.CreateProxyHandlerForList(toJS, fromJS));
+                    (_) => CreateArrayProxyHandlerForList(toJS, fromJS));
                 return new JSProxy(new JSArray(), proxyHandler, collection);
             });
     }
@@ -312,12 +313,12 @@ public sealed class JSContext : IDisposable
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
-        return collection is JSSet.ReadOnlySet<T> adapter ? adapter.Value :
+        return collection is JSSetReadOnlySet<T> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IReadOnlySet<T>),
-                    (_) => JSSet.CreateProxyHandlerForReadOnlySet(toJS, fromJS));
+                    (_) => CreateSetProxyHandlerForReadOnlySet(toJS, fromJS));
                 return new JSProxy(new JSSet(), proxyHandler, collection);
             });
     }
@@ -327,12 +328,12 @@ public sealed class JSContext : IDisposable
         JSValue.From<T> toJS,
         JSValue.To<T> fromJS)
     {
-        return collection is JSSet.Set<T> adapter ? adapter.Value :
+        return collection is JSSetSet<T> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(ISet<T>),
-                    (_) => JSSet.CreateProxyHandlerForSet(toJS, fromJS));
+                    (_) => CreateSetProxyHandlerForSet(toJS, fromJS));
                 return new JSProxy(new JSSet(), proxyHandler, collection);
             });
     }
@@ -343,12 +344,12 @@ public sealed class JSContext : IDisposable
         JSValue.From<TValue> valueToJS,
         JSValue.To<TKey> keyFromJS)
     {
-        return collection is JSMap.ReadOnlyDictionary<TKey, TValue> adapter ? adapter.Value :
+        return collection is JSMapReadOnlyDictionary<TKey, TValue> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                 typeof(IReadOnlyDictionary<TKey, TValue>),
-                    (_) => JSMap.CreateProxyHandlerForReadOnlyDictionary(
+                    (_) => CreateMapProxyHandlerForReadOnlyDictionary(
                         keyToJS, valueToJS, keyFromJS));
                 return new JSProxy(new JSMap(), proxyHandler, collection);
             });
@@ -361,12 +362,12 @@ public sealed class JSContext : IDisposable
         JSValue.To<TKey> keyFromJS,
         JSValue.To<TValue> valueFromJS)
     {
-        return collection is JSMap.Dictionary<TKey, TValue> adapter ? adapter.Value :
+        return collection is JSMapDictionary<TKey, TValue> adapter ? adapter.Value :
             GetOrCreateCollectionProxy(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                 typeof(IDictionary<TKey, TValue>),
-                    (_) => JSMap.CreateProxyHandlerForDictionary(
+                    (_) => CreateMapProxyHandlerForDictionary(
                         keyToJS, valueToJS, keyFromJS, valueFromJS));
                 return new JSProxy(new JSMap(), proxyHandler, collection);
             });

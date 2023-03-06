@@ -12,11 +12,9 @@ Note that while the native API layer could be split into a separate assembly fro
 Following is a description of the layered assemblies and namespaces, from the bottom up.
 
 ### Microsoft.JavaScript.NodeApi assembly (.NET & AOT)
- - `Microsoft.JavaScript.NodeApi.Native` namespace - Exposes all the `napi_*` APIs for general JavaScript engine interop
- - `Microsoft.JavaScript.NodeApi.Native.NodeJS` namespace - Exposes all the `napi_*` APIs that are specific to the Node.js runtime (and other application runtimes that implement the same APIs).
- - `Microsoft.JavaScript.NodeApi` namespace - Core JavaScript value types, along with some basic supporting types like `JSException`, `JSExportAttribute`, `JSCallbackArgs`, `JSReference`, `JSPropertyDescriptor`
- - `Microsoft.JavaScript.NodeApi.Collections` namespace - JS collection types including `JSIterable`, `JSArray`, `JSTypedArray`, `JSSet`, `JSMap`, and supporting code.
- - `Microsoft.JavaScript.NodeApi.Interop` namespace - Types that directly support richer interop between .NET and JavaScript, including `JSContext`, The `*Builder*` types, and `JSCallbackOverload`. Also includes threading support in `JSSynchronizationContext`, `JSAsyncScope`.
+ - `Microsoft.JavaScript.NodeApi.Native` namespace - Exposes all the `napi_*` APIs for JavaScript / Node.js runtime interop.
+ - `Microsoft.JavaScript.NodeApi` namespace - Core JavaScript value types, collection types, along with supporting types like `JSException`, `JSExportAttribute`, `JSCallbackArgs`, `JSReference`, `JSPropertyDescriptor`.
+ - `Microsoft.JavaScript.NodeApi.Interop` namespace - Types that support richer interop between .NET and JavaScript, including `JSContext`, The `*Builder*` types, and `JSCallbackOverload`. Also includes threading support in `JSSynchronizationContext`, `JSAsyncScope`.
  - `Microsoft.JavaScript.NodeApi.DotNetHost` namespace - Only the `NativeHost` class must be in the main assembly because it gets AOT-compiled. (The class doesn't need to have `public` accessibility though.)
 
 ### Microsoft.JavaScript.NodeApi.DotNetHost assembly (.NET only)
