@@ -3,11 +3,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using static NodeApi.JSNativeApi;
-using static NodeApi.JSNativeApi.Interop;
-using static NodeApi.JSNativeApi.NodeApiInterop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.NodeApiInterop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public enum JSErrorType { Error, TypeError, RangeError, SyntaxError }
 

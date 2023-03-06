@@ -1,8 +1,9 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
-using static NodeApi.JSNativeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 /// <summary>
 /// A strong or weak reference to a JS value.

@@ -15,7 +15,7 @@ assert.strictEqual(version + '.4', '1.2.3.4'); // Implicit call to .NET ToString
 const assembly = dotnet.load(assemblyPath);
 console.dir(Object.keys(assembly)); // Print all public types in the loaded assembly.
 
-const Hello = assembly['NodeApi.TestCases.Hello'];
+const Hello = assembly['Microsoft.JavaScript.NodeApi.TestCases.Hello'];
 console.dir(Object.keys(Hello)); // Print all public static members of the Hello class.
 
 const greeting = Hello.Test('assembly'); // Call a static method.

@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using static NodeApi.JSCollectionProxies;
-using static NodeApi.JSNativeApi;
-using napi_env = NodeApi.JSNativeApi.Interop.napi_env;
+using static Microsoft.JavaScript.NodeApi.Interop.JSCollectionProxies;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi;
+using napi_env = Microsoft.JavaScript.NodeApi.JSNativeApi.Interop.napi_env;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
 /// Manages JavaScript interop context for the lifetime of a module.
@@ -88,7 +88,7 @@ public sealed class JSContext : IDisposable
 
     public JSContext(napi_env env)
     {
-        Interop.Initialize();
+        JSNativeApi.Interop.Initialize();
         _env = env;
         SetInstanceData(env, this);
         SynchronizationContext = new JSSynchronizationContext();

@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public readonly struct JSSymbol : IEquatable<JSValue>
 {

@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public class JSClassBuilder<T>
   : JSPropertyDescriptorList<JSClassBuilder<T>, T>

@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
 {

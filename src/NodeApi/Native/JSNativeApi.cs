@@ -4,9 +4,10 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using static NodeApi.JSNativeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 // Node API managed wrappers
 public static partial class JSNativeApi

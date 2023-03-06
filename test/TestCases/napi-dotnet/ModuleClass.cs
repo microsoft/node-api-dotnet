@@ -1,6 +1,7 @@
 using System;
+using Microsoft.JavaScript.NodeApi.Interop;
 
-namespace NodeApi.TestCases;
+namespace Microsoft.JavaScript.NodeApi.TestCases;
 
 #pragma warning disable CA1822 // Mark members as static
 

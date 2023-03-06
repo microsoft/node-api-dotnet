@@ -1,7 +1,7 @@
 // Ported from https://github.com/agracio/edge-js/blob/master/performance/performance.cs
 
 using System;
-using NodeApi;
+using Microsoft.JavaScript.NodeApi;
 
 #pragma warning disable IDE0060 // Unused parameter 'input'
 

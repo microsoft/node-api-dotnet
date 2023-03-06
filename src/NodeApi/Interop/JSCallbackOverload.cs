@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
 /// Holds overload resolution information (parameter types) for one of multiple overloads

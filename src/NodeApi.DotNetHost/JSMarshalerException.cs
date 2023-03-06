@@ -1,7 +1,7 @@
 using System;
 using System.Reflection;
 
-namespace NodeApi.Hosting;
+namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
 /// <summary>
 /// Exception thrown by <see cref="JSMarshaler" /> about a failure while dynamically generating

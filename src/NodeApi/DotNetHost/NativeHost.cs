@@ -3,10 +3,10 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using static NodeApi.Hosting.HostFxr;
-using static NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.DotNetHost.HostFxr;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi.Hosting;
+namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
 /// <summary>
 /// When AOT-compiled, exposes a native entry-point that supports loading the .NET runtime
@@ -18,8 +18,8 @@ internal partial class NativeHost : IDisposable
 
     private const string NodeApiAssemblyName = "Microsoft.JavaScript.NodeApi";
     private const string ManagedHostAssemblyName = NodeApiAssemblyName + ".DotNetHost";
-    private const string ManagedHostTypeName =
-        $"{nameof(NodeApi)}.{nameof(NodeApi.Hosting)}.ManagedHost";
+    private static readonly string s_managedHostTypeName =
+        typeof(NativeHost).Namespace + ".ManagedHost";
 
     private readonly string _nodeApiHostDir;
     private hostfxr_handle _hostContextHandle;
@@ -165,7 +165,7 @@ internal partial class NativeHost : IDisposable
         CheckStatus(status, "Failed to get CLR load-assembly function.");
 
         // TODO Get the correct assembly version (and publickeytoken) somehow.
-        string managedHostTypeName = $"{ManagedHostTypeName}, {ManagedHostAssemblyName}" +
+        string managedHostTypeName = $"{s_managedHostTypeName}, {ManagedHostAssemblyName}" +
             ", Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
         Trace("    Loading managed host type: " + managedHostTypeName);
 

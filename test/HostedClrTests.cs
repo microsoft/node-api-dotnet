@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.IO;
 using Xunit;
 
-using static NodeApi.Test.TestBuilder;
+using static Microsoft.JavaScript.NodeApi.Test.TestBuilder;
 
 // Avoid running MSBuild on the same project concurrently.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 
-namespace NodeApi.Test;
+namespace Microsoft.JavaScript.NodeApi.Test;
 
 public class HostedClrTests
 {

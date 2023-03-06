@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
 /// Builds JS module exports.

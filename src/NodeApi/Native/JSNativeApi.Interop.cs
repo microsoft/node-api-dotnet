@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public static partial class JSNativeApi
 {

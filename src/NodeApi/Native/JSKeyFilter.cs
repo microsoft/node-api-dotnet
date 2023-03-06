@@ -1,6 +1,6 @@
 using System;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 [Flags]
 public enum JSKeyFilter : int

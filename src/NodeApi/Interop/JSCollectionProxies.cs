@@ -1,7 +1,7 @@
 
 using System.Collections.Generic;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 internal static class JSCollectionProxies
 {

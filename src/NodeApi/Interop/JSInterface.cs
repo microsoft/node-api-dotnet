@@ -1,5 +1,5 @@
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
 /// Base class for a dynamically generated interface adapter that enables a JS object to implement

@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using NodeApi;
+using Microsoft.JavaScript.NodeApi;
+using Microsoft.JavaScript.NodeApi.Interop;
 
-namespace NodeApiTest;
+namespace Microsoft.JavaScript.NodeApiTest;
 
 [JSModule]
 public class Binding

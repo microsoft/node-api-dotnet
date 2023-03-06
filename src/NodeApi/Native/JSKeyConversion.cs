@@ -1,4 +1,4 @@
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public enum JSKeyConversion : int
 {

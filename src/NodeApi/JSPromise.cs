@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
-using static NodeApi.JSNativeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 /// <summary>
 /// Represents a JavaScript Promise object.

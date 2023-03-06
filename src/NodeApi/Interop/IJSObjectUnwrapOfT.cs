@@ -1,4 +1,4 @@
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public interface IJSObjectUnwrap<T> where T : class
 {

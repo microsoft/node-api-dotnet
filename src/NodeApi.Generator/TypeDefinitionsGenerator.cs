@@ -8,8 +8,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis.Text;
+using Microsoft.JavaScript.NodeApi.Interop;
 
-namespace NodeApi.Generator;
+namespace Microsoft.JavaScript.NodeApi.Generator;
 
 // An analyzer bug results in incorrect reports of CA1822 against methods in this class.
 #pragma warning disable CA1822 // Mark members as static

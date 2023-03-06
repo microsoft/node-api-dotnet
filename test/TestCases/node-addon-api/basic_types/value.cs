@@ -1,6 +1,6 @@
-using NodeApi;
+using Microsoft.JavaScript.NodeApi;
 
-namespace NodeApiTest;
+namespace Microsoft.JavaScript.NodeApiTest;
 
 public class TestBasicTypesValue : TestHelper, ITestObject
 {

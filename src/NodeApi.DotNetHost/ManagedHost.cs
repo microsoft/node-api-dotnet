@@ -6,9 +6,9 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
-using static NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi.Hosting;
+namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
 /// <summary>
 /// Supports loading and invoking managed .NET assemblies in a JavaScript process.
@@ -128,7 +128,8 @@ public sealed class ManagedHost : IDisposable
         MethodInfo? initializeMethod = null;
 
         // First look for an auto-generated module initializer.
-        Type? moduleClass = assembly.GetType("NodeApi.Generated.Module", throwOnError: false);
+        Type? moduleClass = assembly.GetType(
+            typeof(JSValue).Namespace + ".Generated.Module", throwOnError: false);
         if (moduleClass != null && moduleClass.IsClass && moduleClass.IsPublic &&
             moduleClass.IsAbstract && moduleClass.IsSealed)
         {

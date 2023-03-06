@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.JavaScript.NodeApi.Interop;
 
-using static NodeApi.Hosting.ManagedHost;
+using static Microsoft.JavaScript.NodeApi.DotNetHost.ManagedHost;
 
-namespace NodeApi.Hosting;
+namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// <summary>
 /// Dynamically exports APIs from a .NET assembly to JS.
 /// </summary>

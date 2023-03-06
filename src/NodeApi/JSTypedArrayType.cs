@@ -1,4 +1,4 @@
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 // Matches to napi_typedarray_type
 public enum JSTypedArrayType : int

@@ -6,9 +6,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Microsoft.CodeAnalysis.CSharp;
 
-namespace NodeApi.Generator;
+namespace Microsoft.JavaScript.NodeApi.Generator;
 
 /// <summary>
 /// Extension method for generating C# code from expressions.
@@ -20,7 +19,7 @@ internal static class ExpressionExtensions
     /// </summary>
     /// <remarks>
     /// This supports just enough expression types to handle generating C# code for lambda
-    /// expressions constructed by <see cref="NodeApi.Hosting.JSMarsaler" />.
+    /// expressions constructed by <see cref="Microsoft.JavaScript.NodeApi.DotNetHost.JSMarsaler" />.
     /// </remarks>
     /// <exception cref="NotImplementedException">Thrown if expression includes a node type
     /// for which C# conversion is not implemented.</exception>

@@ -1,12 +1,12 @@
-// Definitions from Node.JS node_api.h and node_api_types.h 
+// Definitions from Node.JS node_api.h and node_api_types.h
 
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
-using static NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public static partial class JSNativeApi
 {

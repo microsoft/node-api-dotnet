@@ -1,7 +1,8 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.JavaScript.NodeApi.Interop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public readonly struct JSDate : IEquatable<JSValue>
 {

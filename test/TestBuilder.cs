@@ -8,10 +8,10 @@ using Microsoft.Build.Evaluation;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Locator;
 using Microsoft.Build.Logging;
-using NodeApi.Generator;
+using Microsoft.JavaScript.NodeApi.Generator;
 using Xunit;
 
-namespace NodeApi.Test;
+namespace Microsoft.JavaScript.NodeApi.Test;
 
 /// <summary>
 /// Utility methods that assist with building and running test cases.

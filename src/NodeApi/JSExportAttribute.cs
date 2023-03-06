@@ -1,6 +1,6 @@
 using System;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 /// <summary>
 /// Exports an item to JavaScript, optionally specifying the name of the export and whether

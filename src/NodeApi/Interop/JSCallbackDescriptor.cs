@@ -1,6 +1,6 @@
 using System;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
 /// Descriptor for a callback not associated with an object property, for example a constructor

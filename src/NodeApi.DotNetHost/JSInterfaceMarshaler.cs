@@ -3,8 +3,9 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Microsoft.JavaScript.NodeApi.Interop;
 
-namespace NodeApi.Hosting;
+namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
 /// <summary>
 /// Supports dynamic implementation of .NET interfaces by JavaScript.

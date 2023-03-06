@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
 /// Helps preventing Node.JS process from exiting while we execute C# async functions.

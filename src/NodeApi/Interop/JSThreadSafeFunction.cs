@@ -1,10 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using static NodeApi.JSNativeApi.Interop;
-using static NodeApi.JSNativeApi.NodeApiInterop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.NodeApiInterop;
 
-namespace NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public delegate void JSThreadSafeCallback(JSValue jsFunction, object? functionContext, object? callbackData);
 
