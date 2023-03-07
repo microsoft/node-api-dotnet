@@ -7,10 +7,26 @@
     <IsPackable>true</IsPackable>
     <PublishAot>false</PublishAot>
     <NoWarn>$(NoWarn);SYSLIB1045</NoWarn><!-- Use GeneratedRegexAttribute -->
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Package the generator and dependencies in the analyzer directory of the nuget package -->
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\$(AssemblyName).dll" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\$(AssemblyName).runtimeconfig.json" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\Microsoft.JavaScript.NodeApi.dll" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\Microsoft.CodeAnalysis.dll" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\System.Reflection.MetadataLoadContext.dll" />
+    <None Pack="true" PackagePath="build\$(AssemblyName).props" Include="NodeApi.Generator.props" />
+    <None Pack="true" PackagePath="build\$(AssemblyName).targets" Include="NodeApi.Generator.targets" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
     <PackageReference Include="System.Reflection.MetadataLoadContext" />
   </ItemGroup>
 

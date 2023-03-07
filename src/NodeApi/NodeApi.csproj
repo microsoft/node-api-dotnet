@@ -9,6 +9,8 @@
     <NativeLib>Shared</NativeLib>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <SelfContained>false</SelfContained>
+    <BeforePack>Publish</BeforePack><!-- The npm package depends on published files. -->
+    <PublishNodeModule>true</PublishNodeModule>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)'=='Release' ">
@@ -23,28 +25,21 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="RenameToDotNode" AfterTargets="CopyNativeBinary">
-    <PropertyGroup>
-      <ManagedTargetPath>$(PublishDir)$(TargetFileName)</ManagedTargetPath>
-      <NativeTargetPath>$(PublishDir)$(TargetName).node</NativeTargetPath>
-    </PropertyGroup>
-
-    <!-- Rename the native library (and its PDB) to have a .node extension. -->
-    <Move SourceFiles="$(PublishDir)$(TargetName)$(NativeBinaryExt)"
-      DestinationFiles="$(NativeTargetPath)" />
-    <Move Condition="Exists('$(PublishDir)$(TargetName).pdb')"
-      SourceFiles="$(PublishDir)$(TargetName).pdb"
-      DestinationFiles="$(PublishDir)$(TargetName).node.pdb" />
-
+  <Target Name="PublishManagedAssembly" AfterTargets="CopyNativeBinary">
     <!-- Publish the runtimeconfig.json file required for CLR hosting. -->
     <Copy SourceFiles="$(PublishDir)..\$(ProjectRuntimeConfigFileName)"
       DestinationFiles="$(PublishDir)$(ProjectRuntimeConfigFileName)" />
 
     <!-- Also publish the managed assembly (and its PDB). -->
     <Copy SourceFiles="$(PublishDir)..\$(TargetFileName)"
-      DestinationFiles="$(ManagedTargetPath)" />
+      DestinationFiles="$(PublishDir)$(TargetFileName)" />
     <Copy SourceFiles="$(PublishDir)..\$(TargetName).pdb"
       DestinationFiles="$(PublishDir)$(TargetName).pdb" />
   </Target>
+
+  <Import Project="NodeApi.targets" />
+  <ItemGroup>
+    <None Pack="true" PackagePath="build\$(AssemblyName).targets" Include="NodeApi.targets" />
+  </ItemGroup>
 
 </Project>

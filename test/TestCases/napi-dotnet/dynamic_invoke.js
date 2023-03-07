@@ -1,9 +1,8 @@
 const assert = require('assert');
 
-const dotnet = require(process.env.TEST_DOTNET_HOST_PATH);
-
-// There's a regular .NET assembly .dll file in the same directory as the test .node module.
-const assemblyPath = process.env.TEST_DOTNET_MODULE_PATH.replace(/.node$/, 'dll');
+const dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
+const dotnet = require(dotnetHost)
+  .initialize(dotnetHost.replace(/\.node$/, '.DotNetHost.dll'));
 
 const Console = dotnet.Console;
 Console.WriteLine('Hello from .NET!');
@@ -12,6 +11,8 @@ const version = new dotnet.Version(1, 2, 3); // Invoke overloaded constructor wi
 assert.strictEqual(version.ToString(), '1.2.3');
 assert.strictEqual(version + '.4', '1.2.3.4'); // Implicit call to .NET ToString()
 
+// Load the test module using dynamic binding `load()` instead of static binding `require()`.
+const assemblyPath = process.env.TEST_DOTNET_MODULE_PATH;
 const assembly = dotnet.load(assemblyPath);
 console.dir(Object.keys(assembly)); // Print all public types in the loaded assembly.
 

@@ -368,13 +368,17 @@ public static partial class JSNativeApi
         JSCallbackDescriptor constructorDescriptor,
         params JSPropertyDescriptor[] propertyDescriptors)
     {
-        GCHandle callbackHandle = GCHandle.Alloc(constructorDescriptor);
+        GCHandle descriptorHandle = GCHandle.Alloc(constructorDescriptor);
         JSValue? func = null;
+        napi_callback callback = new(
+            JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
+            &InvokeJSCallbackNoContext : &InvokeJSCallback);
+
         nint[] handles = ToUnmanagedPropertyDescriptors(utf8Name, propertyDescriptors, (name, count, descriptorsPtr) =>
         {
-            func = DefineClass(name, new napi_callback(&InvokeJSCallback), (nint)callbackHandle, count, descriptorsPtr);
+            func = DefineClass(name, callback, (nint)descriptorHandle, count, descriptorsPtr);
         });
-        func!.Value.AddGCHandleFinalizer((nint)callbackHandle);
+        func!.Value.AddGCHandleFinalizer((nint)descriptorHandle);
         Array.ForEach(handles, handle => func!.Value.AddGCHandleFinalizer(handle));
         return func!.Value;
     }
@@ -757,71 +761,80 @@ public static partial class JSNativeApi
     internal static unsafe napi_value InvokeJSCallback(
         napi_env env, napi_callback_info callbackInfo)
     {
-        using var scope = new JSValueScope(JSValueScopeType.Callback, env);
-        try
-        {
-            JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
-            Span<napi_value> args = stackalloc napi_value[length];
-            JSCallbackDescriptor callbackDescriptor = (JSCallbackDescriptor)data!;
-            return (napi_value)callbackDescriptor.Callback(
-                new JSCallbackArgs(scope, callbackInfo, args, callbackDescriptor.Data));
-        }
-        catch (Exception ex)
-        {
-            JSError.ThrowError(ex);
-            return napi_value.Null;
-        }
+        return InvokeCallback<JSCallbackDescriptor>(
+            env, callbackInfo, JSValueScopeType.Callback, (descriptor) => descriptor);
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
     {
-        using var scope = new JSValueScope(JSValueScopeType.Callback, env);
-        try
-        {
-            JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
-            Span<napi_value> args = stackalloc napi_value[length];
-            JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
-            return (napi_value)desc.Method!.Invoke(
-                new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
-        }
-        catch (Exception ex)
-        {
-            JSError.ThrowError(ex);
-            return napi_value.Null;
-        }
+        return InvokeCallback<JSPropertyDescriptor>(
+            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) =>
+                new(propertyDescriptor.Method!, propertyDescriptor.Data));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
     {
-        using var scope = new JSValueScope(JSValueScopeType.Callback, env);
-        try
-        {
-            JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
-            Span<napi_value> args = stackalloc napi_value[length];
-            JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
-            return (napi_value)desc.Getter!.Invoke(
-                new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
-        }
-        catch (Exception ex)
-        {
-            JSError.ThrowError(ex);
-            return napi_value.Null;
-        }
+        return InvokeCallback<JSPropertyDescriptor>(
+            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) =>
+                new(propertyDescriptor.Getter!, propertyDescriptor.Data));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static unsafe napi_value InvokeJSSetter(napi_env env, napi_callback_info callbackInfo)
+    private static napi_value InvokeJSSetter(napi_env env, napi_callback_info callbackInfo)
     {
-        using var scope = new JSValueScope(JSValueScopeType.Callback, env);
+        return InvokeCallback<JSPropertyDescriptor>(
+            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) =>
+                new(propertyDescriptor.Setter!, propertyDescriptor.Data));
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe napi_value InvokeJSCallbackNoContext(
+        napi_env env, napi_callback_info callbackInfo)
+    {
+        return InvokeCallback<JSCallbackDescriptor>(
+            env, callbackInfo, JSValueScopeType.RootNoContext, (descriptor) => descriptor);
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe napi_value InvokeJSMethodNoContext(napi_env env, napi_callback_info callbackInfo)
+    {
+        return InvokeCallback<JSPropertyDescriptor>(
+            env, callbackInfo, JSValueScopeType.RootNoContext, (propertyDescriptor) =>
+                new(propertyDescriptor.Method!, propertyDescriptor.Data));
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe napi_value InvokeJSGetterNoContext(napi_env env, napi_callback_info callbackInfo)
+    {
+        return InvokeCallback<JSPropertyDescriptor>(
+            env, callbackInfo, JSValueScopeType.RootNoContext, (propertyDescriptor) =>
+                new(propertyDescriptor.Getter!, propertyDescriptor.Data));
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static napi_value InvokeJSSetterNoContext(napi_env env, napi_callback_info callbackInfo)
+    {
+        return InvokeCallback<JSPropertyDescriptor>(
+            env, callbackInfo, JSValueScopeType.RootNoContext, (propertyDescriptor) =>
+                new(propertyDescriptor.Setter!, propertyDescriptor.Data));
+    }
+
+    private static unsafe napi_value InvokeCallback<TDescriptor>(
+        napi_env env,
+        napi_callback_info callbackInfo,
+        JSValueScopeType scopeType,
+        Func<TDescriptor, JSCallbackDescriptor> getCallbackDescriptor)
+    {
+        using var scope = new JSValueScope(scopeType, env);
         try
         {
             JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
             Span<napi_value> args = stackalloc napi_value[length];
-            JSPropertyDescriptor desc = (JSPropertyDescriptor)data!;
-            return (napi_value)desc.Setter!.Invoke(
-                new JSCallbackArgs(scope, callbackInfo, args, desc.Data));
+            JSCallbackDescriptor descriptor = getCallbackDescriptor((TDescriptor)data!);
+            return (napi_value)descriptor.Callback(
+                new JSCallbackArgs(scope, callbackInfo, args, descriptor.Data));
         }
         catch (Exception ex)
         {
@@ -873,6 +886,23 @@ public static partial class JSNativeApi
         IReadOnlyCollection<JSPropertyDescriptor> descriptors,
         UseUnmanagedDescriptors action)
     {
+        napi_callback methodCallback;
+        napi_callback getterCallback;
+        napi_callback setterCallback;
+        if (JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext)
+        {
+            // The NativeHost and ManagedHost set up callbacks without a current module context.
+            methodCallback = new napi_callback(&InvokeJSMethodNoContext);
+            getterCallback = new napi_callback(&InvokeJSGetterNoContext);
+            setterCallback = new napi_callback(&InvokeJSSetterNoContext);
+        }
+        else
+        {
+            methodCallback = new napi_callback(&InvokeJSMethod);
+            getterCallback = new napi_callback(&InvokeJSGetter);
+            setterCallback = new napi_callback(&InvokeJSSetter);
+        }
+
         nint[] handlesToFinalize = new nint[descriptors.Count];
         int count = descriptors.Count;
         napi_property_descriptor* descriptorsPtr = stackalloc napi_property_descriptor[count];
@@ -882,9 +912,9 @@ public static partial class JSNativeApi
             napi_property_descriptor* descriptorPtr = &descriptorsPtr[i];
             descriptorPtr->name = (napi_value)descriptor.Name;
             descriptorPtr->utf8name = nint.Zero;
-            descriptorPtr->method = new napi_callback(descriptor.Method != null ? &InvokeJSMethod : null);
-            descriptorPtr->getter = new napi_callback(descriptor.Getter != null ? &InvokeJSGetter : null);
-            descriptorPtr->setter = new napi_callback(descriptor.Setter != null ? &InvokeJSSetter : null);
+            descriptorPtr->method = descriptor.Method == null ? default : methodCallback;
+            descriptorPtr->getter = descriptor.Getter == null ? default : getterCallback;
+            descriptorPtr->setter = descriptor.Setter == null ? default : setterCallback;
             descriptorPtr->value = (napi_value)descriptor.Value;
             descriptorPtr->attributes = (napi_property_attributes)descriptor.Attributes;
             if (descriptor.Data != null || descriptor.Method != null || descriptor.Getter != null || descriptor.Setter != null)

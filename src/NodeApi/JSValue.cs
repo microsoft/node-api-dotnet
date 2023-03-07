@@ -144,9 +144,14 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static unsafe JSValue CreateFunction(
         ReadOnlySpan<byte> utf8Name, JSCallback callback, object? callbackData = null)
     {
-        GCHandle callbackHandle = GCHandle.Alloc(new JSCallbackDescriptor(callback, callbackData));
-        JSValue func = CreateFunction(utf8Name, new napi_callback(&InvokeJSCallback), (nint)callbackHandle);
-        func.AddGCHandleFinalizer((nint)callbackHandle);
+        GCHandle descriptorHandle = GCHandle.Alloc(new JSCallbackDescriptor(callback, callbackData));
+        JSValue func = CreateFunction(
+            utf8Name,
+            new napi_callback(
+                JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
+                &InvokeJSCallbackNoContext : &InvokeJSCallback),
+            (nint)descriptorHandle);
+        func.AddGCHandleFinalizer((nint)descriptorHandle);
         return func;
     }
 

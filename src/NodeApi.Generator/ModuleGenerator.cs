@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.CodeAnalysis;
@@ -30,6 +29,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     public void Initialize(GeneratorInitializationContext context)
     {
 #if DEBUG
+#pragma warning disable RS1035 // The symbol 'Environment' is banned for use by analyzers.
         // Note source generators are not covered by normal debugging,
         // because the generator runs at build time, not at application run-time.
         // Set the environment variable to trigger debugging at build time.
@@ -38,6 +38,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         {
             System.Diagnostics.Debugger.Launch();
         }
+#pragma warning restore RS1035
 #endif
     }
 
@@ -46,7 +47,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         Context = context;
         string generatedSourceFileName =
             (context.Compilation.AssemblyName ?? "Assembly") + ".NodeApi.g.cs";
-
         try
         {
             ISymbol? moduleInitializer = GetModuleInitializer();
@@ -55,16 +55,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             SourceText initializerSource = GenerateModuleInitializer(
                 moduleInitializer, exportItems);
             context.AddSource(generatedSourceFileName, initializerSource);
-
-            // Also write the generated code to a file under obj/ for diagnostics.
-            // Depends on <CompilerVisibleProperty Include="BaseIntermediateOutputPath" />
-            if (context.AnalyzerConfigOptions.GlobalOptions.TryGetValue(
-                "build_property.BaseIntermediateOutputPath", out string? intermediateOutputPath))
-            {
-                string generatedSourcePath = Path.Combine(
-                    intermediateOutputPath, generatedSourceFileName);
-                File.WriteAllText(generatedSourcePath, initializerSource.ToString());
-            }
         }
         catch (Exception ex)
         {
@@ -266,7 +256,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "using System.Runtime.InteropServices;";
         s += "using Microsoft.JavaScript.NodeApi.Interop;";
         s += "using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;";
-
+        s++;
+        s += "#pragma warning disable CS1591 // Do not warn about missing doc comments in generated code.";
         s++;
         s += "namespace Microsoft.JavaScript.NodeApi.Generated;";
         s++;

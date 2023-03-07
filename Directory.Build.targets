@@ -1,0 +1,9 @@
+<Project>
+  <!-- Clean the local cache when building a package so local projects always get the new content. -->
+  <Target Name="CleanLocalPackageCache"
+    AfterTargets="Pack"
+    Condition=" '$(PackageId)' != '' AND '$(PackageOutputPath)' != '' "
+  >
+    <RemoveDir Directories="$(PackageOutputPath)$(PackageId)" />
+  </Target>
+</Project>

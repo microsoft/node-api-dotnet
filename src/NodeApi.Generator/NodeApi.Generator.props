@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+
+    <!-- Write *.NodeApi.g.cs in the obj/ directory. -->
+    <EmitCompilerGeneratedFiles Condition=" '$(EmitCompilerGeneratedFiles)' == '' ">true</EmitCompilerGeneratedFiles>
+
+  </PropertyGroup>
+
+</Project>

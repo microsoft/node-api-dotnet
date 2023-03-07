@@ -1,0 +1,17 @@
+<Project>
+  <!-- Default to an appropriate rid for the current platform, if none was specified. -->
+  <PropertyGroup Condition=" '$(RuntimeIdentifier)' == '' AND $([MSBuild]::IsOsPlatform('Windows'))">
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64' ">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X86' ">win-x86</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64' ">win-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(RuntimeIdentifier)' == '' AND $([MSBuild]::IsOsPlatform('OSX'))">
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64' ">osx-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64' ">osx-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(RuntimeIdentifier)' == '' AND $([MSBuild]::IsOsPlatform('Linux'))">
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64' ">linux-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X86' ">linux-x86</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64' ">linux-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+</Project>

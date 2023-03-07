@@ -16,16 +16,13 @@ internal partial class NativeHost : IDisposable
 {
     private static Version MinimumDotnetVersion { get; } = new(7, 0, 0);
 
-    private const string NodeApiAssemblyName = "Microsoft.JavaScript.NodeApi";
-    private const string ManagedHostAssemblyName = NodeApiAssemblyName + ".DotNetHost";
     private static readonly string s_managedHostTypeName =
         typeof(NativeHost).Namespace + ".ManagedHost";
 
-    private readonly string _nodeApiHostDir;
     private hostfxr_handle _hostContextHandle;
 
     public static bool IsTracingEnabled { get; } =
-        Environment.GetEnvironmentVariable("NODE_API_DOTNET_TRACE") == "1";
+        Environment.GetEnvironmentVariable("TRACE_NODE_API_HOST") == "1";
 
     public static void Trace(string msg)
     {
@@ -43,28 +40,19 @@ internal partial class NativeHost : IDisposable
     {
         Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
 
-        using var scope = new JSValueScope(JSValueScopeType.RootNoContext, env);
-
-        ResolveImports();
+        using JSValueScope scope = new(JSValueScopeType.RootNoContext, env);
         try
         {
-            var host = new NativeHost();
+            JSNativeApi.Interop.Initialize();
 
-            // Define a dispose method implemented by the native host that closes the CLR context.
-            // The managed host proxy will pass through dispoose calls to this callback.
-            new JSValue(exports, scope).DefineProperties(new JSPropertyDescriptor(
-                "dispose", (_) => { host.Dispose(); return default; }));
+            NativeHost host = new();
 
-            try
-            {
-                exports = host.InitializeManagedHost(env, exports);
-            }
-            catch
-            {
-                host.Dispose();
-                throw;
-            }
-
+            // Do not use JSModuleBuilder here because it relies on having a current context.
+            // But the context will be set by the managed host.
+            new JSValue(exports, scope).DefineProperties(
+                // The package index.js will invoke the initialize method with the path to
+                // the managed host assembly.
+                JSPropertyDescriptor.Function("initialize", host.InitializeManagedHost));
         }
         catch (Exception ex)
         {
@@ -78,47 +66,13 @@ internal partial class NativeHost : IDisposable
         return exports;
     }
 
-    private static bool s_dllImportResolverInitialized = false;
-
-    private static void ResolveImports()
-    {
-        if (s_dllImportResolverInitialized)
-        {
-            return;
-        }
-
-        s_dllImportResolverInitialized = true;
-
-        NativeLibrary.SetDllImportResolver(
-            typeof(HostFxr).Assembly,
-            (libraryName, _, _) =>
-            {
-                return libraryName switch
-                {
-                    nameof(HostFxr) => HostFxr.Handle,
-                    nameof(NodeApi) => NativeLibrary.GetMainProgramHandle(),
-                    _ => default,
-                };
-            });
-    }
-
     public NativeHost()
     {
-        string currentModuleFilePath = GetCurrentModuleFilePath();
-        Trace("    Current module path: " + currentModuleFilePath);
-
-        _nodeApiHostDir = Path.GetDirectoryName(currentModuleFilePath)!;
-
-        _hostContextHandle = InitializeManagedRuntime();
     }
 
-    private unsafe hostfxr_handle InitializeManagedRuntime()
+    private unsafe hostfxr_handle InitializeManagedRuntime(string runtimeConfigPath)
     {
-        Trace("> NativeHost.InitializeManagedRuntime()");
-
-        string runtimeConfigPath = Path.Join(
-            _nodeApiHostDir, NodeApiAssemblyName + ".runtimeconfig.json");
-        Trace("    Runtime config: " + runtimeConfigPath);
+        Trace($"> NativeHost.InitializeManagedRuntime({runtimeConfigPath})");
 
         string hostfxrPath = HostFxr.GetHostFxrPath(MinimumDotnetVersion);
         string dotnetRoot = Path.GetDirectoryName(
@@ -149,12 +103,18 @@ internal partial class NativeHost : IDisposable
         return hostContextHandle;
     }
 
-    private unsafe napi_value InitializeManagedHost(napi_env env, napi_value exports)
+    private unsafe JSValue InitializeManagedHost(JSCallbackArgs args)
     {
-        Trace($"> NativeHost.InitializeManagedHost({env.Handle:X8}, {exports.Handle:X8})");
+        string managedHostPath = (string)args[0];
+        Trace($"> NativeHost.InitializeManagedHost({managedHostPath})");
 
-        string managedHostPath = Path.Join(_nodeApiHostDir, ManagedHostAssemblyName + ".dll");
-        Trace("    Managed host: " + managedHostPath);
+        string managedHostAssemblyName = Path.GetFileNameWithoutExtension(managedHostPath);
+        string nodeApiAssemblyName = managedHostAssemblyName.Substring(
+            0, managedHostAssemblyName.LastIndexOf('.'));
+
+        string runtimeConfigPath = Path.Join(
+            Path.GetDirectoryName(managedHostPath), nodeApiAssemblyName + ".runtimeconfig.json");
+        _hostContextHandle = InitializeManagedRuntime(runtimeConfigPath);
 
         // Get a CLR function that can load an assembly.
         Trace("    Getting runtime load-assembly delegate...");
@@ -165,7 +125,7 @@ internal partial class NativeHost : IDisposable
         CheckStatus(status, "Failed to get CLR load-assembly function.");
 
         // TODO Get the correct assembly version (and publickeytoken) somehow.
-        string managedHostTypeName = $"{s_managedHostTypeName}, {ManagedHostAssemblyName}" +
+        string managedHostTypeName = $"{s_managedHostTypeName}, {managedHostAssemblyName}" +
             ", Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
         Trace("    Loading managed host type: " + managedHostTypeName);
 
@@ -205,7 +165,16 @@ internal partial class NativeHost : IDisposable
         napi_register_module_v1 initializeModule =
             Marshal.GetDelegateForFunctionPointer<napi_register_module_v1>(
                 initializeModulePointer);
-        exports = initializeModule(env, exports);
+
+        // Create an "exports" object for the managed host module initialization.
+        var exports = JSValue.CreateObject();
+
+        // Define a dispose method implemented by the native host that closes the CLR context.
+        // The managed host proxy will pass through dispose calls to this callback.
+        exports.DefineProperties(new JSPropertyDescriptor(
+            "dispose", (_) => { Dispose(); return default; }));
+
+        exports = initializeModule((napi_env)exports.Scope, (napi_value)exports);
 
         Trace("< NativeHost.InitializeManagedHost()");
         return exports;
@@ -230,78 +199,5 @@ internal partial class NativeHost : IDisposable
             throw new Exception(Enum.IsDefined(status) ?
                 $"{message} Status: {status}" : $"{message} HRESULT: 0x{(uint)status:x8}");
         }
-    }
-
-    private static unsafe string GetCurrentModuleFilePath()
-    {
-        Trace("> NativeHost.GetCurrentModuleFilePath()");
-
-        // Unfortunately Assembly.Location/Codebase doesn't work for an AOT compiled library.
-
-        delegate* unmanaged[Cdecl]<napi_env, napi_value, napi_value> functionInModule =
-            &InitializeModule;
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            const uint GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS = 0x00000004;
-            if (GetModuleHandleExW(
-                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-                functionInModule,
-                out nint moduleHandle) == 0)
-            {
-                throw new Exception("Failed to get current module handle.");
-            }
-
-            uint filePathCapacity = 255;
-            char* filePathChars = stackalloc char[(int)filePathCapacity];
-            uint filePathLength = GetModuleFileNameW(
-                moduleHandle, filePathChars, filePathCapacity);
-            if (filePathLength == 0)
-            {
-                throw new Exception("Failed to get current module file path.");
-            }
-
-            return new string(filePathChars);
-        }
-        else
-        {
-            if (dladdr(functionInModule, out DLInfo dlinfo) == 0)
-            {
-                throw new Exception("Failed to get current module file path.");
-            }
-
-            // Find the length of the null-terminated C-string.
-            int filePathLength = 0;
-            while (dlinfo.fileName[filePathLength] != 0)
-            {
-                filePathLength++;
-            }
-
-            Trace("< NativeHost.GetCurrentModuleFilePath()");
-            return new string(dlinfo.fileName, 0, filePathLength, System.Text.Encoding.UTF8);
-        }
-    }
-
-    [LibraryImport("kernel32", SetLastError = true)]
-    private static unsafe partial uint GetModuleHandleExW(
-        uint flags,
-        void* moduleNameOrAddress,
-        out nint moduleHandle);
-
-    [LibraryImport("kernel32", SetLastError = true)]
-    private static unsafe partial uint GetModuleFileNameW(
-        nint moduleHandle,
-        char* moduleFileName,
-        uint nSize);
-
-    [LibraryImport(nameof(NodeApi))] // Not really a node API, but a function in the main process module.
-    private static unsafe partial int dladdr(void* addr, out DLInfo dlinfo);
-
-    private unsafe struct DLInfo
-    {
-        public sbyte* fileName;
-        public void* baseAddress;
-        public sbyte* symbolName;
-        public void* symbolAddress;
     }
 }
