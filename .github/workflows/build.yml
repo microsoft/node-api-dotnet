@@ -53,7 +53,7 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: nuget & npm packages
+        name: ${{ runner.os }}-dotnet${{ matrix.dotnet-version }}-packages
         path: |
           out/pkg/*.nupkg
           out/pkg/*.tgz
