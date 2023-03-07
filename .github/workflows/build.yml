@@ -42,16 +42,20 @@ jobs:
         node-version: ${{ matrix.node-version }}
 
     - name: Build
-      run: dotnet build --configuration Release
-
-    - name: pack
-      run: dotnet pack --no-build --configuration Release
+      run: dotnet pack --configuration Release
 
     # Uncomment to enable an SSH session for debugging
     # - name: Setup tmate session
     #  uses: mxschmitt/action-tmate@v3
     #  with:
     #      limit-access-to-actor: true
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: Packages
+        path: |
+          out/pkg/*.nupkg
+          out/pkg/*.tgz
 
     - name: Test
       env:
