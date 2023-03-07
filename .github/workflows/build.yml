@@ -50,9 +50,10 @@ jobs:
     #  with:
     #      limit-access-to-actor: true
 
-    - uses: actions/upload-artifact@v3
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
       with:
-        name: Packages
+        name: nuget & npm packages
         path: |
           out/pkg/*.nupkg
           out/pkg/*.tgz
@@ -60,7 +61,7 @@ jobs:
     - name: Test
       env:
         NODE_API_DOTNET_TRACE: 1
-      run: dotnet test --no-build --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
+      run: dotnet test --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
 
     - name: Upload test logs
       uses: actions/upload-artifact@v3

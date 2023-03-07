@@ -4,11 +4,12 @@ if (nodeMajorVersion < 18) {
   process.exit(1);
 }
 
-const configuration = (process.argv[2] ?? '').toLowerCase();
+const configuration = ['Debug', 'Release'].find(
+  (c) => c.toLowerCase() == (process.argv[2] ?? '').toLowerCase());
 const rids = process.argv.slice(3);
 
-if (!['debug', 'release'].includes(configuration) || rids.length === 0) {
-  console.error('Usage: node pack.js debug|release> rids...');
+if (!configuration || rids.length === 0) {
+  console.error('Usage: node pack.js Debug|Release rids...');
   process.exit(1);
 }
 
