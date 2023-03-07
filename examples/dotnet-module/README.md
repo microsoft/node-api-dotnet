@@ -1,6 +1,8 @@
 
 ## Minimal Example .NET Node Module
-The `Example.cs` class defines a Node.js add-on module that runs on .NET. The `example.js` script loads that .NET module and calls a method on it. The script has access to type definitions and doc-comments for the module's APIs via the auto-generated `.d.ts` file.
+The `Example.cs` class defines a Node.js add-on module that runs on .NET. The `example.js` script
+loads that .NET module and calls a method on it. The script has access to type definitions and
+doc-comments for the module's APIs via the auto-generated `.d.ts` file.
 
 | Command             | Explanation
 |---------------------|--------------------------------------------------

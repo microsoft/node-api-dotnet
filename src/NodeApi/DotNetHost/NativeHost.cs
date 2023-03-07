@@ -22,7 +22,7 @@ internal partial class NativeHost : IDisposable
     private hostfxr_handle _hostContextHandle;
 
     public static bool IsTracingEnabled { get; } =
-        Environment.GetEnvironmentVariable("NODE_API_DOTNET_TRACE") == "1";
+        Environment.GetEnvironmentVariable("TRACE_NODE_API_HOST") == "1";
 
     public static void Trace(string msg)
     {
@@ -40,9 +40,9 @@ internal partial class NativeHost : IDisposable
     {
         Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
 
+        using JSValueScope scope = new(JSValueScopeType.RootNoContext, env);
         try
         {
-            using JSValueScope scope = new(JSValueScopeType.RootNoContext, env);
             JSNativeApi.Interop.Initialize();
 
             NativeHost host = new();
@@ -51,7 +51,7 @@ internal partial class NativeHost : IDisposable
             // But the context will be set by the managed host.
             new JSValue(exports, scope).DefineProperties(
                 // The package index.js will invoke the initialize method with the path to
-                // the manged host assembly.
+                // the managed host assembly.
                 JSPropertyDescriptor.Function("initialize", host.InitializeManagedHost));
         }
         catch (Exception ex)

@@ -60,7 +60,7 @@ jobs:
 
     - name: Test
       env:
-        NODE_API_DOTNET_TRACE: 1
+        TRACE_NODE_API_HOST: 1
       run: dotnet test --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
 
     - name: Upload test logs

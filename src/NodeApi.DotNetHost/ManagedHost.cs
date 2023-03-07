@@ -48,7 +48,7 @@ public sealed class ManagedHost : IDisposable
     }
 
     public static bool IsTracingEnabled { get; } =
-        Environment.GetEnvironmentVariable("NODE_API_DOTNET_TRACE") == "1";
+        Environment.GetEnvironmentVariable("TRACE_NODE_API_HOST") == "1";
 
     public static void Trace(string msg)
     {
