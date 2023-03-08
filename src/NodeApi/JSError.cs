@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.NodeApiInterop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -17,7 +16,8 @@ file record struct JSErrorInfo(string? Message, napi_status Status)
     {
         napi_get_last_error_info(
             (napi_env)JSValueScope.Current,
-            out napi_extended_error_info* errorInfo).ThrowIfFailed();
+            out nint errorInfoHandle).ThrowIfFailed();
+        var errorInfo = (napi_extended_error_info*)errorInfoHandle;
         if (errorInfo == null)
         {
             return new JSErrorInfo(null, napi_status.napi_ok);
@@ -211,11 +211,7 @@ public struct JSError
                              [CallerMemberName] string memberName = "",
                              [CallerFilePath] string sourceFilePath = "",
                              [CallerLineNumber] int sourceLineNumber = 0)
-        => napi_fatal_error(
-            $"{memberName} at {sourceFilePath}:{sourceLineNumber}",
-            NAPI_AUTO_LENGTH,
-            message,
-            NAPI_AUTO_LENGTH);
+        => napi_fatal_error($"{memberName} at {sourceFilePath}:{sourceLineNumber}", message);
 
     private static JSReference CreateErrorReference(JSValue error)
     {

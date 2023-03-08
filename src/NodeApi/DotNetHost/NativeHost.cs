@@ -43,7 +43,7 @@ internal partial class NativeHost : IDisposable
         using JSValueScope scope = new(JSValueScopeType.RootNoContext, env);
         try
         {
-            JSNativeApi.Interop.Initialize();
+            JSNativeApi.Interop.Initialize(NativeLibrary.GetMainProgramHandle());
 
             NativeHost host = new();
 

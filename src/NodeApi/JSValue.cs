@@ -32,19 +32,25 @@ public readonly struct JSValue : IEquatable<JSValue>
         _scope = scope;
     }
 
-    public napi_value? Handle => !Scope.IsDisposed ? (_handle.Handle != nint.Zero ? _handle : Undefined._handle) : null;
+    public napi_value? Handle
+        => !Scope.IsDisposed ? (_handle.Handle != nint.Zero ? _handle : Undefined._handle) : null;
 
     public napi_value GetCheckedHandle()
-        => Handle ?? throw new InvalidOperationException("The value handle is invalid because its scope is closed");
+        => Handle ?? throw new InvalidOperationException(
+                        "The value handle is invalid because its scope is closed");
 
     private static napi_env Env => (napi_env)JSValueScope.Current;
 
-    public static JSValue Undefined => napi_get_undefined(Env, out napi_value result).ThrowIfFailed(result);
-    public static JSValue Null => napi_get_null(Env, out napi_value result).ThrowIfFailed(result);
-    public static JSValue Global => napi_get_global(Env, out napi_value result).ThrowIfFailed(result);
+    public static JSValue Undefined
+        => napi_get_undefined(Env, out napi_value result).ThrowIfFailed(result);
+    public static JSValue Null
+        => napi_get_null(Env, out napi_value result).ThrowIfFailed(result);
+    public static JSValue Global
+        => napi_get_global(Env, out napi_value result).ThrowIfFailed(result);
     public static JSValue True => GetBoolean(true);
     public static JSValue False => GetBoolean(false);
-    public static JSValue GetBoolean(bool value) => napi_get_boolean(Env, value, out napi_value result).ThrowIfFailed(result);
+    public static JSValue GetBoolean(bool value)
+        => napi_get_boolean(Env, value, out napi_value result).ThrowIfFailed(result);
 
     public JSObject Properties => (JSObject)this;
 
@@ -75,7 +81,8 @@ public readonly struct JSValue : IEquatable<JSValue>
         => napi_create_array(Env, out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateArray(int length)
-        => napi_create_array_with_length(Env, (nuint)length, out napi_value result).ThrowIfFailed(result);
+        => napi_create_array_with_length(Env, (nuint)length, out napi_value result)
+        .ThrowIfFailed(result);
 
     public static JSValue CreateNumber(double value)
         => napi_create_double(Env, value, out napi_value result).ThrowIfFailed(result);
@@ -93,7 +100,9 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
         fixed (byte* spanPtr = value)
         {
-            return napi_create_string_latin1(Env, spanPtr, (nuint)value.Length, out napi_value result).ThrowIfFailed(result);
+            return napi_create_string_latin1(
+                Env, spanPtr, (nuint)value.Length, out napi_value result)
+                .ThrowIfFailed(result);
         }
     }
 
@@ -101,7 +110,9 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
         fixed (byte* spanPtr = value)
         {
-            return napi_create_string_utf8(Env, spanPtr, (nuint)value.Length, out napi_value result).ThrowIfFailed(result);
+            return napi_create_string_utf8(
+                Env, spanPtr, (nuint)value.Length, out napi_value result)
+                .ThrowIfFailed(result);
         }
     }
 
@@ -109,18 +120,22 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
         fixed (char* spanPtr = value)
         {
-            return napi_create_string_utf16(Env, spanPtr, (nuint)value.Length, out napi_value result).ThrowIfFailed(result);
+            return napi_create_string_utf16(
+                Env, spanPtr, (nuint)value.Length, out napi_value result)
+                .ThrowIfFailed(result);
         }
     }
 
     public static JSValue CreateSymbol(JSValue description)
-        => napi_create_symbol(Env, (napi_value)description, out napi_value result).ThrowIfFailed(result);
+        => napi_create_symbol(
+            Env, (napi_value)description, out napi_value result).ThrowIfFailed(result);
 
     public static unsafe JSValue SymbolFor(ReadOnlySpan<byte> utf8Name)
     {
         fixed (byte* name = utf8Name)
         {
-            return node_api_symbol_for(Env, name, (nuint)utf8Name.Length, out napi_value result).ThrowIfFailed(result);
+            return node_api_symbol_for(Env, name, (nuint)utf8Name.Length, out napi_value result)
+                .ThrowIfFailed(result);
         }
     }
 
@@ -132,19 +147,16 @@ public readonly struct JSValue : IEquatable<JSValue>
         fixed (byte* namePtr = utf8Name)
         {
             return napi_create_function(
-                Env,
-                namePtr,
-                (nuint)utf8Name.Length,
-                callback,
-                data,
-                out napi_value result).ThrowIfFailed(result);
+                Env, namePtr, (nuint)utf8Name.Length, callback, data, out napi_value result)
+                .ThrowIfFailed(result);
         }
     }
 
     public static unsafe JSValue CreateFunction(
         ReadOnlySpan<byte> utf8Name, JSCallback callback, object? callbackData = null)
     {
-        GCHandle descriptorHandle = GCHandle.Alloc(new JSCallbackDescriptor(callback, callbackData));
+        GCHandle descriptorHandle = GCHandle.Alloc(
+            new JSCallbackDescriptor(callback, callbackData));
         JSValue func = CreateFunction(
             utf8Name,
             new napi_callback(
@@ -155,7 +167,8 @@ public readonly struct JSValue : IEquatable<JSValue>
         return func;
     }
 
-    public static JSValue CreateFunction(string name, JSCallback callback, object? callbackData = null)
+    public static JSValue CreateFunction(
+        string name, JSCallback callback, object? callbackData = null)
     {
         int byteCount = Encoding.UTF8.GetByteCount(name);
         Span<byte> utf8Name = stackalloc byte[byteCount];
@@ -182,39 +195,52 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static unsafe JSValue CreateExternal(object value)
     {
         GCHandle valueHandle = GCHandle.Alloc(value);
-        return napi_create_external(Env, (nint)valueHandle, new napi_finalize(&FinalizeGCHandle), nint.Zero, out napi_value result).ThrowIfFailed(result);
+        return napi_create_external(
+            Env,
+            (nint)valueHandle,
+            new napi_finalize(&FinalizeGCHandle),
+            nint.Zero,
+            out napi_value result)
+            .ThrowIfFailed(result);
     }
 
     public static unsafe JSValue CreateArrayBuffer(int byteLength)
     {
-        napi_create_arraybuffer(Env, (nuint)byteLength, out void* _, out napi_value result).ThrowIfFailed();
+        napi_create_arraybuffer(Env, (nuint)byteLength, out nint _, out napi_value result)
+            .ThrowIfFailed();
         return result;
     }
 
     public static unsafe JSValue CreateArrayBuffer(ReadOnlySpan<byte> data)
     {
-        napi_create_arraybuffer(Env, (nuint)data.Length, out void* buffer, out napi_value result).ThrowIfFailed();
-        data.CopyTo(new Span<byte>(buffer, data.Length));
+        napi_create_arraybuffer(Env, (nuint)data.Length, out nint buffer, out napi_value result)
+            .ThrowIfFailed();
+        data.CopyTo(new Span<byte>((void*)buffer, data.Length));
         return result;
     }
 
-    public static unsafe JSValue CreateExternalArrayBuffer<T>(Memory<T> memory, object? external = null) where T : struct
+    public static unsafe JSValue CreateExternalArrayBuffer<T>(
+        Memory<T> memory, object? external = null) where T : struct
     {
         var pinnedMemory = new PinnedMemory<T>(memory, external);
         return napi_create_external_arraybuffer(
             Env,
-            pinnedMemory.Pointer,
+            (nint)pinnedMemory.Pointer,
             (nuint)pinnedMemory.Length,
-            new napi_finalize(&FinalizeHintHandle), // We pass object to finalize as a hint parameter
+            // We pass object to finalize as a hint parameter
+            new napi_finalize(&FinalizeHintHandle),
             (nint)GCHandle.Alloc(pinnedMemory),
             out napi_value result)
             .ThrowIfFailed(result);
     }
 
     public static JSValue CreateDataView(int length, JSValue arrayBuffer, int byteOffset)
-        => napi_create_dataview(Env, (nuint)length, (napi_value)arrayBuffer, (nuint)byteOffset, out napi_value result).ThrowIfFailed(result);
+        => napi_create_dataview(
+            Env, (nuint)length, (napi_value)arrayBuffer, (nuint)byteOffset, out napi_value result)
+            .ThrowIfFailed(result);
 
-    public static JSValue CreateTypedArray(JSTypedArrayType type, int length, JSValue arrayBuffer, int byteOffset)
+    public static JSValue CreateTypedArray(
+        JSTypedArrayType type, int length, JSValue arrayBuffer, int byteOffset)
         => napi_create_typedarray(
             Env,
             (napi_typedarray_type)type,
@@ -226,7 +252,8 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public static JSValue CreatePromise(out JSPromise.Deferred deferred)
     {
-        napi_create_promise(Env, out napi_deferred deferred_, out napi_value promise).ThrowIfFailed();
+        napi_create_promise(Env, out napi_deferred deferred_, out napi_value promise)
+            .ThrowIfFailed();
         deferred = new JSPromise.Deferred(deferred_);
         return promise;
     }
@@ -244,7 +271,9 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
         fixed (ulong* wordPtr = words)
         {
-            return napi_create_bigint_words(Env, signBit, (nuint)words.Length, wordPtr, out napi_value result).ThrowIfFailed(result);
+            return napi_create_bigint_words(
+                Env, signBit, (nuint)words.Length, wordPtr, out napi_value result)
+                .ThrowIfFailed(result);
         }
     }
 

@@ -277,9 +277,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // The main initialization entrypoint is called by the `ManagedHost`, and by the unmanaged entrypoint.
         s += $"public static napi_value {ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += "{";
+        s += "using var scope = new JSValueScope(JSValueScopeType.Root, env);";
         s += "try";
         s += "{";
-        s += "using var scope = new JSValueScope(JSValueScopeType.Root, env);";
         s += "JSContext context = scope.ModuleContext;";
         s += "JSValue exportsValue = new(exports, scope);";
         s++;
