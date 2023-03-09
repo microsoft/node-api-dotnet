@@ -12,7 +12,7 @@ public static partial class JSNativeApi
 {
     // Node-API Interop definitions and functions.
     [SuppressUnmanagedCodeSecurity]
-    public unsafe static partial class Interop
+    public static unsafe partial class Interop
     {
         private static nint s_libraryHandle;
         private static FunctionFields s_fields = new();
