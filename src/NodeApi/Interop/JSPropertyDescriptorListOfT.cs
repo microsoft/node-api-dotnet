@@ -4,12 +4,19 @@ using System.Collections.Generic;
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public abstract class JSPropertyDescriptorList<TDerived, TObject>
-  where TDerived : class, IJSObjectUnwrap<TObject>
+  where TDerived : class
   where TObject : class
 {
+    public delegate TObject? Unwrap(JSCallbackArgs args);
+
+    private readonly Unwrap _unwrap;
+
     public IList<JSPropertyDescriptor> Properties { get; } = new List<JSPropertyDescriptor>();
 
-    protected JSPropertyDescriptorList() { }
+    protected JSPropertyDescriptorList(Unwrap unwrap)
+    {
+        _unwrap = unwrap;
+    }
 
     /// <summary>
     /// Adds a property with an initial value of undefined.
@@ -81,11 +88,11 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
           name,
           getter == null ? null : args =>
           {
-              return (TDerived.Unwrap(args) is TObject obj) ? getter(obj) : JSValue.Undefined;
+              return (_unwrap(args) is TObject obj) ? getter(obj) : JSValue.Undefined;
           },
           setter == null ? null : args =>
           {
-              if (TDerived.Unwrap(args) is TObject obj)
+              if (_unwrap(args) is TObject obj)
               {
                   setter(obj, args[0]);
               }
@@ -157,7 +164,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
           name,
           args =>
           {
-              if (TDerived.Unwrap(args) is TObject obj)
+              if (_unwrap(args) is TObject obj)
               {
                   getCallback(obj).Invoke();
               }
@@ -179,7 +186,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
           name,
           args =>
           {
-              if (TDerived.Unwrap(args) is TObject obj)
+              if (_unwrap(args) is TObject obj)
               {
                   getCallback(obj).Invoke(args);
               }
@@ -200,7 +207,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
     {
         return AddMethod(
           name,
-          args => (TDerived.Unwrap(args) is TObject obj) ?
+          args => (_unwrap(args) is TObject obj) ?
             getCallback(obj).Invoke(args) : JSValue.Undefined,
           attributes,
           data);

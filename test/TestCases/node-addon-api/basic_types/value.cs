@@ -32,32 +32,32 @@ public class TestBasicTypesValue : TestHelper, ITestObject
     private static JSValue CreateExternal(JSCallbackArgs _) => JSValue.CreateExternal(1);
 
 
-    public static JSObject Init() => new()
+    public JSObject Init() => new()
     {
-        Method(IsUndefined),
-        Method(IsNull),
-        Method(IsBoolean),
-        Method(IsNumber),
-        Method(IsString),
-        Method(IsSymbol),
-        Method(IsArray),
-        Method(IsArrayBuffer),
-        Method(IsTypedArray),
-        Method(IsObject),
-        Method(IsFunction),
-        Method(IsPromise),
-        Method(IsDataView),
-        Method(IsExternal),
-        Method(ToBoolean),
-        Method(ToNumber),
-        Method(ToString),
-        Method(ToObject),
+        Method(IsUndefined, nameof(IsUndefined)),
+        Method(IsNull, nameof(IsNull)),
+        Method(IsBoolean, nameof(IsBoolean)),
+        Method(IsNumber, nameof(IsNumber)),
+        Method(IsString, nameof(IsString)),
+        Method(IsSymbol, nameof(IsSymbol)),
+        Method(IsArray, nameof(IsArray)),
+        Method(IsArrayBuffer, nameof(IsArrayBuffer)),
+        Method(IsTypedArray, nameof(IsTypedArray)),
+        Method(IsObject, nameof(IsObject)),
+        Method(IsFunction, nameof(IsFunction)),
+        Method(IsPromise, nameof(IsPromise)),
+        Method(IsDataView, nameof(IsDataView)),
+        Method(IsExternal, nameof(IsExternal)),
+        Method(ToBoolean, nameof(ToBoolean)),
+        Method(ToNumber, nameof(ToNumber)),
+        Method(ToString, nameof(ToString)),
+        Method(ToObject, nameof(ToObject)),
 
-        Method(StrictlyEquals),
+        Method(StrictlyEquals, nameof(StrictlyEquals)),
 
-        Method(CreateDefaultValue),
-        Method(CreateEmptyValue),
-        Method(CreateNonEmptyValue),
-        Method(CreateExternal),
+        Method(CreateDefaultValue, nameof(CreateDefaultValue)),
+        Method(CreateEmptyValue, nameof(CreateEmptyValue)),
+        Method(CreateNonEmptyValue, nameof(CreateNonEmptyValue)),
+        Method(CreateExternal, nameof(CreateExternal)),
     };
 }

@@ -14,12 +14,13 @@
 
   <ItemGroup>
     <!-- Package the generator and dependencies in the analyzer directory of the nuget package -->
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\$(AssemblyName).dll" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\$(AssemblyName).runtimeconfig.json" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\Microsoft.JavaScript.NodeApi.dll" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\Microsoft.CodeAnalysis.dll" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\System.Reflection.MetadataLoadContext.dll" />
+    <!-- Use the .NET 6 targeted assembly as the analyzer for broader compatibility. (There's no difference in functionality.) -->
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\$(AssemblyName).dll" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\$(AssemblyName).runtimeconfig.json" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.dll" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.CodeAnalysis.dll" />
+    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\System.Reflection.MetadataLoadContext.dll" />
     <None Pack="true" PackagePath="build\$(AssemblyName).props" Include="NodeApi.Generator.props" />
     <None Pack="true" PackagePath="build\$(AssemblyName).targets" Include="NodeApi.Generator.targets" />
   </ItemGroup>

@@ -5,11 +5,9 @@
     <RootNamespace>Microsoft.JavaScript.NodeApi</RootNamespace>
     <IsPackable>true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <PublishAot>true</PublishAot>
     <NativeLib>Shared</NativeLib>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <SelfContained>false</SelfContained>
-    <BeforePack>Publish</BeforePack><!-- The npm package depends on published files. -->
     <PublishNodeModule>true</PublishNodeModule>
   </PropertyGroup>
 

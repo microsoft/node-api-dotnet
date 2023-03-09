@@ -3,7 +3,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.Marshalling;
 using System.Security;
 
 namespace Microsoft.JavaScript.NodeApi;
@@ -18,24 +17,39 @@ public static partial class JSNativeApi
         private static FunctionFields s_fields = new();
         private static bool s_initialized;
 
-        public static void Initialize(nint libraryHandle)
+        public static void Initialize(nint libraryHandle = default)
         {
             if (s_initialized) return;
             s_initialized = true;
 
-            s_libraryHandle = libraryHandle;
-
-            // Node APIs are all imported from the main `node` executable. Overriding the import
-            // resolution is more efficient and avoids issues with library search paths and
-            // differences in the name of the executable.
-            NativeLibrary.SetDllImportResolver(
-                typeof(JSNativeApi).Assembly,
-                (libraryName, _, _) => libraryName switch
+            if (libraryHandle == default)
+            {
+#if NET7_0_OR_GREATER
+                libraryHandle = NativeLibrary.GetMainProgramHandle();
+#else
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    nameof(DotNetHost.HostFxr) => DotNetHost.HostFxr.Handle,
-                    _ => default,
-                });
+                    libraryHandle = GetModuleHandleW(default);
+                }
+                else
+                {
+                    libraryHandle = dlopen(default, RTLD_LAZY);
+                }
+#endif
+            }
+
+            s_libraryHandle = libraryHandle;
         }
+
+#if !NET7_0_OR_GREATER
+        [DllImport("kernel32")]
+        private static extern nint GetModuleHandleW(nint moduleName);
+
+        [DllImport("libdl")]
+        private static extern nint dlopen(nint fileName, int flags);
+        
+        private const int RTLD_LAZY = 1;
+#endif
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate napi_value napi_register_module_v1(napi_env env, napi_value exports);
@@ -204,13 +218,13 @@ public static partial class JSNativeApi
 
         public record struct napi_env(nint Handle)
         {
-            public bool IsNull => Handle == nint.Zero;
-            public static napi_env Null => new(nint.Zero);
+            public bool IsNull => Handle == default;
+            public static napi_env Null => new(default);
         }
         public record struct napi_value(nint Handle)
         {
-            public static napi_value Null => new(nint.Zero);
-            public bool IsNull => Handle == nint.Zero;
+            public static napi_value Null => new(default);
+            public bool IsNull => Handle == default;
         }
         public record struct napi_ref(nint Handle);
         public record struct napi_handle_scope(nint Handle);
@@ -1332,7 +1346,7 @@ public static partial class JSNativeApi
         private static nint GetExport(ref nint field, [CallerMemberName] string functionName = "")
         {
             nint methodPtr = field;
-            if (methodPtr == nint.Zero)
+            if (methodPtr == default)
             {
                 methodPtr = NativeLibrary.GetExport(s_libraryHandle, functionName);
                 field = methodPtr;
@@ -1672,26 +1686,16 @@ public static partial class JSNativeApi
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, napi_status>)funcHandle;
 
-            Utf8StringMarshaller.ManagedToUnmanagedIn value1_marshaller = new();
-            Utf8StringMarshaller.ManagedToUnmanagedIn value2_marshaller = new();
+            nint value1_native = value1 == null ? default : Marshal.StringToCoTaskMemUTF8(value1);
+            nint value2_native = value2 == null ? default : Marshal.StringToCoTaskMemUTF8(value2);
             try
             {
-                int bufferSize = Utf8StringMarshaller.ManagedToUnmanagedIn.BufferSize;
-
-                byte* value1_stackptr = stackalloc byte[bufferSize];
-                value1_marshaller.FromManaged(value1, new Span<byte>(value1_stackptr, bufferSize));
-                byte* value1_native = value1_marshaller.ToUnmanaged();
-
-                byte* value2_stackptr = stackalloc byte[bufferSize];
-                value2_marshaller.FromManaged(value2, new Span<byte>(value2_stackptr, bufferSize));
-                byte* value2_native = value2_marshaller.ToUnmanaged();
-
-                return funcDelegate(env, (nint)value1_native, (nint)value2_native);
+                return funcDelegate(env, value1_native, value2_native);
             }
             finally
             {
-                value1_marshaller.Free();
-                value2_marshaller.Free();
+                if (value1_native != default) Marshal.FreeCoTaskMem(value1_native);
+                if (value2_native != default) Marshal.FreeCoTaskMem(value2_native);
             }
         }
     }

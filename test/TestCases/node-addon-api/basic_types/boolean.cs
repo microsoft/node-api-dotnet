@@ -10,9 +10,9 @@ public class TestBasicTypesBoolean : TestHelper, ITestObject
     private static JSValue CreateBooleanFromPrimitive(JSCallbackArgs args)
         => (bool)args[0];
 
-    public static JSObject Init() => new()
+    public JSObject Init() => new()
     {
-        Method(CreateBoolean),
-        Method(CreateBooleanFromPrimitive),
+        Method(CreateBoolean, nameof(CreateBoolean)),
+        Method(CreateBooleanFromPrimitive, nameof(CreateBooleanFromPrimitive)),
     };
 }

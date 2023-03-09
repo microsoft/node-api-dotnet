@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using static Microsoft.JavaScript.NodeApi.Interop.JSCollectionProxies;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi;
 using napi_env = Microsoft.JavaScript.NodeApi.JSNativeApi.Interop.napi_env;
@@ -90,7 +89,7 @@ public sealed class JSContext : IDisposable
     public JSContext(napi_env env)
     {
         // TODO: Move this Initialize call to the creators of JSContext
-        JSNativeApi.Interop.Initialize(NativeLibrary.GetMainProgramHandle());
+        JSNativeApi.Interop.Initialize();
 
         _env = env;
         SetInstanceData(env, this);

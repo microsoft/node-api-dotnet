@@ -20,9 +20,9 @@ public static partial class JSNativeApi
 
     public static unsafe void AddGCHandleFinalizer(this JSValue thisValue, nint handle)
     {
-        if (handle != nint.Zero)
+        if (handle != default)
         {
-            napi_add_finalizer(Env, (napi_value)thisValue, handle, new napi_finalize(&FinalizeGCHandle), nint.Zero, null).ThrowIfFailed();
+            napi_add_finalizer(Env, (napi_value)thisValue, handle, new napi_finalize(&FinalizeGCHandle), default, null).ThrowIfFailed();
         }
     }
 
@@ -86,7 +86,7 @@ public static partial class JSNativeApi
         if (buffer.IsEmpty)
         {
             return napi_get_value_string_latin1(
-                Env, (napi_value)thisValue, nint.Zero, 0, out nuint result)
+                Env, (napi_value)thisValue, default, 0, out nuint result)
                 .ThrowIfFailed((int)result);
         }
 
@@ -113,7 +113,7 @@ public static partial class JSNativeApi
         if (buffer.IsEmpty)
         {
             return napi_get_value_string_utf8(
-                Env, (napi_value)thisValue, nint.Zero, 0, out nuint result)
+                Env, (napi_value)thisValue, default, 0, out nuint result)
                 .ThrowIfFailed((int)result);
         }
 
@@ -140,7 +140,7 @@ public static partial class JSNativeApi
         if (buffer.IsEmpty)
         {
             return napi_get_value_string_utf16(
-                Env, (napi_value)thisValue, nint.Zero, 0, out nuint result)
+                Env, (napi_value)thisValue, default, 0, out nuint result)
                 .ThrowIfFailed((int)result);
         }
 
@@ -239,10 +239,10 @@ public static partial class JSNativeApi
         => napi_strict_equals(Env, (napi_value)thisValue, (napi_value)other, out c_bool result).ThrowIfFailed((bool)result);
 
     public static unsafe JSValue Call(this JSValue thisValue)
-        => napi_call_function(Env, (napi_value)JSValue.Undefined, (napi_value)thisValue, 0, nint.Zero, out napi_value result).ThrowIfFailed(result);
+        => napi_call_function(Env, (napi_value)JSValue.Undefined, (napi_value)thisValue, 0, default, out napi_value result).ThrowIfFailed(result);
 
     public static unsafe JSValue Call(this JSValue thisValue, JSValue thisArg)
-        => napi_call_function(Env, (napi_value)thisArg, (napi_value)thisValue, 0, nint.Zero, out napi_value result).ThrowIfFailed(result);
+        => napi_call_function(Env, (napi_value)thisArg, (napi_value)thisValue, 0, default, out napi_value result).ThrowIfFailed(result);
 
     public static unsafe JSValue Call(this JSValue thisValue, JSValue thisArg, JSValue arg0)
     {
@@ -316,7 +316,7 @@ public static partial class JSNativeApi
     }
 
     public static unsafe JSValue CallAsConstructor(this JSValue thisValue)
-        => napi_new_instance(Env, (napi_value)thisValue, 0, nint.Zero, out napi_value result)
+        => napi_new_instance(Env, (napi_value)thisValue, 0, default, out napi_value result)
             .ThrowIfFailed(result);
 
     public static unsafe JSValue CallAsConstructor(this JSValue thisValue, JSValue arg0)
@@ -474,7 +474,7 @@ public static partial class JSNativeApi
             (napi_value)wrapper,
             (nint)valueHandle,
             new napi_finalize(&FinalizeGCHandle),
-            nint.Zero,
+            default,
             null).ThrowIfFailed();
         return wrapper;
     }
@@ -497,7 +497,7 @@ public static partial class JSNativeApi
             (napi_value)wrapper,
             (nint)valueHandle,
             new napi_finalize(&FinalizeGCHandle),
-            nint.Zero,
+            default,
             &weakRef).ThrowIfFailed();
         wrapperWeakRef = new JSReference(weakRef, isWeak: true);
         return wrapper;
@@ -734,7 +734,7 @@ public static partial class JSNativeApi
             (napi_value)thisValue,
             (nint)finalizeHandle,
             new napi_finalize(&CallFinalizeAction),
-            nint.Zero,
+            default,
             null).ThrowIfFailed();
     }
 
@@ -748,7 +748,7 @@ public static partial class JSNativeApi
             (napi_value)thisValue,
             (nint)finalizeHandle,
             new napi_finalize(&CallFinalizeAction),
-            nint.Zero,
+            default,
             &reference).ThrowIfFailed();
         finalizerRef = new JSReference(reference, isWeak: true);
     }
@@ -794,7 +794,7 @@ public static partial class JSNativeApi
     internal static unsafe void SetInstanceData(napi_env env, object? data)
     {
         napi_get_instance_data(env, out nint handlePtr).ThrowIfFailed();
-        if (handlePtr != nint.Zero)
+        if (handlePtr != default)
         {
             // Current napi_set_instance_data implementation does not call finalizer when we replace existing instance data.
             // It means that we only remove the GC root, but do not call Dispose.
@@ -815,7 +815,7 @@ public static partial class JSNativeApi
     internal static object? GetInstanceData(napi_env env)
     {
         napi_get_instance_data(env, out nint data).ThrowIfFailed();
-        return (data != nint.Zero) ? GCHandle.FromIntPtr(data).Target : null;
+        return (data != default) ? GCHandle.FromIntPtr(data).Target : null;
     }
 
     public static void DetachArrayBuffer(this JSValue thisValue)
@@ -1007,7 +1007,7 @@ public static partial class JSNativeApi
         {
             napi_property_descriptor* descriptorPtr = &descriptorsPtr[i];
             descriptorPtr->name = (napi_value)descriptor.Name;
-            descriptorPtr->utf8name = nint.Zero;
+            descriptorPtr->utf8name = default;
             descriptorPtr->method = descriptor.Method == null ? default : methodCallback;
             descriptorPtr->getter = descriptor.Getter == null ? default : getterCallback;
             descriptorPtr->setter = descriptor.Setter == null ? default : setterCallback;
@@ -1019,7 +1019,7 @@ public static partial class JSNativeApi
             }
             else
             {
-                handlesToFinalize[i] = descriptorPtr->data = nint.Zero;
+                handlesToFinalize[i] = descriptorPtr->data = default;
             }
             i++;
         }

@@ -154,25 +154,49 @@ internal static partial class HostFxr
         byte* methodName,   // UTF-16 on Windows, UTF-8 elsewhere
         nint delegateType,
         nint reserved,
-        out nint functionPointer);
+        nint* outFunctionPointer);
 
-    [LibraryImport(nameof(HostFxr))]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(CallConvCdecl) })]
-    public static unsafe partial hostfxr_status hostfxr_initialize_for_runtime_config(
+    public static unsafe hostfxr_status hostfxr_initialize_for_runtime_config(
         byte* runtimeConfigPath, // UTF-16 on Windows, UTF-8 elsewhere
         hostfxr_initialize_parameters* initializeParameters,
-        out hostfxr_handle hostContextHandle);
+        out hostfxr_handle hostContextHandle)
+    {
+        nint funcHandle = NativeLibrary.GetExport(
+            Handle, nameof(hostfxr_initialize_for_runtime_config));
+        var funcDelegate = (delegate* unmanaged[Cdecl]<
+                byte*, hostfxr_initialize_parameters*, hostfxr_handle*, hostfxr_status>)funcHandle;
+        hostfxr_handle outContextHandle;
+        hostfxr_status status = funcDelegate(
+            runtimeConfigPath, initializeParameters, &outContextHandle);
+        hostContextHandle = outContextHandle;
+        return status;
+    }
 
-    [LibraryImport(nameof(HostFxr))]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(CallConvCdecl) })]
-    public static partial hostfxr_status hostfxr_get_runtime_delegate(
+    public static unsafe hostfxr_status hostfxr_get_runtime_delegate(
         hostfxr_handle hostContextHandle,
         hostfxr_delegate_type delegateType,
-        [MarshalAs(UnmanagedType.FunctionPtr)] out load_assembly_and_get_function_pointer function);
+        [MarshalAs(UnmanagedType.FunctionPtr)] out load_assembly_and_get_function_pointer function)
+    {
+        nint funcHandle = NativeLibrary.GetExport(Handle, nameof(hostfxr_get_runtime_delegate));
+        var funcDelegate = (delegate* unmanaged[Cdecl]<
+                hostfxr_handle, hostfxr_delegate_type, nint*, hostfxr_status>)funcHandle;
+        nint outFunction;
+        hostfxr_status status = funcDelegate(hostContextHandle, delegateType, &outFunction);
+        var outFunctionDelegate = (delegate* unmanaged[Cdecl]<
+            byte*, byte*, byte*, nint, nint, nint*, hostfxr_status>)outFunction;
+        function = status != hostfxr_status.Success ? default! :
+            (assemblyPath, typeName, methodName, delegateType, reserved, outFunctionPointer)
+                => outFunctionDelegate
+            (assemblyPath, typeName, methodName, delegateType, reserved, outFunctionPointer);
+        return status;
+    }
 
-    [LibraryImport(nameof(HostFxr))]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(CallConvCdecl) })]
-    public static partial hostfxr_status hostfxr_close(hostfxr_handle hostContextHandle);
+    public static unsafe hostfxr_status hostfxr_close(hostfxr_handle hostContextHandle)
+    {
+        nint funcHandle = NativeLibrary.GetExport(Handle, nameof(hostfxr_close));
+        var funcDelegate = (delegate* unmanaged[Cdecl]<hostfxr_handle, hostfxr_status>)funcHandle;
+        return funcDelegate(hostContextHandle);
+    }
 
     public enum hostfxr_status : uint
     {

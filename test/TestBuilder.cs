@@ -59,7 +59,9 @@ internal static class TestBuilder
 
     private static string GetRootDirectory()
     {
-        string? solutionDir = Path.GetDirectoryName(typeof(NativeAotTests).Assembly.Location)!;
+#pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
+        string? solutionDir = Path.GetDirectoryName(typeof(TestBuilder).Assembly.Location)!;
+#pragma warning restore IL3000
 
         // This assumes there is only a .SLN file at the root of the repo.
         while (Directory.GetFiles(solutionDir, "*.sln").Length == 0)
@@ -97,7 +99,10 @@ internal static class TestBuilder
             string dir = dirQueue.Dequeue();
             foreach (string subDir in Directory.GetDirectories(dir))
             {
-                dirQueue.Enqueue(subDir);
+                if (subDir != "common")
+                {
+                    dirQueue.Enqueue(subDir);
+                }
             }
 
             string moduleName = Path.GetRelativePath(TestCasesDirectory, dir);
@@ -121,19 +126,29 @@ internal static class TestBuilder
         }
     }
 
+    private static string GetModuleIntermediateOutputPath(string moduleName)
+    {
+        string directoryPath = Path.Join(
+            RepoRootDirectory,
+            "out",
+            "obj",
+            Configuration,
+            "TestCases",
+            moduleName,
+            GetCurrentFrameworkTarget());
+        Directory.CreateDirectory(directoryPath);
+        return directoryPath;
+    }
+
     public static string GetBuildLogFilePath(string moduleName)
     {
-        string logDir = Path.Join(
-            RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName);
-        Directory.CreateDirectory(logDir);
+        string logDir = GetModuleIntermediateOutputPath(moduleName);
         return Path.Join(logDir, "build.log");
     }
 
     public static string GetRunLogFilePath(string prefix, string moduleName, string testCasePath)
     {
-        string logDir = Path.Join(
-            RepoRootDirectory, "out", "obj", Configuration, "TestCases", moduleName, Path.GetDirectoryName(testCasePath));
-        Directory.CreateDirectory(logDir);
+        string logDir = GetModuleIntermediateOutputPath(moduleName);
         return Path.Join(logDir, $"{prefix}-{Path.GetFileName(testCasePath)}.log");
     }
 
@@ -157,6 +172,12 @@ internal static class TestBuilder
         return $"{os}-{arch}";
     }
 
+    public static string GetCurrentFrameworkTarget()
+    {
+        Version frameworkVersion = Environment.Version;
+        return $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
+    }
+
     public static string? BuildProject(
       string projectFilePath,
       string[] targets,
@@ -170,7 +191,7 @@ internal static class TestBuilder
         InitializeMsbuild();
 
         return BuildProjectInternal(
-          projectFilePath, targets, properties, returnProperty, logFilePath, verboseLog);
+            projectFilePath, targets, properties, returnProperty, logFilePath, verboseLog);
     }
 
     private static string? BuildProjectInternal(

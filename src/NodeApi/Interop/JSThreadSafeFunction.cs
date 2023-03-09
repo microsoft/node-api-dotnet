@@ -43,7 +43,7 @@ public class JSThreadSafeFunction
                                  (napi_value)asyncResourceName,
                                  (nuint)maxQueueSize,
                                  (nuint)initialThreadCount,
-                                 thread_finalize_data: nint.Zero,
+                                 thread_finalize_data: default,
                                  new napi_finalize(&FinalizeFunctionData),
                                  (nint)functionDataHandle,
                                  (jsCaller != null)
@@ -117,7 +117,7 @@ public class JSThreadSafeFunction
     // This API may only be called from the main thread.
     public void Ref()
     {
-        if (_tsfn.Handle != nint.Zero)
+        if (_tsfn.Handle != default)
         {
             if (++_refCount == 1)
             {
@@ -129,7 +129,7 @@ public class JSThreadSafeFunction
     // This API may only be called from the main thread.
     public void Unref()
     {
-        if (_tsfn.Handle != nint.Zero)
+        if (_tsfn.Handle != default)
         {
             if (--_refCount == 0)
             {
@@ -207,7 +207,7 @@ public class JSThreadSafeFunction
             using JSValueScope scope = new(JSValueScopeType.Callback, env);
 
             object? callbackData = null;
-            if (data != nint.Zero)
+            if (data != default)
             {
                 GCHandle dataHandle = GCHandle.FromIntPtr(data);
                 callbackData = dataHandle.Target!;
@@ -236,7 +236,7 @@ public class JSThreadSafeFunction
         {
             using JSValueScope scope = new(JSValueScopeType.Callback, env);
 
-            if (data != nint.Zero)
+            if (data != default)
             {
                 GCHandle dataHandle = GCHandle.FromIntPtr(data);
                 object dataObject = dataHandle.Target!;
@@ -256,7 +256,7 @@ public class JSThreadSafeFunction
                     throw new ArgumentException("Unexpected data parameter");
                 }
             }
-            else if (jsCallback.Handle != nint.Zero)
+            else if (jsCallback.Handle != default)
             {
                 ((JSValue)jsCallback).Call();
             }

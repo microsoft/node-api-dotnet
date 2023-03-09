@@ -3,10 +3,7 @@ using System.Linq;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
-public class JSClassBuilder<T>
-  : JSPropertyDescriptorList<JSClassBuilder<T>, T>
-  , IJSObjectUnwrap<T>
-  where T : class
+public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> where T : class
 {
     private readonly JSCallbackDescriptor? _constructorDescriptor;
 
@@ -15,7 +12,7 @@ public class JSClassBuilder<T>
     public delegate T Constructor();
     public delegate T ConstructorWithArgs(JSCallbackArgs args);
 
-    public JSClassBuilder(string className)
+    public JSClassBuilder(string className) : base(Unwrap)
     {
         ClassName = className;
     }
@@ -38,12 +35,13 @@ public class JSClassBuilder<T>
     }
 
     public JSClassBuilder(string className, JSCallbackDescriptor constructorDescriptor)
+        : base(Unwrap)
     {
         ClassName = className;
         _constructorDescriptor = constructorDescriptor;
     }
 
-    static T? IJSObjectUnwrap<T>.Unwrap(JSCallbackArgs args)
+    private static new T? Unwrap(JSCallbackArgs args)
     {
         return (T?)args.ThisArg.Unwrap();
     }

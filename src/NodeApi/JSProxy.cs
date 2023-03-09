@@ -12,7 +12,7 @@ namespace Microsoft.JavaScript.NodeApi;
 public readonly partial struct JSProxy : IEquatable<JSValue>
 {
     private readonly JSValue _value;
-    private readonly JSValue _revoke;
+    private readonly JSValue _revoke = default;
 
     public static explicit operator JSProxy(JSValue value) => new(value);
     public static implicit operator JSValue(JSProxy proxy) => proxy._value;

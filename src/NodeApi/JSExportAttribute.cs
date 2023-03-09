@@ -56,7 +56,10 @@ public class JSExportAttribute : Attribute
     /// <param name="name">Name of the item as exported to JavaScript.</param>
     public JSExportAttribute(string name)
     {
-        ArgumentException.ThrowIfNullOrEmpty(name);
+        if (string.IsNullOrEmpty(name))
+        {
+            throw new ArgumentNullException(nameof(name));
+        }
 
         Name = name;
     }

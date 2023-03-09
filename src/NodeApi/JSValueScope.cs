@@ -60,7 +60,7 @@ public sealed class JSValueScope : IDisposable
                 => napi_open_escapable_handle_scope(
                     _env, out napi_escapable_handle_scope handleScope)
                    .ThrowIfFailed(handleScope).Handle,
-            _ => nint.Zero,
+            _ => default,
         };
     }
 

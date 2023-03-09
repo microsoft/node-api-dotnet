@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -27,7 +26,7 @@ internal static class ExpressionExtensions
         => ToCS(
             expression,
             path: expression.Name ?? string.Empty,
-            variables: ImmutableHashSet<string>.Empty);
+            variables: new HashSet<string>());
 
     /// <summary>
     /// Recursively traverses an expression tree and builds C# code from the expressions.
@@ -41,7 +40,7 @@ internal static class ExpressionExtensions
     private static string ToCS(
         Expression expression,
         string path,
-        ImmutableHashSet<string> variables)
+        HashSet<string> variables)
     {
         path += "/" + expression?.NodeType.ToString() ?? string.Empty;
 
@@ -169,7 +168,7 @@ internal static class ExpressionExtensions
     private static string WithParentheses(
         Expression expression,
         string path,
-        ImmutableHashSet<string> variables)
+        HashSet<string> variables)
     {
         string cs = ToCS(expression, path, variables);
 
@@ -188,7 +187,7 @@ internal static class ExpressionExtensions
     private static string FormatBlock(
         BlockExpression block,
         string path,
-        ImmutableHashSet<string> variables)
+        HashSet<string> variables)
     {
         StringBuilder s = new();
         s.Append("{\n");
@@ -206,7 +205,7 @@ internal static class ExpressionExtensions
     }
 
     private static string FormatStatement(
-        Expression expression, bool isReturn, string path, ref ImmutableHashSet<string> variables)
+        Expression expression, bool isReturn, string path, ref HashSet<string> variables)
     {
         string s = string.Empty;
 
@@ -216,7 +215,7 @@ internal static class ExpressionExtensions
             if (assignment.Left is ParameterExpression variable &&
                 !variables.Contains(variable.Name!))
             {
-                variables = variables.Add(variable.Name!);
+                variables = new HashSet<string>(variables.Union(new[] { variable.Name! }));
                 s += FormatType(variable.Type) + " " + s;
             }
         }
@@ -289,7 +288,7 @@ internal static class ExpressionExtensions
         MethodInfo method,
         IReadOnlyCollection<Expression> arguments,
         string path,
-        ImmutableHashSet<string> variables)
+        HashSet<string> variables)
         => (method.IsGenericMethod
             ? "<" + string.Join(", ", method.GetGenericArguments().Select(FormatType)) + ">"
             : string.Empty) + FormatArgs(arguments, path, variables);
@@ -297,6 +296,6 @@ internal static class ExpressionExtensions
     private static string FormatArgs(
         IEnumerable<Expression> arguments,
         string path,
-        ImmutableHashSet<string> variables)
+        HashSet<string> variables)
         => "(" + string.Join(", ", arguments.Select((a) => ToCS(a, path, variables))) + ")";
 }

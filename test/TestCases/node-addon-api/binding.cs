@@ -18,14 +18,14 @@ public class Binding
     public JSValue Object => GetOrCreate<TestObject>();
     public JSValue ObjectFreezeSeal => GetOrCreate<TestObjectFreezeSeal>();
 
-    private JSValue GetOrCreate<T>() where T : class, ITestObject
+    private JSValue GetOrCreate<T>() where T : class, ITestObject, new()
     {
         if (_testObjects.TryGetValue(typeof(T), out JSReference? testRef))
         {
             return testRef.GetValue() ?? JSValue.Undefined;
         }
 
-        JSValue obj = T.Init();
+        JSValue obj = new T().Init();
         _testObjects.Add(typeof(T), new JSReference(obj));
         return obj;
     }
@@ -33,14 +33,12 @@ public class Binding
 
 public interface ITestObject
 {
-    static abstract JSObject Init();
+    abstract JSObject Init();
 }
 
 public abstract class TestHelper
 {
-    public static KeyValuePair<JSValue, JSValue> Method(
-        JSCallback callback,
-        [CallerArgumentExpression(nameof(callback))] string? callbackName = null)
+    public static KeyValuePair<JSValue, JSValue> Method(JSCallback callback, string callbackName)
     {
         string name = callbackName ?? string.Empty;
         name = name.Substring(name.IndexOf('.') + 1);

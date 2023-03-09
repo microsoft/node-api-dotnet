@@ -1,3 +1,5 @@
+#if NET7_0_OR_GREATER
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -62,10 +64,10 @@ public class NativeAotTests
         // TestCases/Directory.Build.{props,targets}
         File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n</Project>\n");
 
-        string runtimeIdentifier = GetCurrentPlatformRuntimeIdentifier();
         var properties = new Dictionary<string, string>
         {
-            ["RuntimeIdentifier"] = runtimeIdentifier,
+            ["TargetFramework"] = GetCurrentFrameworkTarget(),
+            ["RuntimeIdentifier"] = GetCurrentPlatformRuntimeIdentifier(),
             ["Configuration"] = Configuration,
         };
 
@@ -95,3 +97,5 @@ public class NativeAotTests
         // Reference the generated type definitions from the C#?
     }
 }
+
+#endif // NET7_0_OR_GREATER

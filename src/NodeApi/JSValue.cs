@@ -10,8 +10,8 @@ namespace Microsoft.JavaScript.NodeApi;
 
 public readonly struct JSValue : IEquatable<JSValue>
 {
-    private readonly napi_value _handle;
-    private readonly JSValueScope? _scope;
+    private readonly napi_value _handle = default;
+    private readonly JSValueScope? _scope = null;
 
     public readonly JSValueScope Scope =>
         _scope ?? JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
@@ -33,7 +33,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     }
 
     public napi_value? Handle
-        => !Scope.IsDisposed ? (_handle.Handle != nint.Zero ? _handle : Undefined._handle) : null;
+        => !Scope.IsDisposed ? (_handle.Handle != default(nint) ? _handle : Undefined._handle) : null;
 
     public napi_value GetCheckedHandle()
         => Handle ?? throw new InvalidOperationException(
@@ -199,7 +199,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             Env,
             (nint)valueHandle,
             new napi_finalize(&FinalizeGCHandle),
-            nint.Zero,
+            default,
             out napi_value result)
             .ThrowIfFailed(result);
     }
@@ -337,8 +337,8 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static explicit operator napi_value(JSValue value) => value.GetCheckedHandle();
     public static implicit operator JSValue(napi_value handle) => new(handle);
 
-    public static explicit operator napi_value(JSValue? value) => value?.Handle ?? new napi_value(nint.Zero);
-    public static implicit operator JSValue?(napi_value handle) => handle.Handle != nint.Zero ? new JSValue(handle) : (JSValue?)null;
+    public static explicit operator napi_value(JSValue? value) => value?.Handle ?? new napi_value(default);
+    public static implicit operator JSValue?(napi_value handle) => handle.Handle != default ? new JSValue(handle) : (JSValue?)null;
 
     private static JSValue ValueOrNull<T>(T? value, Func<T, JSValue> convert) where T : struct
         => value.HasValue ? convert(value.Value) : JSValue.Null;

@@ -1,7 +1,9 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFrameworks>net7.0;net6.0</TargetFrameworks>
+    <LangVersion>10</LangVersion>
     <Nullable>enable</Nullable>
+    <PublishAot Condition=" '$(TargetFramework)' == 'net7.0' ">true</PublishAot>
     <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
     <BaseOutputPath>$(MSBuildThisFileDirectory)out/</BaseOutputPath>
     <OutputPath>$(BaseOutputPath)bin/$(Configuration)/$(MSBuildProjectName)/</OutputPath>
