@@ -68,10 +68,15 @@ jobs:
           out/pkg/*.nupkg
           out/pkg/*.tgz
 
-    - name: Test
+    - name: Test .NET 6
       env:
         TRACE_NODE_API_HOST: 1
-      run: dotnet test --configuration Release --logger trx --results-directory "test-node${{ matrix.node-version }}"
+      run: dotnet test -f net6.0 --configuration Release --logger trx --results-directory "test-dotnet6-node${{ matrix.node-version }}"
+
+    - name: Test .NET 7
+      env:
+        TRACE_NODE_API_HOST: 1
+      run: dotnet test -f net7.0 --configuration Release --logger trx --results-directory "test-dotnet7-node${{ matrix.node-version }}"
 
     - name: Upload test logs
       uses: actions/upload-artifact@v3
@@ -84,7 +89,7 @@ jobs:
       uses: dorny/test-reporter@v1
       with:
         name: test (${{ runner.os }}, node${{ matrix.node-version }})
-        path: test-node${{ matrix.node-version }}/*.trx
+        path: test-dotnet*-node${{ matrix.node-version }}/*.trx
         reporter: dotnet-trx
       if: ${{ always() }} # Run this step even when there are test failures
 
