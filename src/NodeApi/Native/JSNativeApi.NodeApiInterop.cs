@@ -15,7 +15,7 @@ public static partial class JSNativeApi
         public record struct napi_async_context(nint Handle);
         public record struct napi_async_work(nint Handle);
 
-        public unsafe struct napi_cleanup_hook
+        public struct napi_cleanup_hook
         {
             public delegate* unmanaged[Cdecl]<nint /*arg*/, void> Handle;
             public napi_cleanup_hook(delegate* unmanaged[Cdecl]<nint /*arg*/, void> handle)
@@ -36,7 +36,7 @@ public static partial class JSNativeApi
             napi_tsfn_blocking
         }
 
-        public unsafe struct napi_async_execute_callback
+        public struct napi_async_execute_callback
         {
             public delegate* unmanaged[Cdecl]<napi_env /*env*/, void* /*data*/, void> Handle;
             public napi_async_execute_callback(
@@ -44,7 +44,7 @@ public static partial class JSNativeApi
                 => Handle = handle;
         }
 
-        public unsafe struct napi_async_complete_callback
+        public struct napi_async_complete_callback
         {
             public delegate* unmanaged[Cdecl]<
                 napi_env /*env*/, napi_status /*status*/, void* /*data*/, void> Handle;
@@ -54,7 +54,7 @@ public static partial class JSNativeApi
                 => Handle = handle;
         }
 
-        public unsafe struct napi_threadsafe_function_call_js
+        public struct napi_threadsafe_function_call_js
         {
             public delegate* unmanaged[Cdecl]<
                 napi_env /*env*/,
@@ -72,7 +72,7 @@ public static partial class JSNativeApi
                 => Handle = handle;
         }
 
-        public unsafe struct napi_node_version
+        public struct napi_node_version
         {
             public uint major;
             public uint minor;
@@ -82,7 +82,7 @@ public static partial class JSNativeApi
 
         public record struct napi_async_cleanup_hook_handle(nint Handle);
 
-        public unsafe struct napi_async_cleanup_hook
+        public struct napi_async_cleanup_hook
         {
             public delegate* unmanaged[Cdecl]<
                 napi_async_cleanup_hook_handle /*handle*/, void* /*data*/, void> Handle;
@@ -92,7 +92,7 @@ public static partial class JSNativeApi
                 => Handle = handle;
         }
 
-        public unsafe struct napi_addon_register_func
+        public struct napi_addon_register_func
         {
             public delegate* unmanaged[Cdecl]<
                 napi_env /*env*/, napi_value /*exports*/, napi_value> Handle;
@@ -392,9 +392,7 @@ public static partial class JSNativeApi
             napi_threadsafe_function func,
             napi_threadsafe_function_release_mode mode)
         {
-            nint funcHandle = GetExport(
-                ref s_fields.napi_release_threadsafe_function,
-                nameof(napi_release_threadsafe_function));
+            nint funcHandle = GetExport(ref s_fields.napi_release_threadsafe_function);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_threadsafe_function,
                 napi_threadsafe_function_release_mode,
@@ -430,9 +428,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_remove_async_cleanup_hook(
             napi_async_cleanup_hook_handle remove_handle)
         {
-            nint funcHandle = GetExport(
-                ref s_fields.napi_remove_async_cleanup_hook,
-                nameof(napi_remove_async_cleanup_hook));
+            nint funcHandle = GetExport(ref s_fields.napi_remove_async_cleanup_hook);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_async_cleanup_hook_handle,
                 napi_status>)funcHandle;
@@ -441,9 +437,7 @@ public static partial class JSNativeApi
 
         internal static napi_status node_api_get_module_file_name(napi_env env, byte** result)
         {
-            nint funcHandle = GetExport(
-                ref s_fields.node_api_get_module_file_name,
-                nameof(node_api_get_module_file_name));
+            nint funcHandle = GetExport(ref s_fields.node_api_get_module_file_name);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, byte**, napi_status>)funcHandle;
             return funcDelegate(env, result);

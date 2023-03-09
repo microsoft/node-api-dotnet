@@ -296,7 +296,7 @@ public static partial class JSNativeApi
             napi_would_deadlock,
         }
 
-        public unsafe struct napi_callback
+        public struct napi_callback
         {
             public delegate* unmanaged[Cdecl]<napi_env, napi_callback_info, napi_value> Handle;
 
@@ -305,7 +305,7 @@ public static partial class JSNativeApi
                 => Handle = handle;
         }
 
-        public unsafe struct napi_finalize
+        public struct napi_finalize
         {
             public delegate* unmanaged[Cdecl]<napi_env, nint, nint, void> Handle;
 
@@ -313,7 +313,7 @@ public static partial class JSNativeApi
                 => Handle = handle;
         }
 
-        public unsafe struct napi_property_descriptor
+        public struct napi_property_descriptor
         {
             // One of utf8name or name should be NULL.
             public nint utf8name;
@@ -842,16 +842,22 @@ public static partial class JSNativeApi
             nuint property_count,
             nint properties,
             out napi_value result)
-            => CallInterop(
-                ref s_fields.napi_define_class,
-                env,
-                utf8name,
-                (nint)length,
-                (nint)constructor.Handle,
-                data,
-                (nint)property_count,
-                properties,
-                out result);
+        {
+            nint funcHandle = GetExport(ref s_fields.napi_define_class);
+            var funcDelegate = (delegate* unmanaged[Cdecl]<
+                napi_env, nint, nint, nint, nint, nint, nint, nint, napi_status>)funcHandle;
+            fixed (napi_value* result_native = &result)
+            {
+                return funcDelegate(
+                    env,
+                    utf8name,
+                    (nint)length,
+                    (nint)constructor.Handle,
+                    data,
+                    (nint)property_count,
+                    properties, (nint)result_native);
+            }
+        }
 
         internal static napi_status napi_wrap(
             napi_env env,
@@ -1272,8 +1278,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_set_instance_data(
             napi_env env, nint data, napi_finalize finalize_cb, nint finalize_hint)
         {
-            nint funcHandle = GetExport(
-                ref s_fields.napi_set_instance_data, nameof(napi_set_instance_data));
+            nint funcHandle = GetExport(ref s_fields.napi_set_instance_data);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, napi_finalize, nint, napi_status>)funcHandle;
             return funcDelegate(env, data, finalize_cb, finalize_hint);
@@ -1336,7 +1341,7 @@ public static partial class JSNativeApi
             return methodPtr;
         }
 
-        private static unsafe napi_status CallInterop<TResult>(
+        private static napi_status CallInterop<TResult>(
             ref nint field,
             napi_env env,
             out TResult result,
@@ -1352,7 +1357,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult1, TResult2>(
+        private static napi_status CallInterop<TResult1, TResult2>(
             ref nint field,
             napi_env env,
             out TResult1 result1,
@@ -1371,7 +1376,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult>(
+        private static napi_status CallInterop<TResult>(
             ref nint field,
             napi_env env,
             nint value,
@@ -1388,7 +1393,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult1, TResult2>(
+        private static napi_status CallInterop<TResult1, TResult2>(
             ref nint field,
             napi_env env,
             nint value,
@@ -1408,7 +1413,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult1, TResult2>(
+        private static napi_status CallInterop<TResult1, TResult2>(
             ref nint field,
             napi_env env,
             nint value,
@@ -1430,7 +1435,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult1, TResult2, TResult3, TResult4>(
+        private static napi_status CallInterop<TResult1, TResult2, TResult3, TResult4>(
             ref nint field,
             napi_env env,
             nint value,
@@ -1462,7 +1467,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<
+        private static napi_status CallInterop<
             TResult1, TResult2, TResult3, TResult4, TResult5>(
             ref nint field,
             napi_env env,
@@ -1506,7 +1511,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult>(
+        private static napi_status CallInterop<TResult>(
             ref nint field,
             napi_env env,
             nint value1,
@@ -1524,7 +1529,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult>(
+        private static napi_status CallInterop<TResult>(
             ref nint field,
             napi_env env,
             nint value1,
@@ -1541,7 +1546,7 @@ public static partial class JSNativeApi
                 return funcDelegate(env, value1, value2, (nint)result_native);
             }
         }
-        private static unsafe napi_status CallInterop(
+        private static napi_status CallInterop(
             ref nint field,
             napi_env env,
             nint value1,
@@ -1554,7 +1559,7 @@ public static partial class JSNativeApi
             return funcDelegate(env, value1, value2);
         }
 
-        private static unsafe napi_status CallInterop(
+        private static napi_status CallInterop(
             ref nint field,
             napi_env env,
             nint value1,
@@ -1568,7 +1573,7 @@ public static partial class JSNativeApi
             return funcDelegate(env, value1, value2, value3);
         }
 
-        private static unsafe napi_status CallInterop<TResult>(
+        private static napi_status CallInterop<TResult>(
             ref nint field,
             napi_env env,
             nint value1,
@@ -1587,7 +1592,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult>(
+        private static napi_status CallInterop<TResult>(
             ref nint field,
             napi_env env,
             nint value1,
@@ -1607,7 +1612,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop(
+        private static napi_status CallInterop(
             ref nint field,
             napi_env env,
             nint value1,
@@ -1623,7 +1628,7 @@ public static partial class JSNativeApi
             return funcDelegate(env, value1, value2, value3, value4, value5);
         }
 
-        private static unsafe napi_status CallInterop<TResult>(
+        private static napi_status CallInterop<TResult>(
             ref nint field,
             napi_env env,
             nint value1,
@@ -1645,30 +1650,7 @@ public static partial class JSNativeApi
             }
         }
 
-        private static unsafe napi_status CallInterop<TResult>(
-            ref nint field,
-            napi_env env,
-            nint value1,
-            nint value2,
-            nint value3,
-            nint value4,
-            nint value5,
-            nint value6,
-            out TResult result,
-            [CallerMemberName] string functionName = "")
-            where TResult : unmanaged
-        {
-            nint funcHandle = GetExport(ref field, functionName);
-            var funcDelegate = (delegate* unmanaged[Cdecl]<
-                napi_env, nint, nint, nint, nint, nint, nint, nint, napi_status>)funcHandle;
-            fixed (TResult* result_native = &result)
-            {
-                return funcDelegate(
-                    env, value1, value2, value3, value4, value5, value6, (nint)result_native);
-            }
-        }
-
-        private static unsafe napi_status CallInterop(
+        private static napi_status CallInterop(
             ref nint field,
             napi_env env,
             nint value,
