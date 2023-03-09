@@ -14,9 +14,8 @@ public static partial class JSNativeApi
     [SuppressUnmanagedCodeSecurity]
     public unsafe static partial class Interop
     {
-        private static nint _libraryHandle;
-        private static readonly nint[] _functions = new nint[(int)FunctionId.FunctionCount];
-
+        private static nint s_libraryHandle;
+        private static FunctionFields s_fields = new();
         private static bool s_initialized;
 
         public static void Initialize(nint libraryHandle)
@@ -24,7 +23,7 @@ public static partial class JSNativeApi
             if (s_initialized) return;
             s_initialized = true;
 
-            _libraryHandle = libraryHandle;
+            s_libraryHandle = libraryHandle;
 
             // Node APIs are all imported from the main `node` executable. Overriding the import
             // resolution is more efficient and avoids issues with library search paths and
@@ -43,163 +42,160 @@ public static partial class JSNativeApi
 
         public static readonly nuint NAPI_AUTO_LENGTH = nuint.MaxValue;
 
-        public enum FunctionId
+        private struct FunctionFields
         {
             // js_native_api.h APIs
-            napi_get_last_error_info,
-            napi_get_undefined,
-            napi_get_null,
-            napi_get_global,
-            napi_get_boolean,
-            napi_create_object,
-            napi_create_array,
-            napi_create_array_with_length,
-            napi_create_double,
-            napi_create_int32,
-            napi_create_uint32,
-            napi_create_int64,
-            napi_create_string_latin1,
-            napi_create_string_utf8,
-            napi_create_string_utf16,
-            napi_create_symbol,
-            node_api_symbol_for,
-            napi_create_function,
-            napi_create_error,
-            napi_create_type_error,
-            napi_create_range_error,
-            node_api_create_syntax_error,
-            napi_typeof,
-            napi_get_value_double,
-            napi_get_value_int32,
-            napi_get_value_uint32,
-            napi_get_value_int64,
-            napi_get_value_bool,
-            napi_get_value_string_latin1,
-            napi_get_value_string_utf8,
-            napi_get_value_string_utf16,
-            napi_coerce_to_bool,
-            napi_coerce_to_number,
-            napi_coerce_to_object,
-            napi_coerce_to_string,
-            napi_get_prototype,
-            napi_get_property_names,
-            napi_set_property,
-            napi_has_property,
-            napi_get_property,
-            napi_delete_property,
-            napi_has_own_property,
-            napi_set_named_property,
-            napi_has_named_property,
-            napi_get_named_property,
-            napi_set_element,
-            napi_has_element,
-            napi_get_element,
-            napi_delete_element,
-            napi_define_properties,
-            napi_is_array,
-            napi_get_array_length,
-            napi_strict_equals,
-            napi_call_function,
-            napi_new_instance,
-            napi_instanceof,
-            napi_get_cb_info,
-            napi_get_new_target,
-            napi_define_class,
-            napi_wrap,
-            napi_unwrap,
-            napi_remove_wrap,
-            napi_create_external,
-            napi_get_value_external,
-            napi_create_reference,
-            napi_delete_reference,
-            napi_reference_ref,
-            napi_reference_unref,
-            napi_get_reference_value,
-            napi_open_handle_scope,
-            napi_close_handle_scope,
-            napi_open_escapable_handle_scope,
-            napi_close_escapable_handle_scope,
-            napi_escape_handle,
-            napi_throw,
-            napi_throw_error,
-            napi_throw_type_error,
-            napi_throw_range_error,
-            node_api_throw_syntax_error,
-            napi_is_error,
-            napi_is_exception_pending,
-            napi_get_and_clear_last_exception,
-            napi_is_arraybuffer,
-            napi_create_arraybuffer,
-            napi_create_external_arraybuffer,
-            napi_get_arraybuffer_info,
-            napi_is_typedarray,
-            napi_create_typedarray,
-            napi_get_typedarray_info,
-            napi_create_dataview,
-            napi_is_dataview,
-            napi_get_dataview_info,
-            napi_get_version,
-            napi_create_promise,
-            napi_resolve_deferred,
-            napi_reject_deferred,
-            napi_is_promise,
-            napi_run_script,
-            napi_adjust_external_memory,
-            napi_create_date,
-            napi_is_date,
-            napi_get_date_value,
-            napi_add_finalizer,
-            napi_create_bigint_int64,
-            napi_create_bigint_uint64,
-            napi_create_bigint_words,
-            napi_get_value_bigint_int64,
-            napi_get_value_bigint_uint64,
-            napi_get_value_bigint_words,
-            napi_get_all_property_names,
-            napi_set_instance_data,
-            napi_get_instance_data,
-            napi_detach_arraybuffer,
-            napi_is_detached_arraybuffer,
-            napi_type_tag_object,
-            napi_check_object_type_tag,
-            napi_object_freeze,
-            napi_object_seal,
+            public nint napi_get_last_error_info;
+            public nint napi_get_undefined;
+            public nint napi_get_null;
+            public nint napi_get_global;
+            public nint napi_get_boolean;
+            public nint napi_create_object;
+            public nint napi_create_array;
+            public nint napi_create_array_with_length;
+            public nint napi_create_double;
+            public nint napi_create_int32;
+            public nint napi_create_uint32;
+            public nint napi_create_int64;
+            public nint napi_create_string_latin1;
+            public nint napi_create_string_utf8;
+            public nint napi_create_string_utf16;
+            public nint napi_create_symbol;
+            public nint node_api_symbol_for;
+            public nint napi_create_function;
+            public nint napi_create_error;
+            public nint napi_create_type_error;
+            public nint napi_create_range_error;
+            public nint node_api_create_syntax_error;
+            public nint napi_typeof;
+            public nint napi_get_value_double;
+            public nint napi_get_value_int32;
+            public nint napi_get_value_uint32;
+            public nint napi_get_value_int64;
+            public nint napi_get_value_bool;
+            public nint napi_get_value_string_latin1;
+            public nint napi_get_value_string_utf8;
+            public nint napi_get_value_string_utf16;
+            public nint napi_coerce_to_bool;
+            public nint napi_coerce_to_number;
+            public nint napi_coerce_to_object;
+            public nint napi_coerce_to_string;
+            public nint napi_get_prototype;
+            public nint napi_get_property_names;
+            public nint napi_set_property;
+            public nint napi_has_property;
+            public nint napi_get_property;
+            public nint napi_delete_property;
+            public nint napi_has_own_property;
+            public nint napi_set_named_property;
+            public nint napi_has_named_property;
+            public nint napi_get_named_property;
+            public nint napi_set_element;
+            public nint napi_has_element;
+            public nint napi_get_element;
+            public nint napi_delete_element;
+            public nint napi_define_properties;
+            public nint napi_is_array;
+            public nint napi_get_array_length;
+            public nint napi_strict_equals;
+            public nint napi_call_function;
+            public nint napi_new_instance;
+            public nint napi_instanceof;
+            public nint napi_get_cb_info;
+            public nint napi_get_new_target;
+            public nint napi_define_class;
+            public nint napi_wrap;
+            public nint napi_unwrap;
+            public nint napi_remove_wrap;
+            public nint napi_create_external;
+            public nint napi_get_value_external;
+            public nint napi_create_reference;
+            public nint napi_delete_reference;
+            public nint napi_reference_ref;
+            public nint napi_reference_unref;
+            public nint napi_get_reference_value;
+            public nint napi_open_handle_scope;
+            public nint napi_close_handle_scope;
+            public nint napi_open_escapable_handle_scope;
+            public nint napi_close_escapable_handle_scope;
+            public nint napi_escape_handle;
+            public nint napi_throw;
+            public nint napi_throw_error;
+            public nint napi_throw_type_error;
+            public nint napi_throw_range_error;
+            public nint node_api_throw_syntax_error;
+            public nint napi_is_error;
+            public nint napi_is_exception_pending;
+            public nint napi_get_and_clear_last_exception;
+            public nint napi_is_arraybuffer;
+            public nint napi_create_arraybuffer;
+            public nint napi_create_external_arraybuffer;
+            public nint napi_get_arraybuffer_info;
+            public nint napi_is_typedarray;
+            public nint napi_create_typedarray;
+            public nint napi_get_typedarray_info;
+            public nint napi_create_dataview;
+            public nint napi_is_dataview;
+            public nint napi_get_dataview_info;
+            public nint napi_get_version;
+            public nint napi_create_promise;
+            public nint napi_resolve_deferred;
+            public nint napi_reject_deferred;
+            public nint napi_is_promise;
+            public nint napi_run_script;
+            public nint napi_adjust_external_memory;
+            public nint napi_create_date;
+            public nint napi_is_date;
+            public nint napi_get_date_value;
+            public nint napi_add_finalizer;
+            public nint napi_create_bigint_int64;
+            public nint napi_create_bigint_uint64;
+            public nint napi_create_bigint_words;
+            public nint napi_get_value_bigint_int64;
+            public nint napi_get_value_bigint_uint64;
+            public nint napi_get_value_bigint_words;
+            public nint napi_get_all_property_names;
+            public nint napi_set_instance_data;
+            public nint napi_get_instance_data;
+            public nint napi_detach_arraybuffer;
+            public nint napi_is_detached_arraybuffer;
+            public nint napi_type_tag_object;
+            public nint napi_check_object_type_tag;
+            public nint napi_object_freeze;
+            public nint napi_object_seal;
 
             // node_api.h APIs
-            napi_module_register,
-            napi_fatal_error,
-            napi_async_init,
-            napi_async_destroy,
-            napi_make_callback,
-            napi_create_buffer,
-            napi_create_external_buffer,
-            napi_create_buffer_copy,
-            napi_is_buffer,
-            napi_get_buffer_info,
-            napi_create_async_work,
-            napi_delete_async_work,
-            napi_queue_async_work,
-            napi_cancel_async_work,
-            napi_get_node_version,
-            napi_get_uv_event_loop,
-            napi_fatal_exception,
-            napi_add_env_cleanup_hook,
-            napi_remove_env_cleanup_hook,
-            napi_open_callback_scope,
-            napi_close_callback_scope,
-            napi_create_threadsafe_function,
-            napi_get_threadsafe_function_context,
-            napi_call_threadsafe_function,
-            napi_acquire_threadsafe_function,
-            napi_release_threadsafe_function,
-            napi_unref_threadsafe_function,
-            napi_ref_threadsafe_function,
-            napi_add_async_cleanup_hook,
-            napi_remove_async_cleanup_hook,
-            node_api_get_module_file_name,
-
-            // A special value to get function count. Must the last one.
-            FunctionCount,
+            public nint napi_module_register;
+            public nint napi_fatal_error;
+            public nint napi_async_init;
+            public nint napi_async_destroy;
+            public nint napi_make_callback;
+            public nint napi_create_buffer;
+            public nint napi_create_external_buffer;
+            public nint napi_create_buffer_copy;
+            public nint napi_is_buffer;
+            public nint napi_get_buffer_info;
+            public nint napi_create_async_work;
+            public nint napi_delete_async_work;
+            public nint napi_queue_async_work;
+            public nint napi_cancel_async_work;
+            public nint napi_get_node_version;
+            public nint napi_get_uv_event_loop;
+            public nint napi_fatal_exception;
+            public nint napi_add_env_cleanup_hook;
+            public nint napi_remove_env_cleanup_hook;
+            public nint napi_open_callback_scope;
+            public nint napi_close_callback_scope;
+            public nint napi_create_threadsafe_function;
+            public nint napi_get_threadsafe_function_context;
+            public nint napi_call_threadsafe_function;
+            public nint napi_acquire_threadsafe_function;
+            public nint napi_release_threadsafe_function;
+            public nint napi_unref_threadsafe_function;
+            public nint napi_ref_threadsafe_function;
+            public nint napi_add_async_cleanup_hook;
+            public nint napi_remove_async_cleanup_hook;
+            public nint node_api_get_module_file_name;
         }
 
         //===========================================================================
@@ -383,21 +379,21 @@ public static partial class JSNativeApi
         }
 
         internal static napi_status napi_get_last_error_info(napi_env env, out nint result)
-            => CallInterop(FunctionId.napi_get_last_error_info, env, out result);
+            => CallInterop(ref s_fields.napi_get_last_error_info, env, out result);
 
         internal static napi_status napi_get_undefined(napi_env env, out napi_value result)
-            => CallInterop(FunctionId.napi_get_undefined, env, out result);
+            => CallInterop(ref s_fields.napi_get_undefined, env, out result);
 
         internal static napi_status napi_get_null(napi_env env, out napi_value result)
-            => CallInterop(FunctionId.napi_get_null, env, out result);
+            => CallInterop(ref s_fields.napi_get_null, env, out result);
 
         internal static napi_status napi_get_global(napi_env env, out napi_value result)
-            => CallInterop(FunctionId.napi_get_global, env, out result);
+            => CallInterop(ref s_fields.napi_get_global, env, out result);
 
         internal static napi_status napi_get_boolean(
             napi_env env, c_bool value, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_get_boolean);
+            nint funcHandle = GetExport(ref s_fields.napi_get_boolean);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, c_bool, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -407,20 +403,20 @@ public static partial class JSNativeApi
         }
 
         internal static napi_status napi_create_object(napi_env env, out napi_value result)
-            => CallInterop(FunctionId.napi_create_object, env, out result);
+            => CallInterop(ref s_fields.napi_create_object, env, out result);
 
         internal static napi_status napi_create_array(napi_env env, out napi_value result)
-            => CallInterop(FunctionId.napi_create_array, env, out result);
+            => CallInterop(ref s_fields.napi_create_array, env, out result);
 
         internal static napi_status napi_create_array_with_length(
             napi_env env, nuint length, out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_array_with_length, env, (nint)length, out result);
+                ref s_fields.napi_create_array_with_length, env, (nint)length, out result);
 
         internal static napi_status napi_create_double(
             napi_env env, double value, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_double);
+            nint funcHandle = GetExport(ref s_fields.napi_create_double);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, double, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -432,7 +428,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_int32(
             napi_env env, int value, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_int32);
+            nint funcHandle = GetExport(ref s_fields.napi_create_int32);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, int, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -444,7 +440,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_uint32(
             napi_env env, uint value, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_uint32);
+            nint funcHandle = GetExport(ref s_fields.napi_create_uint32);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, uint, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -456,7 +452,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_int64(
             napi_env env, long value, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_int64);
+            nint funcHandle = GetExport(ref s_fields.napi_create_int64);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, long, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -468,7 +464,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_string_latin1(
             napi_env env, byte* str, nuint length, out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_string_latin1,
+                ref s_fields.napi_create_string_latin1,
                 env,
                 (nint)str,
                 (nint)length,
@@ -477,7 +473,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_string_utf8(
             napi_env env, byte* str, nuint length, out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_string_utf8,
+                ref s_fields.napi_create_string_utf8,
                 env,
                 (nint)str,
                 (nint)length,
@@ -486,7 +482,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_string_utf16(
             napi_env env, char* str, nuint length, out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_string_utf16,
+                ref s_fields.napi_create_string_utf16,
                 env,
                 (nint)str,
                 (nint)length,
@@ -495,12 +491,12 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_symbol(
             napi_env env, napi_value description, out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_symbol, env, description.Handle, out result);
+                ref s_fields.napi_create_symbol, env, description.Handle, out result);
 
         internal static napi_status node_api_symbol_for(
             napi_env env, byte* utf8name, nuint length, out napi_value result)
             => CallInterop(
-                FunctionId.node_api_symbol_for,
+                ref s_fields.node_api_symbol_for,
                 env,
                 (nint)utf8name,
                 (nint)length,
@@ -514,7 +510,7 @@ public static partial class JSNativeApi
             nint data,
             out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_function,
+                ref s_fields.napi_create_function,
                 env,
                 (nint)utf8name,
                 (nint)length,
@@ -525,7 +521,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_error(
             napi_env env, napi_value code, napi_value msg, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_error);
+            nint funcHandle = GetExport(ref s_fields.napi_create_error);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, napi_value, napi_value, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -537,7 +533,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_type_error(
             napi_env env, napi_value code, napi_value msg, out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_type_error,
+                ref s_fields.napi_create_type_error,
                 env,
                 code.Handle,
                 msg.Handle,
@@ -546,7 +542,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_range_error(
             napi_env env, napi_value code, napi_value msg, out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_range_error,
+                ref s_fields.napi_create_range_error,
                 env,
                 code.Handle,
                 msg.Handle,
@@ -555,7 +551,7 @@ public static partial class JSNativeApi
         internal static napi_status node_api_create_syntax_error(
             napi_env env, napi_value code, napi_value msg, out napi_value result)
             => CallInterop(
-                FunctionId.node_api_create_syntax_error,
+                ref s_fields.node_api_create_syntax_error,
                 env,
                 code.Handle,
                 msg.Handle,
@@ -563,37 +559,37 @@ public static partial class JSNativeApi
 
         internal static napi_status napi_typeof(
             napi_env env, napi_value value, out napi_valuetype result)
-            => CallInterop(FunctionId.napi_typeof, env, value.Handle, out result);
+            => CallInterop(ref s_fields.napi_typeof, env, value.Handle, out result);
 
         internal static napi_status napi_get_value_double(
             napi_env env, napi_value value, out double result)
             => CallInterop(
-                FunctionId.napi_get_value_double, env, value.Handle, out result);
+                ref s_fields.napi_get_value_double, env, value.Handle, out result);
 
         internal static napi_status napi_get_value_int32(
             napi_env env, napi_value value, out int result)
             => CallInterop(
-                FunctionId.napi_get_value_int32, env, value.Handle, out result);
+                ref s_fields.napi_get_value_int32, env, value.Handle, out result);
 
         internal static napi_status napi_get_value_uint32(
             napi_env env, napi_value value, out uint result)
             => CallInterop(
-                FunctionId.napi_get_value_uint32, env, value.Handle, out result);
+                ref s_fields.napi_get_value_uint32, env, value.Handle, out result);
 
         internal static napi_status napi_get_value_int64(
             napi_env env, napi_value value, out long result)
             => CallInterop(
-                FunctionId.napi_get_value_int64, env, value.Handle, out result);
+                ref s_fields.napi_get_value_int64, env, value.Handle, out result);
 
         internal static napi_status napi_get_value_bool(
             napi_env env, napi_value value, out c_bool result)
             => CallInterop(
-                FunctionId.napi_get_value_bool, env, value.Handle, out result);
+                ref s_fields.napi_get_value_bool, env, value.Handle, out result);
 
         internal static napi_status napi_get_value_string_latin1(
             napi_env env, napi_value value, nint buf, nuint bufsize, out nuint result)
             => CallInterop(
-                FunctionId.napi_get_value_string_latin1,
+                ref s_fields.napi_get_value_string_latin1,
                 env,
                 value.Handle,
                 buf,
@@ -603,7 +599,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_value_string_utf8(
             napi_env env, napi_value value, nint buf, nuint bufsize, out nuint result)
             => CallInterop(
-                FunctionId.napi_get_value_string_utf8,
+                ref s_fields.napi_get_value_string_utf8,
                 env,
                 value.Handle,
                 buf,
@@ -613,7 +609,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_value_string_utf16(
             napi_env env, napi_value value, nint buf, nuint bufsize, out nuint result)
             => CallInterop(
-                FunctionId.napi_get_value_string_utf16,
+                ref s_fields.napi_get_value_string_utf16,
                 env,
                 value.Handle,
                 buf,
@@ -622,37 +618,37 @@ public static partial class JSNativeApi
 
         internal static napi_status napi_coerce_to_bool(
             napi_env env, napi_value value, out napi_value result)
-            => CallInterop(FunctionId.napi_coerce_to_bool, env, value.Handle, out result);
+            => CallInterop(ref s_fields.napi_coerce_to_bool, env, value.Handle, out result);
 
         internal static napi_status napi_coerce_to_number(
             napi_env env, napi_value value, out napi_value result)
             => CallInterop(
-                FunctionId.napi_coerce_to_number, env, value.Handle, out result);
+                ref s_fields.napi_coerce_to_number, env, value.Handle, out result);
 
         internal static napi_status napi_coerce_to_object(
             napi_env env, napi_value value, out napi_value result)
             => CallInterop(
-                FunctionId.napi_coerce_to_object, env, value.Handle, out result);
+                ref s_fields.napi_coerce_to_object, env, value.Handle, out result);
 
         internal static napi_status napi_coerce_to_string(
             napi_env env, napi_value value, out napi_value result)
             => CallInterop(
-                FunctionId.napi_coerce_to_string, env, value.Handle, out result);
+                ref s_fields.napi_coerce_to_string, env, value.Handle, out result);
 
         internal static napi_status napi_get_prototype(
             napi_env env, napi_value js_object, out napi_value result)
             => CallInterop(
-                FunctionId.napi_get_prototype, env, js_object.Handle, out result);
+                ref s_fields.napi_get_prototype, env, js_object.Handle, out result);
 
         internal static napi_status napi_get_property_names(
             napi_env env, napi_value js_object, out napi_value result)
             => CallInterop(
-                FunctionId.napi_get_property_names, env, js_object.Handle, out result);
+                ref s_fields.napi_get_property_names, env, js_object.Handle, out result);
 
         internal static napi_status napi_set_property(
             napi_env env, napi_value js_object, napi_value key, napi_value value)
             => CallInterop(
-                FunctionId.napi_set_property,
+                ref s_fields.napi_set_property,
                 env,
                 js_object.Handle,
                 key.Handle,
@@ -661,7 +657,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_has_property(
             napi_env env, napi_value js_object, napi_value key, out c_bool result)
             => CallInterop(
-                FunctionId.napi_has_property,
+                ref s_fields.napi_has_property,
                 env,
                 js_object.Handle,
                 key.Handle,
@@ -670,7 +666,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_property(
             napi_env env, napi_value js_object, napi_value key, out napi_value result)
             => CallInterop(
-                FunctionId.napi_get_property,
+                ref s_fields.napi_get_property,
                 env,
                 js_object.Handle,
                 key.Handle,
@@ -679,7 +675,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_delete_property(
             napi_env env, napi_value js_object, napi_value key, out c_bool result)
             => CallInterop(
-                FunctionId.napi_delete_property,
+                ref s_fields.napi_delete_property,
                 env,
                 js_object.Handle,
                 key.Handle,
@@ -688,7 +684,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_has_own_property(
             napi_env env, napi_value js_object, napi_value key, out c_bool result)
             => CallInterop(
-                FunctionId.napi_has_own_property,
+                ref s_fields.napi_has_own_property,
                 env,
                 js_object.Handle,
                 key.Handle,
@@ -697,7 +693,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_set_named_property(
             napi_env env, napi_value js_object, nint utf8name, napi_value value)
             => CallInterop(
-                FunctionId.napi_set_named_property,
+                ref s_fields.napi_set_named_property,
                 env,
                 js_object.Handle,
                 utf8name,
@@ -706,7 +702,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_has_named_property(
             napi_env env, napi_value js_object, nint utf8name, out c_bool result)
             => CallInterop(
-                FunctionId.napi_has_named_property,
+                ref s_fields.napi_has_named_property,
                 env,
                 js_object.Handle,
                 utf8name,
@@ -715,7 +711,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_named_property(
             napi_env env, napi_value js_object, nint utf8name, out napi_value result)
             => CallInterop(
-                FunctionId.napi_get_named_property,
+                ref s_fields.napi_get_named_property,
                 env,
                 js_object.Handle,
                 utf8name,
@@ -724,7 +720,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_set_element(
             napi_env env, napi_value js_object, uint index, napi_value value)
         {
-            nint funcHandle = GetExport(FunctionId.napi_set_element);
+            nint funcHandle = GetExport(ref s_fields.napi_set_element);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, napi_value, uint, napi_value, napi_status>)funcHandle;
             return funcDelegate(env, js_object, index, value);
@@ -733,7 +729,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_has_element(
             napi_env env, napi_value js_object, uint index, out c_bool result)
             => CallInterop(
-                FunctionId.napi_has_element,
+                ref s_fields.napi_has_element,
                 env,
                 js_object.Handle,
                 index,
@@ -742,7 +738,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_element(
             napi_env env, napi_value js_object, uint index, out napi_value result)
             => CallInterop(
-                FunctionId.napi_get_element,
+                ref s_fields.napi_get_element,
                 env,
                 js_object.Handle,
                 index,
@@ -751,12 +747,12 @@ public static partial class JSNativeApi
         internal static napi_status napi_delete_element(
             napi_env env, napi_value js_object, uint index, out c_bool result)
             => CallInterop(
-                FunctionId.napi_delete_element, env, js_object.Handle, index, out result);
+                ref s_fields.napi_delete_element, env, js_object.Handle, index, out result);
 
         internal static napi_status napi_define_properties(
             napi_env env, napi_value js_object, nuint property_count, nint properties)
             => CallInterop(
-                FunctionId.napi_define_properties,
+                ref s_fields.napi_define_properties,
                 env,
                 js_object.Handle,
                 (nint)property_count,
@@ -764,17 +760,17 @@ public static partial class JSNativeApi
 
         internal static napi_status napi_is_array(
             napi_env env, napi_value value, out c_bool result)
-            => CallInterop(FunctionId.napi_is_array, env, value.Handle, out result);
+            => CallInterop(ref s_fields.napi_is_array, env, value.Handle, out result);
 
         internal static napi_status napi_get_array_length(
             napi_env env, napi_value value, out uint result)
             => CallInterop(
-                FunctionId.napi_get_array_length, env, value.Handle, out result);
+                ref s_fields.napi_get_array_length, env, value.Handle, out result);
 
         internal static napi_status napi_strict_equals(
             napi_env env, napi_value lhs, napi_value rhs, out c_bool result)
             => CallInterop(
-                FunctionId.napi_strict_equals, env, lhs.Handle, rhs.Handle, out result);
+                ref s_fields.napi_strict_equals, env, lhs.Handle, rhs.Handle, out result);
 
         internal static napi_status napi_call_function(
             napi_env env,
@@ -784,7 +780,7 @@ public static partial class JSNativeApi
             nint argv,
             out napi_value result)
             => CallInterop(
-                FunctionId.napi_call_function,
+                ref s_fields.napi_call_function,
                 env,
                 recv.Handle,
                 func.Handle,
@@ -799,7 +795,7 @@ public static partial class JSNativeApi
             nint argv,
             out napi_value result)
             => CallInterop(
-                FunctionId.napi_new_instance,
+                ref s_fields.napi_new_instance,
                 env,
                 constructor.Handle,
                 (nint)argc,
@@ -809,7 +805,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_instanceof(
             napi_env env, napi_value js_object, napi_value constructor, out c_bool result)
             => CallInterop(
-                FunctionId.napi_instanceof,
+                ref s_fields.napi_instanceof,
                 env,
                 js_object.Handle,
                 constructor.Handle,
@@ -824,7 +820,7 @@ public static partial class JSNativeApi
             napi_value* this_arg,      // [out] Receives the JS 'this' arg for the call
             nint* data)                // [out] Receives the data pointer for the callback.
             => CallInterop(
-                FunctionId.napi_get_cb_info,
+                ref s_fields.napi_get_cb_info,
                 env,
                 cbinfo.Handle,
                 (nint)argc,
@@ -835,7 +831,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_new_target(
             napi_env env, napi_callback_info cbinfo, out napi_value result)
             => CallInterop(
-                FunctionId.napi_get_new_target, env, cbinfo.Handle, out result);
+                ref s_fields.napi_get_new_target, env, cbinfo.Handle, out result);
 
         internal static napi_status napi_define_class(
             napi_env env,
@@ -847,7 +843,7 @@ public static partial class JSNativeApi
             nint properties,
             out napi_value result)
             => CallInterop(
-                FunctionId.napi_define_class,
+                ref s_fields.napi_define_class,
                 env,
                 utf8name,
                 (nint)length,
@@ -865,7 +861,7 @@ public static partial class JSNativeApi
             nint finalize_hint,
             napi_ref* result)
             => CallInterop(
-                FunctionId.napi_wrap,
+                ref s_fields.napi_wrap,
                 env,
                 js_object.Handle,
                 native_object,
@@ -875,12 +871,12 @@ public static partial class JSNativeApi
 
         internal static napi_status napi_unwrap(
             napi_env env, napi_value js_object, out nint result)
-            => CallInterop(FunctionId.napi_unwrap, env, js_object.Handle, out result);
+            => CallInterop(ref s_fields.napi_unwrap, env, js_object.Handle, out result);
 
         internal static napi_status napi_remove_wrap(
             napi_env env, napi_value js_object, out nint result)
             => CallInterop(
-                FunctionId.napi_remove_wrap, env, js_object.Handle, out result);
+                ref s_fields.napi_remove_wrap, env, js_object.Handle, out result);
 
         internal static napi_status napi_create_external(
             napi_env env,
@@ -889,7 +885,7 @@ public static partial class JSNativeApi
             nint finalize_hint,
             out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_external,
+                ref s_fields.napi_create_external,
                 env,
                 data,
                 (nint)finalize_cb.Handle,
@@ -899,12 +895,12 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_value_external(
             napi_env env, napi_value value, out nint result)
             => CallInterop(
-                FunctionId.napi_get_value_external, env, value.Handle, out result);
+                ref s_fields.napi_get_value_external, env, value.Handle, out result);
 
         internal static napi_status napi_create_reference(
             napi_env env, napi_value value, uint initial_refcount, out napi_ref result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_reference);
+            nint funcHandle = GetExport(ref s_fields.napi_create_reference);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, napi_value, uint, nint, napi_status>)funcHandle;
             fixed (napi_ref* result_native = &result)
@@ -914,79 +910,79 @@ public static partial class JSNativeApi
         }
 
         internal static napi_status napi_delete_reference(napi_env env, napi_ref @ref)
-            => CallInterop(FunctionId.napi_delete_reference, env, @ref.Handle);
+            => CallInterop(ref s_fields.napi_delete_reference, env, @ref.Handle);
 
         internal static napi_status napi_reference_ref(napi_env env, napi_ref @ref, nint result)
-            => CallInterop(FunctionId.napi_reference_ref, env, @ref.Handle, result);
+            => CallInterop(ref s_fields.napi_reference_ref, env, @ref.Handle, result);
 
         internal static napi_status napi_reference_unref(napi_env env, napi_ref @ref, nint result)
-            => CallInterop(FunctionId.napi_reference_unref, env, @ref.Handle, result);
+            => CallInterop(ref s_fields.napi_reference_unref, env, @ref.Handle, result);
 
         internal static napi_status napi_get_reference_value(
             napi_env env, napi_ref @ref, out napi_value result)
             => CallInterop(
-                FunctionId.napi_get_reference_value, env, @ref.Handle, out result);
+                ref s_fields.napi_get_reference_value, env, @ref.Handle, out result);
 
         internal static napi_status napi_open_handle_scope(
             napi_env env, out napi_handle_scope result)
-            => CallInterop(FunctionId.napi_open_handle_scope, env, out result);
+            => CallInterop(ref s_fields.napi_open_handle_scope, env, out result);
 
         internal static napi_status napi_close_handle_scope(napi_env env, napi_handle_scope scope)
-            => CallInterop(FunctionId.napi_close_handle_scope, env, scope.Handle);
+            => CallInterop(ref s_fields.napi_close_handle_scope, env, scope.Handle);
 
         internal static napi_status napi_open_escapable_handle_scope(
             napi_env env, out napi_escapable_handle_scope result)
-            => CallInterop(FunctionId.napi_open_escapable_handle_scope, env, out result);
+            => CallInterop(ref s_fields.napi_open_escapable_handle_scope, env, out result);
 
         internal static napi_status napi_close_escapable_handle_scope(
             napi_env env, napi_escapable_handle_scope scope)
             => CallInterop(
-                FunctionId.napi_close_escapable_handle_scope, env, scope.Handle);
+                ref s_fields.napi_close_escapable_handle_scope, env, scope.Handle);
 
         internal static napi_status napi_escape_handle(napi_env env,
             napi_escapable_handle_scope scope, napi_value escapee, out napi_value result)
             => CallInterop(
-                FunctionId.napi_escape_handle,
+                ref s_fields.napi_escape_handle,
                 env,
                 scope.Handle,
                 escapee.Handle,
                 out result);
 
         internal static napi_status napi_throw(napi_env env, napi_value error)
-            => CallInterop(FunctionId.napi_throw, env, error.Handle);
+            => CallInterop(ref s_fields.napi_throw, env, error.Handle);
 
         internal static napi_status napi_throw_error(napi_env env, string? code, string msg)
-            => CallInterop(FunctionId.napi_throw_error, env, code, msg);
+            => CallInterop(ref s_fields.napi_throw_error, env, code, msg);
 
         internal static napi_status napi_throw_type_error(napi_env env, string? code, string msg)
-            => CallInterop(FunctionId.napi_throw_type_error, env, code, msg);
+            => CallInterop(ref s_fields.napi_throw_type_error, env, code, msg);
 
         internal static napi_status napi_throw_range_error(napi_env env, string? code, string msg)
-            => CallInterop(FunctionId.napi_throw_range_error, env, code, msg);
+            => CallInterop(ref s_fields.napi_throw_range_error, env, code, msg);
 
         internal static napi_status node_api_throw_syntax_error(
             napi_env env, string? code, string msg)
-            => CallInterop(FunctionId.node_api_throw_syntax_error, env, code, msg);
+            => CallInterop(ref s_fields.node_api_throw_syntax_error, env, code, msg);
 
         internal static napi_status napi_is_error(
             napi_env env, napi_value value, out c_bool result)
-            => CallInterop(FunctionId.napi_is_error, env, value.Handle, out result);
+            => CallInterop(ref s_fields.napi_is_error, env, value.Handle, out result);
 
         internal static napi_status napi_is_exception_pending(napi_env env, out c_bool result)
-            => CallInterop(FunctionId.napi_is_exception_pending, env, out result);
+            => CallInterop(ref s_fields.napi_is_exception_pending, env, out result);
 
         internal static napi_status napi_get_and_clear_last_exception(
             napi_env env, out napi_value result)
-            => CallInterop(FunctionId.napi_get_and_clear_last_exception, env, out result);
+            => CallInterop(ref s_fields.napi_get_and_clear_last_exception, env, out result);
 
         internal static napi_status napi_is_arraybuffer(
             napi_env env, napi_value value, out c_bool result)
-            => CallInterop(FunctionId.napi_is_arraybuffer, env, value.Handle, out result);
+            => CallInterop(ref s_fields.napi_is_arraybuffer, env, value.Handle, out result);
 
         internal static napi_status napi_create_arraybuffer(
             napi_env env, nuint byte_length, out nint data, out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_arraybuffer,
+                ref s_fields.napi_create_arraybuffer,
                 env,
                 (nint)byte_length,
                 out data,
@@ -1000,7 +996,7 @@ public static partial class JSNativeApi
             nint finalize_hint,
             out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_external_arraybuffer,
+                ref s_fields.napi_create_external_arraybuffer,
                 env,
                 external_data,
                 (nint)byte_length,
@@ -1011,7 +1007,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_arraybuffer_info(
             napi_env env, napi_value arraybuffer, out nint data, out nuint byte_length)
             => CallInterop(
-                FunctionId.napi_get_arraybuffer_info,
+                ref s_fields.napi_get_arraybuffer_info,
                 env,
                 arraybuffer.Handle,
                 out data,
@@ -1019,7 +1015,7 @@ public static partial class JSNativeApi
 
         internal static napi_status napi_is_typedarray(
             napi_env env, napi_value value, out c_bool result)
-            => CallInterop(FunctionId.napi_is_typedarray, env, value.Handle, out result);
+            => CallInterop(ref s_fields.napi_is_typedarray, env, value.Handle, out result);
 
         internal static napi_status napi_create_typedarray(
             napi_env env,
@@ -1029,7 +1025,7 @@ public static partial class JSNativeApi
             nuint byte_offset,
             out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_typedarray);
+            nint funcHandle = GetExport(ref s_fields.napi_create_typedarray);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env,
                 napi_typedarray_type,
@@ -1059,7 +1055,7 @@ public static partial class JSNativeApi
                 out napi_value arraybuffer,
                 out nuint byte_offset)
                 => CallInterop(
-                        FunctionId.napi_get_typedarray_info,
+                        ref s_fields.napi_get_typedarray_info,
                     env,
                     typedarray.Handle,
                     out type,
@@ -1075,7 +1071,7 @@ public static partial class JSNativeApi
             nuint byte_offset,
             out napi_value result)
             => CallInterop(
-                FunctionId.napi_create_dataview,
+                ref s_fields.napi_create_dataview,
                 env,
                 (nint)length,
                 arraybuffer.Handle,
@@ -1084,7 +1080,7 @@ public static partial class JSNativeApi
 
         internal static napi_status napi_is_dataview(
             napi_env env, napi_value value, out c_bool result)
-            => CallInterop(FunctionId.napi_is_dataview, env, value.Handle, out result);
+            => CallInterop(ref s_fields.napi_is_dataview, env, value.Handle, out result);
 
         internal static napi_status napi_get_dataview_info(
             napi_env env,
@@ -1094,7 +1090,7 @@ public static partial class JSNativeApi
             out napi_value arraybuffer,
             out nuint byte_offset)
             => CallInterop(
-                FunctionId.napi_get_dataview_info,
+                ref s_fields.napi_get_dataview_info,
                 env,
                 dataview.Handle,
                 out bytelength,
@@ -1103,17 +1099,17 @@ public static partial class JSNativeApi
                 out byte_offset);
 
         internal static napi_status napi_get_version(napi_env env, out uint result)
-            => CallInterop(FunctionId.napi_get_version, env, out result);
+            => CallInterop(ref s_fields.napi_get_version, env, out result);
 
         internal static napi_status napi_create_promise(
             napi_env env, out napi_deferred deferred, out napi_value promise)
             => CallInterop(
-                FunctionId.napi_create_promise, env, out deferred, out promise);
+                ref s_fields.napi_create_promise, env, out deferred, out promise);
 
         internal static napi_status napi_resolve_deferred(
             napi_env env, napi_deferred deferred, napi_value resolution)
             => CallInterop(
-                FunctionId.napi_resolve_deferred,
+                ref s_fields.napi_resolve_deferred,
                 env,
                 deferred.Handle,
                 resolution.Handle);
@@ -1121,20 +1117,20 @@ public static partial class JSNativeApi
         internal static napi_status napi_reject_deferred(
             napi_env env, napi_deferred deferred, napi_value rejection)
             => CallInterop(
-                FunctionId.napi_reject_deferred, env, deferred.Handle, rejection.Handle);
+                ref s_fields.napi_reject_deferred, env, deferred.Handle, rejection.Handle);
 
         internal static napi_status napi_is_promise(
             napi_env env, napi_value value, out c_bool is_promise)
-            => CallInterop(FunctionId.napi_is_promise, env, value.Handle, out is_promise);
+            => CallInterop(ref s_fields.napi_is_promise, env, value.Handle, out is_promise);
 
         internal static napi_status napi_run_script(
             napi_env env, napi_value script, out napi_value result)
-            => CallInterop(FunctionId.napi_run_script, env, script.Handle, out result);
+            => CallInterop(ref s_fields.napi_run_script, env, script.Handle, out result);
 
         internal static napi_status napi_adjust_external_memory(
             napi_env env, long change_in_bytes, out long adjusted_value)
         {
-            nint funcHandle = GetExport(FunctionId.napi_adjust_external_memory);
+            nint funcHandle = GetExport(ref s_fields.napi_adjust_external_memory);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, long, nint, napi_status>)funcHandle;
             fixed (long* adjusted_value_native = &adjusted_value)
@@ -1146,7 +1142,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_date(
             napi_env env, double time, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_date);
+            nint funcHandle = GetExport(ref s_fields.napi_create_date);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, double, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -1157,11 +1153,11 @@ public static partial class JSNativeApi
 
         internal static napi_status napi_is_date(
             napi_env env, napi_value value, out c_bool is_date)
-            => CallInterop(FunctionId.napi_is_date, env, value.Handle, out is_date);
+            => CallInterop(ref s_fields.napi_is_date, env, value.Handle, out is_date);
 
         internal static napi_status napi_get_date_value(
             napi_env env, napi_value value, out double result)
-            => CallInterop(FunctionId.napi_get_date_value, env, value.Handle, out result);
+            => CallInterop(ref s_fields.napi_get_date_value, env, value.Handle, out result);
 
         internal static napi_status napi_add_finalizer(
             napi_env env,
@@ -1171,7 +1167,7 @@ public static partial class JSNativeApi
             nint finalize_hint,
             napi_ref* result)
             => CallInterop(
-                FunctionId.napi_add_finalizer,
+                ref s_fields.napi_add_finalizer,
                 env,
                 js_object.Handle,
                 native_object,
@@ -1182,7 +1178,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_bigint_int64(
             napi_env env, long value, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_bigint_int64);
+            nint funcHandle = GetExport(ref s_fields.napi_create_bigint_int64);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, long, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -1195,7 +1191,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_bigint_uint64(
             napi_env env, ulong value, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_bigint_uint64);
+            nint funcHandle = GetExport(ref s_fields.napi_create_bigint_uint64);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, ulong, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -1207,7 +1203,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_create_bigint_words(
             napi_env env, int sign_bit, nuint word_count, ulong* words, out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_bigint_uint64);
+            nint funcHandle = GetExport(ref s_fields.napi_create_bigint_words);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, int, nuint, nint, nint, napi_status>)funcHandle;
             fixed (napi_value* result_native = &result)
@@ -1219,7 +1215,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_value_bigint_int64(
             napi_env env, napi_value value, out long result, out c_bool lossless)
             => CallInterop(
-                FunctionId.napi_get_value_bigint_int64,
+                ref s_fields.napi_get_value_bigint_int64,
                 env,
                 value.Handle,
                 out result,
@@ -1228,7 +1224,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_value_bigint_uint64(
             napi_env env, napi_value value, out ulong result, out c_bool lossless)
             => CallInterop(
-                FunctionId.napi_get_value_bigint_uint64,
+                ref s_fields.napi_get_value_bigint_uint64,
                 env,
                 value.Handle,
                 out result,
@@ -1237,7 +1233,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_get_value_bigint_words(
             napi_env env, napi_value value, out int sign_bit, out nuint word_count, ulong* words)
             => CallInterop(
-                FunctionId.napi_get_value_bigint_words,
+                ref s_fields.napi_get_value_bigint_words,
                 env,
                 value.Handle,
                 out sign_bit,
@@ -1252,7 +1248,7 @@ public static partial class JSNativeApi
             napi_key_conversion key_conversion,
             out napi_value result)
         {
-            nint funcHandle = GetExport(FunctionId.napi_create_bigint_uint64);
+            nint funcHandle = GetExport(ref s_fields.napi_get_all_property_names);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env,
                 napi_value,
@@ -1277,22 +1273,22 @@ public static partial class JSNativeApi
             napi_env env, nint data, napi_finalize finalize_cb, nint finalize_hint)
         {
             nint funcHandle = GetExport(
-                FunctionId.napi_set_instance_data, nameof(napi_set_instance_data));
+                ref s_fields.napi_set_instance_data, nameof(napi_set_instance_data));
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, napi_finalize, nint, napi_status>)funcHandle;
             return funcDelegate(env, data, finalize_cb, finalize_hint);
         }
 
         internal static napi_status napi_get_instance_data(napi_env env, out nint data)
-            => CallInterop(FunctionId.napi_get_instance_data, env, out data);
+            => CallInterop(ref s_fields.napi_get_instance_data, env, out data);
 
         internal static napi_status napi_detach_arraybuffer(napi_env env, napi_value arraybuffer)
-            => CallInterop(FunctionId.napi_detach_arraybuffer, env, arraybuffer.Handle);
+            => CallInterop(ref s_fields.napi_detach_arraybuffer, env, arraybuffer.Handle);
 
         internal static napi_status napi_is_detached_arraybuffer(
             napi_env env, napi_value value, out c_bool result)
             => CallInterop(
-                FunctionId.napi_is_detached_arraybuffer, env, value.Handle, out result);
+                ref s_fields.napi_is_detached_arraybuffer, env, value.Handle, out result);
 
         internal static napi_status napi_type_tag_object(
             napi_env env, napi_value value, in napi_type_tag type_tag)
@@ -1300,7 +1296,7 @@ public static partial class JSNativeApi
             fixed (napi_type_tag* type_tag_native = &type_tag)
             {
                 return CallInterop(
-                        FunctionId.napi_type_tag_object,
+                    ref s_fields.napi_type_tag_object,
                     env,
                     value.Handle,
                     (nint)type_tag_native);
@@ -1314,7 +1310,7 @@ public static partial class JSNativeApi
             fixed (c_bool* result_native = &result)
             {
                 return CallInterop(
-                        FunctionId.napi_check_object_type_tag,
+                    ref s_fields.napi_check_object_type_tag,
                     env,
                     value.Handle,
                     (nint)type_tag_native,
@@ -1323,31 +1319,31 @@ public static partial class JSNativeApi
         }
 
         internal static napi_status napi_object_freeze(napi_env env, napi_value js_object)
-            => CallInterop(FunctionId.napi_object_freeze, env, js_object.Handle);
+            => CallInterop(ref s_fields.napi_object_freeze, env, js_object.Handle);
 
         internal static napi_status napi_object_seal(napi_env env, napi_value js_object)
-            => CallInterop(FunctionId.napi_object_seal, env, js_object.Handle);
+            => CallInterop(ref s_fields.napi_object_seal, env, js_object.Handle);
 
-        private static nint GetExport(FunctionId functionId, [CallerMemberName] string functionName = "")
+        private static nint GetExport(ref nint field, [CallerMemberName] string functionName = "")
         {
-            nint methodPtr = _functions[(int)functionId];
+            nint methodPtr = field;
             if (methodPtr == nint.Zero)
             {
-                methodPtr = NativeLibrary.GetExport(_libraryHandle, functionName);
-                _functions[(int)functionId] = methodPtr;
+                methodPtr = NativeLibrary.GetExport(s_libraryHandle, functionName);
+                field = methodPtr;
             }
 
             return methodPtr;
         }
 
         private static unsafe napi_status CallInterop<TResult>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             out TResult result,
             [CallerMemberName] string functionName = "")
             where TResult : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, napi_status>)funcHandle;
             fixed (TResult* result_native = &result)
@@ -1357,7 +1353,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult1, TResult2>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             out TResult1 result1,
             out TResult2 result2,
@@ -1365,7 +1361,7 @@ public static partial class JSNativeApi
             where TResult1 : unmanaged
             where TResult2 : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, napi_status>)funcHandle;
             fixed (TResult1* result1_native = &result1)
@@ -1376,14 +1372,14 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value,
             out TResult result,
             [CallerMemberName] string functionName = "")
             where TResult : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, napi_status>)funcHandle;
             fixed (TResult* result_native = &result)
@@ -1393,7 +1389,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult1, TResult2>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value,
             out TResult1 result1,
@@ -1402,7 +1398,7 @@ public static partial class JSNativeApi
             where TResult1 : unmanaged
             where TResult2 : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, napi_status>)funcHandle;
             fixed (TResult1* result1_native = &result1)
@@ -1413,7 +1409,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult1, TResult2>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value,
             out TResult1 result1,
@@ -1423,7 +1419,7 @@ public static partial class JSNativeApi
             where TResult1 : unmanaged
             where TResult2 : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, nint, napi_status>)funcHandle;
             fixed (TResult1* result1_native = &result1)
@@ -1435,7 +1431,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult1, TResult2, TResult3, TResult4>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value,
             out TResult1 result1,
@@ -1448,7 +1444,7 @@ public static partial class JSNativeApi
             where TResult3 : unmanaged
             where TResult4 : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, nint, nint, napi_status>)funcHandle;
             fixed (TResult1* result1_native = &result1)
@@ -1468,7 +1464,7 @@ public static partial class JSNativeApi
 
         private static unsafe napi_status CallInterop<
             TResult1, TResult2, TResult3, TResult4, TResult5>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value,
             out TResult1 result1,
@@ -1483,7 +1479,7 @@ public static partial class JSNativeApi
             where TResult4 : unmanaged
             where TResult5 : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env,
                 nint,
@@ -1511,7 +1507,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             nint value2,
@@ -1519,7 +1515,7 @@ public static partial class JSNativeApi
             [CallerMemberName] string functionName = "")
             where TResult : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, napi_status>)funcHandle;
             fixed (TResult* result_native = &result)
@@ -1529,7 +1525,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             uint value2,
@@ -1537,7 +1533,7 @@ public static partial class JSNativeApi
             [CallerMemberName] string functionName = "")
             where TResult : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, uint, nint, napi_status>)funcHandle;
             fixed (TResult* result_native = &result)
@@ -1546,34 +1542,34 @@ public static partial class JSNativeApi
             }
         }
         private static unsafe napi_status CallInterop(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             nint value2,
             [CallerMemberName] string functionName = "")
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, napi_status>)funcHandle;
             return funcDelegate(env, value1, value2);
         }
 
         private static unsafe napi_status CallInterop(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             nint value2,
             nint value3,
             [CallerMemberName] string functionName = "")
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, napi_status>)funcHandle;
             return funcDelegate(env, value1, value2, value3);
         }
 
         private static unsafe napi_status CallInterop<TResult>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             nint value2,
@@ -1582,7 +1578,7 @@ public static partial class JSNativeApi
             [CallerMemberName] string functionName = "")
             where TResult : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, nint, napi_status>)funcHandle;
             fixed (TResult* result_native = &result)
@@ -1592,7 +1588,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             nint value2,
@@ -1602,7 +1598,7 @@ public static partial class JSNativeApi
             [CallerMemberName] string functionName = "")
             where TResult : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, nint, nint, napi_status>)funcHandle;
             fixed (TResult* result_native = &result)
@@ -1612,7 +1608,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             nint value2,
@@ -1621,14 +1617,14 @@ public static partial class JSNativeApi
             nint value5,
             [CallerMemberName] string functionName = "")
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, nint, nint, napi_status>)funcHandle;
             return funcDelegate(env, value1, value2, value3, value4, value5);
         }
 
         private static unsafe napi_status CallInterop<TResult>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             nint value2,
@@ -1639,7 +1635,7 @@ public static partial class JSNativeApi
             [CallerMemberName] string functionName = "")
             where TResult : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, nint, nint, nint, napi_status>)funcHandle;
             fixed (TResult* result_native = &result)
@@ -1650,7 +1646,7 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop<TResult>(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value1,
             nint value2,
@@ -1662,7 +1658,7 @@ public static partial class JSNativeApi
             [CallerMemberName] string functionName = "")
             where TResult : unmanaged
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, nint, nint, nint, nint, nint, napi_status>)funcHandle;
             fixed (TResult* result_native = &result)
@@ -1673,24 +1669,24 @@ public static partial class JSNativeApi
         }
 
         private static unsafe napi_status CallInterop(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             nint value,
             [CallerMemberName] string functionName = "")
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<napi_env, nint, napi_status>)funcHandle;
             return funcDelegate(env, value);
         }
 
         private static napi_status CallInterop(
-            FunctionId functionId,
+            ref nint field,
             napi_env env,
             string? value1,
             string? value2,
             [CallerMemberName] string functionName = "")
         {
-            nint funcHandle = GetExport(functionId, functionName);
+            nint funcHandle = GetExport(ref field, functionName);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, napi_status>)funcHandle;
 
