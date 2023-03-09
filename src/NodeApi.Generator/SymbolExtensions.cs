@@ -163,7 +163,7 @@ internal static class SymbolExtensions
             }
         }
 
-        // Preserve JS attributes, which might be referenced by the marshaler.
+        // Preserve JS attributes, which might be referenced by the marshaller.
         foreach (AttributeData attribute in typeSymbol.GetAttributes())
         {
             if (attribute.AttributeClass!.ContainingAssembly.Name ==

@@ -46,7 +46,7 @@ ExampleClass.ExampleMethod(...args); // This call is type-checked!
 For reference, there is a [list of C# type projections to TypeScript](/Docs/typescript.md).
 
 ### Full async support
-JavaScript code can `await` a call to a .NET method that returns a `Task`. The marshaler
+JavaScript code can `await` a call to a .NET method that returns a `Task`. The marshaller
 automatically sets up a `SynchronizationContext` so that the .NET result is returned back to the
 JS thread.
 ```TypeScript
@@ -118,7 +118,7 @@ There are two ways to get automatic marshaling between C# and JavaScript types:
   from that reflection and IL emitting, but subsequent calls to the same APIs may be just as fast
   as the pre-compiled marshaling code (and are just as likely to be JITted).
 
-The marshaler uses the strong typing information from the C# API declarations as hints about how to
+The marshaller uses the strong typing information from the C# API declarations as hints about how to
 convert values beteen JavaScript and C#. Here's a general summary of conversions:
   - Primitives (numbers, strings, etc.) are passed by value directy.
   - C# structs have all properties passed by value (shallow copied).

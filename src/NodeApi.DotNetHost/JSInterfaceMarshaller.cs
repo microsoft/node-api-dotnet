@@ -10,7 +10,7 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// <summary>
 /// Supports dynamic implementation of .NET interfaces by JavaScript.
 /// </summary>
-internal static class JSInterfaceMarshaler
+internal static class JSInterfaceMarshaller
 {
     private static readonly ConcurrentDictionary<Type, Type> s_interfaceTypes = new();
     private static readonly AssemblyBuilder s_assemblyBuilder =
@@ -24,20 +24,20 @@ internal static class JSInterfaceMarshaler
     /// Defines a class type that extends <see cref="JSInterface" /> and implements the requested
     /// interface type by forwarding all member access to the JS value.
     /// </summary>
-    public static Type Implement(Type interfaceType, JSMarshaler marshaler)
+    public static Type Implement(Type interfaceType, JSMarshaller marshaller)
     {
         return s_interfaceTypes.GetOrAdd(
             interfaceType,
-            (t) => BuildInterfaceImplementation(interfaceType, marshaler));
+            (t) => BuildInterfaceImplementation(interfaceType, marshaller));
     }
 
-#pragma warning disable IDE0060 // Unused parameter 'marshaler'
-    private static Type BuildInterfaceImplementation(Type interfaceType, JSMarshaler marshaler)
+#pragma warning disable IDE0060 // Unused parameter 'marshaller'
+    private static Type BuildInterfaceImplementation(Type interfaceType, JSMarshaller marshaller)
 #pragma warning restore IDE0060 // Unused parameter
     {
         TypeBuilder typeBuilder = s_moduleBuilder.DefineType(
             "proxy_" +
-            JSMarshaler.FullTypeName(interfaceType),
+            JSMarshaller.FullTypeName(interfaceType),
             TypeAttributes.Class | TypeAttributes.Sealed,
             typeof(JSInterface),
             new[] { interfaceType });
@@ -75,7 +75,7 @@ internal static class JSInterfaceMarshaler
 
         Type implementationType = typeBuilder.CreateType();
 
-        // TODO: Get implementation delegates from the marshaler and assign to static properties.
+        // TODO: Get implementation delegates from the marshaller and assign to static properties.
 
         return implementationType;
     }
@@ -163,7 +163,7 @@ internal static class JSInterfaceMarshaler
         // TODO: Method IL
         // Define a static property for a delegate for each method.
         // Emit IL to invoke the delegate, passing args and returning result.
-        // After building the type, get delegates from the marshaler and assign to static properties.
+        // After building the type, get delegates from the marshaller and assign to static properties.
 
         il.Emit(OpCodes.Ret);
 
