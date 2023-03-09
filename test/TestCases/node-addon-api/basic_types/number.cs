@@ -2,6 +2,8 @@ using Microsoft.JavaScript.NodeApi;
 
 namespace Microsoft.JavaScript.NodeApiTest;
 
+#pragma warning disable IDE0060 // Unused parameter 'args'
+
 public class TestBasicTypesNumber : TestHelper, ITestObject
 {
     private static JSValue ToInt32(JSCallbackArgs args) => (int)args[0];

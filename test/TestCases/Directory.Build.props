@@ -7,7 +7,7 @@
         <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
         <OutputPath>$(BaseOutputPath)bin/$(Configuration)/TestCases/$(MSBuildProjectName)/</OutputPath>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>CS1591;IDE0060</NoWarn>
+        <NoWarn>CS1591</NoWarn>
 
         <!-- Always write *.NodeApi.g.cs in the obj/ directory. -->
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>

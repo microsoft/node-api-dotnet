@@ -4,6 +4,8 @@ using Microsoft.JavaScript.NodeApi;
 
 namespace Microsoft.JavaScript.NodeApiTest;
 
+#pragma warning disable IDE0060 // Unused parameter 'args'
+
 public partial class TestObject : TestHelper, ITestObject
 {
     private static bool s_testValue = true;
