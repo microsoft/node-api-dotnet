@@ -22,7 +22,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private const string ModuleInitializeMethodName = "Initialize";
     private const string ModuleRegisterFunctionName = "napi_register_module_v1";
 
-    private readonly JSMarshaler _marshaler = new();
+    private readonly JSMarshaller _marshaller = new();
     private readonly Dictionary<string, LambdaExpression> _callbackAdapters = new();
     private readonly List<ITypeSymbol> _exportedInterfaces = new();
 
@@ -277,9 +277,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // The main initialization entrypoint is called by the `ManagedHost`, and by the unmanaged entrypoint.
         s += $"public static napi_value {ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += "{";
+        s += "using var scope = new JSValueScope(JSValueScopeType.Root, env);";
         s += "try";
         s += "{";
-        s += "using var scope = new JSValueScope(JSValueScopeType.Root, env);";
         s += "JSContext context = scope.ModuleContext;";
         s += "JSValue exportsValue = new(exports, scope);";
         s++;
@@ -325,7 +325,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         foreach (ITypeSymbol interfaceSymbol in _exportedInterfaces)
         {
             s++;
-            GenerateInterfaceAdapter(ref s, interfaceSymbol, _marshaler);
+            GenerateInterfaceAdapter(ref s, interfaceSymbol, _marshaller);
         }
 
         s += "}";
@@ -399,7 +399,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     if (IsConstructorCallbackAdapterRequired(exportClass))
                     {
                         // TODO: Overload resolution if more than one constructor.
-                        LambdaExpression adapter = _marshaler.BuildFromJSConstructorExpression(
+                        LambdaExpression adapter = _marshaller.BuildFromJSConstructorExpression(
                             exportClass.GetMembers().OfType<IMethodSymbol>()
                                 .Where((m) => m.MethodKind == MethodKind.Constructor)
                                 .First().AsConstructorInfo());
@@ -524,7 +524,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         if (IsMethodCallbackAdapterRequired(method))
         {
             Expression<JSCallback> adapter =
-                _marshaler.BuildFromJSMethodExpression(method.AsMethodInfo());
+                _marshaller.BuildFromJSMethodExpression(method.AsMethodInfo());
             _callbackAdapters.Add(adapter.Name!, adapter);
             s += $".AddMethod(\"{exportName}\", {adapter.Name},\n\t{attributes})";
         }
@@ -575,7 +575,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         else if (property.Type.AsType() != typeof(JSValue))
         {
             Expression<JSCallback> adapter =
-                _marshaler.BuildFromJSMethodExpression(property.AsPropertyInfo().GetMethod!);
+                _marshaller.BuildFromJSMethodExpression(property.AsPropertyInfo().GetMethod!);
             _callbackAdapters.Add(adapter.Name!, adapter);
             s += $"getter: {adapter.Name},";
         }
@@ -595,7 +595,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         else if (property.Type.AsType() != typeof(JSValue))
         {
             Expression<JSCallback> adapter =
-                _marshaler.BuildFromJSMethodExpression(property.AsPropertyInfo().SetMethod!);
+                _marshaller.BuildFromJSMethodExpression(property.AsPropertyInfo().SetMethod!);
             _callbackAdapters.Add(adapter.Name!, adapter);
             s += $"setter: {adapter.Name},";
         }
@@ -704,7 +704,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private static void GenerateInterfaceAdapter(
         ref SourceBuilder s,
         ITypeSymbol interfaceType,
-        JSMarshaler _marshaler)
+        JSMarshaller _marshaller)
     {
         string ns = GetNamespace(interfaceType);
         string adapterName = $"proxy_{ns.Replace('.', '_')}_{interfaceType.Name}";
@@ -737,7 +737,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 if (!property.IsWriteOnly)
                 {
                     LambdaExpression getterAdapter =
-                        _marshaler.BuildToJSPropertyGetExpression(property.AsPropertyInfo());
+                        _marshaller.BuildToJSPropertyGetExpression(property.AsPropertyInfo());
                     s += "get";
                     string cs = ReplaceMethodVariables(getterAdapter.ToCS());
                     s += string.Join("\n", cs.Split("\n").Skip(1));
@@ -746,7 +746,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 if (!property.IsReadOnly)
                 {
                     LambdaExpression setterAdapter =
-                        _marshaler.BuildToJSPropertySetExpression(property.AsPropertyInfo());
+                        _marshaller.BuildToJSPropertySetExpression(property.AsPropertyInfo());
                     s += "set";
                     string cs = ReplaceMethodVariables(setterAdapter.ToCS());
                     s += string.Join("\n", cs.Split("\n").Skip(1));
@@ -760,7 +760,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 s++;
 
                 LambdaExpression methodAdapter =
-                    _marshaler.BuildToJSMethodExpression(method.AsMethodInfo());
+                    _marshaller.BuildToJSMethodExpression(method.AsMethodInfo());
                 s += ReplaceMethodVariables(methodAdapter.ToCS());
             }
         }

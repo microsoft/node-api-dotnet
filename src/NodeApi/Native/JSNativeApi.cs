@@ -85,12 +85,16 @@ public static partial class JSNativeApi
     {
         if (buffer.IsEmpty)
         {
-            return napi_get_value_string_latin1(Env, (napi_value)thisValue, null, 0, out nuint result).ThrowIfFailed((int)result);
+            return napi_get_value_string_latin1(
+                Env, (napi_value)thisValue, nint.Zero, 0, out nuint result)
+                .ThrowIfFailed((int)result);
         }
 
         fixed (byte* ptr = &buffer[0])
         {
-            return napi_get_value_string_latin1(Env, (napi_value)thisValue, ptr, (nuint)buffer.Length, out nuint result).ThrowIfFailed((int)result);
+            return napi_get_value_string_latin1(
+                Env, (napi_value)thisValue, (nint)ptr, (nuint)buffer.Length, out nuint result)
+                .ThrowIfFailed((int)result);
         }
     }
 
@@ -108,12 +112,16 @@ public static partial class JSNativeApi
     {
         if (buffer.IsEmpty)
         {
-            return napi_get_value_string_utf8(Env, (napi_value)thisValue, null, 0, out nuint result).ThrowIfFailed((int)result);
+            return napi_get_value_string_utf8(
+                Env, (napi_value)thisValue, nint.Zero, 0, out nuint result)
+                .ThrowIfFailed((int)result);
         }
 
         fixed (byte* ptr = &buffer[0])
         {
-            return napi_get_value_string_utf8(Env, (napi_value)thisValue, ptr, (nuint)buffer.Length, out nuint result).ThrowIfFailed((int)result);
+            return napi_get_value_string_utf8(
+                Env, (napi_value)thisValue, (nint)ptr, (nuint)buffer.Length, out nuint result)
+                .ThrowIfFailed((int)result);
         }
     }
 
@@ -131,12 +139,16 @@ public static partial class JSNativeApi
     {
         if (buffer.IsEmpty)
         {
-            return napi_get_value_string_utf16(Env, (napi_value)thisValue, null, 0, out nuint result).ThrowIfFailed((int)result);
+            return napi_get_value_string_utf16(
+                Env, (napi_value)thisValue, nint.Zero, 0, out nuint result)
+                .ThrowIfFailed((int)result);
         }
 
         fixed (char* ptr = &buffer[0])
         {
-            return napi_get_value_string_utf16(Env, (napi_value)thisValue, ptr, (nuint)buffer.Length, out nuint result).ThrowIfFailed((int)result);
+            return napi_get_value_string_utf16(
+                Env, (napi_value)thisValue, (nint)ptr, (nuint)buffer.Length, out nuint result)
+                .ThrowIfFailed((int)result);
         }
     }
 
@@ -205,14 +217,14 @@ public static partial class JSNativeApi
     public static unsafe void DefineProperties(this JSValue thisValue, IReadOnlyCollection<JSPropertyDescriptor> descriptors)
     {
         nint[] handles = ToUnmanagedPropertyDescriptors(ReadOnlySpan<byte>.Empty, descriptors, (_, count, descriptorsPtr) =>
-          napi_define_properties(Env, (napi_value)thisValue, count, descriptorsPtr).ThrowIfFailed());
+          napi_define_properties(Env, (napi_value)thisValue, count, (nint)descriptorsPtr).ThrowIfFailed());
         Array.ForEach(handles, handle => thisValue.AddGCHandleFinalizer(handle));
     }
 
     public static unsafe void DefineProperties(this JSValue thisValue, params JSPropertyDescriptor[] descriptors)
     {
         nint[] handles = ToUnmanagedPropertyDescriptors(ReadOnlySpan<byte>.Empty, descriptors, (_, count, descriptorsPtr) =>
-          napi_define_properties(Env, (napi_value)thisValue, count, descriptorsPtr).ThrowIfFailed());
+          napi_define_properties(Env, (napi_value)thisValue, count, (nint)descriptorsPtr).ThrowIfFailed());
         Array.ForEach(handles, handle => thisValue.AddGCHandleFinalizer(handle));
     }
 
@@ -227,33 +239,48 @@ public static partial class JSNativeApi
         => napi_strict_equals(Env, (napi_value)thisValue, (napi_value)other, out c_bool result).ThrowIfFailed((bool)result);
 
     public static unsafe JSValue Call(this JSValue thisValue)
-        => napi_call_function(Env, (napi_value)JSValue.Undefined, (napi_value)thisValue, 0, null, out napi_value result).ThrowIfFailed(result);
+        => napi_call_function(Env, (napi_value)JSValue.Undefined, (napi_value)thisValue, 0, nint.Zero, out napi_value result).ThrowIfFailed(result);
 
     public static unsafe JSValue Call(this JSValue thisValue, JSValue thisArg)
-        => napi_call_function(Env, (napi_value)thisArg, (napi_value)thisValue, 0, null, out napi_value result).ThrowIfFailed(result);
+        => napi_call_function(Env, (napi_value)thisArg, (napi_value)thisValue, 0, nint.Zero, out napi_value result).ThrowIfFailed(result);
 
     public static unsafe JSValue Call(this JSValue thisValue, JSValue thisArg, JSValue arg0)
     {
         napi_value argValue0 = (napi_value)arg0;
-        return napi_call_function(Env, (napi_value)thisArg, (napi_value)thisValue, 1, &argValue0, out napi_value result).ThrowIfFailed(result);
+        napi_value* argv = &argValue0;
+        return napi_call_function(
+            Env, (napi_value)thisArg, (napi_value)thisValue, 1, (nint)argv, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
-    public static unsafe JSValue Call(this JSValue thisValue, JSValue thisArg, JSValue arg0, JSValue arg1)
+    public static unsafe JSValue Call(
+        this JSValue thisValue, JSValue thisArg, JSValue arg0, JSValue arg1)
     {
         napi_value* argv = stackalloc napi_value[2] { (napi_value)arg0, (napi_value)arg1 };
-        return napi_call_function(Env, (napi_value)thisArg, (napi_value)thisValue, 2, argv, out napi_value result).ThrowIfFailed(result);
+        return napi_call_function(
+            Env, (napi_value)thisArg, (napi_value)thisValue, 2, (nint)argv, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
-    public static unsafe JSValue Call(this JSValue thisValue, JSValue thisArg, JSValue arg0, JSValue arg1, JSValue arg2)
+    public static unsafe JSValue Call(
+        this JSValue thisValue, JSValue thisArg, JSValue arg0, JSValue arg1, JSValue arg2)
     {
-        napi_value* argv = stackalloc napi_value[3] { (napi_value)arg0, (napi_value)arg1, (napi_value)arg2 };
-        return napi_call_function(Env, (napi_value)thisArg, (napi_value)thisValue, 3, argv, out napi_value result).ThrowIfFailed(result);
+        napi_value* argv = stackalloc napi_value[3] {
+            (napi_value)arg0,
+            (napi_value)arg1,
+            (napi_value)arg2
+        };
+        return napi_call_function(
+            Env, (napi_value)thisArg, (napi_value)thisValue, 3, (nint)argv, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
-    public static unsafe JSValue Call(this JSValue thisValue, JSValue thisArg, params JSValue[] args)
+    public static unsafe JSValue Call(
+        this JSValue thisValue, JSValue thisArg, params JSValue[] args)
         => Call(thisValue, thisArg, new ReadOnlySpan<JSValue>(args));
 
-    public static unsafe JSValue Call(this JSValue thisValue, JSValue thisArg, ReadOnlySpan<JSValue> args)
+    public static unsafe JSValue Call(
+        this JSValue thisValue, JSValue thisArg, ReadOnlySpan<JSValue> args)
     {
         int argc = args.Length;
         napi_value* argv = stackalloc napi_value[argc];
@@ -262,42 +289,69 @@ public static partial class JSNativeApi
             argv[i] = (napi_value)args[i];
         }
 
-        return napi_call_function(Env, (napi_value)thisArg, (napi_value)thisValue, (nuint)argc, argv, out napi_value result).ThrowIfFailed(result);
+        return napi_call_function(
+            Env,
+            (napi_value)thisArg,
+            (napi_value)thisValue,
+            (nuint)argc,
+            (nint)argv,
+            out napi_value result)
+            .ThrowIfFailed(result);
     }
 
-    public static unsafe JSValue Call(this JSValue thisValue, napi_value thisArg, ReadOnlySpan<napi_value> args)
+    public static unsafe JSValue Call(
+        this JSValue thisValue, napi_value thisArg, ReadOnlySpan<napi_value> args)
     {
         fixed (napi_value* argv = args)
         {
-            return napi_call_function(Env, thisArg, (napi_value)thisValue, (nuint)args.Length, argv, out napi_value result).ThrowIfFailed(result);
+            return napi_call_function(
+                Env,
+                thisArg,
+                (napi_value)thisValue,
+                (nuint)args.Length,
+                (nint)argv,
+                out napi_value result)
+                .ThrowIfFailed(result);
         }
     }
 
     public static unsafe JSValue CallAsConstructor(this JSValue thisValue)
-        => napi_new_instance(Env, (napi_value)thisValue, 0, null, out napi_value result).ThrowIfFailed(result);
+        => napi_new_instance(Env, (napi_value)thisValue, 0, nint.Zero, out napi_value result)
+            .ThrowIfFailed(result);
 
     public static unsafe JSValue CallAsConstructor(this JSValue thisValue, JSValue arg0)
     {
         napi_value argValue0 = (napi_value)arg0;
-        return napi_new_instance(Env, (napi_value)thisValue, 1, &argValue0, out napi_value result).ThrowIfFailed(result);
+        napi_value* argv = &argValue0;
+        return napi_new_instance(Env, (napi_value)thisValue, 1, (nint)argv, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
-    public static unsafe JSValue CallAsConstructor(this JSValue thisValue, JSValue arg0, JSValue arg1)
+    public static unsafe JSValue CallAsConstructor(
+        this JSValue thisValue, JSValue arg0, JSValue arg1)
     {
         napi_value* argv = stackalloc napi_value[2] { (napi_value)arg0, (napi_value)arg1 };
-        return napi_new_instance(Env, (napi_value)thisValue, 2, argv, out napi_value result).ThrowIfFailed(result);
+        return napi_new_instance(Env, (napi_value)thisValue, 2, (nint)argv, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
-    public static unsafe JSValue CallAsConstructor(this JSValue thisValue, JSValue arg0, JSValue arg1, JSValue arg2)
+    public static unsafe JSValue CallAsConstructor(
+        this JSValue thisValue, JSValue arg0, JSValue arg1, JSValue arg2)
     {
-        napi_value* argv = stackalloc napi_value[3] { (napi_value)arg0, (napi_value)arg1, (napi_value)arg2 };
-        return napi_new_instance(Env, (napi_value)thisValue, 3, argv, out napi_value result).ThrowIfFailed(result);
+        napi_value* argv = stackalloc napi_value[3] {
+            (napi_value)arg0,
+            (napi_value)arg1,
+            (napi_value)arg2
+        };
+        return napi_new_instance(Env, (napi_value)thisValue, 3, (nint)argv, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
     public static unsafe JSValue CallAsConstructor(this JSValue thisValue, params JSValue[] args)
         => CallAsConstructor(thisValue, new ReadOnlySpan<JSValue>(args));
 
-    public static unsafe JSValue CallAsConstructor(this JSValue thisValue, ReadOnlySpan<JSValue> args)
+    public static unsafe JSValue CallAsConstructor(
+        this JSValue thisValue, ReadOnlySpan<JSValue> args)
     {
         int argc = args.Length;
         napi_value* argv = stackalloc napi_value[argc];
@@ -306,14 +360,19 @@ public static partial class JSNativeApi
             argv[i] = (napi_value)args[i];
         }
 
-        return napi_new_instance(Env, (napi_value)thisValue, (nuint)argc, argv, out napi_value result).ThrowIfFailed(result);
+        return napi_new_instance(
+            Env, (napi_value)thisValue, (nuint)argc, (nint)argv, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
-    public static unsafe JSValue CallAsConstructor(this JSValue thisValue, ReadOnlySpan<napi_value> args)
+    public static unsafe JSValue CallAsConstructor(
+        this JSValue thisValue, ReadOnlySpan<napi_value> args)
     {
         fixed (napi_value* argv = args)
         {
-            return napi_new_instance(Env, (napi_value)thisValue, (nuint)args.Length, argv, out napi_value result).ThrowIfFailed(result);
+            return napi_new_instance(
+                Env, (napi_value)thisValue, (nuint)args.Length, (nint)argv, out napi_value result)
+                .ThrowIfFailed(result);
         }
     }
 
@@ -323,23 +382,29 @@ public static partial class JSNativeApi
     public static JSValue CallMethod(this JSValue thisValue, JSValue methodName, JSValue arg0)
         => thisValue.GetProperty(methodName).Call(thisValue, arg0);
 
-    public static JSValue CallMethod(this JSValue thisValue, JSValue methodName, JSValue arg0, JSValue arg1)
+    public static JSValue CallMethod(
+        this JSValue thisValue, JSValue methodName, JSValue arg0, JSValue arg1)
         => thisValue.GetProperty(methodName).Call(thisValue, arg0, arg1);
 
-    public static JSValue CallMethod(this JSValue thisValue, JSValue methodName, JSValue arg0, JSValue arg1, JSValue arg2)
+    public static JSValue CallMethod(
+        this JSValue thisValue, JSValue methodName, JSValue arg0, JSValue arg1, JSValue arg2)
         => thisValue.GetProperty(methodName).Call(thisValue, arg0, arg1, arg2);
 
-    public static JSValue CallMethod(this JSValue thisValue, JSValue methodName, params JSValue[] args)
+    public static JSValue CallMethod(
+        this JSValue thisValue, JSValue methodName, params JSValue[] args)
         => thisValue.GetProperty(methodName).Call(thisValue, args);
 
-    public static JSValue CallMethod(this JSValue thisValue, JSValue methodName, ReadOnlySpan<JSValue> args)
+    public static JSValue CallMethod(
+        this JSValue thisValue, JSValue methodName, ReadOnlySpan<JSValue> args)
         => thisValue.GetProperty(methodName).Call(thisValue, args);
 
-    public static JSValue CallMethod(this JSValue thisValue, JSValue methodName, ReadOnlySpan<napi_value> args)
+    public static JSValue CallMethod(
+        this JSValue thisValue, JSValue methodName, ReadOnlySpan<napi_value> args)
         => thisValue.GetProperty(methodName).Call((napi_value)thisValue, args);
 
     public static bool InstanceOf(this JSValue thisValue, JSValue constructor)
-        => napi_instanceof(Env, (napi_value)thisValue, (napi_value)constructor, out c_bool result).ThrowIfFailed((bool)result);
+        => napi_instanceof(Env, (napi_value)thisValue, (napi_value)constructor, out c_bool result)
+        .ThrowIfFailed((bool)result);
 
     public static unsafe JSValue DefineClass(
         ReadOnlySpan<byte> utf8Name,
@@ -352,12 +417,12 @@ public static partial class JSNativeApi
         {
             return napi_define_class(
                 Env,
-                namePtr,
+                (nint)namePtr,
                 (nuint)utf8Name.Length,
                 callback,
                 data,
                 count,
-                descriptors,
+                (nint)descriptors,
                 out napi_value result)
                 .ThrowIfFailed(result);
         }
@@ -371,10 +436,12 @@ public static partial class JSNativeApi
         GCHandle descriptorHandle = GCHandle.Alloc(constructorDescriptor);
         JSValue? func = null;
         napi_callback callback = new(
-            JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
-            &InvokeJSCallbackNoContext : &InvokeJSCallback);
+            JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext
+            ? &InvokeJSCallbackNoContext
+            : &InvokeJSCallback);
 
-        nint[] handles = ToUnmanagedPropertyDescriptors(utf8Name, propertyDescriptors, (name, count, descriptorsPtr) =>
+        nint[] handles = ToUnmanagedPropertyDescriptors(
+            utf8Name, propertyDescriptors, (name, count, descriptorsPtr) =>
         {
             func = DefineClass(name, callback, (nint)descriptorHandle, count, descriptorsPtr);
         });
@@ -388,7 +455,8 @@ public static partial class JSNativeApi
         JSCallbackDescriptor constructorDescriptor,
         params JSPropertyDescriptor[] propertyDescriptors)
     {
-        return DefineClass(Encoding.UTF8.GetBytes(name), constructorDescriptor, propertyDescriptors);
+        return DefineClass(
+            Encoding.UTF8.GetBytes(name), constructorDescriptor, propertyDescriptors);
     }
 
     /// <summary>
@@ -419,7 +487,8 @@ public static partial class JSNativeApi
     /// <param name="value">The object to be wrapped.</param>
     /// <param name="wrapperWeakRef">Returns a weak reference to the JS wrapper.</param>
     /// <returns>The JS wrapper.</returns>
-    public static unsafe JSValue Wrap(this JSValue wrapper, object value, out JSReference wrapperWeakRef)
+    public static unsafe JSValue Wrap(
+        this JSValue wrapper, object value, out JSReference wrapperWeakRef)
     {
         GCHandle valueHandle = GCHandle.Alloc(value);
         napi_ref weakRef;
@@ -522,7 +591,8 @@ public static partial class JSNativeApi
         => new(thisValue, isWeak: true);
 
     public static bool IsError(this JSValue thisValue)
-        => napi_is_error(Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
+        => napi_is_error(
+            Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
 
     public static bool IsExceptionPending()
         => napi_is_exception_pending(Env, out c_bool result).ThrowIfFailed((bool)result);
@@ -531,16 +601,19 @@ public static partial class JSNativeApi
         => napi_get_and_clear_last_exception(Env, out napi_value result).ThrowIfFailed(result);
 
     public static bool IsArrayBuffer(this JSValue thisValue)
-        => napi_is_arraybuffer(Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
+        => napi_is_arraybuffer(
+            Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
 
     public static unsafe Span<byte> GetArrayBufferInfo(this JSValue thisValue)
     {
-        napi_get_arraybuffer_info(Env, (napi_value)thisValue, out void* data, out nuint length).ThrowIfFailed();
-        return new Span<byte>(data, (int)length);
+        napi_get_arraybuffer_info(Env, (napi_value)thisValue, out nint data, out nuint length)
+            .ThrowIfFailed();
+        return new Span<byte>((void*)data, (int)length);
     }
 
     public static bool IsTypedArray(this JSValue thisValue)
-        => napi_is_typedarray(Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
+        => napi_is_typedarray(
+            Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
 
     public static unsafe int GetTypedArrayLength(
         this JSValue thisValue,
@@ -549,13 +622,13 @@ public static partial class JSNativeApi
         napi_get_typedarray_info(
             Env,
             (napi_value)thisValue,
-            out napi_typedarray_type type_,
-            out nuint length_,
-            out void* _,
+            out napi_typedarray_type arrayType,
+            out nuint length,
+            out nint _,
             out napi_value _,
             out nuint _).ThrowIfFailed();
-        type = (JSTypedArrayType)(int)type_;
-        return (int)length_;
+        type = (JSTypedArrayType)(int)arrayType;
+        return (int)length;
     }
 
     public static unsafe Span<T> GetTypedArrayData<T>(
@@ -564,12 +637,12 @@ public static partial class JSNativeApi
         napi_get_typedarray_info(
             Env,
             (napi_value)thisValue,
-            out napi_typedarray_type type_,
-            out nuint length_,
-            out void* data_,
+            out napi_typedarray_type arrayType,
+            out nuint length,
+            out nint data,
             out napi_value _,
             out nuint _).ThrowIfFailed();
-        var type = (JSTypedArrayType)(int)type_;
+        var type = (JSTypedArrayType)(int)arrayType;
         if (!(default(T) switch
         {
             sbyte => type == JSTypedArrayType.Int8,
@@ -589,7 +662,7 @@ public static partial class JSNativeApi
                 $"Incorrect typed-array type {typeof(T)} for {type}Array.");
         }
 
-        return new Span<T>(data_, (int)length_);
+        return new Span<T>((void*)data, (int)length);
     }
 
     public static unsafe void GetTypedArrayBuffer(
@@ -604,7 +677,7 @@ public static partial class JSNativeApi
             (napi_value)thisValue,
             out napi_typedarray_type type_,
             out nuint length_,
-            out void* _,
+            out nint _,
             out napi_value arrayBuffer_,
             out nuint byteOffset_).ThrowIfFailed();
         type = (JSTypedArrayType)(int)type_;
@@ -614,18 +687,23 @@ public static partial class JSNativeApi
     }
 
     public static bool IsDataView(this JSValue thisValue)
-        => napi_is_dataview(Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
+        => napi_is_dataview(Env, (napi_value)thisValue, out c_bool result)
+            .ThrowIfFailed((bool)result);
 
-    public static unsafe void GetDataViewInfo(this JSValue thisValue, out ReadOnlySpan<byte> viewSpan, out JSValue arrayBuffer, out int byteOffset)
+    public static unsafe void GetDataViewInfo(
+        this JSValue thisValue,
+        out ReadOnlySpan<byte> viewSpan,
+        out JSValue arrayBuffer,
+        out int byteOffset)
     {
         napi_get_dataview_info(
           Env,
           (napi_value)thisValue,
           out nuint byteLength,
-          out void* data,
+          out nint data,
           out napi_value arrayBuffer_,
           out nuint byteOffset_).ThrowIfFailed();
-        viewSpan = new ReadOnlySpan<byte>(data, (int)byteLength);
+        viewSpan = new ReadOnlySpan<byte>((void*)data, (int)byteLength);
         arrayBuffer = arrayBuffer_;
         byteOffset = (int)byteOffset_;
     }
@@ -634,41 +712,59 @@ public static partial class JSNativeApi
         => napi_get_version(Env, out uint result).ThrowIfFailed(result);
 
     public static bool IsPromise(this JSValue thisValue)
-        => napi_is_promise(Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
+        => napi_is_promise(Env, (napi_value)thisValue, out c_bool result)
+            .ThrowIfFailed((bool)result);
 
     public static JSValue RunScript(this JSValue thisValue)
-        => napi_run_script(Env, (napi_value)thisValue, out napi_value result).ThrowIfFailed(result);
+        => napi_run_script(Env, (napi_value)thisValue, out napi_value result)
+            .ThrowIfFailed(result);
 
     public static bool IsDate(this JSValue thisValue)
         => napi_is_date(Env, (napi_value)thisValue, out c_bool result).ThrowIfFailed((bool)result);
 
     public static double GetDateValue(this JSValue thisValue)
-        => napi_get_date_value(Env, (napi_value)thisValue, out double result).ThrowIfFailed(result);
+        => napi_get_date_value(Env, (napi_value)thisValue, out double result)
+            .ThrowIfFailed(result);
 
     public static unsafe void AddFinalizer(this JSValue thisValue, Action finalize)
     {
         GCHandle finalizeHandle = GCHandle.Alloc(finalize);
-        napi_add_finalizer(Env, (napi_value)thisValue, (nint)finalizeHandle, new napi_finalize(&CallFinalizeAction), nint.Zero, null).ThrowIfFailed();
+        napi_add_finalizer(
+            Env,
+            (napi_value)thisValue,
+            (nint)finalizeHandle,
+            new napi_finalize(&CallFinalizeAction),
+            nint.Zero,
+            null).ThrowIfFailed();
     }
 
-    public static unsafe void AddFinalizer(this JSValue thisValue, Action finalize, out JSReference finalizerRef)
+    public static unsafe void AddFinalizer(
+        this JSValue thisValue, Action finalize, out JSReference finalizerRef)
     {
         GCHandle finalizeHandle = GCHandle.Alloc(finalize);
         napi_ref reference;
-        napi_add_finalizer(Env, (napi_value)thisValue, (nint)finalizeHandle, new napi_finalize(&CallFinalizeAction), nint.Zero, &reference).ThrowIfFailed();
+        napi_add_finalizer(
+            Env,
+            (napi_value)thisValue,
+            (nint)finalizeHandle,
+            new napi_finalize(&CallFinalizeAction),
+            nint.Zero,
+            &reference).ThrowIfFailed();
         finalizerRef = new JSReference(reference, isWeak: true);
     }
 
     public static long GetValueBigIntInt64(this JSValue thisValue, out bool isLossless)
     {
-        napi_get_value_bigint_int64(Env, (napi_value)thisValue, out long result, out c_bool lossless).ThrowIfFailed();
+        napi_get_value_bigint_int64(
+            Env, (napi_value)thisValue, out long result, out c_bool lossless).ThrowIfFailed();
         isLossless = (bool)lossless;
         return result;
     }
 
     public static ulong GetValueBigIntUInt64(this JSValue thisValue, out bool isLossless)
     {
-        napi_get_value_bigint_uint64(Env, (napi_value)thisValue, out ulong result, out c_bool lossless).ThrowIfFailed();
+        napi_get_value_bigint_uint64(
+            Env, (napi_value)thisValue, out ulong result, out c_bool lossless).ThrowIfFailed();
         isLossless = (bool)lossless;
         return result;
     }

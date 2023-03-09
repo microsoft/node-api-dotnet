@@ -13,7 +13,7 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// </summary>
 internal class AssemblyExporter
 {
-    private readonly JSMarshaler _marshaler;
+    private readonly JSMarshaller _marshaller;
     private readonly JSReference _assemblyObject;
     private readonly Dictionary<Type, JSReference> _typeObjects = new();
 
@@ -21,16 +21,16 @@ internal class AssemblyExporter
     /// Creates a new instance of the <see cref="AssemblyExporter" /> class.
     /// </summary>
     /// <param name="assembly">The assembly to be exported.</param>
-    /// <param name="marshaler">Marshaler that supports dynamic binding to .NET APIs.</param>
+    /// <param name="marshaller">Marshaller that supports dynamic binding to .NET APIs.</param>
     /// <param name="target">Proxy target object; any properties/methods on this object
     /// will be exposed on the exported assembly object in addition to assembly types.</param>
     public AssemblyExporter(
         Assembly assembly,
-        JSMarshaler marshaler,
+        JSMarshaller marshaller,
         JSObject target)
     {
         Assembly = assembly;
-        _marshaler = marshaler;
+        _marshaller = marshaller;
 
         JSProxy proxy = new(target, CreateProxyHandler());
         _assemblyObject = new JSReference(proxy);
@@ -189,13 +189,13 @@ internal class AssemblyExporter
             if (constructors.Length == 1)
             {
                 constructorDescriptor =
-                    _marshaler.BuildFromJSConstructorExpression(constructors[0]).Compile();
+                    _marshaller.BuildFromJSConstructorExpression(constructors[0]).Compile();
             }
             else
             {
                 // Multiple constructors require overload resolution.
                 constructorDescriptor =
-                    _marshaler.BuildConstructorOverloadDescriptor(constructors);
+                    _marshaller.BuildConstructorOverloadDescriptor(constructors);
             }
 
             classBuilder = classBuilderType.CreateInstance(
@@ -271,7 +271,7 @@ internal class AssemblyExporter
                 if (property.GetMethod != null)
                 {
                     LambdaExpression lambda =
-                        _marshaler.BuildFromJSPropertyGetExpression(property);
+                        _marshaller.BuildFromJSPropertyGetExpression(property);
                     getterDelegate = (JSCallback)lambda.Compile();
                 }
 
@@ -279,7 +279,7 @@ internal class AssemblyExporter
                 if (property.SetMethod != null)
                 {
                     LambdaExpression lambda =
-                        _marshaler.BuildFromJSPropertySetExpression(property);
+                        _marshaller.BuildFromJSPropertySetExpression(property);
                     setterDelegate = (JSCallback)lambda.Compile();
                 }
 
@@ -337,7 +337,7 @@ internal class AssemblyExporter
                 Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}(" +
                     string.Join(", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
 
-                methodDescriptor = _marshaler.BuildFromJSMethodExpression(method).Compile();
+                methodDescriptor = _marshaller.BuildFromJSMethodExpression(method).Compile();
             }
             else
             {
@@ -351,7 +351,7 @@ internal class AssemblyExporter
 
                 }
 
-                methodDescriptor = _marshaler.BuildMethodOverloadDescriptor(methods);
+                methodDescriptor = _marshaller.BuildMethodOverloadDescriptor(methods);
             }
 
             addMethodMethod.Invoke(

@@ -22,10 +22,10 @@ public sealed class ManagedHost : IDisposable
     private readonly AssemblyLoadContext _loadContext = new(name: default);
 
     /// <summary>
-    /// The marshaler dynamically generates adapter delegates for calls to & from JS,
+    /// The marshaller dynamically generates adapter delegates for calls to & from JS,
     /// for assemblies that were not pre-built as Node API modules.
     /// </summary>
-    private readonly JSMarshaler _marshaler = new();
+    private readonly JSMarshaller _marshaller = new();
 
     private readonly Dictionary<string, JSReference> _loadedModules = new();
     private readonly Dictionary<string, AssemblyExporter> _loadedAssemblies = new();
@@ -44,7 +44,7 @@ public sealed class ManagedHost : IDisposable
             JSPropertyDescriptor.ForValue("load", JSValue.CreateFunction("load", LoadAssembly)));
 
         // Export the .NET core library assembly by default, along with additional methods above.
-        _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _marshaler, exports);
+        _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _marshaller, exports);
     }
 
     public static bool IsTracingEnabled { get; } =
@@ -223,7 +223,7 @@ public sealed class ManagedHost : IDisposable
         }
 
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
-        assemblyExporter = new(assembly, _marshaler, target: new JSObject());
+        assemblyExporter = new(assembly, _marshaller, target: new JSObject());
         _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);
         JSValue assemblyValue = assemblyExporter.AssemblyObject;
 

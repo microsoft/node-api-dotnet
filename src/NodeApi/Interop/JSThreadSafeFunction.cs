@@ -2,7 +2,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.NodeApiInterop;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 

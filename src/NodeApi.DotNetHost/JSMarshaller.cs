@@ -20,7 +20,7 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// <para/>
 /// All methods on this class are thread-safe.
 /// </remarks>
-public class JSMarshaler
+public class JSMarshaller
 {
     private readonly ConcurrentDictionary<Type, Delegate> _fromJSDelegates = new();
     private readonly ConcurrentDictionary<Type, Delegate> _toJSDelegates = new();
@@ -143,7 +143,7 @@ public class JSMarshaler
         }
         catch (Exception ex)
         {
-            throw new JSMarshalerException(
+            throw new JSMarshallerException(
                 "Failed to build expression for conversion from JS value.", toType, ex);
         }
     }
@@ -175,7 +175,7 @@ public class JSMarshaler
         }
         catch (Exception ex)
         {
-            throw new JSMarshalerException(
+            throw new JSMarshallerException(
                 "Failed to build expression for conversion to JS value.", fromType, ex);
         }
     }
@@ -262,7 +262,7 @@ public class JSMarshaler
         }
         catch (Exception ex)
         {
-            throw new JSMarshalerException(
+            throw new JSMarshallerException(
                 "Failed to build JS callback adapter expression for .NET method.", method, ex);
         }
     }
@@ -292,7 +292,7 @@ public class JSMarshaler
         }
         catch (Exception ex)
         {
-            throw new JSMarshalerException(
+            throw new JSMarshallerException(
                 "Failed to build JS callback adapter for .NET property getter.", property, ex);
         }
     }
@@ -322,7 +322,7 @@ public class JSMarshaler
         }
         catch (Exception ex)
         {
-            throw new JSMarshalerException(
+            throw new JSMarshallerException(
                 "Failed to build JS callback adapter for .NET property getter.", property, ex);
         }
     }
@@ -449,7 +449,7 @@ public class JSMarshaler
         }
         catch (Exception ex)
         {
-            throw new JSMarshalerException(
+            throw new JSMarshallerException(
                 "Failed to build .NET adapter for JS method.", method, ex);
         }
     }
@@ -516,7 +516,7 @@ public class JSMarshaler
         }
         catch (Exception ex)
         {
-            throw new JSMarshalerException(
+            throw new JSMarshallerException(
                 "Failed to build .NET adapter for JS property getter.", property, ex);
         }
     }
@@ -589,7 +589,7 @@ public class JSMarshaler
         }
         catch (Exception ex)
         {
-            throw new JSMarshalerException(
+            throw new JSMarshallerException(
                 "Failed to build .NET adapter for JS property setter.", property, ex);
         }
     }
@@ -1115,7 +1115,7 @@ public class JSMarshaler
             // It could be either a wrapped .NET object passed back from JS or a JS object
             // that implements a .NET interface. For the latter case, dynamically build
             // a class that implements the interface by proxying member access to JS.
-            Type adapterType = JSInterfaceMarshaler.Implement(toType, this);
+            Type adapterType = JSInterfaceMarshaller.Implement(toType, this);
             ConstructorInfo adapterConstructor =
                 adapterType.GetConstructor(new[] { typeof(JSValue) })!;
             statements = new[]
