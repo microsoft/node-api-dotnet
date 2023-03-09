@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PublishAot>true</PublishAot>
     <NativeLib>Shared</NativeLib>
