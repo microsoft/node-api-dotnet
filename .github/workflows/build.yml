@@ -30,9 +30,9 @@ jobs:
       with:
         fetch-depth: 0 # Deep clone is required for versioning on git commit height
 
-    - name: Install libc6-dev # Required by .NET 6
+    - name: Link libdl.so # Required by .NET 6
       if: matrix.os == 'ubuntu-latest'
-      run: sudo apt-get install -y libc6-dev
+      run: sudo ln -s /lib/x86_64-linux-gnu/libdl.so.2 /lib/x86_64-linux-gnu/libdl.so
 
     - name: Setup .NET 6
       uses: actions/setup-dotnet@v3
