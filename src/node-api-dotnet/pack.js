@@ -14,7 +14,7 @@ if (!configuration || rids.length === 0) {
 }
 
 const assemblyName = 'Microsoft.JavaScript.NodeApi';
-const targetFrameworks = ['net7.0']; // AOT binaries use the first TFM in this list.
+const targetFrameworks = ['net7.0', 'net6.0']; // AOT binaries use the first TFM in this list.
 
 const fs = require('fs');
 const path = require('path');

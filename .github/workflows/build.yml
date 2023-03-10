@@ -22,7 +22,6 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, macos-latest, ubuntu-latest ]
-        dotnet-version: [ 7.0.x ]
         node-version: [ 18.x ]
       fail-fast: false  # Don't cancel other jobs when one job fails
 
@@ -31,10 +30,19 @@ jobs:
       with:
         fetch-depth: 0 # Deep clone is required for versioning on git commit height
 
-    - name: Setup .NET ${{ matrix.dotnet-version }}
+    - name: Link libdl.so # Required by .NET 6
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo ln -s /lib/x86_64-linux-gnu/libdl.so.2 /lib/x86_64-linux-gnu/libdl.so
+
+    - name: Setup .NET 6
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: ${{ matrix.dotnet-version }}
+        dotnet-version: 6.0.x
+
+    - name: Setup .NET 7
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 7.0.x
 
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
@@ -42,6 +50,12 @@ jobs:
         node-version: ${{ matrix.node-version }}
 
     - name: Build
+      run: dotnet build --configuration Release
+
+    - name: Build native binaries
+      run: dotnet publish --configuration Release --framework net7.0
+
+    - name: Build packages
       run: dotnet pack --configuration Release
 
     # Uncomment to enable an SSH session for debugging
@@ -53,28 +67,33 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ runner.os }}-dotnet${{ matrix.dotnet-version }}-packages
+        name: ${{ runner.os }}-packages
         path: |
           out/pkg/*.nupkg
           out/pkg/*.tgz
 
-    - name: Test
+    - name: Test .NET 6
       env:
         TRACE_NODE_API_HOST: 1
-      run: dotnet test --configuration Release --logger trx --results-directory "test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}"
+      run: dotnet test -f net6.0 --configuration Release --logger trx --results-directory "test-dotnet6-node${{ matrix.node-version }}"
+
+    - name: Test .NET 7
+      env:
+        TRACE_NODE_API_HOST: 1
+      run: dotnet test -f net7.0 --configuration Release --logger trx --results-directory "test-dotnet7-node${{ matrix.node-version }}"
 
     - name: Upload test logs
       uses: actions/upload-artifact@v3
       with:
-        name: test-logs-${{ runner.os }}-dotnet${{ matrix.dotnet-version }}-node${{ matrix.node-version }}
+        name: test-logs-${{ runner.os }}-node${{ matrix.node-version }}
         path: out/obj/Release/**/*.log
       if: ${{ always() }}
 
     - name: Publish test results
       uses: dorny/test-reporter@v1
       with:
-        name: test (${{ runner.os }}, dotnet${{ matrix.dotnet-version }}, node${{ matrix.node-version }})
-        path: test-${{ matrix.dotnet-version }}-node${{ matrix.node-version }}/*.trx
+        name: test (${{ runner.os }}, node${{ matrix.node-version }})
+        path: test-dotnet*-node${{ matrix.node-version }}/*.trx
         reporter: dotnet-trx
       if: ${{ always() }} # Run this step even when there are test failures
 

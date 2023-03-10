@@ -10,7 +10,7 @@ namespace Microsoft.JavaScript.NodeApi;
 
 public enum JSErrorType { Error, TypeError, RangeError, SyntaxError }
 
-file record struct JSErrorInfo(string? Message, napi_status Status)
+internal record struct JSErrorInfo(string? Message, napi_status Status)
 {
     public static unsafe JSErrorInfo GetLastErrorInfo()
     {
@@ -37,8 +37,8 @@ file record struct JSErrorInfo(string? Message, napi_status Status)
 
 public struct JSError
 {
-    private string? _message;
-    private readonly JSReference? _errorRef;
+    private string? _message = null;
+    private readonly JSReference? _errorRef = null;
 
     private const string ErrorWrapValue = "4bda9e7e-4913-4dbc-95de-891cbf66598e-errorVal";
     private const string DefaultMessage = "Error in native callback";

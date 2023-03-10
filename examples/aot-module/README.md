@@ -5,8 +5,9 @@ depend on the .NET runtime. The `example.js` script loads that _native_ module a
 and calls a method on it. The script has access to type definitions and doc-comments for the
 module's APIs via the auto-generated `.d.ts` file.
 
-| Command             | Explanation
-|---------------------|--------------------------------------------------
-| `dotnet pack ../..` | Build NodeApi .NET & npm packages.
-| `dotnet publish`    | Install NodeApi .NET packages into example project; build example project and compile to native binary.
-| `node example.js`   | Run example JS code that calls the example module.
+| Command                          | Explanation
+|----------------------------------|--------------------------------------------------
+| `dotnet publish -f net7.0 ../..` | Build NodeApi .NET native AOT host.
+| `dotnet pack ../..`              | Build NodeApi .NET & npm packages.
+| `dotnet publish`                 | Install NodeApi .NET packages into example project; build example project and compile to native binary.
+| `node example.js`                | Run example JS code that calls the example module.

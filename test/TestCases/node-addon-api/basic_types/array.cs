@@ -20,11 +20,11 @@ public class TestBasicTypesArray : TestHelper, ITestObject
         return JSValue.Undefined;
     }
 
-    public static JSObject Init() => new()
+    public JSObject Init() => new()
     {
-        Method(CreateArray),
-        Method(GetLength),
-        Method(Get),
-        Method(Set),
+        Method(CreateArray, nameof(CreateArray)),
+        Method(GetLength, nameof(GetLength)),
+        Method(Get, nameof(Get)),
+        Method(Set, nameof(Set)),
     };
 }

@@ -73,7 +73,7 @@ internal static class JSInterfaceMarshaller
             }
         }
 
-        Type implementationType = typeBuilder.CreateType();
+        Type implementationType = typeBuilder.CreateType()!;
 
         // TODO: Get implementation delegates from the marshaller and assign to static properties.
 

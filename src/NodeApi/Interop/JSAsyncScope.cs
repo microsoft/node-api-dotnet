@@ -66,7 +66,7 @@ public struct JSAsyncScope : IDisposable
 {
     private readonly JSSynchronizationContext _syncContext;
 
-    public bool IsDisposed { get; private set; }
+    public bool IsDisposed { get; private set; } = false;
 
     public JSAsyncScope()
     {

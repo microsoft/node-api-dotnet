@@ -83,6 +83,31 @@ public class HostedClrTests
 
     private static string BuildHostModule()
     {
+        if (Environment.Version.Major < 7)
+        {
+            // The AOT native host can only be built for .NET 7.0.
+            string nativeHostFilePath = Path.Join(
+                RepoRootDirectory,
+                "out",
+                "bin",
+                Configuration,
+                "NodeApi",
+                "net7.0",
+                GetCurrentPlatformRuntimeIdentifier(),
+                "publish",
+                "Microsoft.JavaScript.NodeApi.node");
+            if (!File.Exists(nativeHostFilePath))
+            {
+                throw new FileNotFoundException(
+                    "Node API native host module not found at " + nativeHostFilePath +
+                    ". The native host must be built with .NET 7 before running " +
+                    ".NET 6 tests. Use the command: dotnet publish -f net7.0",
+                    nativeHostFilePath);
+            }
+
+            return nativeHostFilePath;
+        }
+
         string projectFilePath = Path.Join(RepoRootDirectory, "src", "NodeApi", "NodeApi.csproj");
 
         string logDir = Path.Join(
@@ -90,10 +115,10 @@ public class HostedClrTests
         Directory.CreateDirectory(logDir);
         string logFilePath = Path.Join(logDir, "publish-host.log");
 
-        string runtimeIdentifier = GetCurrentPlatformRuntimeIdentifier();
         var properties = new Dictionary<string, string>
         {
-            ["RuntimeIdentifier"] = runtimeIdentifier,
+            ["TargetFramework"] = "net7.0", // The host is always built with the latest framework.
+            ["RuntimeIdentifier"] = GetCurrentPlatformRuntimeIdentifier(),
             ["Configuration"] = Configuration,
         };
 
@@ -129,10 +154,10 @@ public class HostedClrTests
         // TestCases/Directory.Build.{props,targets}
         File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n</Project>\n");
 
-        string runtimeIdentifier = GetCurrentPlatformRuntimeIdentifier();
         var properties = new Dictionary<string, string>
         {
-            ["RuntimeIdentifier"] = runtimeIdentifier,
+            ["TargetFramework"] = GetCurrentFrameworkTarget(),
+            ["RuntimeIdentifier"] = GetCurrentPlatformRuntimeIdentifier(),
             ["Configuration"] = Configuration,
         };
 

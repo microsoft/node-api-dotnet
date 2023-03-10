@@ -43,7 +43,7 @@ internal partial class NativeHost : IDisposable
         using JSValueScope scope = new(JSValueScopeType.RootNoContext, env);
         try
         {
-            JSNativeApi.Interop.Initialize(NativeLibrary.GetMainProgramHandle());
+            JSNativeApi.Interop.Initialize();
 
             NativeHost host = new();
 
@@ -153,7 +153,7 @@ internal partial class NativeHost : IDisposable
                 methodNameBytes,
                 delegateType: -1 /* UNMANAGEDCALLERSONLY_METHOD */,
                 reserved: default,
-                out initializeModulePointer);
+                &initializeModulePointer);
         }
 
         CheckStatus(status, "Failed to load managed host assembly.");

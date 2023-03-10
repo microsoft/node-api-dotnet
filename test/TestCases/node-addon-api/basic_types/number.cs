@@ -2,6 +2,8 @@ using Microsoft.JavaScript.NodeApi;
 
 namespace Microsoft.JavaScript.NodeApiTest;
 
+#pragma warning disable IDE0060 // Unused parameter 'args'
+
 public class TestBasicTypesNumber : TestHelper, ITestObject
 {
     private static JSValue ToInt32(JSCallbackArgs args) => (int)args[0];
@@ -19,21 +21,21 @@ public class TestBasicTypesNumber : TestHelper, ITestObject
     private static JSValue OperatorFloat(JSCallbackArgs args) => (float)args[0] == (float)args[0].GetValueDouble();
     private static JSValue OperatorDouble(JSCallbackArgs args) => (double)args[0] == args[0].GetValueDouble();
 
-    public static JSObject Init() => new()
+    public JSObject Init() => new()
     {
-        Method(ToInt32),
-        Method(ToUInt32),
-        Method(ToInt64),
-        Method(ToFloat),
-        Method(ToDouble),
-        Method(MinFloat),
-        Method(MaxFloat),
-        Method(MinDouble),
-        Method(MaxDouble),
-        Method(OperatorInt32),
-        Method(OperatorUInt32),
-        Method(OperatorInt64),
-        Method(OperatorFloat),
-        Method(OperatorDouble),
+        Method(ToInt32, nameof(ToInt32)),
+        Method(ToUInt32, nameof(ToUInt32)),
+        Method(ToInt64, nameof(ToInt64)),
+        Method(ToFloat, nameof(ToFloat)),
+        Method(ToDouble, nameof(ToDouble)),
+        Method(MinFloat, nameof(MinFloat)),
+        Method(MaxFloat, nameof(MaxFloat)),
+        Method(MinDouble, nameof(MinDouble)),
+        Method(MaxDouble, nameof(MaxDouble)),
+        Method(OperatorInt32, nameof(OperatorInt32)),
+        Method(OperatorUInt32, nameof(OperatorUInt32)),
+        Method(OperatorInt64, nameof(OperatorInt64)),
+        Method(OperatorFloat, nameof(OperatorFloat)),
+        Method(OperatorDouble, nameof(OperatorDouble)),
     };
 }

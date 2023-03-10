@@ -8,12 +8,13 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// </summary>
 /// <typeparam name="T">Either <see cref="JSContext" /> or a custom module class that
 /// wraps a <see cref="JSContext"/> instance.</typeparam>
-public class JSModuleBuilder<T>
-  : JSPropertyDescriptorList<JSModuleBuilder<T>, T>
-  , IJSObjectUnwrap<T>
-  where T : class
+public class JSModuleBuilder<T> : JSPropertyDescriptorList<JSModuleBuilder<T>, T> where T : class
 {
-    static T? IJSObjectUnwrap<T>.Unwrap(JSCallbackArgs _)
+    public JSModuleBuilder() : base(Unwrap)
+    {
+    }
+
+    private static new T? Unwrap(JSCallbackArgs _)
     {
         return (T?)JSContext.Current.Module;
     }

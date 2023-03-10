@@ -43,9 +43,6 @@ public static class ComplexTypes
 
     public static IDictionary<int, string> Dictionary { get; set; } = new Dictionary<int, string>();
 
-    public static IReadOnlyDictionary<int, string> ReadOnlyDictionary { get; set; }
-        = new Dictionary<int, string>().AsReadOnly();
-
     public static IDictionary<string, IList<ClassObject>> ObjectListDictionary { get; set; }
         = new Dictionary<string, IList<ClassObject>>();
 

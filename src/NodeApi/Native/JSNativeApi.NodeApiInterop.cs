@@ -2,7 +2,7 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices.Marshalling;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -130,30 +130,20 @@ public static partial class JSNativeApi
         {
             nint funcHandle = GetExport(ref s_fields.napi_fatal_error);
             var funcDelegate = (delegate* unmanaged[Cdecl]<
-                byte*, nuint, byte*, nuint, void>)funcHandle;
+                nint, nuint, nint, nuint, void>)funcHandle;
 
-            Utf8StringMarshaller.ManagedToUnmanagedIn location_marshaller = new();
-            Utf8StringMarshaller.ManagedToUnmanagedIn message_marshaller = new();
+            nint location_native = location == null ?
+                default : Marshal.StringToCoTaskMemUTF8(location);
+            nint message_native = message == null ?
+                default : Marshal.StringToCoTaskMemUTF8(message);
             try
             {
-                int bufferSize = Utf8StringMarshaller.ManagedToUnmanagedIn.BufferSize;
-
-                byte* location_stackptr = stackalloc byte[bufferSize];
-                location_marshaller.FromManaged(
-                    location, new Span<byte>(location_stackptr, bufferSize));
-                byte* location_native = location_marshaller.ToUnmanaged();
-
-                byte* message_stackptr = stackalloc byte[bufferSize];
-                message_marshaller.FromManaged(
-                    message, new Span<byte>(message_stackptr, bufferSize));
-                byte* message_native = message_marshaller.ToUnmanaged();
-
                 funcDelegate(location_native, NAPI_AUTO_LENGTH, message_native, NAPI_AUTO_LENGTH);
             }
             finally
             {
-                location_marshaller.Free();
-                message_marshaller.Free();
+                if (location_native != default) Marshal.FreeCoTaskMem(location_native);
+                if (message_native != default) Marshal.FreeCoTaskMem(message_native);
             }
             throw new InvalidOperationException("This line must be unreachable");
         }

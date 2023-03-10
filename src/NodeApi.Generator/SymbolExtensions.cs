@@ -110,7 +110,7 @@ internal static class SymbolExtensions
         {
             enumBuilder.DefineLiteral(fieldSymbol.Name, fieldSymbol.ConstantValue);
         }
-        return enumBuilder.CreateType();
+        return enumBuilder.CreateType()!;
     }
 
     private static Type BuildSymbolicObjectType(
@@ -189,7 +189,7 @@ internal static class SymbolExtensions
             => type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance) ??
                 throw new MissingMemberException(
                     $"Property {name} not found on attribute {type.Name}.");
-        return typeBuilder.CreateType();
+        return typeBuilder.CreateType()!;
     }
 
     private static ConstructorBuilder BuildSymbolicConstructor(

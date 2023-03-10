@@ -2,12 +2,10 @@
     <Import Project="../../Directory.Build.props" />
 
     <PropertyGroup>
-        <PublishAot>true</PublishAot>
         <NativeLib>Shared</NativeLib>
         <BaseIntermediateOutputPath>$(BaseOutputPath)obj/$(Configuration)/TestCases/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
         <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
         <OutputPath>$(BaseOutputPath)bin/$(Configuration)/TestCases/$(MSBuildProjectName)/</OutputPath>
-        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>CS1591</NoWarn>
 

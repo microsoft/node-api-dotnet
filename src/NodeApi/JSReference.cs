@@ -65,7 +65,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (!IsWeak)
         {
-            napi_reference_unref((napi_env)_context, _handle, nint.Zero).ThrowIfFailed();
+            napi_reference_unref((napi_env)_context, _handle, default).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -74,7 +74,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (IsWeak)
         {
-            napi_reference_ref((napi_env)_context, _handle, nint.Zero).ThrowIfFailed();
+            napi_reference_ref((napi_env)_context, _handle, default).ThrowIfFailed();
             IsWeak = true;
         }
     }
