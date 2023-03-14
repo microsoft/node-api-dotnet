@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.JavaScript.NodeApi.Interop;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
@@ -18,6 +19,7 @@ namespace Microsoft.JavaScript.NodeApi;
 /// also has a finalizer so that the reference will be released when the C# object is GC'd. However
 /// explicit disposal is still preferable when possible.
 /// </remarks>
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public class JSReference : IDisposable
 {
     private readonly JSContext _context;
@@ -122,4 +124,15 @@ public class JSReference : IDisposable
     }
 
     ~JSReference() => Dispose(disposing: false);
+
+    public override string ToString()
+    {
+        ThrowIfDisposed();
+        return GetValue()?.ToString() ?? "undefined";
+    }
+
+    internal string ToDebugString()
+    {
+        return IsDisposed ? "->disposed" : _handle.ToString();
+    }
 }

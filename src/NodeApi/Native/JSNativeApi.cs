@@ -999,6 +999,10 @@ public static partial class JSNativeApi
             setterCallback = new napi_callback(&InvokeJSSetter);
         }
 
+#if TRACE
+        // TODO: Wrap callbacks with tracing.
+#endif
+
         nint[] handlesToFinalize = new nint[descriptors.Count];
         int count = descriptors.Count;
         napi_property_descriptor* descriptorsPtr = stackalloc napi_property_descriptor[count];
@@ -1013,7 +1017,8 @@ public static partial class JSNativeApi
             descriptorPtr->setter = descriptor.Setter == null ? default : setterCallback;
             descriptorPtr->value = (napi_value)descriptor.Value;
             descriptorPtr->attributes = (napi_property_attributes)descriptor.Attributes;
-            if (descriptor.Data != null || descriptor.Method != null || descriptor.Getter != null || descriptor.Setter != null)
+            if (descriptor.Data != null || descriptor.Method != null ||
+                descriptor.Getter != null || descriptor.Setter != null)
             {
                 handlesToFinalize[i] = descriptorPtr->data = (nint)GCHandle.Alloc(descriptor);
             }
@@ -1027,7 +1032,8 @@ public static partial class JSNativeApi
         return handlesToFinalize;
     }
 
-    private unsafe delegate void UseUnmanagedDescriptors(ReadOnlySpan<byte> name, nuint count, napi_property_descriptor* descriptors);
+    private unsafe delegate void UseUnmanagedDescriptors(
+        ReadOnlySpan<byte> name, nuint count, napi_property_descriptor* descriptors);
 
     internal sealed class PinnedMemory<T> : IDisposable where T : struct
     {

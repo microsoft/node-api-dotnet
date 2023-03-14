@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;

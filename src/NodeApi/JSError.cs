@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -35,10 +36,12 @@ internal record struct JSErrorInfo(string? Message, napi_status Status)
 
 }
 
+
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public struct JSError
 {
     private string? _message = null;
-    private readonly JSReference? _errorRef = null;
+    private readonly JSReference _errorRef;
 
     private const string ErrorWrapValue = "4bda9e7e-4913-4dbc-95de-891cbf66598e-errorVal";
     private const string DefaultMessage = "Error in native callback";
@@ -106,12 +109,9 @@ public struct JSError
             => value is not null ? (JSValue)value : (JSValue?)null;
     }
 
-    public JSError(JSValue? error)
+    public JSError(JSValue error)
     {
-        if (error is null)
-            return;
-
-        _errorRef = CreateErrorReference(error.Value);
+        _errorRef = CreateErrorReference(error);
     }
 
     public JSError(Exception exception)
@@ -256,6 +256,8 @@ public struct JSError
             s_isFatal = _previousIsFatal;
         }
     }
+
+    internal string ToDebugString() => Value.ToDebugString();
 }
 
 public static partial class JSNativeApi

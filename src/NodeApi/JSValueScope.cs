@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using Microsoft.JavaScript.NodeApi.Interop;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
@@ -7,6 +8,7 @@ namespace Microsoft.JavaScript.NodeApi;
 
 public enum JSValueScopeType { Handle, Escapable, Callback, Root, RootNoContext, }
 
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public sealed class JSValueScope : IDisposable
 {
     private readonly JSValueScope? _parentScope;
@@ -113,5 +115,21 @@ public sealed class JSValueScope : IDisposable
     {
         ArgumentNullException.ThrowIfNull(scope);
         return scope._env;
+    }
+
+    internal string ToDebugString()
+    {
+        string value = ScopeType switch
+        {
+            JSValueScopeType.Root => _env.ToString(),
+            JSValueScopeType.RootNoContext => _env.ToString(),
+            JSValueScopeType.Callback => _env.ToString(),
+            JSValueScopeType.Handle => new napi_handle_scope(_scopeHandle).ToString(),
+            JSValueScopeType.Escapable =>
+                new napi_escapable_handle_scope(_scopeHandle).ToString(),
+            _ => "Unknown",
+        };
+        return IsDisposed ? $"(disposed) {ScopeType}Scope" :
+            $"{value} {ScopeType}Scope";
     }
 }

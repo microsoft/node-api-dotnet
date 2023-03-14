@@ -1,9 +1,11 @@
 using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public readonly struct JSDate : IEquatable<JSValue>
 {
     private readonly JSValue _value;
@@ -81,4 +83,8 @@ public readonly struct JSDate : IEquatable<JSValue>
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
+
+    public override string ToString() => _value.ToString();
+
+    internal string ToDebugString() => _value.ToDebugString();
 }

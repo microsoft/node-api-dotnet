@@ -1,11 +1,13 @@
 using System;
 using System.Buffers;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Microsoft.JavaScript.NodeApi;
 
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
 {
     private readonly JSValue _value;
@@ -163,6 +165,10 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
+
+    public override string ToString() => _value.ToString();
+
+    internal string ToDebugString() => _value.ToDebugString();
 
     /// <summary>
     /// Gets the typed-array values as memory, without copying.

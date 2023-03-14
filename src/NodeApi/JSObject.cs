@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.JavaScript.NodeApi;
 
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquatable<JSValue>
 {
     private readonly JSValue _value;
@@ -136,4 +138,8 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
+
+    public override string ToString() => _value.ToString();
+
+    internal string ToDebugString() => _value.ToDebugString();
 }

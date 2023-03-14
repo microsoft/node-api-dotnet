@@ -1,6 +1,8 @@
 // Definitions from Node.JS js_native_api.h and js_native_api_types.h
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
@@ -47,7 +49,7 @@ public static partial class JSNativeApi
 
         [DllImport("libdl")]
         private static extern nint dlopen(nint fileName, int flags);
-        
+
         private const int RTLD_LAZY = 1;
 #endif
 
@@ -216,20 +218,42 @@ public static partial class JSNativeApi
         // Specialized pointer types
         //===========================================================================
 
+        [DebuggerDisplay("{ToString(),nq}")]
         public record struct napi_env(nint Handle)
         {
             public bool IsNull => Handle == default;
             public static napi_env Null => new(default);
+            public override string ToString() => IsNull ? "#null" : $"#{Handle:X8}";
         }
+
+        [DebuggerDisplay("{ToString(),nq}")]
         public record struct napi_value(nint Handle)
         {
             public static napi_value Null => new(default);
             public bool IsNull => Handle == default;
+            public override string ToString() => IsNull ? "@null" : $"@{Handle:X8}";
         }
-        public record struct napi_ref(nint Handle);
-        public record struct napi_handle_scope(nint Handle);
-        public record struct napi_escapable_handle_scope(nint Handle);
+
+        [DebuggerDisplay("{ToString(),nq}")]
+        public record struct napi_ref(nint Handle)
+        {
+            public override string ToString() => $"->{Handle:X8}";
+        }
+
+        [DebuggerDisplay("{ToString(),nq}")]
+        public record struct napi_handle_scope(nint Handle)
+        {
+            public override string ToString() => $"~{Handle:X8}";
+        }
+
+        [DebuggerDisplay("{ToString(),nq}")]
+        public record struct napi_escapable_handle_scope(nint Handle)
+        {
+            public override string ToString() => $"^{Handle:X8}";
+        }
+
         public record struct napi_callback_info(nint Handle);
+
         public record struct napi_deferred(nint Handle);
 
         //===========================================================================
@@ -1697,6 +1721,52 @@ public static partial class JSNativeApi
                 if (value1_native != default) Marshal.FreeCoTaskMem(value1_native);
                 if (value2_native != default) Marshal.FreeCoTaskMem(value2_native);
             }
+        }
+
+#if TRACE
+        private readonly struct CallTrace
+        {
+            public CallTrace(string name) { Name = name; }
+            public string Name { get; }
+            public Stopwatch Timer { get; } = new();
+        }
+
+        [ThreadStatic] private static Stack<CallTrace> s_tracedCalls = new();
+
+        private static string GetTraceTime(TimeSpan time)
+        {
+            long microseconds = time.Ticks * 1000 / TimeSpan.TicksPerMillisecond;
+            if (microseconds < 10_000)
+            {
+                return microseconds + "μs";
+            }
+            else if (microseconds < 10_000_000)
+            {
+                return (microseconds / 1000) + "ms";
+            }
+            else
+            {
+                return (microseconds / 1_000_000) + "s";
+            }
+        }
+#endif
+
+        [Conditional("TRACE")]
+        private static void TraceCall(string name, params object?[] args)
+        {
+            Trace.IndentLevel = s_tracedCalls.Count;
+            Trace.WriteLine($"> {name}()"); // TODO: Args
+            s_tracedCalls.Push(new CallTrace(name));
+        }
+
+        [Conditional("TRACE")]
+        private static void TraceReturn(object? result)
+        {
+            var trace = s_tracedCalls.Pop();
+            var time = trace.Timer.Elapsed;
+            Trace.IndentLevel = s_tracedCalls.Count;
+            string resultString = ""; // TODO: Result trace string
+            Trace.WriteLine($"< {GetTraceTime(time)} ms {trace.Name} => {resultString}");
         }
     }
 }

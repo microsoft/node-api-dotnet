@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
@@ -11,6 +12,7 @@ namespace Microsoft.JavaScript.NodeApi;
 /// Represents a JavaScript Promise object.
 /// </summary>
 /// <seealso cref="TaskExtensions"/>
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public readonly struct JSPromise : IEquatable<JSValue>
 {
     private readonly JSValue _value;
@@ -264,6 +266,10 @@ public readonly struct JSPromise : IEquatable<JSValue>
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
+
+    public override string ToString() => _value.ToString();
+
+    internal string ToDebugString() => _value.ToDebugString();
 
     /// <summary>
     /// Supports resolving or rejecting a created JavaScript Promise.

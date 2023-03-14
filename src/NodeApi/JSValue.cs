@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.JavaScript.NodeApi.Interop;
@@ -8,10 +10,14 @@ using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public readonly struct JSValue : IEquatable<JSValue>
 {
     private readonly napi_value _handle = default;
     private readonly JSValueScope? _scope = null;
+#if DEBUG
+    private readonly JSValueType _type = default;
+#endif
 
     public readonly JSValueScope Scope =>
         _scope ?? JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
@@ -30,6 +36,10 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
         _handle = handle;
         _scope = scope;
+#if DEBUG
+        // In debug builds, get the value type so it is available in the debugger display.
+        _type = this.TypeOf();
+#endif
     }
 
     public napi_value? Handle
@@ -155,6 +165,10 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static unsafe JSValue CreateFunction(
         ReadOnlySpan<byte> utf8Name, JSCallback callback, object? callbackData = null)
     {
+#if TRACE
+        // TODO: Wrap callback with tracing.
+#endif
+
         GCHandle descriptorHandle = GCHandle.Alloc(
             new JSCallbackDescriptor(callback, callbackData));
         JSValue func = CreateFunction(
@@ -381,6 +395,106 @@ public readonly struct JSValue : IEquatable<JSValue>
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
+
+    public override string ToString()
+    {
+        return (string)this.CallMethod("toString");
+    }
+
+    internal string ToDebugString()
+    {
+        // DebuggerDisplay evaluation must not call into native code.
+#if DEBUG
+        return $"{_handle} {_type.ToString().ToLowerInvariant()}";
+#else
+        return _handle.ToString();
+#endif
+    }
+
+#if TRACE
+    internal string ToTraceString()
+    {
+        string value;
+        try
+        {
+            value = this.TypeOf() switch
+            {
+                JSValueType.Undefined => "undefined",
+                JSValueType.Null => "null",
+                JSValueType.Boolean => this.GetValueBool() ? "true" : "false",
+                JSValueType.Number => this.GetValueDouble().ToString(CultureInfo.InvariantCulture),
+                JSValueType.String => GetStringTraceString(this),
+                JSValueType.Symbol => "symbol",
+                JSValueType.Object => GetObjectTraceString(this),
+                JSValueType.Function => GetFunctionTraceString(this),
+                JSValueType.External => "external",
+                JSValueType.BigInt => "bigint",
+                _ => "unknown",
+            };
+        }
+        catch (Exception ex)
+        {
+            value = $"{ex.GetType().Name}: {ex.Message}";
+        }
+
+        return $"{_handle} {value}";
+    }
+
+    private static string GetStringTraceString(JSValue value)
+    {
+        const int MaxDebugStringLength = 30;
+        char[] chars = value.GetValueStringUtf16AsCharArray();
+        return chars.Length < MaxDebugStringLength ?
+            '"' + new string(chars) + '"':
+            '"' + new string(chars.AsSpan().Slice(0, MaxDebugStringLength)) + "...";
+    }
+
+    private static string GetObjectTraceString(JSValue value)
+    {
+        if (value.IsNull())
+        {
+            return "null";
+        }
+        else if (value.IsArray())
+        {
+            return $"Array[{value.GetArrayLength()}]";
+        }
+        else
+        {
+            var constructorName = (string?)value.GetProperty("constructor").GetProperty("name");
+            if (constructorName?.EndsWith("Array") == true && value.IsTypedArray())
+            {
+                int length = value.GetTypedArrayLength(out _);
+                return $"{constructorName}[{length}]";
+            }
+            else return constructorName switch
+            {
+                "Error" => GetErrorTraceString(constructorName, value),
+                "TypeError" => GetErrorTraceString(constructorName, value),
+                "SyntaxError" => GetErrorTraceString(constructorName, value),
+                "RangeError" => GetErrorTraceString(constructorName, value),
+                "Date" => ((JSDate)value).ToDateTime().ToString("s"),
+                "" => string.Empty,
+                null => string.Empty,
+                _ => constructorName,
+            };
+        }
+    }
+
+    private static string GetErrorTraceString(string errorName, JSValue value)
+    {
+        var code = (string?)value.GetProperty("code");
+        code = string.IsNullOrEmpty(code) ? string.Empty : code + " ";
+        string message = (string)value.GetProperty("message");
+        return$"{errorName} {code}\"{message}\")";
+    }
+
+    private static string GetFunctionTraceString(JSValue value)
+    {
+        var functionName = (string)value.GetProperty("name");
+        return $"function {functionName}()";
+    }
+#endif
 }
 
 internal static class JSValueExtensions

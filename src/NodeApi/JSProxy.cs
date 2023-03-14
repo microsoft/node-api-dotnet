@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using Microsoft.JavaScript.NodeApi.Interop;
@@ -9,6 +10,7 @@ namespace Microsoft.JavaScript.NodeApi;
 /// <summary>
 /// Enables creation of JS Proxy objects with C# handler callbacks.
 /// </summary>
+[DebuggerDisplay("{ToDebugString(),nq}")]
 public readonly partial struct JSProxy : IEquatable<JSValue>
 {
     private readonly JSValue _value;
@@ -291,4 +293,8 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
+
+    public override string ToString() => _value.ToString();
+
+    internal string ToDebugString() => _value.ToDebugString();
 }
