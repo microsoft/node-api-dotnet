@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Microsoft.JavaScript.NodeApi;
 
 // Matches to napi_typedarray_type

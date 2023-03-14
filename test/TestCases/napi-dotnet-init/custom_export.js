@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 const assert = require('assert');
 
 process.env['TEST_DOTNET_MODULE_INIT_EXPORT'] = 'test';

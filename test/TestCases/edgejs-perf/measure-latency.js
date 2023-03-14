@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Ported from https://github.com/agracio/edge-js/blob/master/performance/marshal_clr2v8.js
 
 // If using the test runner, the measurement results can be found in:

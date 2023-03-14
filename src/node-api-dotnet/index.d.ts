@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // APIs defined here are implemented by Microsoft.JavaScript.NodeApi.DotNetHost.
 
 /**

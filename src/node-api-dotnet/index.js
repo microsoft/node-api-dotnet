@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
 const assemblyName = 'Microsoft.JavaScript.NodeApi';
 

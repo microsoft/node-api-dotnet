@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Run each test function in sequence,
 // with an async delay and GC call between each.
 

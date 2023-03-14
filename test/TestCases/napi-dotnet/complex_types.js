@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 const assert = require('assert');
 
 /** @type {import('./napi-dotnet')} */
