@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 /* Test helpers ported from test/common/index.js in Node.js project. */
 'use strict';
 const assert = require('assert');

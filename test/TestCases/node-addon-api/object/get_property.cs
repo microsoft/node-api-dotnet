@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.JavaScript.NodeApi;
 
 namespace Microsoft.JavaScript.NodeApiTest;

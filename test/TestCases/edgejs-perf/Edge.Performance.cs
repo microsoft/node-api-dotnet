@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Ported from https://github.com/agracio/edge-js/blob/master/performance/performance.cs
 
 using System;

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Definitions from Node.JS node_api.h and node_api_types.h
 
 using System;

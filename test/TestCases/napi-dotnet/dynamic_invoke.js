@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 const assert = require('assert');
 
 const dotnetHost = process.env.TEST_DOTNET_HOST_PATH;

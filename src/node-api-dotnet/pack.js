@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 const nodeMajorVersion = process.versions.node.split('.')[0];
 if (nodeMajorVersion < 18) {
   console.error('Node.js version 18 or later is required.');
