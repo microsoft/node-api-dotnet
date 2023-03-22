@@ -19,7 +19,7 @@ namespace Microsoft.JavaScript.NodeApi.Generator;
 /// </summary>
 public abstract class SourceGenerator
 {
-    private const string DiagnosticPrefix = "NAPI";
+    protected const string DiagnosticPrefix = "NAPI";
     private const string DiagnosticCategory = "NodeApi";
 
     private static readonly Regex s_paragraphBreakRegex = new(@" *\<para */\> *");
@@ -40,8 +40,6 @@ public abstract class SourceGenerator
         UnsupportedOverloads,
         ReferenedTypeNotExported,
     }
-
-    public GeneratorExecutionContext Context { get; protected set; }
 
     public static string GetNamespace(ISymbol symbol)
     {
@@ -75,7 +73,7 @@ public abstract class SourceGenerator
         // So concatenate the first few lines of the stack trace with no newlines.
         string message = string.Concat(new[] { ": ", ex.Message }.Concat(
             (ex.StackTrace ?? string.Empty).Replace("\r", "").Split('\n').Take(10)));
-        ReportError(DiagnosticId.GeneratorError, null, ex.GetType().Name, message);
+        ReportError(DiagnosticId.GeneratorError, ex.GetType().Name, message);
     }
 
     public void ReportError(
@@ -92,24 +90,67 @@ public abstract class SourceGenerator
             description);
     }
 
-    public void ReportDiagnostic(
+    public void ReportError(
+        DiagnosticId id,
+        string title,
+        string? description = null)
+    {
+        ReportDiagnostic(
+            DiagnosticSeverity.Error,
+            id,
+            null,
+            title,
+            description);
+    }
+
+    public void ReportWarning(
+        DiagnosticId id,
+        ISymbol? symbol,
+        string title,
+        string? description = null)
+    {
+        ReportDiagnostic(
+            DiagnosticSeverity.Warning,
+            id,
+            symbol?.Locations.Single(),
+            title,
+            description);
+    }
+
+    public void ReportWarning(
+        DiagnosticId id,
+        string title,
+        string? description = null)
+    {
+        ReportDiagnostic(
+            DiagnosticSeverity.Warning,
+            id,
+            null,
+            title,
+            description);
+    }
+
+    private void ReportDiagnostic(
         DiagnosticSeverity severity,
         DiagnosticId id,
         Location? location,
         string title,
         string? description = null)
     {
-        var descriptor = new DiagnosticDescriptor(
-            id: DiagnosticPrefix + id,
-            title,
-            messageFormat: title +
-            (!string.IsNullOrEmpty(description) ? " " + description : string.Empty),
-            DiagnosticCategory,
-            severity,
-            isEnabledByDefault: true);
-        Context.ReportDiagnostic(
-            Diagnostic.Create(descriptor, location));
+        ReportDiagnostic(Diagnostic.Create(
+            new DiagnosticDescriptor(
+                id: DiagnosticPrefix + (int)id,
+                title,
+                messageFormat: title +
+                    (!string.IsNullOrEmpty(description) ? " " + description : string.Empty),
+                DiagnosticCategory,
+                severity,
+                isEnabledByDefault: true,
+                description),
+            location));
     }
+
+    public abstract void ReportDiagnostic(Diagnostic diagnostic);
 
     protected static IEnumerable<string> WrapComment(string comment, int wrapColumn)
     {

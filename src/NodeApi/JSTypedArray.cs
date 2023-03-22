@@ -123,7 +123,15 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
         set => Span[index] = value;
     }
 
+    /// <summary>
+    /// Gets the typed-array values as a span, without copying.
+    /// </summary>
     public Span<T> Span => _value.GetTypedArrayData<T>();
+
+    /// <summary>
+    /// Gets the typed-array values as memory, without copying.
+    /// </summary>
+    public Memory<T> Memory => new MemoryManager(this).Memory;
 
     /// <summary>
     /// Copies the typed-array data into a new array and returns the array.
@@ -139,7 +147,6 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
     }
 
     public Span<T>.Enumerator GetEnumerator() => Span.GetEnumerator();
-
 
     /// <summary>
     /// Compares two JS values using JS "strict" equality.
@@ -168,24 +175,20 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
     }
 
     /// <summary>
-    /// Gets the typed-array values as memory, without copying.
-    /// </summary>
-    public Memory<T> AsMemory()
-    {
-        JSReference typedArrayReference = new(_value);
-        return new MemoryManager(typedArrayReference).Memory;
-    }
-
-    /// <summary>
     /// Holds a reference to a typed-array value until the memory is disposed.
     /// </summary>
-    private class MemoryManager : MemoryManager<T>
+    private unsafe class MemoryManager : MemoryManager<T>
     {
+        private readonly void* _pointer;
+        private readonly int _length;
         private readonly JSReference _typedArrayReference;
 
-        public MemoryManager(JSReference typedArrayReference)
+        public MemoryManager(JSTypedArray<T> typedArray)
         {
-            _typedArrayReference = typedArrayReference;
+            Span<T> span = typedArray.Span;
+            _pointer = Unsafe.AsPointer(ref MemoryMarshal.GetReference(span));
+            _length = span.Length;
+            _typedArrayReference = new JSReference(typedArray);
         }
 
         public JSValue JSValue => _typedArrayReference.GetValue() ??
@@ -193,7 +196,7 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
 
         public override Span<T> GetSpan()
         {
-            return ((JSTypedArray<T>)JSValue).Span;
+            return new Span<T>(_pointer, _length);
         }
 
         public override unsafe MemoryHandle Pin(int elementIndex = 0)

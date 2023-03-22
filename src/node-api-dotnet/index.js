@@ -11,6 +11,10 @@ const runtimeIdentifier = getRuntimeIdentifier();
 const nativeHostPath = __dirname + `/${runtimeIdentifier}/${assemblyName}.node`;
 const managedHostPath = __dirname + `/${targetFramework}/${assemblyName}.DotNetHost.dll`
 
+// The Node API module may need the require() function at initialization time; passing it as
+// a global is the best (only?) solution, since it cannot be obtained via any `napi_*` function.
+global.require = require;
+
 const nativeHost = require(nativeHostPath);
 module.exports = nativeHost.initialize(managedHostPath);
 

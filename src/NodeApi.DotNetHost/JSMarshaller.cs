@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -230,7 +231,7 @@ public class JSMarshaller
         MethodInfo createExternalMethod = typeof(JSValue)
             .GetStaticMethod(nameof(JSValue.CreateExternal));
         statements.Add(Expression.Call(
-                createExternalMethod, resultVariable));
+            createExternalMethod, resultVariable));
 
         return (Expression<JSCallback>)Expression.Lambda(
             delegateType: typeof(JSCallback),
@@ -597,25 +598,146 @@ public class JSMarshaller
         }
     }
 
+    /// <summary>
+    /// Builds a lambda expression that generates a callback descriptor that resolves and invokes
+    /// the best-matching overload from a set of overloaded constructors.
+    /// </summary>
+    public Expression<Func<JSCallbackDescriptor>> BuildConstructorOverloadDescriptorExpression(
+        ConstructorInfo[] constructors)
+    {
+        if (constructors.Length == 0)
+        {
+            throw new ArgumentException(
+                "Constructors array must have at least one item.", nameof(constructors));
+        }
+
+        /*
+         * var overloads = new JSCallbackOverload[constructors.Length];
+         * overloads[0] = new JSCallbackOverload(
+         *   new Type[] { ... }, // Constructor overload parameter types
+         *   (args) => { ... }); // Constructor overload lambda
+         * ...                   // Additional overloads
+         * return JSCallbackOverload.CreateDescriptor(overloads);
+         */
+
+        ParameterExpression overloadsVariable =
+            Expression.Variable(typeof(JSCallbackOverload[]), "overloads");
+        var statements = new Expression[constructors.Length + 2];
+        statements[0] = Expression.Assign(
+            overloadsVariable, Expression.NewArrayBounds(
+                typeof(JSCallbackOverload), Expression.Constant(constructors.Length)));
+
+        ConstructorInfo overloadConstructor = typeof(JSCallbackOverload).GetInstanceConstructor(
+            new[] { typeof(Type[]), typeof(JSCallback) });
+
+        for (int i = 0; i < constructors.Length; i++)
+        {
+            Type[] parameterTypes = constructors[i].GetParameters()
+                .Select(p => p.ParameterType).ToArray();
+            statements[i + 1] = Expression.Assign(
+                Expression.ArrayAccess(overloadsVariable, Expression.Constant(i)),
+                Expression.New(
+                    overloadConstructor,
+                    Expression.NewArrayInit(typeof(Type),
+                        parameterTypes.Select(t => Expression.Constant(t, typeof(Type)))),
+                    BuildFromJSConstructorExpression(constructors[i])));
+        }
+
+        MethodInfo createDescriptorMethod = typeof(JSCallbackOverload).GetStaticMethod(
+            nameof(JSCallbackOverload.CreateDescriptor));
+        statements[statements.Length - 1] = Expression.Call(
+            createDescriptorMethod, overloadsVariable);
+
+        return (Expression<Func<JSCallbackDescriptor>>)Expression.Lambda(
+            Expression.Block(
+                typeof(JSCallbackDescriptor),
+                new[] { overloadsVariable },
+                statements),
+            name: "new_" + FullTypeName(constructors[0].DeclaringType!),
+            Array.Empty<ParameterExpression>());
+    }
+
+    /// <summary>
+    /// Builds a callback descriptor that resolves and invokes the best-matching overload from
+    /// a set of overloaded constructors.
+    /// </summary>
     public JSCallbackDescriptor BuildConstructorOverloadDescriptor(ConstructorInfo[] constructors)
     {
         JSCallbackOverload[] overloads = new JSCallbackOverload[constructors.Length];
         for (int i = 0; i < constructors.Length; i++)
         {
             Type[] parameterTypes = constructors[i].GetParameters()
-                    .Select(p => p.ParameterType).ToArray();
+                .Select(p => p.ParameterType).ToArray();
             JSCallback constructorDelegate =
                 BuildFromJSConstructorExpression(constructors[i]).Compile();
-            overloads[i] = new JSCallbackOverload
-            {
-                ParameterTypes = parameterTypes,
-                Callback = constructorDelegate,
-            };
+            overloads[i] = new JSCallbackOverload(parameterTypes, constructorDelegate);
         }
-
-        return new JSCallbackDescriptor(JSCallbackOverload.ResolveAndInvoke, overloads);
+        return JSCallbackOverload.CreateDescriptor(overloads);
     }
 
+    /// <summary>
+    /// Builds a lambda expression that generates a callback descriptor that resolves and invokes
+    /// the best-matching overload from a set of overloaded methods.
+    /// </summary>
+    public Expression<Func<JSCallbackDescriptor>> BuildMethodOverloadDescriptorExpression(
+        MethodInfo[] methods)
+    {
+        if (methods.Length == 0)
+        {
+            throw new ArgumentException(
+                "Methods array must have at least one item.", nameof(methods));
+        }
+
+        /*
+         * var overloads = new JSCallbackOverload[methods.Length];
+         * overloads[0] = new JSCallbackOverload(
+         *   new Type[] { ... }, // Method overload parameter types
+         *   (args) => { ... }); // Method overload lambda
+         * ...                   // Additional overloads
+         * return JSCallbackOverload.CreateDescriptor(overloads);
+         */
+
+        ParameterExpression overloadsVariable =
+            Expression.Variable(typeof(JSCallbackOverload[]), "overloads");
+        var statements = new Expression[methods.Length + 2];
+        statements[0] = Expression.Assign(
+            overloadsVariable, Expression.NewArrayBounds(
+                typeof(JSCallbackOverload), Expression.Constant(methods.Length)));
+
+        ConstructorInfo overloadConstructor = typeof(JSCallbackOverload).GetInstanceConstructor(
+            new[] { typeof(Type[]), typeof(JSCallback) });
+
+        for (int i = 0; i < methods.Length; i++)
+        {
+            Type[] parameterTypes = methods[i].GetParameters()
+                .Select(p => p.ParameterType).ToArray();
+            statements[i + 1] = Expression.Assign(
+                Expression.ArrayAccess(overloadsVariable, Expression.Constant(i)),
+                Expression.New(
+                    overloadConstructor,
+                    Expression.NewArrayInit(typeof(Type),
+                        parameterTypes.Select(t => Expression.Constant(t, typeof(Type)))),
+                    BuildFromJSMethodExpression(methods[i])));
+        }
+
+        MethodInfo createDescriptorMethod = typeof(JSCallbackOverload).GetStaticMethod(
+            nameof(JSCallbackOverload.CreateDescriptor));
+        statements[statements.Length - 1] = Expression.Call(
+            createDescriptorMethod, overloadsVariable);
+
+        return (Expression<Func<JSCallbackDescriptor>>)Expression.Lambda(
+            Expression.Block(
+                typeof(JSCallbackDescriptor),
+                new[] { overloadsVariable },
+                statements),
+            name: FullMethodName(methods[0]),
+            Array.Empty<ParameterExpression>());
+    }
+
+    /// <summary>
+    /// Builds a callback descriptor that resolves and invokes the best-matching overload from
+    /// a set of overloaded methods.
+    /// </summary>
     public JSCallbackDescriptor BuildMethodOverloadDescriptor(MethodInfo[] methods)
     {
         JSCallbackOverload[] overloads = new JSCallbackOverload[methods.Length];
@@ -625,14 +747,9 @@ public class JSMarshaller
                     .Select(p => p.ParameterType).ToArray();
             JSCallback methodDelegate =
                 BuildFromJSMethodExpression(methods[i]).Compile();
-            overloads[i] = new JSCallbackOverload
-            {
-                ParameterTypes = parameterTypes,
-                Callback = methodDelegate,
-            };
+            overloads[i] = new JSCallbackOverload(parameterTypes, methodDelegate);
         }
-
-        return new JSCallbackDescriptor(JSCallbackOverload.ResolveAndInvoke, overloads);
+        return JSCallbackOverload.CreateDescriptor(overloads);
     }
 
     private Expression<JSCallback> BuildFromJSStaticMethodExpression(MethodInfo method)
@@ -1069,7 +1186,9 @@ public class JSMarshaller
         }
         else if (toType.IsValueType)
         {
-            if (toType.IsGenericType && toType.GetGenericTypeDefinition() == typeof(Memory<>))
+            if (toType.IsGenericType &&
+                (toType.GetGenericTypeDefinition() == typeof(Memory<>) ||
+                toType.GetGenericTypeDefinition() == typeof(ReadOnlyMemory<>)))
             {
                 Type elementType = toType.GenericTypeArguments[0];
                 if (!IsTypedArrayType(elementType))
@@ -1081,10 +1200,10 @@ public class JSMarshaller
                 Type typedArrayType = typeof(JSTypedArray<>).MakeGenericType(elementType);
                 MethodInfo asTypedArray = typedArrayType.GetExplicitConversion(
                     typeof(JSValue), typedArrayType);
-                MethodInfo asMemory = typedArrayType.GetInstanceMethod("AsMemory");
+                PropertyInfo memory = typedArrayType.GetInstanceProperty("Memory");
                 statements = new[]
                 {
-                    Expression.Call(Expression.Call(asTypedArray, valueParameter), asMemory),
+                    Expression.Property(Expression.Call(asTypedArray, valueParameter), memory),
                 };
             }
             else if (toType == typeof(DateTime))
@@ -1104,10 +1223,24 @@ public class JSMarshaller
         }
         else if (toType.IsClass)
         {
-            statements = new[]
+            if (toType == typeof(Stream))
             {
-                Expression.Convert(Expression.Call(s_unwrap, valueParameter), toType),
-            };
+                MethodInfo adapterConversion =
+                    typeof(NodeStream).GetExplicitConversion(typeof(JSValue), typeof(NodeStream));
+                statements = new[]
+                {
+                    Expression.Coalesce(
+                        Expression.TypeAs(Expression.Call(s_tryUnwrap, valueParameter), toType),
+                        Expression.Convert(valueParameter, typeof(NodeStream), adapterConversion)),
+                };
+            }
+            else
+            {
+                statements = new[]
+                {
+                    Expression.Convert(Expression.Call(s_unwrap, valueParameter), toType),
+                };
+            }
         }
         else if (toType.IsInterface && toType.Namespace == typeof(ICollection<>).Namespace)
         {
@@ -1708,6 +1841,22 @@ public class JSMarshaller
             MethodInfo wrapMethod = typeof(JSContext).GetInstanceMethod(
                     nameof(JSContext.GetOrCreateCollectionWrapper),
                     new[] { typeDefinition, typeof(JSValue.From<>) },
+                    elementType);
+            yield return Expression.Call(
+                Expression.Property(null, s_context),
+                wrapMethod,
+                valueExpression,
+                GetToJSValueExpression(elementType));
+        }
+        else if (typeDefinition == typeof(System.Collections.ObjectModel.ReadOnlyCollection<>))
+        {
+            /*
+             * JSContext.Current.GetOrCreateCollectionWrapper(
+             *     (IReadOnlyCollection<T>)value, (value) => (JSValue)value);
+             */
+            MethodInfo wrapMethod = typeof(JSContext).GetInstanceMethod(
+                    nameof(JSContext.GetOrCreateCollectionWrapper),
+                    new[] { typeof(IReadOnlyCollection<>), typeof(JSValue.From<>) },
                     elementType);
             yield return Expression.Call(
                 Expression.Property(null, s_context),

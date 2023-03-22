@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.JavaScript.NodeApi.DotNetHost;
@@ -28,6 +29,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private readonly JSMarshaller _marshaller = new();
     private readonly Dictionary<string, LambdaExpression> _callbackAdapters = new();
     private readonly List<ITypeSymbol> _exportedInterfaces = new();
+
+    public GeneratorExecutionContext Context { get; protected set; }
 
     public void Initialize(GeneratorInitializationContext context)
     {
@@ -68,6 +71,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             }
         }
     }
+
+    public override void ReportDiagnostic(Diagnostic diagnostic)
+        => Context.ReportDiagnostic(diagnostic);
 
     /// <summary>
     /// Enumerates all the types defined in the current compilation.
@@ -401,12 +407,24 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     // parameter, or may use an adapter to support arbitrary parameters.
                     if (IsConstructorCallbackAdapterRequired(exportClass))
                     {
-                        // TODO: Overload resolution if more than one constructor.
-                        LambdaExpression adapter = _marshaller.BuildFromJSConstructorExpression(
-                            exportClass.GetMembers().OfType<IMethodSymbol>()
-                                .Where((m) => m.MethodKind == MethodKind.Constructor)
-                                .First().AsConstructorInfo());
-                        s += $"\t{adapter.Name})";
+                        LambdaExpression adapter;
+                        ConstructorInfo[] constructors = exportClass.GetMembers()
+                            .OfType<IMethodSymbol>()
+                            .Where((m) => m.MethodKind == MethodKind.Constructor)
+                            .Select((c) => c.AsConstructorInfo())
+                            .ToArray();
+                        if (constructors.Length == 1)
+                        {
+                            adapter = _marshaller.BuildFromJSConstructorExpression(constructors[0]);
+                            s += $"\t{adapter.Name})";
+                        }
+                        else
+                        {
+                            adapter = _marshaller.BuildConstructorOverloadDescriptorExpression(
+                                constructors);
+                            s += $"\t{adapter.Name}())";
+                        }
+                        _callbackAdapters.Add(adapter.Name!, adapter);
                     }
                     else if (exportClass.GetMembers().OfType<IMethodSymbol>().Any((m) =>
                         m.MethodKind == MethodKind.Constructor && m.Parameters.Length == 0))
@@ -421,6 +439,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
                 // Export all the class members, then define the class.
                 ExportMembers(ref s, exportClass);
+
                 s += exportClass.TypeKind == TypeKind.Interface ? ".DefineInterface())" :
                     exportClass.IsStatic ? ".DefineStaticClass())" : ".DefineClass())";
                 s.DecreaseIndent();
@@ -491,9 +510,17 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
       ref SourceBuilder s,
       ITypeSymbol type)
     {
+        bool isStreamClass = typeof(System.IO.Stream).IsAssignableFrom(type.AsType());
+
         foreach (ISymbol? member in type.GetMembers()
           .Where((m) => m.DeclaredAccessibility == Accessibility.Public))
         {
+            if (isStreamClass && !member.IsStatic)
+            {
+                // Only static members on stream subclasses are exported to JS.
+                continue;
+            }
+
             if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
             {
                 ExportMethod(ref s, method);
@@ -650,20 +677,15 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         IMethodSymbol[] constructors = type.GetMembers().OfType<IMethodSymbol>()
             .Where((m) => m.MethodKind == MethodKind.Constructor)
             .ToArray();
+        if (constructors.Length > 1)
+        {
+            return true;
+        }
+
         if (!constructors.Any() || constructors.Any((c) => c.Parameters.Length == 0 ||
             (c.Parameters.Length == 1 && c.Parameters[0].Type.AsType() == typeof(JSCallbackArgs))))
         {
             return false;
-        }
-
-        // TODO: Look for [JSExport] attribute among multiple constructors, and/or
-        // implement overload resolution in the adapter.
-        if (constructors.Length > 1)
-        {
-            ReportError(
-                DiagnosticId.UnsupportedOverloads,
-                constructors.Skip(1).First(),
-                "Exported class cannot have an overloaded constructor.");
         }
 
         return true;

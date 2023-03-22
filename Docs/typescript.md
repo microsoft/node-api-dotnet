@@ -87,5 +87,7 @@ Collections exported from .NET use JavaScript proxies with .NET handlers to avoi
 | `TimeSpan`         | `number`              |
 | `BigInteger`       | `BigInt`              |
 | `Tuple<A, B, ...>` | `[A, B, ...]`         |
+| `Stream`           | `Duplex`              |
 
 Dates marshalled from JavaScript will always be `Utc` kind. A `TimeSpan` is projected to JavaScript as a decimal number of milliseconds. A `DateTimeOffset` is projected as a tuple of the UTC date-time and the offset in (positive or negative) milliseconds.
+

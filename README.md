@@ -136,6 +136,9 @@ convert values beteen JavaScript and C#. Here's a general summary of conversions
   - Custom marshaling and marshaling hints [may be supported later](
     https://github.com/jasongin/napi-dotnet/pull/25).
 
+### Stream across .NET and JS
+.NET `Stream`s are automatically marshalled to and from Node.js `Duplex` (or `Readable` or `Writable`) streams. That means JS code can seamlessly read from or write to streams created by .NET. Or .NET code can read from or write to streams created by JS. Streamed data is transferred using shared memory (without any additional sockets or pipes), so memory allocation and copying is minimized.
+
 ### Optional .NET native AOT compilation
 This library supports hosting the .NET Runtime in the same process as the JavaScript engine.
 Alternatively, it also supports building [native ahead-of-time (AOT) compiled C#](

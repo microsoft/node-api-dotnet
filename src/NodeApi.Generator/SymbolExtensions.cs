@@ -304,7 +304,7 @@ internal static class SymbolExtensions
 
         Type type = methodSymbol.ContainingType.AsType();
         ConstructorInfo? constructorInfo = type.GetConstructor(
-            BindingFlags.Public,
+            BindingFlags.Public | BindingFlags.Instance,
             methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
         return constructorInfo ?? throw new InvalidOperationException(
                 $"Constructor not found for type: {type.Name}");

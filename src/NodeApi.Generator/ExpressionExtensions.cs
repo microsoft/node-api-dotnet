@@ -64,7 +64,8 @@ internal static class ExpressionExtensions
 
             BlockExpression block => FormatBlock(block, path, variables),
 
-            ConstantExpression constant => constant.ToString(),
+            ConstantExpression constant => constant.Type == typeof(Type) ?
+                $"typeof({FormatType((Type)constant.Value!)})" : constant.ToString(),
 
             DefaultExpression defaultExpression => "default",
 
@@ -99,7 +100,7 @@ internal static class ExpressionExtensions
                       ToCS(conditional.IfFalse, path, variables),
 
             MemberExpression { NodeType: ExpressionType.MemberAccess } member =>
-                (member.Expression != null ? ToCS(member.Expression, path, variables) :
+                (member.Expression != null ? WithParentheses(member.Expression, path, variables) :
                     member.Member.DeclaringType!.FullName) + "." + member.Member.Name,
 
             MethodCallExpression { Method.Name: "op_Explicit" or "op_Implicit" } cast =>
@@ -153,6 +154,11 @@ internal static class ExpressionExtensions
                 "new " + FormatType(newArray.Type.GetElementType()!) +
                 "[" + ToCS(newArray.Expressions.Single(), path, variables) + "]",
 
+            NewArrayExpression { NodeType: ExpressionType.NewArrayInit } newArray =>
+                "new " + FormatType(newArray.Type.GetElementType()!) + "[] { " +
+                string.Join(", ", newArray.Expressions.Select((a) => ToCS(a, path, variables))) +
+                " }",
+
             GotoExpression { Kind: GotoExpressionKind.Return } gotoExpression =>
                 "return " + ToCS(gotoExpression.Value!, path, variables),
 
@@ -178,9 +184,10 @@ internal static class ExpressionExtensions
         if (cs.StartsWith("(") &&
             (expression.NodeType == ExpressionType.TypeAs ||
             expression.NodeType == ExpressionType.Convert ||
-            (expression.NodeType == ExpressionType.Call)))
+            expression.NodeType == ExpressionType.Call ||
+            expression.NodeType == ExpressionType.MemberAccess))
         {
-            // Wrap extra around casts when needed.
+            // Wrap extra parentheses around casts when needed.
             cs = $"({cs})";
         }
 
@@ -238,7 +245,7 @@ internal static class ExpressionExtensions
         return s;
     }
 
-    private static string FormatType(Type type)
+    internal static string FormatType(Type type)
     {
         if (type.IsGenericType)
         {

@@ -27,6 +27,15 @@ internal static class Program
             return 1;
         }
 
+#if DEBUG
+#pragma warning disable RS1035 // The symbol 'Environment' is banned for use by analyzers.
+        if (Environment.GetEnvironmentVariable("DEBUG_NODE_API_GENERATOR") != null)
+        {
+            System.Diagnostics.Debugger.Launch();
+        }
+#pragma warning restore RS1035
+#endif
+
         string assemblyFilePath = args[0];
         string typeDefinitionsFilePath = args[1];
 

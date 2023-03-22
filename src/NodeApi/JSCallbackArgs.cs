@@ -43,7 +43,7 @@ public readonly ref struct JSCallbackArgs
 
     public JSValue ThisArg => new(_thisArg, _scope);
 
-    public JSValue this[int index] => new(_args[index], _scope);
+    public JSValue this[int index] => index < _args.Length ? new(_args[index], _scope) : default;
 
     public int Length => _args.Length;
 

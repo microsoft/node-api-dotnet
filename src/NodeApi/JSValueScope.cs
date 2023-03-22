@@ -41,7 +41,9 @@ public sealed class JSValueScope : IDisposable
 
         ModuleContext = scopeType switch
         {
-            JSValueScopeType.Root => new JSContext(_env),
+            // TODO: Properly support multiple module contexts or root scopes.
+            JSValueScopeType.Root => _parentScope?.ModuleContext ?? new JSContext(_env),
+
             JSValueScopeType.Callback => (JSContext)_env,
             JSValueScopeType.RootNoContext => null!,
             _ => _parentScope?.ModuleContext

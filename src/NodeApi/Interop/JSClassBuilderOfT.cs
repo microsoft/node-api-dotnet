@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.IO;
 using System.Linq;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
@@ -49,33 +50,74 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
         return (T?)args.ThisArg.Unwrap();
     }
 
-    public JSValue DefineClass()
+    /// <summary>
+    /// Creates a class definition for the built class.
+    /// </summary>
+    /// <param name="baseClass">Optional base class for the defined class. If a base class is
+    /// specified, the constructor callback must also invoke the base class constructor.</param>
+    /// <returns>The class object (constructor).</returns>
+    /// <exception cref="InvalidOperationException">A constructor was not provided.</exception>
+    public JSValue DefineClass(JSValue? baseClass = null)
     {
         if (_constructorDescriptor == null)
         {
             throw new InvalidOperationException("A class constructor is required.");
         }
 
-        return JSContext.Current.RegisterClass<T>(JSNativeApi.DefineClass(
-            ClassName,
-            new JSCallbackDescriptor(
-                (args) =>
-                {
-                    JSValue instance;
-                    if (args.Length == 1 && args[0].IsExternal())
-                    {
-                        // Constructing a JS instance to wrap a pre-existing C# instance.
-                        instance = args[0];
-                    }
-                    else
-                    {
-                        instance = _constructorDescriptor.Value.Callback(args);
-                    }
+        JSContext context = JSContext.Current;
+        JSValue classObject;
+        if (typeof(Stream).IsAssignableFrom(typeof(T)))
+        {
+            JSPropertyDescriptor[] staticProperties = Properties
+                .Where((p) => p.Attributes.HasFlag(JSPropertyAttributes.Static))
+                .ToArray();
+            if (staticProperties.Length < Properties.Count)
+            {
+                throw new InvalidOperationException(
+                    "Stream classes may not have instance properties.");
+            }
 
-                    return JSContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
-                },
-                _constructorDescriptor.Value.Data),
-            Properties.ToArray()));
+            baseClass ??= context.Import("node:stream", "Duplex");
+            classObject = NodeStream.DefineStreamClass(
+                ClassName,
+                _constructorDescriptor.Value,
+                staticProperties);
+        }
+        else
+        {
+            classObject = JSNativeApi.DefineClass(
+                ClassName,
+                new JSCallbackDescriptor(
+                    (args) =>
+                    {
+                        JSValue instance;
+                        if (args.Length == 1 && args[0].IsExternal())
+                        {
+                            // Constructing a JS instance to wrap a pre-existing C# instance.
+                            instance = args[0];
+                        }
+                        else
+                        {
+                            instance = _constructorDescriptor.Value.Callback(args);
+                        }
+
+                        return JSContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
+                    },
+                    _constructorDescriptor.Value.Data),
+                Properties.ToArray());
+        }
+
+        if (baseClass != null && !baseClass.Value.IsUndefined())
+        {
+            JSValue setPrototypeFunction =
+                JSContext.Current.Import(null, "Object").GetProperty("setPrototypeOf");
+            setPrototypeFunction.Call(
+                thisArg: JSValue.Undefined,
+                classObject.GetProperty("prototype"),
+                baseClass.Value.GetProperty("prototype"));
+        }
+
+        return context.RegisterClass<T>(classObject);
     }
 
     /// <summary>
