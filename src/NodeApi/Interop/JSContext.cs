@@ -205,6 +205,11 @@ public sealed class JSContext : IDisposable
     /// </remarks>
     public JSValue GetOrCreateObjectWrapper<T>(T obj) where T : class
     {
+        if (obj == null)
+        {
+            return JSValue.Null;
+        }
+
         JSValue? wrapper = null;
         JSReference CreateWrapper(T obj)
         {
@@ -260,6 +265,20 @@ public sealed class JSContext : IDisposable
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IEnumerable<T>),
                     (_) => CreateIterableProxyHandlerForEnumerable(toJS));
+                return new JSProxy(new JSObject(), proxyHandler, collection);
+            });
+    }
+
+    public JSValue GetOrCreateCollectionWrapper<T>(
+        IAsyncEnumerable<T> collection,
+        JSValue.From<T> toJS)
+    {
+        return collection is JSIterableEnumerable<T> adapter ? adapter.Value :
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(IAsyncEnumerable<T>),
+                    (_) => CreateAsyncIterableProxyHandlerForAsyncEnumerable(toJS));
                 return new JSProxy(new JSObject(), proxyHandler, collection);
             });
     }

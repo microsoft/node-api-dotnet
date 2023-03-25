@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -60,7 +61,10 @@ internal static class JSInterfaceMarshaller
         ////il.Emit(OpCodes.Call, baseConstructor);
         il.Emit(OpCodes.Ret);
 
-        foreach (MemberInfo member in interfaceType.GetMembers())
+        IEnumerable<Type> allInterfaces =
+            new[] { interfaceType }.Concat(GetInterfaces(interfaceType)).Distinct();
+
+        foreach (MemberInfo member in allInterfaces.SelectMany((i) => i.GetMembers()))
         {
             if (member is PropertyInfo property)
             {
@@ -81,6 +85,17 @@ internal static class JSInterfaceMarshaller
         // TODO: Get implementation delegates from the marshaller and assign to static properties.
 
         return implementationType;
+    }
+
+    private static IEnumerable<Type> GetInterfaces(Type type)
+    {
+        IEnumerable<Type> result = Enumerable.Empty<Type>();
+        foreach (var interfaceType in type.GetInterfaces())
+        {
+            result = result.Concat(new[] { interfaceType });
+            result = result.Concat(GetInterfaces(interfaceType));
+        }
+        return result;
     }
 
     private static void BuildPropertyImplementation(
@@ -159,6 +174,13 @@ internal static class JSInterfaceMarshaller
             CallingConventions.HasThis,
             method.ReturnType,
             parameters.Select((p) => p.ParameterType).ToArray());
+
+        if (method.IsGenericMethodDefinition)
+        {
+            methodBuilder.DefineGenericParameters(
+                method.GetGenericArguments().Select((t) => t.Name).ToArray());
+        }
+
         BuildMethodParameters(methodBuilder, parameters);
 
         ILGenerator il = methodBuilder.GetILGenerator();

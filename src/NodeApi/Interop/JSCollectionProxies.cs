@@ -30,6 +30,28 @@ internal static class JSCollectionProxies
     }
 
     /// <summary>
+    /// Creates a proxy handler for a proxy that wraps an <see cref="IAsyncEnumerable{T}"/>
+    /// as a JS AsyncIterable object.
+    /// </summary>
+    /// <remarks>
+    /// The same handler may be used by multiple <see cref="JSProxy"/> instances, for more
+    /// efficient creation of proxies.
+    /// </remarks>
+    internal static JSProxy.Handler CreateAsyncIterableProxyHandlerForAsyncEnumerable<T>(
+        JSValue.From<T> toJS)
+    {
+        return new JSProxy.Handler(
+            $"{nameof(IAsyncEnumerable<T>)}<{typeof(T).Name}>")
+        {
+            Get = (JSObject target, JSValue property, JSObject receiver) =>
+            {
+                IAsyncEnumerable<T> enumerable = target.Unwrap<IAsyncEnumerable<T>>();
+                return ProxyAsyncIterableGet(enumerable, target, property, toJS);
+            },
+        };
+    }
+
+    /// <summary>
     /// Creates a proxy handler for a proxy that wraps an <see cref="IReadOnlyCollection{T}"/>
     /// as a JS Iterable object with an additional `length` property.
     /// </summary>
@@ -155,6 +177,55 @@ internal static class JSCollectionProxies
             return iterator;
         });
     }
+
+    private static JSValue ProxyAsyncIterableGet<T>(
+        IAsyncEnumerable<T> enumerable,
+        JSObject target,
+        JSValue property,
+        JSValue.From<T> toJS)
+    {
+        if (((JSValue)JSSymbol.AsyncIterator).StrictEquals(property))
+        {
+            return CreateAsyncIteratorFunction(enumerable, toJS);
+        }
+
+        return target[property];
+    }
+
+    private static JSValue CreateAsyncIteratorFunction<T>(
+        IAsyncEnumerable<T> enumerable,
+        JSValue.From<T> toJS)
+    {
+        return JSValue.CreateFunction("asyncValues", (args) =>
+        {
+            IAsyncEnumerator<T> enumerator = enumerable.GetAsyncEnumerator();
+            JSObject iterator = new();
+            iterator.DefineProperties(
+                JSPropertyDescriptor.Function(JSSymbol.AsyncIterator, (args) =>
+                {
+                    // The iterator is also iterable.
+                    return args.ThisArg;
+                }, JSPropertyAttributes.DefaultProperty),
+                JSPropertyDescriptor.Function("next", (args) =>
+                {
+                    return enumerator.MoveNextAsync().AsPromise((result) =>
+                    {
+                        JSObject nextResult = new();
+                        if (result)
+                        {
+                            nextResult["value"] = toJS(enumerator.Current);
+                        }
+                        else
+                        {
+                            nextResult["done"] = JSValue.True;
+                        }
+                        return nextResult;
+                    });
+                }, JSPropertyAttributes.DefaultProperty));
+            return iterator;
+        });
+    }
+
 
     /// <summary>
     /// Creates a proxy handler for a proxy that wraps an <see cref="IReadOnlyList{T}"/>

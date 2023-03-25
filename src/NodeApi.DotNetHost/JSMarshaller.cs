@@ -327,7 +327,7 @@ public class JSMarshaller
         catch (Exception ex)
         {
             throw new JSMarshallerException(
-                "Failed to build JS callback adapter for .NET property getter.", property, ex);
+                "Failed to build JS callback adapter for .NET property setter.", property, ex);
         }
     }
 
@@ -632,6 +632,8 @@ public class JSMarshaller
 
         for (int i = 0; i < constructors.Length; i++)
         {
+            // TODO: Default parameter values
+
             Type[] parameterTypes = constructors[i].GetParameters()
                 .Select(p => p.ParameterType).ToArray();
             statements[i + 1] = Expression.Assign(
@@ -666,8 +668,16 @@ public class JSMarshaller
         JSCallbackOverload[] overloads = new JSCallbackOverload[constructors.Length];
         for (int i = 0; i < constructors.Length; i++)
         {
-            Type[] parameterTypes = constructors[i].GetParameters()
-                .Select(p => p.ParameterType).ToArray();
+            ParameterInfo[] parameters = constructors[i].GetParameters();
+            Type[] parameterTypes = parameters.Select(p => p.ParameterType).ToArray();
+
+            object?[]? defaultValues = null;
+            if (parameters.Any((p) => p.HasDefaultValue))
+            {
+                defaultValues = parameters.Where((p) => p.HasDefaultValue)
+                    .Select((p) => p.DefaultValue)
+                    .ToArray();
+            }
             JSCallback constructorDelegate =
                 BuildFromJSConstructorExpression(constructors[i]).Compile();
             overloads[i] = new JSCallbackOverload(parameterTypes, constructorDelegate);
@@ -709,6 +719,8 @@ public class JSMarshaller
 
         for (int i = 0; i < methods.Length; i++)
         {
+            // TODO: Default parameter values
+
             Type[] parameterTypes = methods[i].GetParameters()
                 .Select(p => p.ParameterType).ToArray();
             statements[i + 1] = Expression.Assign(
@@ -743,11 +755,20 @@ public class JSMarshaller
         JSCallbackOverload[] overloads = new JSCallbackOverload[methods.Length];
         for (int i = 0; i < methods.Length; i++)
         {
-            Type[] parameterTypes = methods[i].GetParameters()
-                    .Select(p => p.ParameterType).ToArray();
+            ParameterInfo[] parameters = methods[i].GetParameters();
+            Type[] parameterTypes = parameters.Select(p => p.ParameterType).ToArray();
+
+            object?[]? defaultValues = null;
+            if (parameters.Any((p) => p.HasDefaultValue))
+            {
+                defaultValues = parameters.Where((p) => p.HasDefaultValue)
+                    .Select((p) => p.DefaultValue)
+                    .ToArray();
+            }
+
             JSCallback methodDelegate =
                 BuildFromJSMethodExpression(methods[i]).Compile();
-            overloads[i] = new JSCallbackOverload(parameterTypes, methodDelegate);
+            overloads[i] = new JSCallbackOverload(parameterTypes, defaultValues, methodDelegate);
         }
         return JSCallbackOverload.CreateDescriptor(overloads);
     }
@@ -900,11 +921,21 @@ public class JSMarshaller
         LabelTarget returnTarget = Expression.Label(typeof(JSValue));
         List<Expression> statements = new(5);
 
+        Expression propertyExpression;
+        if (property.GetMethod!.GetParameters().Length == 0)
+        {
+            propertyExpression = Expression.Property(thisVariable, property);
+        }
+        else
+        {
+            Type indexType = property.GetMethod.GetParameters()[0].ParameterType;
+            propertyExpression = Expression.Property(
+                thisVariable, property, BuildArgumentExpression(0, indexType));
+        }
+
         statements.AddRange(BuildThisArgumentExpressions(
             property.DeclaringType!, thisVariable, returnTarget));
-        statements.Add(Expression.Assign(
-            resultVariable,
-            Expression.Property(thisVariable, property)));
+        statements.Add(Expression.Assign(resultVariable, propertyExpression));
         statements.Add(Expression.Label(returnTarget,
             BuildResultExpression(resultVariable, property.PropertyType)));
 
@@ -963,11 +994,26 @@ public class JSMarshaller
         LabelTarget returnTarget = Expression.Label(typeof(JSValue));
         List<Expression> statements = new(6);
 
+        MethodCallExpression setExpression;
+        if (property.SetMethod!.GetParameters().Length == 1)
+        {
+            setExpression = Expression.Call(thisVariable, property.SetMethod, valueVariable);
+        }
+        else
+        {
+            Type indexType = property.SetMethod.GetParameters()[0].ParameterType;
+            setExpression = Expression.Call(
+                thisVariable,
+                property.SetMethod,
+                BuildArgumentExpression(0, indexType),
+                valueVariable);
+        }
+
         statements.AddRange(BuildThisArgumentExpressions(
             property.DeclaringType!, thisVariable, returnTarget));
         statements.Add(Expression.Assign(valueVariable,
                     BuildArgumentExpression(0, property.PropertyType)));
-        statements.Add(Expression.Call(thisVariable, property.SetMethod!, valueVariable));
+        statements.Add(setExpression);
         statements.Add(Expression.Label(returnTarget, Expression.Property(null, s_undefinedValue)));
 
         return (Expression<JSCallback>)Expression.Lambda(
@@ -1154,7 +1200,7 @@ public class JSMarshaller
             delegateName = "to_" + FullTypeName(toType) + "_Nullable";
         }
 
-        List<ParameterExpression> variables = new(new[] { valueParameter });
+        List<ParameterExpression> variables = new();
         IEnumerable<Expression> statements;
 
         MethodInfo? castMethod = GetCastFromJSValueMethod(toType);
@@ -1308,7 +1354,7 @@ public class JSMarshaller
         Expression valueExpression = nullableType == null ? valueParameter :
             Expression.Property(valueParameter, nullableType.GetProperty("Value")!);
 
-        List<ParameterExpression> variables = new(new[] { valueParameter });
+        List<ParameterExpression> variables = new();
         IEnumerable<Expression> statements;
 
         MethodInfo? castMethod = GetCastToJSValueMethod(fromType);
@@ -1543,8 +1589,6 @@ public class JSMarshaller
         ICollection<ParameterExpression> variables,
         ParameterExpression valueVariable)
     {
-        ParameterExpression valueParameter = Expression.Parameter(typeof(JSValue), "value");
-
         /*
          * JSArray jsArray = (JSArray)value;
          * ElementType[] array = new ElementType[jsArray.Length];
@@ -1636,6 +1680,11 @@ public class JSMarshaller
         foreach (PropertyInfo property in toType.GetProperties(
             BindingFlags.Public | BindingFlags.Instance))
         {
+            if (property.SetMethod == null)
+            {
+                continue;
+            }
+
             Expression propertyName = Expression.Constant(ToCamelCase(property.Name));
             yield return Expression.Assign(
                 Expression.Property(objVariable, property),
@@ -1721,26 +1770,28 @@ public class JSMarshaller
         }
         else if (typeDefinition == typeof(IReadOnlyList<>) ||
             typeDefinition == typeof(IReadOnlyCollection<>) ||
-            typeDefinition == typeof(IEnumerable<>))
+            typeDefinition == typeof(IEnumerable<>) ||
+            typeDefinition == typeof(IAsyncEnumerator<>))
         {
             /*
              * JSNativeApi.TryUnwrap(value) as IReadOnlyCollection<T> ??
              *     ((JSArray)value).AsReadOnlyCollection<T>((value) => (T)value);
              */
             Type jsCollectionType = typeDefinition == typeof(IEnumerable<>) ?
-                typeof(JSIterable) : typeof(JSArray);
+                typeof(JSIterable) : typeDefinition == typeof(IAsyncEnumerable<>) ?
+                typeof(JSAsyncIterable) : typeof(JSArray);
             MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
                 string.Concat("As",
                     typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)),
                 new[] { jsCollectionType, typeof(JSValue.To<>) },
                 elementType);
-            MethodInfo asJSArrayMethod = jsCollectionType.GetExplicitConversion(
+            MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
                 typeof(JSValue), jsCollectionType);
             yield return Expression.Coalesce(
                 Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
                 Expression.Call(
                     asCollectionMethod,
-                    Expression.Convert(valueExpression, jsCollectionType, asJSArrayMethod),
+                    Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
                     GetFromJSValueExpression(elementType)));
         }
         else if (typeDefinition == typeof(IDictionary<,>))
@@ -1832,7 +1883,8 @@ public class JSMarshaller
         }
         else if (typeDefinition == typeof(IReadOnlyList<>) ||
             typeDefinition == typeof(IReadOnlyCollection<>) ||
-            typeDefinition == typeof(IEnumerable<>))
+            typeDefinition == typeof(IEnumerable<>) ||
+            typeDefinition == typeof(IAsyncEnumerable<>))
         {
             /*
              * JSContext.Current.GetOrCreateCollectionWrapper(

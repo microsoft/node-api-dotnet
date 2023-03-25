@@ -26,60 +26,109 @@ const childProcess = require('child_process');
 const outBinDir = path.resolve(__dirname, `../../out/bin/${configuration}`);
 const outPkgDir = path.resolve(__dirname, '../../out/pkg');
 
-const packageJson = require('./package.json');
-const packageName = packageJson.name;
+if (!fs.existsSync(outPkgDir)) fs.mkdirSync(outPkgDir);
 
-// Create/clean the package staging directory under out/pkg/package-name.
-const packageStageDir = path.join(outPkgDir, packageName);
-mkdirClean(packageStageDir);
+packMainPackage();
+console.log();
+packGeneratorPackage();
 
-// Write package.json with the current build version.
-const buildVersion = writePackageJson();
+function packMainPackage() {
+  const packageJson = require('./package.json');
+  const packageName = packageJson.name;
 
-// Copy script files to the staging dir.
-copyScriptFiles('index.js', 'index.d.ts');
+  // Create/clean the package staging directory under out/pkg/package-name.
+  const packageStageDir = path.join(outPkgDir, packageName);
+  mkdirClean(packageStageDir);
 
-// Copy binaries to the staging dir.
+  // Write package.json with the current build version.
+  const buildVersion = writePackageJson(packageStageDir, packageJson);
 
-// Most binaries are platform-independent but framework-specific.
-copyFrameworkSpecificBinaries(
-  `NodeApi/${assemblyName}.runtimeconfig.json`,
-  `NodeApi/${assemblyName}.dll`,
-  `NodeApi.DotNetHost/${assemblyName}.DotNetHost.dll`,
-);
+  // Copy script files to the staging dir.
+  copyScriptFiles(packageStageDir, '.', 'index.js', 'index.d.ts');
 
-// The .node binary is platform-specific but framework-independent.
-copyPlatformSpecificBinaries(
-  `NodeApi/${assemblyName}.node`,
-);
+  // Copy binaries to the staging dir.
 
-// npm pack
-const command = `npm pack --pack-destination "${outPkgDir}"`;
-childProcess.execSync(command, { cwd: packageStageDir, stdio: 'inherit' });
-const packageFilePath = path.join(outPkgDir, `${packageName}-${buildVersion}.tgz`)
-console.log(`Successfully created package '${packageFilePath}'`);
+  // Most binaries are platform-independent but framework-specific.
+  copyFrameworkSpecificBinaries(
+    targetFrameworks,
+    packageStageDir,
+    `NodeApi/${assemblyName}.runtimeconfig.json`,
+    `NodeApi/${assemblyName}.dll`,
+    `NodeApi.DotNetHost/${assemblyName}.DotNetHost.dll`,
+  );
+
+  // The .node binary is platform-specific but framework-independent.
+  copyPlatformSpecificBinaries(
+    rids,
+    packageStageDir,
+    `NodeApi/${assemblyName}.node`,
+  );
+
+  // npm pack
+  const command = `npm pack --pack-destination "${outPkgDir}"`;
+  childProcess.execSync(command, { cwd: packageStageDir, stdio: 'inherit' });
+  const packageFilePath = path.join(outPkgDir, `${packageName}-${buildVersion}.tgz`)
+  console.log(`Successfully created package '${packageFilePath}'`);
+}
+
+function packGeneratorPackage() {
+  const packageJson = require('./generator/package.json');
+  const packageName = packageJson.name;
+
+  // Create/clean the package staging directory under out/pkg/package-name.
+  const packageStageDir = path.join(outPkgDir, packageName);
+  mkdirClean(packageStageDir);
+
+  // Crate a node_modules link so the dependency can be resolved when linked for development.
+  const dependencyPath = path.join(outPkgDir, 'node-api-dotnet');
+  const linkPath = path.join(packageStageDir, 'node_modules', 'node-api-dotnet');
+  if (!fs.existsSync(path.dirname(linkPath))) fs.mkdirSync(path.dirname(linkPath));
+  fs.symlinkSync(dependencyPath, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
+
+  const buildVersion = writePackageJson(packageStageDir, packageJson);
+
+  copyScriptFiles(packageStageDir, 'generator', 'index.js');
+
+  copyFrameworkSpecificBinaries(
+    [ 'net6.0' ],
+    packageStageDir,
+    `NodeApi.Generator/${assemblyName}.Generator.dll`,
+    `NodeApi.Generator/Microsoft.CodeAnalysis.dll`,
+    `NodeApi.Generator/System.Reflection.MetadataLoadContext.dll`
+  );
+
+  // npm pack
+  const command = `npm pack --pack-destination "${outPkgDir}"`;
+  childProcess.execSync(command, { cwd: packageStageDir, stdio: 'inherit' });
+  const packageFilePath = path.join(outPkgDir, `${packageName}-${buildVersion}.tgz`)
+  console.log(`Successfully created package '${packageFilePath}'`);
+}
 
 function mkdirClean(dir) {
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir);
 }
 
-function writePackageJson() {
+function writePackageJson(packageStageDir, packageJson) {
   const buildVersion = getAssemblyFileVersion(assemblyName, targetFrameworks[0], rids[0]);
   packageJson.version = buildVersion;
+  if (packageJson.dependencies && packageJson.dependencies['node-api-dotnet']) {
+    packageJson.dependencies['node-api-dotnet'] = buildVersion;
+  }
   delete packageJson.scripts;
   const stagedPackageJsonPath = path.join(packageStageDir, 'package.json');
   fs.writeFileSync(stagedPackageJsonPath, JSON.stringify(packageJson, undefined, '  '));
+  console.log(stagedPackageJsonPath);
   return buildVersion;
 }
 
-function copyScriptFiles(...scriptFiles) {
+function copyScriptFiles(packageStageDir, srcDir, ...scriptFiles) {
   scriptFiles.forEach(scriptFile => {
-    copyFile(path.join(__dirname, scriptFile), path.join(packageStageDir, scriptFile));
+    copyFile(path.join(__dirname, srcDir, scriptFile), path.join(packageStageDir, scriptFile));
   });
 }
 
-function copyFrameworkSpecificBinaries(...binFiles) {
+function copyFrameworkSpecificBinaries(targetFrameworks, packageStageDir, ...binFiles) {
   targetFrameworks.forEach((tfm) => {
     const tfmStageDir = path.join(packageStageDir, tfm);
     fs.mkdirSync(tfmStageDir);
@@ -91,7 +140,7 @@ function copyFrameworkSpecificBinaries(...binFiles) {
   });
 }
 
-function copyPlatformSpecificBinaries(...binFiles) {
+function copyPlatformSpecificBinaries(rids, packageStageDir, ...binFiles) {
   rids.forEach((rid) => {
     const ridStageDir = path.join(packageStageDir, rid);
     fs.mkdirSync(ridStageDir);

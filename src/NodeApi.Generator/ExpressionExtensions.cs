@@ -290,8 +290,7 @@ internal static class ExpressionExtensions
             return "void";
         }
 
-        return type.FullName ??
-            throw new NotSupportedException("Anonymous types are not supported.");
+        return type.FullName ?? "(anonymous)";
     }
 
     private static string FormatArgs(

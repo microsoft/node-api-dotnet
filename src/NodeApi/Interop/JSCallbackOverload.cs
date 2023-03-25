@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
@@ -12,12 +13,15 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// </summary>
 public readonly struct JSCallbackOverload
 {
-    /// <summary>
-    /// Creates a new instance of the <see cref="JSCallbackOverload"/> struct.
-    /// </summary>
     public JSCallbackOverload(Type[] parameterTypes, JSCallback callback)
+        : this(parameterTypes, null, callback)
+    {
+    }
+
+    public JSCallbackOverload(Type[] parameterTypes, object?[]? defaultValues, JSCallback callback)
     {
         ParameterTypes = parameterTypes;
+        DefaultValues = defaultValues;
         Callback = callback;
     }
 
@@ -26,6 +30,17 @@ public readonly struct JSCallbackOverload
     /// converted to before invoking the callback.
     /// </summary>
     public Type[] ParameterTypes { get; }
+
+    /// <summary>
+    /// Array of default parameter values for this overload, or null if none of the parameters
+    /// have default values.
+    /// </summary>
+    /// <remarks>
+    /// Defaults are always at the end of the list of parameters, so if a method has 2 default
+    /// parameters then this array length would be 2. Therfore, the indexes in this array are
+    /// offset from the <see cref="ParameterTypes" /> array by the number of non-default parameters.
+    /// </remarks>
+    public object?[]? DefaultValues { get; }
 
     /// <summary>
     /// Callback that expects JS arguments that are convertible to the specified parameter types.
@@ -58,8 +73,30 @@ public readonly struct JSCallbackOverload
             throw new JSException("Missing overload resolution information.");
         }
 
-        JSCallback callback = Resolve(args, overloads);
-        return callback(args);
+        JSCallbackOverload overload = Resolve(args, overloads);
+
+        if (overload.DefaultValues != null && args.Length < overload.ParameterTypes.Length)
+        {
+            int count = args.Length;
+            int countWithDefaults = overload.ParameterTypes.Length;
+            Span<napi_value> argsWithDefaults = stackalloc napi_value[countWithDefaults];
+            for (int i = 0; i < count; i++)
+            {
+                argsWithDefaults[i] = (napi_value)args[i];
+            }
+            for (int i = count; i < countWithDefaults; i++)
+            {
+                argsWithDefaults[i] = (napi_value)GetDefaultArg(
+                    overload.ParameterTypes[i], overload.DefaultValues[i - count]);
+            }
+
+            return overload.Callback(new JSCallbackArgs(
+                args.Scope, (napi_value)args.ThisArg, argsWithDefaults, args.Data));
+        }
+        else
+        {
+            return overload.Callback(args);
+        }
     }
 
     /// <summary>
@@ -72,25 +109,28 @@ public readonly struct JSCallbackOverload
     /// <returns>Callback for the resolved overload.</returns>
     /// <exception cref="JSException">No overload or multiple overloads were found for the
     /// supplied arguments.</exception>
-    public static JSCallback Resolve(
+    public static JSCallbackOverload Resolve(
         JSCallbackArgs args, IReadOnlyList<JSCallbackOverload> overloads)
     {
         // If there's only one overload in the list, no resolution logic is needed.
         if (overloads.Count == 1)
         {
-            return overloads[0].Callback;
+            return overloads[0];
         }
 
         // First try to match the supplied number of arguments to an overload parameter count.
         // (Avoid using IEnumerable<> queries to prevent boxing the JSCallbackOverload struct.)
         int argsCount = args.Length;
-        JSCallback? matchingCallback = null;
+        JSCallbackOverload? matchingOverload = null;
         int matchingCallbackCount = 0;
         foreach (JSCallbackOverload overload in overloads)
         {
-            if (overload.ParameterTypes.Length == argsCount)
+            if ((overload.DefaultValues != null &&
+                argsCount >= overload.ParameterTypes.Length - overload.DefaultValues.Length &&
+                argsCount <= overload.ParameterTypes.Length) ||
+                overload.ParameterTypes.Length == argsCount)
             {
-                matchingCallback = overload.Callback;
+                matchingOverload = overload;
                 if (++matchingCallbackCount > 1)
                 {
                     break;
@@ -100,7 +140,7 @@ public readonly struct JSCallbackOverload
 
         if (matchingCallbackCount == 1)
         {
-            return matchingCallback!;
+            return matchingOverload!.Value;
         }
         else if (matchingCallbackCount == 0)
         {
@@ -116,11 +156,14 @@ public readonly struct JSCallbackOverload
             argTypes[i] = args[i].TypeOf();
         }
 
-        matchingCallback = null;
+        matchingOverload = null;
         matchingCallbackCount = 0;
         foreach (JSCallbackOverload overload in overloads)
         {
-            if (overload.ParameterTypes.Length == argsCount)
+            if ((overload.DefaultValues != null &&
+                argsCount >= overload.ParameterTypes.Length - overload.DefaultValues.Length &&
+                argsCount <= overload.ParameterTypes.Length) ||
+                overload.ParameterTypes.Length == argsCount)
             {
                 bool isMatch = true;
                 for (int i = 0; i < argsCount; i++)
@@ -134,7 +177,7 @@ public readonly struct JSCallbackOverload
 
                 if (isMatch)
                 {
-                    matchingCallback = overload.Callback;
+                    matchingOverload = overload;
                     if (++matchingCallbackCount > 1)
                     {
                         break;
@@ -145,7 +188,7 @@ public readonly struct JSCallbackOverload
 
         if (matchingCallbackCount == 1)
         {
-            return matchingCallback!;
+            return matchingOverload!.Value;
         }
 
         string argTypesList = string.Join(", ", argTypes.ToArray());
@@ -181,5 +224,74 @@ public readonly struct JSCallbackOverload
             JSValueType.BigInt => parameterType == typeof(System.Numerics.BigInteger),
             _ => false,
         };
+    }
+
+    private static JSValue GetDefaultArg(Type parameterType, object? defaultValue)
+    {
+        if (defaultValue == null)
+        {
+            if (parameterType.IsValueType)
+            {
+                throw new InvalidOperationException(
+                    "Null default value is not valid for parameter type: " + parameterType);
+            }
+            else
+            {
+                return JSValue.Null;
+            }
+        }
+        else if (parameterType == typeof(string))
+        {
+            return (JSValue)(string)defaultValue!;
+        }
+        else if (parameterType == typeof(bool))
+        {
+            return (JSValue)(bool)defaultValue!;
+        }
+        else if (parameterType == typeof(sbyte))
+        {
+            return (JSValue)(sbyte)defaultValue!;
+        }
+        else if (parameterType == typeof(byte))
+        {
+            return (JSValue)(byte)defaultValue!;
+        }
+        else if (parameterType == typeof(short))
+        {
+            return (JSValue)(short)defaultValue!;
+        }
+        else if (parameterType == typeof(ushort))
+        {
+            return (JSValue)(ushort)defaultValue!;
+        }
+        else if (parameterType == typeof(int))
+        {
+            return (JSValue)(int)defaultValue!;
+        }
+        else if (parameterType == typeof(uint))
+        {
+            return (JSValue)(uint)defaultValue!;
+        }
+        else if (parameterType == typeof(long))
+        {
+            return (JSValue)(long)defaultValue!;
+        }
+        else if (parameterType == typeof(ulong))
+        {
+            return (JSValue)(ulong)defaultValue!;
+        }
+        else if (parameterType == typeof(float))
+        {
+            return (JSValue)(float)defaultValue!;
+        }
+        else if (parameterType == typeof(double))
+        {
+            return (JSValue)(double)defaultValue!;
+        }
+        else
+        {
+            throw new NotSupportedException(
+                "Default parameter type not supported: " + parameterType);
+        }
     }
 }

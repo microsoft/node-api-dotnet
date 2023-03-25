@@ -228,7 +228,8 @@ internal static class TestBuilder
     {
         string typeDefinitionsFilePath = Path.Join(
             TestCasesDirectory, moduleName, moduleName + ".d.ts");
-        TypeDefinitionsGenerator.GenerateTypeDefinitions(moduleFilePath, typeDefinitionsFilePath);
+        TypeDefinitionsGenerator.GenerateTypeDefinitions(
+            moduleFilePath, referenceAssemblyPaths: Array.Empty<string>(), typeDefinitionsFilePath);
     }
 
     public static void RunNodeTestCase(

@@ -216,8 +216,30 @@ internal class AssemblyExporter
             classBuilder,
             defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
 
+        _typeObjects.Add(type, new JSReference(classObject));
+
+        // Also export any types returned by properties or methods of this type, because
+        // they might otherwise not be referenced by JS before they are used.
+        ExportClassDependencies(type);
+
         Trace($"< AssemblyExporter.ExportClass()");
         return classObject;
+    }
+
+    private void ExportClassDependencies(Type type)
+    {
+        foreach (var member in type.GetMembers
+            (BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
+        {
+            if (member is PropertyInfo property && property.PropertyType.Assembly == type.Assembly)
+            {
+                ExportClass(property.PropertyType);
+            }
+            else if (member is MethodInfo method && method.ReturnType.Assembly == type.Assembly)
+            {
+                ExportClass(method.ReturnType);
+            }
+        }
     }
 
     private void ExportProperties(Type type, object classBuilder)
@@ -329,6 +351,7 @@ internal class AssemblyExporter
             string methodName = methodGroup.Key.Name;
             MethodInfo[] methods = methodGroup
                 .Where((m) => m.GetParameters().All(IsSupportedParameter))
+                .Where((m) => IsSupportedParameter(m.ReturnParameter))
                 .ToArray();
             if (methods.Length == 0)
             {
@@ -404,6 +427,7 @@ internal class AssemblyExporter
         }
 
         JSValue enumObject = enumBuilder.DefineEnum();
+        _typeObjects.Add(type, new JSReference(enumObject));
 
         Trace($"< AssemblyExporter.ExportEnum()");
         return enumObject;
@@ -411,9 +435,26 @@ internal class AssemblyExporter
 
     private static bool IsSupportedParameter(ParameterInfo parameter)
     {
-        // TODO: Check for other kinds of types that can't be marshaled.
+        if (parameter.IsOut)
+        {
+            // out / ref parameters aren't yet supported.
+            return false;
+        }
 
-        return !parameter.IsOut && // out parameters
-            !parameter.ParameterType.IsByRefLike; // ref structs like Span<T>
+        Type parameterType = parameter.ParameterType;
+        if (parameterType.IsByRefLike)
+        {
+            // ref structs like Span<T> aren't yet supported.
+            return false;
+        }
+
+        if (parameterType.IsGenericType &&
+            parameterType.GetGenericTypeDefinition() == typeof(IEnumerator<>))
+        {
+            // Enumerables should be projected as iterables.
+            return false;
+        }
+
+        return true;
     }
 }

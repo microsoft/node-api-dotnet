@@ -4,78 +4,99 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public static class JSCollectionExtensions
 {
     /// <summary>
+    /// Creates an async enumerable adapter for a JS async-iterable object, without copying.
+    /// </summary>
+    public static IAsyncEnumerable<T> AsAsyncEnumerable<T>(
+        this JSAsyncIterable iterable, JSValue.To<T> fromJS)
+        => ((JSValue)iterable).IsNullOrUndefined() ? null! :
+            new JSAsyncIterableEnumerable<T>((JSValue)iterable, fromJS);
+
+    /// <summary>
     /// Creates an enumerable adapter for a JS iterable object, without copying.
     /// </summary>
     public static IEnumerable<T> AsEnumerable<T>(this JSIterable iterable, JSValue.To<T> fromJS)
-        => new JSIterableEnumerable<T>((JSValue)iterable, fromJS);
+        => ((JSValue)iterable).IsNullOrUndefined() ? null! :
+            new JSIterableEnumerable<T>((JSValue)iterable, fromJS);
 
     /// <summary>
     /// Creates an enumerable adapter for a JS Array object, without copying.
     /// </summary>
     public static IEnumerable<T> AsEnumerable<T>(this JSArray array, JSValue.To<T> fromJS)
-        => new JSIterableEnumerable<T>((JSValue)array, fromJS);
+        => ((JSValue)array).IsNullOrUndefined() ? null! :
+            new JSIterableEnumerable<T>((JSValue)array, fromJS);
 
     /// <summary>
     /// Creates a read-only collection adapter for a JS Array object, without copying.
     /// </summary>
     public static IReadOnlyCollection<T> AsReadOnlyCollection<T>(
         this JSArray array, JSValue.To<T> fromJS)
-        => new JSArrayReadOnlyCollection<T>((JSValue)array, fromJS);
+        => ((JSValue)array).IsNullOrUndefined() ? null! :
+            new JSArrayReadOnlyCollection<T>((JSValue)array, fromJS);
 
     /// <summary>
     /// Creates a collection adapter for a JS Array object, without copying.
     /// </summary>
     public static ICollection<T> AsCollection<T>(
         this JSArray array, JSValue.To<T> fromJS, JSValue.From<T> toJS)
-        => new JSArrayCollection<T>((JSValue)array, fromJS, toJS);
+        => ((JSValue)array).IsNullOrUndefined() ? null! :
+            new JSArrayCollection<T>((JSValue)array, fromJS, toJS);
 
     /// <summary>
     /// Creates a read-only list adapter for a JS Array object, without copying.
     /// </summary>
     public static IReadOnlyList<T> AsReadOnlyList<T>(this JSArray array, JSValue.To<T> fromJS)
-        => new JSArrayReadOnlyList<T>((JSValue)array, fromJS);
+        => ((JSValue)array).IsNullOrUndefined() ? null! :
+            new JSArrayReadOnlyList<T>((JSValue)array, fromJS);
 
     /// <summary>
     /// Creates a list adapter for a JS Array object, without copying.
     /// </summary>
     public static IList<T> AsList<T>(this JSArray array, JSValue.To<T> fromJS, JSValue.From<T> toJS)
-        => new JSArrayList<T>((JSValue)array, fromJS, toJS);
+        => ((JSValue)array).IsNullOrUndefined() ? null! :
+            new JSArrayList<T>((JSValue)array, fromJS, toJS);
 
     /// <summary>
     /// Creates an enumerable adapter for a JS Set object, without copying.
     /// </summary>
     public static IEnumerable<T> AsEnumerable<T>(this JSSet set, JSValue.To<T> fromJS)
-        => new JSIterableEnumerable<T>((JSValue)set, fromJS);
+        => ((JSValue)set).IsNullOrUndefined() ? null! :
+            new JSIterableEnumerable<T>((JSValue)set, fromJS);
 
     /// <summary>
     /// Creates a read-only collection adapter for a JS Set object, without copying.
     /// </summary>
-    public static IReadOnlyCollection<T> AsReadOnlyCollection<T>(this JSSet set, JSValue.To<T> fromJS) =>
-        new JSSetReadOnlyCollection<T>((JSValue)set, fromJS);
+    public static IReadOnlyCollection<T> AsReadOnlyCollection<T>(this JSSet set, JSValue.To<T> fromJS)
+        => ((JSValue)set).IsNullOrUndefined() ? null! :
+            new JSSetReadOnlyCollection<T>((JSValue)set, fromJS);
 
     /// <summary>
     /// Creates a collection adapter for a JS Set object, without copying.
     /// </summary>
-    public static ICollection<T> AsCollection<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS) =>
-        new JSSetCollection<T>((JSValue)set, fromJS, toJS);
+    public static ICollection<T> AsCollection<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS)
+        => ((JSValue)set).IsNullOrUndefined() ? null! :
+            new JSSetCollection<T>((JSValue)set, fromJS, toJS);
 
     /// <summary>
     /// Creates a read-only set adapter for a JS Set object, without copying.
     /// </summary>
-    public static IReadOnlySet<T> AsReadOnlySet<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS) =>
-        new JSSetReadOnlySet<T>((JSValue)set, fromJS, toJS);
+    public static IReadOnlySet<T> AsReadOnlySet<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS)
+        => ((JSValue)set).IsNullOrUndefined() ? null! :
+            new JSSetReadOnlySet<T>((JSValue)set, fromJS, toJS);
 
     /// <summary>
     /// Creates a set adapter for a JS Set object, without copying.
     /// </summary>
-    public static ISet<T> AsSet<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS) =>
-        new JSSetSet<T>((JSValue)set, fromJS, toJS);
+    public static ISet<T> AsSet<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS)
+        => ((JSValue)set).IsNullOrUndefined() ? null! :
+            new JSSetSet<T>((JSValue)set, fromJS, toJS);
 
     /// <summary>
     /// Creates a read-only dictionary adapter for a JS Map object, without copying.
@@ -84,8 +105,9 @@ public static class JSCollectionExtensions
         this JSMap map,
         JSValue.To<TKey> keyFromJS,
         JSValue.To<TValue> valueFromJS,
-        JSValue.From<TKey> keyToJS) =>
-        new JSMapReadOnlyDictionary<TKey, TValue>((JSValue)map, keyFromJS, valueFromJS, keyToJS);
+        JSValue.From<TKey> keyToJS)
+        => ((JSValue)map).IsNullOrUndefined() ? null! :
+            new JSMapReadOnlyDictionary<TKey, TValue>((JSValue)map, keyFromJS, valueFromJS, keyToJS);
 
     /// <summary>
     /// Creates a dictionary adapter for a JS Map object, without copying.
@@ -95,8 +117,48 @@ public static class JSCollectionExtensions
         JSValue.To<TKey> keyFromJS,
         JSValue.To<TValue> valueFromJS,
         JSValue.From<TKey> keyToJS,
-        JSValue.From<TValue> valueToJS) =>
-        new JSMapDictionary<TKey, TValue>((JSValue)map, keyFromJS, valueFromJS, keyToJS, valueToJS);
+        JSValue.From<TValue> valueToJS)
+        => ((JSValue)map).IsNullOrUndefined() ? null! :
+            new JSMapDictionary<TKey, TValue>((JSValue)map, keyFromJS, valueFromJS, keyToJS, valueToJS);
+}
+
+internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>
+{
+    private readonly JSValue _iterable;
+    private readonly JSValue.To<T> _fromJS;
+    private JSValue _iterator;
+    private JSValue? _current;
+
+    internal JSAsyncIterableEnumerator(JSValue iterable, JSValue.To<T> fromJS)
+    {
+        _iterable = iterable;
+        _fromJS = fromJS;
+        _iterator = _iterable.CallMethod(JSSymbol.AsyncIterator);
+        _current = default;
+    }
+
+    public async ValueTask<bool> MoveNextAsync()
+    {
+        var nextPromise = (JSPromise)_iterator.CallMethod("next");
+        JSValue nextResult = await nextPromise.AsTask();
+        JSValue done = nextResult["done"];
+        if (done.IsBoolean() && (bool)done)
+        {
+            _current = default;
+            return false;
+        }
+        else
+        {
+            _current = nextResult["value"];
+            return true;
+        }
+    }
+
+    public T Current => _current.HasValue ? _fromJS(_current.Value) :
+        throw new InvalidOperationException("Invalid enumerator state");
+
+    ValueTask IAsyncDisposable.DisposeAsync()
+        => ValueTask.CompletedTask;
 }
 
 internal sealed class JSIterableEnumerator<T> : IEnumerator<T>, System.Collections.IEnumerator
@@ -143,6 +205,32 @@ internal sealed class JSIterableEnumerator<T> : IEnumerator<T>, System.Collectio
 
     void IDisposable.Dispose()
     {
+    }
+}
+
+internal class JSAsyncIterableEnumerable<T> : IAsyncEnumerable<T>, IEquatable<JSValue>
+{
+    internal JSAsyncIterableEnumerable(JSValue iterable, JSValue.To<T> fromJS)
+    {
+        _iterableReference = new JSReference(iterable);
+        FromJS = fromJS;
+    }
+
+    private readonly JSReference _iterableReference;
+
+    public JSValue Value => _iterableReference.GetValue()!.Value;
+
+    bool IEquatable<JSValue>.Equals(JSValue other) => Value.Equals(other);
+
+    protected JSValue.To<T> FromJS { get; }
+
+    public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken)
+        => new JSAsyncIterableEnumerator<T>(Value, FromJS);
+
+    public ValueTask DisposeAsync(CancellationToken cancellationToken)
+    {
+        _iterableReference.Dispose();
+        return ValueTask.CompletedTask;
     }
 }
 
