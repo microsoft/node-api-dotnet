@@ -116,16 +116,23 @@ exports.whichBuildType = whichBuildType;
 exports.dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
 exports.dotnetModule = process.env.TEST_DOTNET_MODULE_PATH;
 
-exports.loadDotnetModule = function() {
+exports.loadDotnetModule = function () {
+  // The Node API module may need the require() function at initialization time; passing it as
+  // a global is the best (only?) solution, since it cannot be obtained via any `napi_*` function.
+  global.require = require;
+
+  let dotnetModule;
   if (exports.dotnetHost) {
     // Normally the index.js script in the npm package takes care of locating the correct
     // native host and managed host binaries for the current environment.
-    return require(exports.dotnetHost)
+    dotnetModule = require(exports.dotnetHost)
       .initialize(exports.dotnetHost.replace(/\.node$/, '.DotNetHost.dll'))
       .require(exports.dotnetModule);
   } else {
-    return require(exports.dotnetModule);
+    dotnetModule = require(exports.dotnetModule);
   }
+
+  return dotnetModule;
 }
 
 exports.binding = exports.loadDotnetModule();

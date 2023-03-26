@@ -21,17 +21,17 @@ public readonly struct JSDate : IEquatable<JSValue>
 
     public JSDate()
     {
-        _value = JSContext.Current.Import("Date").CallAsConstructor();
+        _value = JSContext.Current.Import(null, "Date").CallAsConstructor();
     }
 
     public JSDate(long dateValue)
     {
-        _value = JSContext.Current.Import("Date").CallAsConstructor(dateValue);
+        _value = JSContext.Current.Import(null, "Date").CallAsConstructor(dateValue);
     }
 
     public JSDate(string dateString)
     {
-        _value = JSContext.Current.Import("Date").CallAsConstructor(dateString);
+        _value = JSContext.Current.Import(null, "Date").CallAsConstructor(dateString);
     }
 
     public long DateValue => (long)_value.CallMethod("valueOf");

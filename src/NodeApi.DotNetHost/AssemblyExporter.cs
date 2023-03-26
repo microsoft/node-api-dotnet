@@ -211,8 +211,10 @@ internal class AssemblyExporter
 
         string defineMethodName = type.IsInterface ? "DefineInterface" :
             isStatic ? "DefineStaticClass" : type.IsValueType ? "DefineStruct" : "DefineClass";
-        JSValue classObject = (JSValue)classBuilderType.GetInstanceMethod(defineMethodName)
-                .Invoke(classBuilder, null)!;
+        MethodInfo defineClassMethod = classBuilderType.GetInstanceMethod(defineMethodName);
+        JSValue classObject = (JSValue)defineClassMethod.Invoke(
+            classBuilder,
+            defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
 
         Trace($"< AssemblyExporter.ExportClass()");
         return classObject;

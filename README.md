@@ -31,7 +31,8 @@ const MyType = ExampleAssembly['Namespace.Qualified.MyType'];
 ```
 
 ### Generate type definitions for .NET APIs
-If writing TypeScript, or type-checked JavaScript, there is a tool to generate type `.d.ts` type definitions for .NET APIs. It also generates a small `.js` file that exports the assembly in a more
+If writing TypeScript, or type-checked JavaScript, there is a tool to generate type `.d.ts` type
+definitions for .NET APIs. It also generates a small `.js` file that exports the assembly in a more
 natural way as a JS module:
 ```bash
 $ node-api-dotnet-ts-gen "path/to/ExampleAssembly.dll"
@@ -136,6 +137,13 @@ convert values beteen JavaScript and C#. Here's a general summary of conversions
   - Custom marshaling and marshaling hints [may be supported later](
     https://github.com/jasongin/napi-dotnet/pull/25).
 
+### Stream across .NET and JS
+.NET `Stream`s are automatically marshalled to and from Node.js `Duplex` (or `Readable` or
+`Writable`) streams. That means JS code can seamlessly read from or write to streams created
+by .NET. Or .NET code can read from or write to streams created by JS. Streamed data is
+transferred using shared memory (without any additional sockets or pipes), so memory allocation
+and copying is minimized.
+
 ### Optional .NET native AOT compilation
 This library supports hosting the .NET Runtime in the same process as the JavaScript engine.
 Alternatively, it also supports building [native ahead-of-time (AOT) compiled C#](
@@ -152,7 +160,8 @@ There are advantages and disadvantages to either approach:
 | Runtime limitations | Full .NET functionality | Some .NET features like reflection and code-generation aren't supported |
 
 ### High performance
-The project is designed to be as performant as possible when bridging between .NET and JavaScript. Techniques benefitting performance include:
+The project is designed to be as performant as possible when bridging between .NET and JavaScript.
+Techniques benefitting performance include:
  - Automatic marshaling avoids any use of JSON serialization, and uses generated code to avoid
  reflection.
  - Automatic marshalling uses shared memory or proxies when possible to minimize the amount of
@@ -190,17 +199,21 @@ Contributor License Agreement (CLA) declaring that you have the right to, and ac
 the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
 
 When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the
+instructions provided by the bot. You will only need to do this once across all repos using our CLA.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+This project has adopted the
+[Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
+For more information see the
+[Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
+contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or
+comments.
 
 ## Trademarks
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
+This project may contain trademarks or logos for projects, products, or services. Authorized use of
+Microsoft trademarks or logos is subject to and must follow
 [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion
+or imply Microsoft sponsorship. Any use of third-party trademarks or logos are subject to those
+third-party's policies.

@@ -50,7 +50,7 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
             jsTarget.Wrap(target);
         }
 
-        JSValue proxyConstructor = JSContext.Current.Import("Proxy");
+        JSValue proxyConstructor = JSContext.Current.Import(null, "Proxy");
 
         if (revocable)
         {

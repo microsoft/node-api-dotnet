@@ -254,6 +254,7 @@ internal static class TestBuilder
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            WorkingDirectory = Path.GetDirectoryName(logFilePath)!,
         };
 
         foreach ((string name, string value) in testEnvironmentVariables)

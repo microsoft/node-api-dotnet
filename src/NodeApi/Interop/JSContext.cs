@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using static Microsoft.JavaScript.NodeApi.Interop.JSCollectionProxies;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi;
 using napi_env = Microsoft.JavaScript.NodeApi.JSNativeApi.Interop.napi_env;
@@ -107,7 +108,7 @@ public sealed class JSContext : IDisposable
     /// Enables C# code to construct instances of built-in JS classes, without having to resolve
     /// the constructors every time.
     /// </remarks>
-    private readonly ConcurrentDictionary<string, JSReference> _importMap = new();
+    private readonly ConcurrentDictionary<(string?, string?), JSReference> _importMap = new();
 
     /// <summary>
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.
@@ -207,12 +208,20 @@ public sealed class JSContext : IDisposable
         JSValue? wrapper = null;
         JSReference CreateWrapper(T obj)
         {
-            // Pass the existing instance as an external value to the JS constructor.
-            // The constructor callback will then use that instead of creating a new
-            // instance of the class.
-            JSValue externalValue = JSValue.CreateExternal(obj);
-            JSValue constructorFunction = GetClassConstructor<T>();
-            wrapper = constructorFunction.CallAsConstructor(externalValue);
+            if (obj is Stream stream)
+            {
+                wrapper = NodeStream.CreateProxy(stream);
+            }
+            else
+            {
+                // Pass the existing instance as an external value to the JS constructor.
+                // The constructor callback will then use that instead of creating a new
+                // instance of the class.
+                JSValue externalValue = JSValue.CreateExternal(obj);
+                JSValue constructorFunction = GetClassConstructor<T>();
+                wrapper = constructorFunction.CallAsConstructor(externalValue);
+            }
+
             return new(wrapper.Value, isWeak: true);
         }
 
@@ -449,12 +458,57 @@ public sealed class JSContext : IDisposable
         return JSNativeApi.CallAsConstructor(constructorFunction.Value);
     }
 
-    public JSValue Import(string name)
+    /// <summary>
+    /// Imports a module or module property from JavaScript.
+    /// </summary>
+    /// <param name="module">Name of the module being imported, or null to import a
+    /// global property. This is equivalent to the value provided to <c>import</c> or
+    /// <c>require()</c> in JavaScript. Required if <paramref name="property"/> is null.</param>
+    /// <param name="property">Name of a property on the module (or global), or null to import
+    /// the module object. Required if <paramref name="module"/> is null.</param>
+    /// <returns>The imported value.</returns>
+    /// <exception cref="ArgumentNullException">Both <paramref cref="module" /> and
+    /// <paramref cref="property" /> are null.</exception>
+    /// <exception cref="InvalidOperationException">The <see cref="Require"/> function was
+    /// not initialized.</exception>
+    public JSValue Import(string? module, string? property = null)
     {
-        JSReference reference = _importMap.GetOrAdd(name, (_) =>
+        if (module == null && property == null)
         {
-            JSValue value = JSValue.Global[name];
-            return new JSReference(value);
+            throw new ArgumentNullException(nameof(property));
+        }
+
+        JSReference reference = _importMap.GetOrAdd((module, property), (_) =>
+        {
+            if (module == null)
+            {
+                // Importing a built-in object from `global`.
+                JSValue value = JSValue.Global[property!];
+                return new JSReference(value);
+            }
+            else if (property == null)
+            {
+                // Importing from a module via require().
+                JSValue require = JSValue.Global["require"];
+                if (!require.IsFunction())
+                {
+                    throw new InvalidOperationException(
+                        "The global require function was not found. " +
+                        "Set `global.require = require` before loading the module.");
+                }
+
+                JSValue moduleValue = require.Call(thisArg: JSValue.Undefined, module);
+                return new JSReference(moduleValue);
+            }
+            else
+            {
+                // Getting a property on an imported module.
+                JSValue moduleValue = Import(module, null);
+                JSValue propertyValue = moduleValue.IsUndefined() ?
+                    JSValue.Undefined : moduleValue.GetProperty(property);
+                return new JSReference(propertyValue);
+            }
+
         });
         return reference.GetValue() ?? JSValue.Undefined;
     }

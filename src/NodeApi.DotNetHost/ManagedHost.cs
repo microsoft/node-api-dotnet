@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -77,7 +78,9 @@ public sealed class ManagedHost : IDisposable
 
         try
         {
-            ManagedHost host = new((JSObject)new JSValue(exports, scope));
+            JSObject exportsObject = (JSObject)new JSValue(exports, scope);
+
+            ManagedHost host = new(exportsObject);
             exports = (napi_value)host._systemAssembly.AssemblyObject;
 
             Trace("< ManagedHost.InitializeModule()");
@@ -222,6 +225,21 @@ public sealed class ManagedHost : IDisposable
         {
             Trace("< ManagedHost.LoadAssembly() => already loaded");
             return assemblyExporter.AssemblyObject;
+        }
+
+        if (string.IsNullOrEmpty(Path.GetDirectoryName(assemblyFilePath)) &&
+            !assemblyFilePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            // Load the system assembly from the .NET directory.
+            assemblyFilePath = Path.Combine(
+                Path.GetDirectoryName(typeof(object).Assembly.Location)!,
+                assemblyFilePath + ".dll");
+        }
+        else if (!Path.IsPathRooted(assemblyFilePath))
+        {
+            throw new ArgumentException(
+                "Assembly argument must be either an absolute path to an assembly DLL file " +
+                "or the name of a system assembly (without path or DLL extension).");
         }
 
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);

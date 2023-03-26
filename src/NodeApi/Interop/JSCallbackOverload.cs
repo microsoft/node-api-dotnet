@@ -13,15 +13,29 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 public readonly struct JSCallbackOverload
 {
     /// <summary>
+    /// Creates a new instance of the <see cref="JSCallbackOverload"/> struct.
+    /// </summary>
+    public JSCallbackOverload(Type[] parameterTypes, JSCallback callback)
+    {
+        ParameterTypes = parameterTypes;
+        Callback = callback;
+    }
+
+    /// <summary>
     /// Specifies the number of parameters and the .NET type that each JS argument will be
     /// converted to before invoking the callback.
     /// </summary>
-    public Type[] ParameterTypes { get; init; }
+    public Type[] ParameterTypes { get; }
 
     /// <summary>
     /// Callback that expects JS arguments that are convertible to the specified parameter types.
     /// </summary>
-    public JSCallback Callback { get; init; }
+    public JSCallback Callback { get; }
+
+    public static JSCallbackDescriptor CreateDescriptor(JSCallbackOverload[] overloads)
+    {
+        return new JSCallbackDescriptor(ResolveAndInvoke, overloads);
+    }
 
     /// <summary>
     /// Selects a callback matching the supplied arguments, and invokes the callback.
