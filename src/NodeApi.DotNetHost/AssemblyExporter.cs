@@ -191,14 +191,15 @@ internal class AssemblyExporter
                 .Where(IsSupportedConstructor)
                 .ToArray();
             JSCallbackDescriptor constructorDescriptor;
-            if (constructors.Length == 1)
+            if (constructors.Length == 1 &&
+                !constructors[0].GetParameters().Any((p) => p.IsOptional))
             {
                 constructorDescriptor =
                     _marshaller.BuildFromJSConstructorExpression(constructors[0]).Compile();
             }
             else
             {
-                // Multiple constructors require overload resolution.
+                // Multiple constructors or optional parameters require overload resolution.
                 constructorDescriptor =
                     _marshaller.BuildConstructorOverloadDescriptor(constructors);
             }
@@ -361,7 +362,8 @@ internal class AssemblyExporter
             }
 
             JSCallbackDescriptor methodDescriptor;
-            if (methods.Length == 1)
+            if (methods.Length == 1 &&
+                !methods[0].GetParameters().Any((p) => p.IsOptional))
             {
                 MethodInfo method = methods[0];
                 Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}(" +
@@ -371,7 +373,7 @@ internal class AssemblyExporter
             }
             else
             {
-                // Set up overload resolution for multiple methods with the same name.
+                // Set up overload resolution for multiple methods or optional parmaeters.
                 Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}[" +
                     methods.Length + "]");
                 foreach (MethodInfo method in methods)

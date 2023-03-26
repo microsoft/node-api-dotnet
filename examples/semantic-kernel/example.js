@@ -19,8 +19,6 @@ kernel.Config.AddAzureOpenAICompletionBackend(
   getenv('OPENAI_DEPLOYMENT'),
   getenv('OPENAI_ENDPOINT'),
   getenv('OPENAI_KEY'),
-  '2022-12-01',
-  false,
 );
 
 const skPrompt = `
