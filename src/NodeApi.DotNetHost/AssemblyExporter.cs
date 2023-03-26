@@ -187,7 +187,9 @@ internal class AssemblyExporter
         else
         {
             ConstructorInfo[] constructors =
-                type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+                type.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+                .Where(IsSupportedConstructor)
+                .ToArray();
             JSCallbackDescriptor constructorDescriptor;
             if (constructors.Length == 1)
             {
@@ -235,7 +237,10 @@ internal class AssemblyExporter
             {
                 ExportClass(property.PropertyType);
             }
-            else if (member is MethodInfo method && method.ReturnType.Assembly == type.Assembly)
+            else if (member is MethodInfo method &&
+                IsSupportedMethod(method) &&
+                method.ReturnType.Assembly == type.Assembly &&
+                method.ReturnType != typeof(void))
             {
                 ExportClass(method.ReturnType);
             }
@@ -349,10 +354,7 @@ internal class AssemblyExporter
         {
             bool methodIsStatic = methodGroup.Key.IsStatic;
             string methodName = methodGroup.Key.Name;
-            MethodInfo[] methods = methodGroup
-                .Where((m) => m.GetParameters().All(IsSupportedParameter))
-                .Where((m) => IsSupportedParameter(m.ReturnParameter))
-                .ToArray();
+            MethodInfo[] methods = methodGroup.Where(IsSupportedMethod).ToArray();
             if (methods.Length == 0)
             {
                 continue;
@@ -433,18 +435,37 @@ internal class AssemblyExporter
         return enumObject;
     }
 
+    private static bool IsSupportedConstructor(ConstructorInfo constructor)
+    {
+        return constructor.GetParameters().All(IsSupportedParameter);
+    }
+
+    private static bool IsSupportedMethod(MethodInfo method)
+    {
+        return !method.IsGenericMethodDefinition &&
+            method.GetParameters().All(IsSupportedParameter) &&
+            IsSupportedParameter(method.ReturnParameter);
+    }
+
     private static bool IsSupportedParameter(ParameterInfo parameter)
     {
         if (parameter.IsOut)
         {
-            // out / ref parameters aren't yet supported.
+            // out parameters aren't yet supported.
             return false;
         }
 
         Type parameterType = parameter.ParameterType;
-        if (parameterType.IsByRefLike)
+
+        if (parameterType.IsByRef || parameterType.IsByRefLike)
         {
+            // ref parameters aren't yet supported.
             // ref structs like Span<T> aren't yet supported.
+            return false;
+        }
+
+        if (parameterType.IsPointer)
+        {
             return false;
         }
 
@@ -452,6 +473,12 @@ internal class AssemblyExporter
             parameterType.GetGenericTypeDefinition() == typeof(IEnumerator<>))
         {
             // Enumerables should be projected as iterables.
+            return false;
+        }
+
+        if (parameter.ParameterType == typeof(Type))
+        {
+            // Methods using reflection aren't supported.
             return false;
         }
 
