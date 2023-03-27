@@ -231,7 +231,7 @@ internal class AssemblyExporter
 
     private void ExportClassDependencies(Type type)
     {
-        foreach (var member in type.GetMembers
+        foreach (MemberInfo member in type.GetMembers
             (BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
         {
             if (member is PropertyInfo property && property.PropertyType.Assembly == type.Assembly)

@@ -126,7 +126,7 @@ internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>
 {
     private readonly JSValue _iterable;
     private readonly JSValue.To<T> _fromJS;
-    private JSValue _iterator;
+    private readonly JSValue _iterator;
     private JSValue? _current;
 
     internal JSAsyncIterableEnumerator(JSValue iterable, JSValue.To<T> fromJS)
@@ -227,11 +227,13 @@ internal class JSAsyncIterableEnumerable<T> : IAsyncEnumerable<T>, IEquatable<JS
     public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken)
         => new JSAsyncIterableEnumerator<T>(Value, FromJS);
 
+#pragma warning disable IDE0060 // Unused parameter
     public ValueTask DisposeAsync(CancellationToken cancellationToken)
     {
         _iterableReference.Dispose();
         return ValueTask.CompletedTask;
     }
+#pragma warning restore IDE0060
 }
 
 internal class JSIterableEnumerable<T> : IEnumerable<T>, IEquatable<JSValue>, IDisposable

@@ -90,7 +90,7 @@ internal static class JSInterfaceMarshaller
     private static IEnumerable<Type> GetInterfaces(Type type)
     {
         IEnumerable<Type> result = Enumerable.Empty<Type>();
-        foreach (var interfaceType in type.GetInterfaces())
+        foreach (Type interfaceType in type.GetInterfaces())
         {
             result = result.Concat(new[] { interfaceType });
             result = result.Concat(GetInterfaces(interfaceType));

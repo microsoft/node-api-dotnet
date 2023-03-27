@@ -74,7 +74,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
         Assembly assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
 
         Dictionary<string, Assembly> referenceAssemblies = new();
-        foreach (var referenceAssemblyPath in referenceAssemblyPaths)
+        foreach (string referenceAssemblyPath in referenceAssemblyPaths)
         {
             Assembly referenceAssembly = loadContext.LoadFromAssemblyPath(referenceAssemblyPath);
             string referenceAssemblyName = referenceAssembly.GetName().Name!;
@@ -89,7 +89,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
             string assemblyFileName = Path.GetFileNameWithoutExtension(assemblyPath);
             assemblyDocFilePath = Path.Combine(
                 Path.GetDirectoryName(assemblyPath)!,
-                assemblyFileName.Substring(assemblyFileName.IndexOf('.') + 1) + ".xml");
+                string.Concat(assemblyFileName.AsSpan(assemblyFileName.IndexOf('.') + 1), ".xml"));
         }
 
         if (File.Exists(assemblyDocFilePath))
@@ -139,7 +139,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
         if (_referenceAssemblies.Count > 0)
         {
             s++;
-            foreach (var referenceName in _referenceAssemblies.Keys)
+            foreach (string referenceName in _referenceAssemblies.Keys)
             {
                 string importName = referenceName.Replace('.', '_');
                 s += $"import * as {importName} from './{referenceName}';";
@@ -385,7 +385,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
 
         s += "}";
 
-        foreach (var nestedType in type.GetNestedTypes(BindingFlags.Public))
+        foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public))
         {
             ExportType(ref s, nestedType);
         }
@@ -795,15 +795,12 @@ public class TypeDefinitionsGenerator : SourceGenerator
 
     private static string TSIdentifier(string? identifier)
     {
-        switch (identifier)
+        return identifier switch
         {
             // A method parameter named "function" is valid in C# but invalid in TS.
-            case "function":
-                return "_" + identifier;
-            case null:
-                return "_";
-            default:
-                return identifier;
-        }
+            "function" => "_" + identifier,
+            null => "_",
+            _ => identifier,
+        };
     }
 }

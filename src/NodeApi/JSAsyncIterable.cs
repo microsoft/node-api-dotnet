@@ -24,9 +24,10 @@ public readonly partial struct JSAsyncIterable : IAsyncEnumerable<JSValue>, IEqu
         _value = value;
     }
 
-
+#pragma warning disable IDE0060 // Unused parameter
     public Enumerator GetAsyncEnumerator(CancellationToken cancellationToken = default)
         => new(_value);
+#pragma warning restore IDE0060
 
     IAsyncEnumerator<JSValue> IAsyncEnumerable<JSValue>.GetAsyncEnumerator(
         CancellationToken cancellationToken)

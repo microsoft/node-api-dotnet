@@ -13,7 +13,7 @@ public partial struct JSAsyncIterable
     public struct Enumerator : IAsyncEnumerator<JSValue>
     {
         private readonly JSValue _iterable;
-        private JSValue _iterator;
+        private readonly JSValue _iterator;
         private JSValue? _current;
 
         internal Enumerator(JSValue iterable)

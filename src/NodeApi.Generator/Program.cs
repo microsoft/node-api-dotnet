@@ -68,7 +68,8 @@ public static class Program
 
             switch (args[i])
             {
-                case "-a": case "--assembly":
+                case "-a":
+                case "--assembly":
                     assemblyPath = args[++i];
                     break;
 
