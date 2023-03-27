@@ -12,6 +12,8 @@ public readonly struct JSSymbol : IEquatable<JSValue>
 
     private static readonly Lazy<JSReference> s_iteratorSymbol =
         new(new JSReference(JSValue.Global["Symbol"]["iterator"]));
+    private static readonly Lazy<JSReference> s_asyncIteratorSymbol =
+        new(new JSReference(JSValue.Global["Symbol"]["asyncIterator"]));
 
     public static explicit operator JSSymbol(JSValue value) => new(value);
     public static implicit operator JSValue(JSSymbol symbol) => symbol._value;
@@ -32,6 +34,8 @@ public readonly struct JSSymbol : IEquatable<JSValue>
     }
 
     public static JSSymbol Iterator => (JSSymbol)s_iteratorSymbol.Value.GetValue()!;
+
+    public static JSSymbol AsyncIterator => (JSSymbol)s_asyncIteratorSymbol.Value.GetValue()!;
 
     // TODO: Add static properties for other well-known symbols.
 

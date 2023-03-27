@@ -1,0 +1,8 @@
+{
+  "name": "node-api-dotnet-examples-semantic-kernel",
+  "type": "module",
+  "dependencies": {
+    "node-api-dotnet": "file:../../out/pkg/node-api-dotnet",
+    "node-api-dotnet-generator": "file:../../out/pkg/node-api-dotnet-generator"
+  }
+}

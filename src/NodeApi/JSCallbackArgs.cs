@@ -9,13 +9,24 @@ namespace Microsoft.JavaScript.NodeApi;
 
 public readonly ref struct JSCallbackArgs
 {
-    private readonly JSValueScope _scope;
     private readonly napi_value _thisArg;
     private readonly ReadOnlySpan<napi_value> _args;
 
+    internal JSCallbackArgs(
+        JSValueScope scope,
+        napi_value thisArg,
+        ReadOnlySpan<napi_value> args,
+        object? data)
+    {
+        Scope = scope;
+        _thisArg = thisArg;
+        _args = args;
+        Data = data;
+    }
+
     internal unsafe JSCallbackArgs(JSValueScope scope,
                                    napi_callback_info callbackInfo,
-                                   Span<napi_value> args,
+                                   ReadOnlySpan<napi_value> args,
                                    object? data = null)
     {
         napi_env env = (napi_env)scope;
@@ -35,15 +46,17 @@ public readonly ref struct JSCallbackArgs
                     .ThrowIfFailed();
             }
         }
-        _scope = scope;
+        Scope = scope;
         _thisArg = thisArgHandle;
         _args = args;
         Data = data;
     }
 
-    public JSValue ThisArg => new(_thisArg, _scope);
+    internal JSValueScope Scope { get; }
 
-    public JSValue this[int index] => index < _args.Length ? new(_args[index], _scope) : default;
+    public JSValue ThisArg => new(_thisArg, Scope);
+
+    public JSValue this[int index] => index < _args.Length ? new(_args[index], Scope) : default;
 
     public int Length => _args.Length;
 

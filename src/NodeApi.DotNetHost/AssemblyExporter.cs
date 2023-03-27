@@ -187,16 +187,19 @@ internal class AssemblyExporter
         else
         {
             ConstructorInfo[] constructors =
-                type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+                type.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+                .Where(IsSupportedConstructor)
+                .ToArray();
             JSCallbackDescriptor constructorDescriptor;
-            if (constructors.Length == 1)
+            if (constructors.Length == 1 &&
+                !constructors[0].GetParameters().Any((p) => p.IsOptional))
             {
                 constructorDescriptor =
                     _marshaller.BuildFromJSConstructorExpression(constructors[0]).Compile();
             }
             else
             {
-                // Multiple constructors require overload resolution.
+                // Multiple constructors or optional parameters require overload resolution.
                 constructorDescriptor =
                     _marshaller.BuildConstructorOverloadDescriptor(constructors);
             }
@@ -216,8 +219,33 @@ internal class AssemblyExporter
             classBuilder,
             defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
 
+        _typeObjects.Add(type, new JSReference(classObject));
+
+        // Also export any types returned by properties or methods of this type, because
+        // they might otherwise not be referenced by JS before they are used.
+        ExportClassDependencies(type);
+
         Trace($"< AssemblyExporter.ExportClass()");
         return classObject;
+    }
+
+    private void ExportClassDependencies(Type type)
+    {
+        foreach (MemberInfo member in type.GetMembers
+            (BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
+        {
+            if (member is PropertyInfo property && property.PropertyType.Assembly == type.Assembly)
+            {
+                ExportClass(property.PropertyType);
+            }
+            else if (member is MethodInfo method &&
+                IsSupportedMethod(method) &&
+                method.ReturnType.Assembly == type.Assembly &&
+                method.ReturnType != typeof(void))
+            {
+                ExportClass(method.ReturnType);
+            }
+        }
     }
 
     private void ExportProperties(Type type, object classBuilder)
@@ -327,16 +355,15 @@ internal class AssemblyExporter
         {
             bool methodIsStatic = methodGroup.Key.IsStatic;
             string methodName = methodGroup.Key.Name;
-            MethodInfo[] methods = methodGroup
-                .Where((m) => m.GetParameters().All(IsSupportedParameter))
-                .ToArray();
+            MethodInfo[] methods = methodGroup.Where(IsSupportedMethod).ToArray();
             if (methods.Length == 0)
             {
                 continue;
             }
 
             JSCallbackDescriptor methodDescriptor;
-            if (methods.Length == 1)
+            if (methods.Length == 1 &&
+                !methods[0].GetParameters().Any((p) => p.IsOptional))
             {
                 MethodInfo method = methods[0];
                 Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}(" +
@@ -346,7 +373,7 @@ internal class AssemblyExporter
             }
             else
             {
-                // Set up overload resolution for multiple methods with the same name.
+                // Set up overload resolution for multiple methods or optional parmaeters.
                 Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}[" +
                     methods.Length + "]");
                 foreach (MethodInfo method in methods)
@@ -404,16 +431,59 @@ internal class AssemblyExporter
         }
 
         JSValue enumObject = enumBuilder.DefineEnum();
+        _typeObjects.Add(type, new JSReference(enumObject));
 
         Trace($"< AssemblyExporter.ExportEnum()");
         return enumObject;
     }
 
+    private static bool IsSupportedConstructor(ConstructorInfo constructor)
+    {
+        return constructor.GetParameters().All(IsSupportedParameter);
+    }
+
+    private static bool IsSupportedMethod(MethodInfo method)
+    {
+        return !method.IsGenericMethodDefinition &&
+            method.GetParameters().All(IsSupportedParameter) &&
+            IsSupportedParameter(method.ReturnParameter);
+    }
+
     private static bool IsSupportedParameter(ParameterInfo parameter)
     {
-        // TODO: Check for other kinds of types that can't be marshaled.
+        if (parameter.IsOut)
+        {
+            // out parameters aren't yet supported.
+            return false;
+        }
 
-        return !parameter.IsOut && // out parameters
-            !parameter.ParameterType.IsByRefLike; // ref structs like Span<T>
+        Type parameterType = parameter.ParameterType;
+
+        if (parameterType.IsByRef || parameterType.IsByRefLike)
+        {
+            // ref parameters aren't yet supported.
+            // ref structs like Span<T> aren't yet supported.
+            return false;
+        }
+
+        if (parameterType.IsPointer)
+        {
+            return false;
+        }
+
+        if (parameterType.IsGenericType &&
+            parameterType.GetGenericTypeDefinition() == typeof(IEnumerator<>))
+        {
+            // Enumerables should be projected as iterables.
+            return false;
+        }
+
+        if (parameter.ParameterType == typeof(Type))
+        {
+            // Methods using reflection aren't supported.
+            return false;
+        }
+
+        return true;
     }
 }

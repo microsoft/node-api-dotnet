@@ -4,8 +4,8 @@
 // Ported from https://github.com/agracio/edge-js/blob/master/performance/marshal_clr2v8.js
 
 // If using the test runner, the measurement results can be found in:
-// out/obj\$(Configuration)\TestCases\edgejs-perf\hosted-measure-latency.log
-// out/obj\$(Configuration)\TestCases\edgejs-perf\aot-measure-latency.log
+// out/obj/$(Configuration)/TestCases/edgejs-perf/$(TargetFramework)/hosted-measure-latency.log
+// out/obj/$(Configuration)/TestCases/edgejs-perf/$(TargetFramework)/aot-measure-latency.log
 
 /** @type {import('./edgejs-perf')} */
 const binding = require('../common').binding;
@@ -13,7 +13,7 @@ const binding = require('../common').binding;
 const callCount = process.env.EDGE_CALL_COUNT || 10000;
 
 const measure = function (func) {
-	var start = Date.now();
+  var start = process.hrtime();
 	var i = 0;
 
 	function one() {
@@ -37,9 +37,9 @@ const measure = function (func) {
 	}
 
 	function finish() {
-		var delta = Date.now() - start;
+    var delta = process.hrtime(start);
 		var result = process.memoryUsage();
-		result.latency = delta / callCount;
+		result.latency = (delta[0] * 1000000 + delta[1] / 1000) / callCount;
 		console.log(result);
 	}
 
