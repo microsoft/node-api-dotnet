@@ -1,24 +1,15 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-function getenv(name) {
-  const value = process.env[name];
-  if (!value) {
-    console.error(`Missing ${name} environment variable.`);
-    process.exit(1);
-  }
-  return value;
-}
-
-const SK = require('./semantic-kernel');
+import SK from './semantic-kernel.js';
 
 const kernel = SK.Kernel.Builder.Build();
 
 kernel.Config.AddAzureOpenAICompletionBackend(
   'davinci-backend',
-  getenv('OPENAI_DEPLOYMENT'),
-  getenv('OPENAI_ENDPOINT'),
-  getenv('OPENAI_KEY'),
+  process.env['OPENAI_DEPLOYMENT'],
+  process.env['OPENAI_ENDPOINT'],
+  process.env['OPENAI_KEY'],
 );
 
 const skPrompt = `
@@ -42,6 +33,5 @@ does not conflict with the First or Second Law.
 const tldrFunction = SK.InlineFunctionsDefinitionExtension
   .CreateSemanticFunction(kernel, skPrompt);
 
-kernel.RunAsync(textToSummarize, [tldrFunction]).then((summary) => {
-  console.log(summary.toString());
-});
+const summary = await kernel.RunAsync(textToSummarize, [tldrFunction]);
+console.log(summary.toString());
