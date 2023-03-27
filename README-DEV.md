@@ -11,8 +11,8 @@ from re-using a previously-loaded (possibly outdated) version of the source gene
 
 ## Build Packages
 ```bash
-dotnet publish -f net7.0
-dotnet pack
+dotnet publish -f net7.0 -c Release
+dotnet pack -c Release
 ```
 This produces both nuget and npm packages (for the current platform only) in the `out/pkg`
 directory. Binaries for the `net7.0` target framework must be built and published first
@@ -48,6 +48,12 @@ respective components:
 
 Also `TRACE_NODE_API_HOST` causes tracing information to be printed about the the process of
 loading the .NET host.
+
+## Check/fix formatting
+PR builds will fail if formatting does not comply with settings in `.editorconfig`.
+```
+dotnet format --severity info --verbosity detailed
+```
 
 ## Roadmap
 [node-api-dotnet tasks](https://github.com/users/jasongin/projects/1/views/1)

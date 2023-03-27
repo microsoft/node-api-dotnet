@@ -12,6 +12,7 @@ isn't yet all packaged up nicely in a way that can be easily consumed._
 const Console = require('node-api-dotnet').Console;
 Console.WriteLine('Hello from .NET!');
 ```
+For more examples, see the [examples](./examples/) directory.
 
 ## Feature Highlights
 
@@ -177,19 +178,32 @@ Thanks to these design choices, JS to .NET calls are [more than twice as fast](
     https://github.com/jasongin/napi-dotnet/pull/23) when compared to `edge-js` using
     [that project's benchmark](https://github.com/tjanczuk/edge/wiki/Performance).
 
-## Requirements
+## Getting Started
+#### Requirements
  - .NET 6 or later
     - .NET 7 or later is required for AOT support.
  - Node.js v16 or later
     - Other JS engines may be supported in the future.
  - OS: Windows, Mac, or Linux
     - It should work on any platform where .NET 6 is supported.
+#### Instructions
+Choose between one of the following scenarios:
+ - [Dynamically invoke .NET APIs from JavaScript](./Docs/dynamic-invoke.md)
+ - [Develop a Node module in C#](./Docs/node-module.md)
 
-## Getting Started
-_To be written: instructions for installing npm/nuget packages_
+Dynamic invocation is simpler to set up: all you need is the `node-api-dotnet` npm package and
+the path to a .NET assembly you want to call. But it has some limitations (not all kinds of APIs
+are supported), and is not quite as fast as a C# module, because marshalling code must be generated
+at runtime.
+
+Alternatively, a C# Node module is appropriate for an application that has more advanced interop
+needs. It is faster because marshalling code can be generated at compile time, and the shape of
+the APIs exposed to JavaScript can be adapted with JS interop in mind.
+
+TypeScript type definitions can be generated with either aproach.
 
 ## Development
-For information about building, testing, and contributing changes, see
+For information about building, testing, and contributing changes to this project, see
 [README-DEV.md](./README-DEV.md).
 
 ## Contributing
