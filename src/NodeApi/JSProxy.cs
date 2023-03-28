@@ -43,7 +43,7 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
         object? target = null,
         bool revocable = false)
     {
-        ArgumentNullException.ThrowIfNull(handler);
+        if (handler is null) throw new ArgumentNullException(nameof(handler));
 
         if (target != null)
         {
@@ -120,6 +120,21 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
         /// </summary>
         internal JSObject JSHandler => (JSObject)JSHandlerReference.Value.GetValue()!;
 
+#if NETFRAMEWORK
+        public Apply? Apply { get; set; }
+        public Construct? Construct { get; set; }
+        public DefineProperty? DefineProperty { get; set; }
+        public DeleteProperty? DeleteProperty { get; set; }
+        public Get? Get { get; set; }
+        public GetOwnPropertyDescriptor? GetOwnPropertyDescriptor { get; set; }
+        public GetPrototypeOf? GetPrototypeOf { get; set; }
+        public Has? Has { get; set; }
+        public IsExtensible? IsExtensible { get; set; }
+        public OwnKeys? OwnKeys { get; set; }
+        public PreventExtensions? PreventExtensions { get; set; }
+        public Set? Set { get; set; }
+        public SetPrototypeOf? SetPrototypeOf { get; set; }
+#else
         public Apply? Apply { get; init; }
         public Construct? Construct { get; init; }
         public DefineProperty? DefineProperty { get; init; }
@@ -133,6 +148,7 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
         public PreventExtensions? PreventExtensions { get; init; }
         public Set? Set { get; init; }
         public SetPrototypeOf? SetPrototypeOf { get; init; }
+#endif // !NETFRAMEWORK
 
         private JSObject CreateJSHandler()
         {

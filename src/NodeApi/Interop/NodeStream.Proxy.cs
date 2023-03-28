@@ -174,7 +174,11 @@ public partial class NodeStream
         byte[] buffer = ArrayPool<byte>.Shared.Rent(ReadChunkSize);
         try
         {
+#if NETFRAMEWORK
+            int count = await stream.ReadAsync(buffer, 0, ReadChunkSize);
+#else
             int count = await stream.ReadAsync(buffer.AsMemory(0, ReadChunkSize));
+#endif
 
             nodeStream = nodeStreamReference.GetValue()!.Value;
             nodeStream.CallMethod(
@@ -242,7 +246,11 @@ public partial class NodeStream
         using JSReference callbackReference = new(callback);
         try
         {
+#if NETFRAMEWORK
+            await stream.WriteAsync(chunk.ToArray(), 0, chunk.Length);
+#else
             await stream.WriteAsync(chunk);
+#endif
 
             callback = callbackReference.GetValue()!.Value;
             callback.Call();

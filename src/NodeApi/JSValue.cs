@@ -27,10 +27,7 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public JSValue(napi_value handle, JSValueScope? scope)
     {
-        if (!handle.IsNull)
-        {
-            ArgumentNullException.ThrowIfNull(scope);
-        }
+        if (!handle.IsNull && scope is null) throw new ArgumentNullException(nameof(scope));
         _handle = handle;
         _scope = scope;
     }
@@ -129,6 +126,18 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
     }
 
+#if NETFRAMEWORK
+    public static unsafe JSValue CreateStringUtf16(string value)
+    {
+        fixed (char* spanPtr = value)
+        {
+            return napi_create_string_utf16(
+                Env, spanPtr, (nuint)value.Length, out napi_value result)
+                .ThrowIfFailed(result);
+        }
+    }
+#endif
+
     public static JSValue CreateSymbol(JSValue description)
         => napi_create_symbol(
             Env, (napi_value)description, out napi_value result).ThrowIfFailed(result);
@@ -164,7 +173,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             utf8Name,
             new napi_callback(
                 JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
-                &InvokeJSCallbackNoContext : &InvokeJSCallback),
+                InvokeJSCallbackNoContextDelegate : InvokeJSCallbackDelegate),
             (nint)descriptorHandle);
         func.AddGCHandleFinalizer((nint)descriptorHandle);
         return func;
@@ -173,9 +182,13 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static JSValue CreateFunction(
         string name, JSCallback callback, object? callbackData = null)
     {
+#if NETFRAMEWORK
+        byte[] utf8Name = Encoding.UTF8.GetBytes(name);
+#else
         int byteCount = Encoding.UTF8.GetByteCount(name);
         Span<byte> utf8Name = stackalloc byte[byteCount];
         Encoding.UTF8.GetBytes(name, utf8Name);
+#endif
         return CreateFunction(utf8Name, callback, callbackData);
     }
 
@@ -201,7 +214,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         return napi_create_external(
             Env,
             (nint)valueHandle,
-            new napi_finalize(&FinalizeGCHandle),
+            new napi_finalize(FinalizeGCHandleDelegate),
             default,
             out napi_value result)
             .ThrowIfFailed(result);
@@ -231,7 +244,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             (nint)pinnedMemory.Pointer,
             (nuint)pinnedMemory.Length,
             // We pass object to finalize as a hint parameter
-            new napi_finalize(&FinalizeHintHandle),
+            new napi_finalize(FinalizeHintHandleDelegate),
             (nint)GCHandle.Alloc(pinnedMemory),
             out napi_value result)
             .ThrowIfFailed(result);

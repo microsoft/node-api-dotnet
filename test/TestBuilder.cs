@@ -38,9 +38,14 @@ internal static class TestBuilder
 
     private static string GetRootDirectory()
     {
+        string? solutionDir = Path.GetDirectoryName(
+#if NETFRAMEWORK
+            new Uri(typeof(TestBuilder).Assembly.CodeBase).LocalPath)!;
+#else
 #pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
-        string? solutionDir = Path.GetDirectoryName(typeof(TestBuilder).Assembly.Location)!;
+            typeof(TestBuilder).Assembly.Location)!;
 #pragma warning restore IL3000
+#endif
 
         // This assumes there is only a .SLN file at the root of the repo.
         while (Directory.GetFiles(solutionDir, "*.sln").Length == 0)
@@ -59,7 +64,7 @@ internal static class TestBuilder
     private static string GetTestCasesDirectory()
     {
         // This assumes tests are organized in this test/TestCases directory structure.
-        string testCasesDir = Path.Join(GetRootDirectory(), "test", "TestCases");
+        string testCasesDir = Path.Combine(GetRootDirectory(), "test", "TestCases");
 
         if (!Directory.Exists(testCasesDir))
         {
@@ -71,29 +76,34 @@ internal static class TestBuilder
 
     public static IEnumerable<object[]> ListTestCases(Predicate<string>? filter = null)
     {
-        var dirQueue = new Queue<string>();
-        dirQueue.Enqueue(TestCasesDirectory);
-        while (dirQueue.Count > 0)
+        var moduleQueue = new Queue<string>();
+        foreach (string subDir in Directory.GetDirectories(TestCasesDirectory))
         {
-            string dir = dirQueue.Dequeue();
-            foreach (string subDir in Directory.GetDirectories(dir))
+            if (subDir != "common")
             {
-                if (subDir != "common")
-                {
-                    dirQueue.Enqueue(subDir);
-                }
+                moduleQueue.Enqueue(Path.GetFileName(subDir));
             }
+        }
 
-            string moduleName = Path.GetRelativePath(TestCasesDirectory, dir);
-            if (string.IsNullOrEmpty(moduleName))
+        while (moduleQueue.Count > 0)
+        {
+            string moduleName = moduleQueue.Dequeue();
+            string modulePath = Path.Combine(
+                TestCasesDirectory,
+                moduleName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+            foreach (string subDir in Directory.GetDirectories(modulePath))
             {
-                continue;
+                string subDirName = Path.GetFileName(subDir);
+                if (subDirName != "common")
+                {
+                    moduleQueue.Enqueue(moduleName + '/' + subDirName);
+                }
             }
 
             moduleName = moduleName.Replace(Path.DirectorySeparatorChar, '/');
 
-            foreach (string jsFile in Directory.GetFiles(dir, "*.js")
-              .Concat(Directory.GetFiles(dir, "*.ts")))
+            foreach (string jsFile in Directory.GetFiles(modulePath, "*.js")
+              .Concat(Directory.GetFiles(modulePath, "*.ts")))
             {
                 if (jsFile.EndsWith(".d.ts")) continue;
                 string testCaseName = Path.GetFileNameWithoutExtension(jsFile);
@@ -107,14 +117,16 @@ internal static class TestBuilder
 
     private static string GetModuleIntermediateOutputPath(string moduleName)
     {
-        string directoryPath = Path.Join(
+        string directoryPath = Path.Combine(
             RepoRootDirectory,
-            "out",
-            "obj",
-            Configuration,
-            "TestCases",
-            moduleName,
-            GetCurrentFrameworkTarget());
+            string.Join(
+                Path.DirectorySeparatorChar.ToString(),
+                "out",
+                "obj",
+                Configuration,
+                "TestCases",
+                moduleName,
+                GetCurrentFrameworkTarget()));
         Directory.CreateDirectory(directoryPath);
         return directoryPath;
     }
@@ -122,13 +134,13 @@ internal static class TestBuilder
     public static string GetBuildLogFilePath(string moduleName)
     {
         string logDir = GetModuleIntermediateOutputPath(moduleName);
-        return Path.Join(logDir, "build.log");
+        return Path.Combine(logDir, "build.log");
     }
 
     public static string GetRunLogFilePath(string prefix, string moduleName, string testCasePath)
     {
         string logDir = GetModuleIntermediateOutputPath(moduleName);
-        return Path.Join(logDir, $"{prefix}-{Path.GetFileName(testCasePath)}.log");
+        return Path.Combine(logDir, $"{prefix}-{Path.GetFileName(testCasePath)}.log");
     }
 
     public static string GetCurrentPlatformRuntimeIdentifier()
@@ -225,7 +237,7 @@ internal static class TestBuilder
 
     public static void BuildTypeDefinitions(string moduleName, string moduleFilePath)
     {
-        string typeDefinitionsFilePath = Path.Join(
+        string typeDefinitionsFilePath = Path.Combine(
             TestCasesDirectory, moduleName, moduleName + ".d.ts");
         TypeDefinitionsGenerator.GenerateTypeDefinitions(
             moduleFilePath, referenceAssemblyPaths: Array.Empty<string>(), typeDefinitionsFilePath);
@@ -241,12 +253,8 @@ internal static class TestBuilder
         // This assumes the `node` executable is on the current PATH.
         string nodeExe = "node";
 
-        StreamWriter logWriter = new(logFilePath, new FileStreamOptions
-        {
-            Mode = FileMode.Create,
-            Access = FileAccess.Write,
-            Share = FileShare.Read,
-        });
+        StreamWriter logWriter = new(File.Open(
+            logFilePath, FileMode.Create, FileAccess.Write,  FileShare.Read));
 
         var startInfo = new ProcessStartInfo(nodeExe, $"--expose-gc {jsFilePath}")
         {
@@ -256,10 +264,10 @@ internal static class TestBuilder
             WorkingDirectory = Path.GetDirectoryName(logFilePath)!,
         };
 
-        foreach ((string name, string value) in testEnvironmentVariables)
+        foreach (KeyValuePair<string, string> pair in testEnvironmentVariables)
         {
-            startInfo.Environment[name] = value;
-            logWriter.WriteLine($"{name}={value}");
+            startInfo.Environment[pair.Key] = pair.Value;
+            logWriter.WriteLine($"{pair.Key}={pair.Value}");
         }
 
         logWriter.WriteLine($"{nodeExe} --expose-gc {jsFilePath}");

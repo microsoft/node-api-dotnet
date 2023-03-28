@@ -174,7 +174,6 @@ internal static class SymbolExtensions
             {
                 Type attributeType = attribute.AttributeClass.AsType();
                 ConstructorInfo constructor = attributeType.GetConstructor(
-                    BindingFlags.Public | BindingFlags.Instance,
                     attribute.ConstructorArguments.Select((a) => a.Type!.AsType()).ToArray()) ??
                     throw new MissingMemberException(
                         $"Constructor not found for attribute: {attributeType.Name}");
@@ -304,7 +303,6 @@ internal static class SymbolExtensions
 
         Type type = methodSymbol.ContainingType.AsType();
         ConstructorInfo? constructorInfo = type.GetConstructor(
-            BindingFlags.Public | BindingFlags.Instance,
             methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
         return constructorInfo ?? throw new InvalidOperationException(
                 $"Constructor not found for type: {type.Name}");
@@ -321,7 +319,9 @@ internal static class SymbolExtensions
         MethodInfo? methodInfo = type.GetMethod(
             methodSymbol.Name,
             bindingFlags,
-            methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
+            binder: null,
+            methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray(),
+            modifiers: null);
         return methodInfo ?? throw new InvalidOperationException(
                 $"Method not found: {type.Name}.{methodSymbol.Name}");
     }

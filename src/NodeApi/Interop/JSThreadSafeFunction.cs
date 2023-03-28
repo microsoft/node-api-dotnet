@@ -32,12 +32,7 @@ public class JSThreadSafeFunction
                                 object? functionContext = null,
                                 JSThreadSafeCallback? jsCaller = null)
     {
-        FunctionData functionData = new()
-        {
-            FunctionContext = functionContext,
-            Finalize = finalize,
-            JSCaller = jsCaller
-        };
+        FunctionData functionData = new(functionContext, finalize, jsCaller);
         GCHandle functionDataHandle = GCHandle.Alloc(functionData);
         napi_status status = napi_create_threadsafe_function(
                                  (napi_env)JSValueScope.Current,
@@ -47,11 +42,11 @@ public class JSThreadSafeFunction
                                  (nuint)maxQueueSize,
                                  (nuint)initialThreadCount,
                                  thread_finalize_data: default,
-                                 new napi_finalize(&FinalizeFunctionData),
+                                 new napi_finalize(FinalizeFunctionDataDelegate),
                                  (nint)functionDataHandle,
                                  (jsCaller != null)
-                                     ? new napi_threadsafe_function_call_js(&CustomCallJS)
-                                     : new napi_threadsafe_function_call_js(&DefaultCallJS),
+                                     ? new napi_threadsafe_function_call_js(CustomCallJSDelegate)
+                                     : new napi_threadsafe_function_call_js(DefaultCallJSDelegate),
                                  out _tsfn);
         if (status != napi_status.napi_ok)
         {
@@ -185,7 +180,8 @@ public class JSThreadSafeFunction
         return status;
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_finalize.Delegate FinalizeFunctionDataDelegate = FinalizeFunctionData;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe void FinalizeFunctionData(napi_env env, nint _, nint hint)
     {
         GCHandle functionDataHandle = GCHandle.FromIntPtr(hint);
@@ -197,7 +193,8 @@ public class JSThreadSafeFunction
         functionDataHandle.Free();
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_threadsafe_function_call_js.Delegate CustomCallJSDelegate = CustomCallJS;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe void CustomCallJS(napi_env env, napi_value jsCallback, nint context, nint data)
     {
         if (env.IsNull && jsCallback.IsNull)
@@ -227,7 +224,9 @@ public class JSThreadSafeFunction
         }
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_threadsafe_function_call_js.Delegate DefaultCallJSDelegate = DefaultCallJS;
+
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe void DefaultCallJS(napi_env env, napi_value jsCallback, nint context, nint data)
     {
         if (env.IsNull && jsCallback.IsNull)
@@ -272,8 +271,18 @@ public class JSThreadSafeFunction
 
     private class FunctionData
     {
-        public object? FunctionContext { get; init; }
-        public JSThreadSafeFinalizeCallback? Finalize { get; init; }
-        public JSThreadSafeCallback? JSCaller { get; init; }
+        public FunctionData(
+            object? functionContext,
+            JSThreadSafeFinalizeCallback? finalize,
+            JSThreadSafeCallback? jsCaller)
+        {
+            FunctionContext = functionContext;
+            Finalize = finalize;
+            JSCaller = jsCaller;
+        }
+
+        public object? FunctionContext { get; }
+        public JSThreadSafeFinalizeCallback? Finalize { get; }
+        public JSThreadSafeCallback? JSCaller { get; }
     }
 }

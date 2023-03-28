@@ -131,7 +131,7 @@ public class JSMarshaller
     /// </remarks>
     public LambdaExpression GetFromJSValueExpression(Type toType)
     {
-        ArgumentNullException.ThrowIfNull(toType);
+        if (toType is null) throw new ArgumentNullException(nameof(toType));
 
         try
         {
@@ -163,7 +163,7 @@ public class JSMarshaller
     /// </remarks>
     public LambdaExpression GetToJSValueExpression(Type fromType)
     {
-        ArgumentNullException.ThrowIfNull(fromType);
+        if (fromType is null) throw new ArgumentNullException(nameof(fromType));
 
         try
         {
@@ -198,7 +198,7 @@ public class JSMarshaller
 #pragma warning disable CA1822 // Mark members as static
     public Expression<JSCallback> BuildFromJSConstructorExpression(ConstructorInfo constructor)
     {
-        ArgumentNullException.ThrowIfNull(constructor);
+        if (constructor is null) throw new ArgumentNullException(nameof(constructor));
 
         /*
          * ConstructorClass(JSCallbackArgs __args)
@@ -256,7 +256,7 @@ public class JSMarshaller
     /// </remarks>
     public Expression<JSCallback> BuildFromJSMethodExpression(MethodInfo method)
     {
-        ArgumentNullException.ThrowIfNull(method);
+        if (method is null) throw new ArgumentNullException(nameof(method));
 
         try
         {
@@ -284,9 +284,10 @@ public class JSMarshaller
     /// </remarks>
     public Expression<JSCallback> BuildFromJSPropertyGetExpression(PropertyInfo property)
     {
-        ArgumentNullException.ThrowIfNull(property);
+        if (property is null) throw new ArgumentNullException(nameof(property));
+
         MethodInfo? getMethod = property.GetMethod;
-        ArgumentNullException.ThrowIfNull(getMethod);
+        if (getMethod is null) throw new ArgumentNullException(nameof(getMethod));
 
         try
         {
@@ -314,9 +315,10 @@ public class JSMarshaller
     /// </remarks>
     public Expression<JSCallback> BuildFromJSPropertySetExpression(PropertyInfo property)
     {
-        ArgumentNullException.ThrowIfNull(property);
+        if (property is null) throw new ArgumentNullException(nameof(property));
+
         MethodInfo? setMethod = property.SetMethod;
-        ArgumentNullException.ThrowIfNull(setMethod);
+        if (setMethod is null) throw new ArgumentNullException(nameof(setMethod));
 
         try
         {
@@ -344,7 +346,7 @@ public class JSMarshaller
     /// </remarks>
     public LambdaExpression BuildToJSMethodExpression(MethodInfo method)
     {
-        ArgumentNullException.ThrowIfNull(method);
+        if (method is null) throw new ArgumentNullException(nameof(method));
 
         try
         {
@@ -471,7 +473,7 @@ public class JSMarshaller
     /// </remarks>
     public LambdaExpression BuildToJSPropertyGetExpression(PropertyInfo property)
     {
-        ArgumentNullException.ThrowIfNull(property);
+        if (property is null) throw new ArgumentNullException(nameof(property));
 
         try
         {
@@ -539,7 +541,7 @@ public class JSMarshaller
     /// </remarks>
     public LambdaExpression BuildToJSPropertySetExpression(PropertyInfo property)
     {
-        ArgumentNullException.ThrowIfNull(property);
+        if (property is null) throw new ArgumentNullException(nameof(property));
 
         try
         {
@@ -1742,8 +1744,10 @@ public class JSMarshaller
 
         if (typeDefinition == typeof(IList<>) ||
             typeDefinition == typeof(ICollection<>) ||
-            typeDefinition == typeof(ISet<>) ||
-            typeDefinition == typeof(IReadOnlySet<>))
+#if !NETFRAMEWORK
+            typeDefinition == typeof(IReadOnlySet<>) ||
+#endif
+            typeDefinition == typeof(ISet<>))
         {
             /*
              * JSNativeApi.TryUnwrap(value) as ICollection<T> ??
@@ -1754,8 +1758,12 @@ public class JSMarshaller
             Type jsCollectionType = typeDefinition.Name.Contains("Set") ?
                 typeof(JSSet) : typeof(JSArray);
             MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+#if NETFRAMEWORK
+                "As" + typeDefinition.Name.Substring(1, typeDefinition.Name.IndexOf('`') - 1),
+#else
                 string.Concat("As",
                     typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)),
+#endif
                 new[] { jsCollectionType, typeof(JSValue.To<>), typeof(JSValue.From<>) },
                 elementType);
             MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
@@ -1781,8 +1789,12 @@ public class JSMarshaller
                 typeof(JSIterable) : typeDefinition == typeof(IAsyncEnumerable<>) ?
                 typeof(JSAsyncIterable) : typeof(JSArray);
             MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+#if NETFRAMEWORK
+                "As" + typeDefinition.Name.Substring(1, typeDefinition.Name.IndexOf('`') - 1),
+#else
                 string.Concat("As",
                     typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)),
+#endif
                 new[] { jsCollectionType, typeof(JSValue.To<>) },
                 elementType);
             MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
@@ -1863,8 +1875,10 @@ public class JSMarshaller
 
         if (typeDefinition == typeof(IList<>) ||
             typeDefinition == typeof(ICollection<>) ||
-            typeDefinition == typeof(ISet<>) ||
-            typeDefinition == typeof(IReadOnlySet<>))
+#if !NETFRAMEWORK
+            typeDefinition == typeof(IReadOnlySet<>) ||
+#endif
+            typeDefinition == typeof(ISet<>))
         {
             /*
              * JSContext.Current.GetOrCreateCollectionWrapper(

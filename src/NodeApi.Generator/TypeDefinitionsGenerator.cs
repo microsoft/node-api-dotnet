@@ -89,7 +89,11 @@ public class TypeDefinitionsGenerator : SourceGenerator
             string assemblyFileName = Path.GetFileNameWithoutExtension(assemblyPath);
             assemblyDocFilePath = Path.Combine(
                 Path.GetDirectoryName(assemblyPath)!,
+#if NETFRAMEWORK
+                assemblyFileName.Substring(assemblyFileName.IndexOf('.') + 1) + ".xml");
+#else
                 string.Concat(assemblyFileName.AsSpan(assemblyFileName.IndexOf('.') + 1), ".xml"));
+#endif
         }
 
         if (File.Exists(assemblyDocFilePath))
@@ -575,11 +579,13 @@ public class TypeDefinitionsGenerator : SourceGenerator
                 string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
                 return $"Set<{elementTsType}>";
             }
+#if !NETFRAMEWORK
             else if (typeDefinitionName == typeof(IReadOnlySet<>).FullName)
             {
                 string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
                 return $"ReadonlySet<{elementTsType}>";
             }
+#endif
             else if (typeDefinitionName == typeof(IEnumerable<>).FullName)
             {
                 string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
@@ -618,7 +624,11 @@ public class TypeDefinitionsGenerator : SourceGenerator
             tsType = "Duplex";
             _emitDuplex = true;
         }
+#if NETFRAMEWORK
+        else if (type.IsNested) // TODO: Check for generic parameters for .NET Framework
+#else
         else if (type.IsNested && !type.IsGenericTypeParameter && !type.IsGenericMethodParameter)
+#endif
         {
             tsType = GetTSType(type.DeclaringType!, null) + "_" + type.Name;
         }

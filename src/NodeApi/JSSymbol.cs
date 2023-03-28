@@ -11,9 +11,9 @@ public readonly struct JSSymbol : IEquatable<JSValue>
     private readonly JSValue _value;
 
     private static readonly Lazy<JSReference> s_iteratorSymbol =
-        new(new JSReference(JSValue.Global["Symbol"]["iterator"]));
+        new(() => new JSReference(JSValue.Global["Symbol"]["iterator"]));
     private static readonly Lazy<JSReference> s_asyncIteratorSymbol =
-        new(new JSReference(JSValue.Global["Symbol"]["asyncIterator"]));
+        new(() => new JSReference(JSValue.Global["Symbol"]["asyncIterator"]));
 
     public static explicit operator JSSymbol(JSValue value) => new(value);
     public static implicit operator JSValue(JSSymbol symbol) => symbol._value;

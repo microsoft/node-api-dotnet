@@ -116,7 +116,7 @@ public sealed class JSValueScope : IDisposable
 
     public static explicit operator napi_env(JSValueScope? scope)
     {
-        ArgumentNullException.ThrowIfNull(scope);
-        return scope._env;
+        if (scope is null) throw new ArgumentNullException(nameof(scope));
+        return scope!._env;
     }
 }

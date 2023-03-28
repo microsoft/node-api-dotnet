@@ -20,6 +20,11 @@
     <UseSystemResourceKeys>true</UseSystemResourceKeys><!-- Trim detailed system exception messages. -->
   </PropertyGroup>
 
+  <ItemGroup Condition="$(NetFramework)">
+    <PackageReference Include="System.Memory" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+  </ItemGroup>
+
   <Target Name="SetRuntimeConfigValues" BeforeTargets="GenerateBuildRuntimeConfigurationFiles">
     <ItemGroup>
       <RuntimeHostConfigurationOption Include="System.Runtime.InteropServices.EnableConsumingManagedCodeFromNativeHosting" Value="true" />
@@ -28,14 +33,11 @@
 
   <Target Name="PublishManagedAssembly" AfterTargets="CopyNativeBinary">
     <!-- Publish the runtimeconfig.json file required for CLR hosting. -->
-    <Copy SourceFiles="$(PublishDir)..\$(ProjectRuntimeConfigFileName)"
-      DestinationFiles="$(PublishDir)$(ProjectRuntimeConfigFileName)" />
+    <Copy SourceFiles="$(PublishDir)..\$(ProjectRuntimeConfigFileName)" DestinationFiles="$(PublishDir)$(ProjectRuntimeConfigFileName)" />
 
     <!-- Also publish the managed assembly (and its PDB). -->
-    <Copy SourceFiles="$(PublishDir)..\$(TargetFileName)"
-      DestinationFiles="$(PublishDir)$(TargetFileName)" />
-    <Copy SourceFiles="$(PublishDir)..\$(TargetName).pdb"
-      DestinationFiles="$(PublishDir)$(TargetName).pdb" />
+    <Copy SourceFiles="$(PublishDir)..\$(TargetFileName)" DestinationFiles="$(PublishDir)$(TargetFileName)" />
+    <Copy SourceFiles="$(PublishDir)..\$(TargetName).pdb" DestinationFiles="$(PublishDir)$(TargetName).pdb" />
   </Target>
 
   <Import Project="NodeApi.targets" />

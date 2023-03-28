@@ -84,12 +84,14 @@ public static class JSCollectionExtensions
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSSetCollection<T>((JSValue)set, fromJS, toJS);
 
+#if !NETFRAMEWORK
     /// <summary>
     /// Creates a read-only set adapter for a JS Set object, without copying.
     /// </summary>
     public static IReadOnlySet<T> AsReadOnlySet<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS)
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSSetReadOnlySet<T>((JSValue)set, fromJS, toJS);
+#endif // !NETFRAMEWORK
 
     /// <summary>
     /// Creates a set adapter for a JS Set object, without copying.
@@ -157,8 +159,7 @@ internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>
     public T Current => _current.HasValue ? _fromJS(_current.Value) :
         throw new InvalidOperationException("Invalid enumerator state");
 
-    ValueTask IAsyncDisposable.DisposeAsync()
-        => ValueTask.CompletedTask;
+    ValueTask IAsyncDisposable.DisposeAsync() => default;
 }
 
 internal sealed class JSIterableEnumerator<T> : IEnumerator<T>, System.Collections.IEnumerator
@@ -231,7 +232,7 @@ internal class JSAsyncIterableEnumerable<T> : IAsyncEnumerable<T>, IEquatable<JS
     public ValueTask DisposeAsync(CancellationToken cancellationToken)
     {
         _iterableReference.Dispose();
-        return ValueTask.CompletedTask;
+        return default;
     }
 #pragma warning restore IDE0060
 }
@@ -426,6 +427,7 @@ internal class JSSetCollection<T> : JSSetReadOnlyCollection<T>, ICollection<T>
     public bool Remove(T item) => (bool)Value.CallMethod("delete", ToJS(item));
 }
 
+#if !NETFRAMEWORK
 internal class JSSetReadOnlySet<T> : JSSetReadOnlyCollection<T>, IReadOnlySet<T>
 {
     internal JSSetReadOnlySet(JSValue value, JSValue.To<T> fromJS, JSValue.From<T> toJS)
@@ -445,6 +447,7 @@ internal class JSSetReadOnlySet<T> : JSSetReadOnlyCollection<T>, IReadOnlySet<T>
     public bool Overlaps(IEnumerable<T> other) => throw new NotImplementedException();
     public bool SetEquals(IEnumerable<T> other) => throw new NotImplementedException();
 }
+#endif // !NETFRAMEWORK
 
 internal class JSSetSet<T> : JSSetCollection<T>, ISet<T>
 {
@@ -525,7 +528,7 @@ internal class JSMapReadOnlyDictionary<TKey, TValue> :
         JSValue jsValue = Value.CallMethod("get", KeyToJS(key));
         if (jsValue.IsUndefined())
         {
-            value = default;
+            value = default!;
             return false;
         }
         value = ValueFromJS(jsValue);

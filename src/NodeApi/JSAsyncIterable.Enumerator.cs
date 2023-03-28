@@ -43,7 +43,7 @@ public partial struct JSAsyncIterable
         public JSValue Current
             => _current ?? throw new InvalidOperationException("Unexpected enumerator state");
 
-        ValueTask IAsyncDisposable.DisposeAsync() => ValueTask.CompletedTask;
+        ValueTask IAsyncDisposable.DisposeAsync() => default;
     }
 }
 

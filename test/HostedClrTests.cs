@@ -69,7 +69,7 @@ public class HostedClrTests
         hostFilePath = hostFilePath2;
 
         // TODO: Support compiling TS files to JS.
-        string jsFilePath = Path.Join(TestCasesDirectory, moduleName, testCasePath + ".js");
+        string jsFilePath = Path.Combine(TestCasesDirectory, moduleName, testCasePath + ".js");
 
         string runLogFilePath = GetRunLogFilePath("hosted", moduleName, testCasePath);
         RunNodeTestCase(jsFilePath, runLogFilePath, new Dictionary<string, string>
@@ -85,12 +85,13 @@ public class HostedClrTests
 
     private static string BuildHostModule()
     {
-        string projectFilePath = Path.Join(RepoRootDirectory, "src", "NodeApi", "NodeApi.csproj");
+        string projectFilePath = Path.Combine(
+            RepoRootDirectory, "src", "NodeApi", "NodeApi.csproj");
 
-        string logDir = Path.Join(
+        string logDir = Path.Combine(
             RepoRootDirectory, "out", "obj", Configuration);
         Directory.CreateDirectory(logDir);
-        string logFilePath = Path.Join(logDir, "publish-host.log");
+        string logFilePath = Path.Combine(logDir, "publish-host.log");
 
         var properties = new Dictionary<string, string>
         {
@@ -125,7 +126,7 @@ public class HostedClrTests
       string moduleName,
       string logFilePath)
     {
-        string projectFilePath = Path.Join(
+        string projectFilePath = Path.Combine(
             TestCasesDirectory, moduleName, moduleName + ".csproj");
 
         // Auto-generate an empty project file. All project info is inherited from

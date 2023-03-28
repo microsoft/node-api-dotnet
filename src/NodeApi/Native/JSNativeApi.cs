@@ -25,7 +25,7 @@ public static partial class JSNativeApi
     {
         if (handle != default)
         {
-            napi_add_finalizer(Env, (napi_value)thisValue, handle, new napi_finalize(&FinalizeGCHandle), default, null).ThrowIfFailed();
+            napi_add_finalizer(Env, (napi_value)thisValue, handle, new napi_finalize(FinalizeGCHandleDelegate), default, null).ThrowIfFailed();
         }
     }
 
@@ -440,8 +440,8 @@ public static partial class JSNativeApi
         JSValue? func = null;
         napi_callback callback = new(
             JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext
-            ? &InvokeJSCallbackNoContext
-            : &InvokeJSCallback);
+            ? InvokeJSCallbackNoContextDelegate
+            : InvokeJSCallbackDelegate);
 
         nint[] handles = ToUnmanagedPropertyDescriptors(
             utf8Name, propertyDescriptors, (name, count, descriptorsPtr) =>
@@ -476,7 +476,7 @@ public static partial class JSNativeApi
             Env,
             (napi_value)wrapper,
             (nint)valueHandle,
-            new napi_finalize(&FinalizeGCHandle),
+            new napi_finalize(FinalizeGCHandleDelegate),
             default,
             null).ThrowIfFailed();
         return wrapper;
@@ -499,7 +499,7 @@ public static partial class JSNativeApi
             Env,
             (napi_value)wrapper,
             (nint)valueHandle,
-            new napi_finalize(&FinalizeGCHandle),
+            new napi_finalize(FinalizeGCHandleDelegate),
             default,
             &weakRef).ThrowIfFailed();
         wrapperWeakRef = new JSReference(weakRef, isWeak: true);
@@ -736,7 +736,7 @@ public static partial class JSNativeApi
             Env,
             (napi_value)thisValue,
             (nint)finalizeHandle,
-            new napi_finalize(&CallFinalizeAction),
+            new napi_finalize(CallFinalizeActionDelegate),
             default,
             null).ThrowIfFailed();
     }
@@ -750,7 +750,7 @@ public static partial class JSNativeApi
             Env,
             (napi_value)thisValue,
             (nint)finalizeHandle,
-            new napi_finalize(&CallFinalizeAction),
+            new napi_finalize(CallFinalizeActionDelegate),
             default,
             &reference).ThrowIfFailed();
         finalizerRef = new JSReference(reference, isWeak: true);
@@ -810,7 +810,7 @@ public static partial class JSNativeApi
             napi_set_instance_data(
               env,
               (nint)handle,
-              new napi_finalize(&FinalizeGCHandle),
+              new napi_finalize(FinalizeGCHandleDelegate),
               DisposeHint).ThrowIfFailed();
         }
     }
@@ -832,9 +832,19 @@ public static partial class JSNativeApi
 
     public static unsafe void SetObjectTypeTag(this JSValue thisValue, ref Guid typeGuid)
     {
+        #if NETFRAMEWORK
+        byte[] guidBytes = typeGuid.ToByteArray();
+        napi_type_tag typeTag;
+        fixed (byte* guidBytesPtr = &guidBytes[0])
+        {
+            typeTag = Marshal.PtrToStructure<napi_type_tag>((nint)guidBytesPtr);
+        }
+        thisValue.SetObjectTypeTag(typeTag);
+        #else
         ReadOnlySpan<Guid> guidSpan = MemoryMarshal.CreateReadOnlySpan(ref typeGuid, 1);
         ReadOnlySpan<byte> guidBytes = MemoryMarshal.AsBytes(guidSpan);
         thisValue.SetObjectTypeTag(MemoryMarshal.AsRef<napi_type_tag>(guidBytes));
+        #endif
     }
 
     public static bool CheckObjectTypeTag(this JSValue thisValue, in napi_type_tag typeTag)
@@ -842,9 +852,19 @@ public static partial class JSNativeApi
 
     public static unsafe bool CheckObjectTypeTag(this JSValue thisValue, ref Guid typeGuid)
     {
+#if NETFRAMEWORK
+        byte[] guidBytes = typeGuid.ToByteArray();
+        napi_type_tag typeTag;
+        fixed (byte* guidBytesPtr = &guidBytes[0])
+        {
+            typeTag = Marshal.PtrToStructure<napi_type_tag>((nint)guidBytesPtr);
+        }
+        return thisValue.CheckObjectTypeTag(typeTag);
+#else
         ReadOnlySpan<Guid> guidSpan = MemoryMarshal.CreateReadOnlySpan(ref typeGuid, 1);
         ReadOnlySpan<byte> guidBytes = MemoryMarshal.AsBytes(guidSpan);
         return thisValue.CheckObjectTypeTag(MemoryMarshal.AsRef<napi_type_tag>(guidBytes));
+#endif
     }
 
     public static void Freeze(this JSValue thisValue)
@@ -856,7 +876,8 @@ public static partial class JSNativeApi
 
     private static napi_env Env => (napi_env)JSValueScope.Current;
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static readonly napi_callback.Delegate InvokeJSCallbackDelegate = InvokeJSCallback;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe napi_value InvokeJSCallback(
         napi_env env, napi_callback_info callbackInfo)
     {
@@ -864,7 +885,8 @@ public static partial class JSNativeApi
             env, callbackInfo, JSValueScopeType.Callback, (descriptor) => descriptor);
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_callback.Delegate InvokeJSMethodDelegate = InvokeJSMethod;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -872,7 +894,8 @@ public static partial class JSNativeApi
                 new(propertyDescriptor.Method!, propertyDescriptor.Data));
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_callback.Delegate InvokeJSGetterDelegate = InvokeJSGetter;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -880,7 +903,8 @@ public static partial class JSNativeApi
                 new(propertyDescriptor.Getter!, propertyDescriptor.Data));
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_callback.Delegate InvokeJSSetterDelegate = InvokeJSSetter;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static napi_value InvokeJSSetter(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -888,7 +912,8 @@ public static partial class JSNativeApi
                 new(propertyDescriptor.Setter!, propertyDescriptor.Data));
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static readonly napi_callback.Delegate InvokeJSCallbackNoContextDelegate = InvokeJSCallbackNoContext;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe napi_value InvokeJSCallbackNoContext(
         napi_env env, napi_callback_info callbackInfo)
     {
@@ -896,7 +921,8 @@ public static partial class JSNativeApi
             env, callbackInfo, JSValueScopeType.RootNoContext, (descriptor) => descriptor);
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_callback.Delegate InvokeJSMethodNoContextDelegate = InvokeJSMethodNoContext;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSMethodNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -904,7 +930,8 @@ public static partial class JSNativeApi
                 new(propertyDescriptor.Method!, propertyDescriptor.Data));
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_callback.Delegate InvokeJSGetterNoContextDelegate = InvokeJSGetterNoContext;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSGetterNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -912,7 +939,8 @@ public static partial class JSNativeApi
                 new(propertyDescriptor.Getter!, propertyDescriptor.Data));
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static readonly napi_callback.Delegate InvokeJSSetterNoContextDelegate = InvokeJSSetterNoContext;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static napi_value InvokeJSSetterNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -942,7 +970,8 @@ public static partial class JSNativeApi
         }
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static readonly napi_finalize.Delegate FinalizeGCHandleDelegate = FinalizeGCHandle;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe void FinalizeGCHandle(napi_env env, nint data, nint hint)
     {
         GCHandle handle = GCHandle.FromIntPtr(data);
@@ -955,7 +984,8 @@ public static partial class JSNativeApi
         handle.Free();
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static readonly napi_finalize.Delegate FinalizeHintHandleDelegate = FinalizeHintHandle;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe void FinalizeHintHandle(napi_env _1, nint _2, nint hint)
     {
         GCHandle handle = GCHandle.FromIntPtr(hint);
@@ -963,7 +993,8 @@ public static partial class JSNativeApi
         handle.Free();
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static readonly napi_finalize.Delegate CallFinalizeActionDelegate = CallFinalizeAction;
+    //[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe void CallFinalizeAction(napi_env env, nint data, nint hint)
     {
         GCHandle gcHandle = GCHandle.FromIntPtr(data);
@@ -991,15 +1022,15 @@ public static partial class JSNativeApi
         if (JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext)
         {
             // The NativeHost and ManagedHost set up callbacks without a current module context.
-            methodCallback = new napi_callback(&InvokeJSMethodNoContext);
-            getterCallback = new napi_callback(&InvokeJSGetterNoContext);
-            setterCallback = new napi_callback(&InvokeJSSetterNoContext);
+            methodCallback = new napi_callback(InvokeJSMethodNoContextDelegate);
+            getterCallback = new napi_callback(InvokeJSGetterNoContextDelegate);
+            setterCallback = new napi_callback(InvokeJSSetterNoContextDelegate);
         }
         else
         {
-            methodCallback = new napi_callback(&InvokeJSMethod);
-            getterCallback = new napi_callback(&InvokeJSGetter);
-            setterCallback = new napi_callback(&InvokeJSSetter);
+            methodCallback = new napi_callback(InvokeJSMethodDelegate);
+            getterCallback = new napi_callback(InvokeJSGetterDelegate);
+            setterCallback = new napi_callback(InvokeJSSetterDelegate);
         }
 
         nint[] handlesToFinalize = new nint[descriptors.Count];

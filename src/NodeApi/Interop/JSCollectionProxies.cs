@@ -332,6 +332,7 @@ internal static class JSCollectionProxies
         };
     }
 
+#if !NETFRAMEWORK
     /// <summary>
     /// Creates a proxy handler for a proxy that wraps an <see cref="IReadOnlySet{T}"/>
     /// as a JS Set.
@@ -373,6 +374,7 @@ internal static class JSCollectionProxies
             },
         };
     }
+#endif // !NETFRAMEWORK
 
     /// <summary>
     /// Creates a proxy handler for a proxy that wraps an <see cref="ISet{T}"/>

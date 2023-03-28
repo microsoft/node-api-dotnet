@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' ">net7.0;net6.0</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' ">net7.0;net6.0;net472</TargetFrameworks>
     <LangVersion>10</LangVersion>
     <Nullable>enable</Nullable>
     <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
@@ -15,6 +15,14 @@
 
     <!-- Display each test case and passed/failed status when using `dotnet test`. -->
     <VSTestLogger Condition="'$(VSTestLogger)' == ''">console%3Bverbosity=normal</VSTestLogger>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net472' ">
+    <NetFramework>true</NetFramework>
+    <DefineConstants>$(DefineConstants);NETFRAMEWORK</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(TargetFramework)' != 'net472' ">
+    <NetFramework>false</NetFramework>
   </PropertyGroup>
 
   <ItemGroup>

@@ -3,13 +3,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.Loader;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+
+#if !NETFRAMEWORK
+using System.Runtime.Loader;
+#endif
 
 namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
@@ -18,11 +22,13 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// </summary>
 public sealed class ManagedHost : IDisposable
 {
+#if !NETFRAMEWORK
     /// <summary>
     /// Each instance of a managed host uses a separate assembly load context.
     /// That way, static data is not shared across multiple host instances.
     /// </summary>
     private readonly AssemblyLoadContext _loadContext = new(name: default);
+#endif
 
     /// <summary>
     /// The marshaller dynamically generates adapter delegates for calls to & from JS,
@@ -36,8 +42,9 @@ public sealed class ManagedHost : IDisposable
 
     private ManagedHost(JSObject exports)
     {
+#if !NETFRAMEWORK
         _loadContext.Resolving += OnResolvingAssembly;
-
+#endif
         exports.DefineProperties(
             // The require() method loads a .NET assembly that was built to be a Node API module.
             // It uses static binding to the APIs the module specifically exports to JS.
@@ -62,10 +69,21 @@ public sealed class ManagedHost : IDisposable
         }
     }
 
+#if NETFRAMEWORK
+    public static unsafe int InitializeModule(string argument)
+    {
+        Trace($"> ManagedHost.InitializeModule({argument})");
+
+        string[] args = argument.Split(',');
+        napi_env env = new napi_env((nint)ulong.Parse(args[0], NumberStyles.HexNumber));
+        napi_value exports = new napi_value((nint)ulong.Parse(args[1], NumberStyles.HexNumber));
+        napi_value* pResult = (napi_value*)(nint)ulong.Parse(args[2], NumberStyles.HexNumber);
+#else
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static napi_value InitializeModule(napi_env env, napi_value exports)
     {
         Trace($"> ManagedHost.InitializeModule({env.Handle:X8})");
+#endif
 
 #if DEBUG
         if (Environment.GetEnvironmentVariable("DEBUG_NODE_API_RUNTIME") != null)
@@ -84,16 +102,22 @@ public sealed class ManagedHost : IDisposable
             exports = (napi_value)host._systemAssembly.AssemblyObject;
 
             Trace("< ManagedHost.InitializeModule()");
-            return exports;
         }
         catch (Exception ex)
         {
             Trace($"Failed to load CLR managed host module: {ex}");
             JSError.ThrowError(ex);
-            return exports;
         }
+
+#if NETFRAMEWORK
+        *pResult = exports;
+        return 0;
+#else
+        return exports;
+#endif
     }
 
+#if !NETFRAMEWORK
     /// <summary>
     /// Ensure references to Node API assemblies can be resolved when loading other
     /// assemblies.
@@ -113,6 +137,7 @@ public sealed class ManagedHost : IDisposable
 
         return null;
     }
+#endif
 
     /// <summary>
     /// Loads a .NET assembly that was built to be a Node API module, using static binding to
@@ -134,7 +159,11 @@ public sealed class ManagedHost : IDisposable
             return exportsRef.GetValue()!.Value;
         }
 
+#if NETFRAMEWORK
+        Assembly assembly = Assembly.LoadFrom(assemblyFilePath);
+#else
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+#endif
 
         MethodInfo? initializeMethod = null;
 
@@ -242,7 +271,11 @@ public sealed class ManagedHost : IDisposable
                 "or the name of a system assembly (without path or DLL extension).");
         }
 
+#if NETFRAMEWORK
+        Assembly assembly = Assembly.LoadFrom(assemblyFilePath);
+#else
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+#endif
         assemblyExporter = new(assembly, _marshaller, target: new JSObject());
         _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);
         JSValue assemblyValue = assemblyExporter.AssemblyObject;

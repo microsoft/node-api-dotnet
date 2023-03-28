@@ -59,12 +59,7 @@ public static partial class JSNativeApi
 
         public struct napi_threadsafe_function_call_js
         {
-            public delegate* unmanaged[Cdecl]<
-                napi_env /*env*/,
-                napi_value /*js_callback*/,
-                nint /*context*/,
-                nint /*data*/,
-                void> Handle;
+            public nint Handle;
             public napi_threadsafe_function_call_js(
                 delegate* unmanaged[Cdecl]<
                     napi_env /*env*/,
@@ -72,7 +67,13 @@ public static partial class JSNativeApi
                     nint /*context*/,
                     nint /*data*/,
                     void> handle)
-                => Handle = handle;
+                => Handle = (nint)handle;
+
+            public napi_threadsafe_function_call_js(Delegate callback)
+                => Handle = Marshal.GetFunctionPointerForDelegate(callback);
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            public delegate void Delegate(napi_env env, napi_value js_callback, nint context, nint data);
         }
 
         public struct napi_node_version
@@ -136,9 +137,9 @@ public static partial class JSNativeApi
                 nint, nuint, nint, nuint, void>)funcHandle;
 
             nint location_native = location == null ?
-                default : Marshal.StringToCoTaskMemUTF8(location);
+                default : StringToHGlobalUtf8(location);
             nint message_native = message == null ?
-                default : Marshal.StringToCoTaskMemUTF8(message);
+                default : StringToHGlobalUtf8(message);
             try
             {
                 funcDelegate(location_native, NAPI_AUTO_LENGTH, message_native, NAPI_AUTO_LENGTH);

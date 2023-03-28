@@ -459,7 +459,11 @@ internal class AssemblyExporter
 
         Type parameterType = parameter.ParameterType;
 
+#if NETFRAMEWORK
+        if (parameterType.IsByRef)
+#else
         if (parameterType.IsByRef || parameterType.IsByRefLike)
+#endif
         {
             // ref parameters aren't yet supported.
             // ref structs like Span<T> aren't yet supported.

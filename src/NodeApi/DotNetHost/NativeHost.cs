@@ -1,11 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#if !NETFRAMEWORK
+
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Microsoft.JavaScript.NodeApi.DotNetHost.HostFxr;
+using static Microsoft.JavaScript.NodeApi.DotNetHost.MSCorEE;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi.DotNetHost;
@@ -16,8 +19,6 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// </summary>
 internal partial class NativeHost : IDisposable
 {
-    private static Version MinimumDotnetVersion { get; } = new(7, 0, 0);
-
     private static readonly string s_managedHostTypeName =
         typeof(NativeHost).Namespace + ".ManagedHost";
 
@@ -72,43 +73,96 @@ internal partial class NativeHost : IDisposable
     {
     }
 
-    private unsafe hostfxr_handle InitializeManagedRuntime(string runtimeConfigPath)
-    {
-        Trace($"> NativeHost.InitializeManagedRuntime({runtimeConfigPath})");
-
-        string hostfxrPath = HostFxr.GetHostFxrPath(MinimumDotnetVersion);
-        string dotnetRoot = Path.GetDirectoryName(
-            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(hostfxrPath))))!;
-        Trace("    .NET root: " + dotnetRoot);
-
-        // Load the library that provides CLR hosting APIs.
-        HostFxr.Initialize(MinimumDotnetVersion);
-
-        int runtimeConfigPathCapacity = HostFxr.Encoding.GetByteCount(runtimeConfigPath) + 2;
-
-        hostfxr_status status;
-        hostfxr_handle hostContextHandle;
-        fixed (byte* runtimeConfigPathBytes = new byte[runtimeConfigPathCapacity])
-        {
-            Encode(runtimeConfigPath, runtimeConfigPathBytes, runtimeConfigPathCapacity);
-
-            // Initialize the CLR with configuration from runtimeconfig.json.
-            Trace("    Initializing runtime...");
-
-            status = hostfxr_initialize_for_runtime_config(
-                runtimeConfigPathBytes, initializeParameters: null, out hostContextHandle);
-        }
-
-        CheckStatus(status, "Failed to inialize CLR host.");
-
-        Trace("< NativeHost.InitializeManagedRuntime()");
-        return hostContextHandle;
-    }
-
     private unsafe JSValue InitializeManagedHost(JSCallbackArgs args)
     {
-        string managedHostPath = (string)args[0];
-        Trace($"> NativeHost.InitializeManagedHost({managedHostPath})");
+        string targetFramework = (string)args[0];
+        string managedHostPath = (string)args[1];
+        Trace($"> NativeHost.InitializeManagedHost({targetFramework}, {managedHostPath})");
+
+        try
+        {
+            if (!targetFramework.Contains(".") && targetFramework.StartsWith("net") &&
+                targetFramework.Length >= 5)
+            {
+                // .NET Framework
+                Version frameworkVersion = new Version(
+                    int.Parse(targetFramework.Substring(3, 1)),
+                    int.Parse(targetFramework.Substring(4, 1)),
+                    targetFramework.Length == 5 ? 0 :
+                        int.Parse(targetFramework.Substring(5, 1)));
+                return InitializeFrameworkHost(frameworkVersion, managedHostPath);
+            }
+            else
+            {
+                // .NET 5 or later
+                Version dotnetVersion = Version.Parse(targetFramework.Substring(3));
+                return InitializeDotNetHost(dotnetVersion, managedHostPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Trace("Failed to initialize managed host: " + ex);
+            throw;
+        }
+        finally
+        {
+            Trace("< NativeHost.InitializeManagedHost()");
+        }
+    }
+
+    private unsafe JSValue InitializeFrameworkHost(Version minVersion, string managedHostPath)
+    {
+        Trace("    Initializing .NET Framework " + minVersion);
+
+        ICLRMetaHostPolicy* hostPolicy = CLRCreateInstance<ICLRMetaHostPolicy>(
+            CLSID_CLRMetaHostPolicy, IID_ICLRMetaHostPolicy);
+        Trace("    Created CLR meta host policy.");
+
+        ICLRRuntimeInfo* runtimeInfo = null;
+        ICLRRuntimeHost* runtimeHost = null;
+        try
+        {
+            var policyFlags = CLRMetaHostPolicyFlags.ApplyUpgradePolicy;
+            runtimeInfo = hostPolicy->GetRequestedRuntime(
+                policyFlags, managedHostPath, out string runtimeVersion);
+            Trace("    Runtime version: " + runtimeVersion);
+
+            runtimeHost = runtimeInfo->GetInterface<ICLRRuntimeHost>(
+                CLSID_CLRRuntimeHost, IID_ICLRRuntimeHost);
+            Trace("    Created runtime host.");
+
+            runtimeHost->Start();
+            Trace("    Started runtime.");
+
+            // Create an "exports" object for the managed host module initialization.
+            JSValue exportsValue = JSValue.CreateObject();
+            napi_env env = (napi_env)exportsValue.Scope;
+            napi_value exports = (napi_value)exportsValue;
+
+            // The method to be executed must take a single string argument and return a uint.
+            // So, encode the parameters and retval pointer in the argument string.
+            string argument = $"{(ulong)env.Handle:X8},{(ulong)exports.Handle:X8},{(ulong)&exports:X8}";
+            Trace($"    Calling {s_managedHostTypeName}.{nameof(InitializeModule)}({argument})");
+
+            runtimeHost->ExecuteInDefaultAppDomain(
+                managedHostPath,
+                s_managedHostTypeName,
+                nameof(InitializeModule),
+                argument);
+
+            exportsValue = exports;
+            return exportsValue;
+        }
+        finally
+        {
+            if (runtimeInfo != null) runtimeInfo->Release();
+            if (runtimeHost != null) runtimeInfo->Release();
+        }
+    }
+
+    private unsafe JSValue InitializeDotNetHost(Version minVersion, string managedHostPath)
+    {
+        Trace("    Initializing .NET " + minVersion);
 
         string managedHostAssemblyName = Path.GetFileNameWithoutExtension(managedHostPath);
         string nodeApiAssemblyName = managedHostAssemblyName.Substring(
@@ -116,7 +170,7 @@ internal partial class NativeHost : IDisposable
 
         string runtimeConfigPath = Path.Join(
             Path.GetDirectoryName(managedHostPath), nodeApiAssemblyName + ".runtimeconfig.json");
-        _hostContextHandle = InitializeManagedRuntime(runtimeConfigPath);
+        _hostContextHandle = InitializeManagedRuntime(minVersion, runtimeConfigPath);
 
         // Get a CLR function that can load an assembly.
         Trace("    Getting runtime load-assembly delegate...");
@@ -177,9 +231,42 @@ internal partial class NativeHost : IDisposable
             "dispose", (_) => { Dispose(); return default; }));
 
         exports = initializeModule((napi_env)exports.Scope, (napi_value)exports);
-
-        Trace("< NativeHost.InitializeManagedHost()");
         return exports;
+    }
+
+    private unsafe hostfxr_handle InitializeManagedRuntime(
+        Version minVersion,
+        string runtimeConfigPath)
+    {
+        Trace($"> NativeHost.InitializeManagedRuntime({runtimeConfigPath})");
+
+        string hostfxrPath = HostFxr.GetHostFxrPath(minVersion);
+        string dotnetRoot = Path.GetDirectoryName(
+            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(hostfxrPath))))!;
+        Trace("    .NET root: " + dotnetRoot);
+
+        // Load the library that provides CLR hosting APIs.
+        HostFxr.Initialize(minVersion);
+
+        int runtimeConfigPathCapacity = HostFxr.Encoding.GetByteCount(runtimeConfigPath) + 2;
+
+        hostfxr_status status;
+        hostfxr_handle hostContextHandle;
+        fixed (byte* runtimeConfigPathBytes = new byte[runtimeConfigPathCapacity])
+        {
+            Encode(runtimeConfigPath, runtimeConfigPathBytes, runtimeConfigPathCapacity);
+
+            // Initialize the CLR with configuration from runtimeconfig.json.
+            Trace("    Initializing runtime...");
+
+            status = hostfxr_initialize_for_runtime_config(
+                runtimeConfigPathBytes, initializeParameters: null, out hostContextHandle);
+        }
+
+        CheckStatus(status, "Failed to inialize CLR host.");
+
+        Trace("< NativeHost.InitializeManagedRuntime()");
+        return hostContextHandle;
     }
 
     public void Dispose()
@@ -203,3 +290,5 @@ internal partial class NativeHost : IDisposable
         }
     }
 }
+
+#endif // NETFRAMEWORK
