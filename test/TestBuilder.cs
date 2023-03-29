@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Microsoft.JavaScript.NodeApi.Generator;
+using System.Text;
 using Xunit;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
@@ -81,7 +81,7 @@ internal static class TestBuilder
         var moduleQueue = new Queue<string>();
         foreach (string subDir in Directory.GetDirectories(TestCasesDirectory))
         {
-            if (subDir != "common")
+            if (Path.GetFileName(subDir) != "common")
             {
                 moduleQueue.Enqueue(Path.GetFileName(subDir));
             }
@@ -172,9 +172,28 @@ internal static class TestBuilder
             $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
     }
 
+    public static string CreateProjectFile(string moduleName)
+    {
+        string projectFilePath = Path.Combine(
+            TestCasesDirectory, moduleName, moduleName + ".csproj");
+
+        string noTypeDefs = "<PropertyGroup>\n" +
+            "<GenerateNodeApiTypeDefinitions>false</GenerateNodeApiTypeDefinitions>\n" +
+            "</PropertyGroup>\n";
+
+        // Auto-generate an empty project file. All project info is inherited from
+        // TestCases/Directory.Build.{props,targets}, except for certain test modules
+        // that need to skip typedef generation.
+        File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n" +
+            (moduleName == "napi-dotnet-init" ? noTypeDefs : string.Empty) +
+            "</Project>\n");
+
+        return projectFilePath;
+    }
+
     private static bool GetNoBuild()
     {
-        string filePath = Path.Join(
+        string filePath = Path.Combine(
             RepoRootDirectory,
             "out",
             "obj",
@@ -195,55 +214,48 @@ internal static class TestBuilder
     {
         if (GetNoBuild()) return;
 
-        StreamWriter logWriter = new(logFilePath, new FileStreamOptions
-        {
-            Mode = FileMode.Create,
-            Access = FileAccess.Write,
-            Share = FileShare.Read,
-        });
+        StreamWriter logWriter = new(File.Open(
+            logFilePath, FileMode.Create, FileAccess.Write,  FileShare.Read));
 
-        ProcessStartInfo startInfo = new("dotnet");
-        startInfo.ArgumentList.Add("build");
-        startInfo.ArgumentList.Add(projectFilePath);
-        startInfo.ArgumentList.Add("/t:" + target);
-        startInfo.ArgumentList.Add(verboseLog ? "/v:d" : "/v:n");
+        List<string> arguments = new()
+        {
+            "build",
+            projectFilePath,
+            "/t:" + target,
+            verboseLog ? "/v:d" : "/v:n",
+        };
         foreach (KeyValuePair<string, string> property in properties)
         {
-            startInfo.ArgumentList.Add($"/p:{property.Key}={property.Value}");
+            arguments.Add($"/p:{property.Key}={property.Value}");
         }
+        ProcessStartInfo startInfo = new(
+            "dotnet",
+            string.Join(" ", arguments.Select((a) => a.Contains(' ') ? $"\"{a}\"" : a).ToArray()));
 
         startInfo.UseShellExecute = false;
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
         startInfo.WorkingDirectory = Path.GetDirectoryName(logFilePath)!;
 
-        logWriter.WriteLine($"dotnet {string.Join(" ", startInfo.ArgumentList)}");
+        logWriter.WriteLine($"dotnet {startInfo.Arguments}");
         logWriter.WriteLine();
         logWriter.Flush();
 
         Process buildProcess = Process.Start(startInfo)!;
-
-        bool hasErrorOutput = LogOutput(buildProcess, logWriter);
+        string? errorOutput = LogOutput(buildProcess, logWriter);
 
         if (buildProcess.ExitCode != 0)
         {
             string failMessage = "Build process exited with code: " + buildProcess.ExitCode + ". " +
-                "Check the log for details: " + logFilePath;
+                (errorOutput != null ? "\n" + errorOutput + "\n" : string.Empty) +
+                "Full output: " + logFilePath;
             Assert.Fail(failMessage);
         }
-        else if (hasErrorOutput)
+        else if (errorOutput != null)
         {
-            Assert.Fail("Build process produced error output. " +
-                "Check the log for details: " + logFilePath);
+            Assert.Fail($"Build process produced error output:\n{errorOutput}\n" +
+                "Full output: " + logFilePath);
         }
-    }
-
-    public static void BuildTypeDefinitions(string moduleName, string moduleFilePath)
-    {
-        string typeDefinitionsFilePath = Path.Combine(
-            TestCasesDirectory, moduleName, moduleName + ".d.ts");
-        TypeDefinitionsGenerator.GenerateTypeDefinitions(
-            moduleFilePath, referenceAssemblyPaths: Array.Empty<string>(), typeDefinitionsFilePath);
     }
 
     public static void RunNodeTestCase(
@@ -278,12 +290,13 @@ internal static class TestBuilder
         logWriter.Flush();
 
         Process nodeProcess = Process.Start(startInfo)!;
-        bool hasErrorOutput = LogOutput(nodeProcess, logWriter);
+        string? errorOutput = LogOutput(nodeProcess, logWriter);
 
         if (nodeProcess.ExitCode != 0)
         {
             string failMessage = "Node process exited with code: " + nodeProcess.ExitCode + ". " +
-                "Check the log for details: " + logFilePath;
+                (errorOutput != null ? "\n" + errorOutput + "\n" : string.Empty) +
+                "Full output: " + logFilePath;
 
             string jsFileName = Path.GetFileName(jsFilePath);
             string[] logLines = File.ReadAllLines(logFilePath);
@@ -302,18 +315,18 @@ internal static class TestBuilder
 
             Assert.Fail(failMessage);
         }
-        else if (hasErrorOutput)
+        else if (errorOutput != null)
         {
-            Assert.Fail("Node process produced error output. " +
-                "Check the log for details: " + logFilePath);
+            Assert.Fail($"Build process produced error output:\n{errorOutput}\n" +
+                "Full output: " + logFilePath);
         }
     }
 
-    private static bool LogOutput(
+    private static string? LogOutput(
         Process process,
         StreamWriter logWriter)
     {
-        bool hasErrorOutput = false;
+        StringBuilder errorOutput = new();
         process.OutputDataReceived += (_, e) =>
         {
             if (e.Data != null)
@@ -333,7 +346,7 @@ internal static class TestBuilder
                 {
                     logWriter.WriteLine(e.Data);
                     logWriter.Flush();
-                    hasErrorOutput = e.Data.Trim().Length > 0;
+                    errorOutput.AppendLine(e.Data);
                 }
             }
         };
@@ -342,6 +355,6 @@ internal static class TestBuilder
 
         process.WaitForExit();
         logWriter.Close();
-        return hasErrorOutput;
+        return errorOutput.Length > 0 ? errorOutput.ToString() : null;
     }
 }

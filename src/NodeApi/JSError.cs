@@ -42,7 +42,9 @@ internal record struct JSErrorInfo(string? Message, napi_status Status)
     private unsafe static string? PtrToStringUTF8(byte* ptr)
     {
         if (ptr == null) return null;
-        return Encoding.UTF8.GetString(ptr, int.MaxValue);
+        int length = 0;
+        while (ptr[length] != 0) length++;
+        return Encoding.UTF8.GetString(ptr, length);
     }
 }
 

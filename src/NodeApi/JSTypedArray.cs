@@ -76,8 +76,10 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
         {
             // The Memory was created from a JS TypedArray.
 
+            // Strip the high bit of the index - it has a special meaning.
             void* memoryIndexPointer = (byte*)memoryPointer + Unsafe.SizeOf<object?>();
-            int index = Unsafe.Read<int>(memoryIndexPointer);
+            int index = Unsafe.Read<int>(memoryIndexPointer) & ~int.MinValue;
+
             void* memoryLengthPointer = (byte*)memoryIndexPointer + Unsafe.SizeOf<int>();
             int length = Unsafe.Read<int>(memoryLengthPointer);
 

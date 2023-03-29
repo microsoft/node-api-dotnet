@@ -24,8 +24,8 @@
     <ItemGroup>
         <ProjectReference Include="$(NodeApiSrcDir)NodeApi\NodeApi.csproj" />
         <ProjectReference Include="$(NodeApiSrcDir)NodeApi.DotNetHost\NodeApi.DotNetHost.csproj" />
-        <ProjectReference Include="$(NodeApiSrcDir)NodeApi.Generator\NodeApi.Generator.csproj"
-            OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+        <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" VersionOverride="0.1.*-*"
+            OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>
