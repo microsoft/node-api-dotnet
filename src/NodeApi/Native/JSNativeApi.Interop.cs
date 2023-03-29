@@ -331,29 +331,33 @@ public static partial class JSNativeApi
         {
             public nint Handle;
 
-            public napi_callback(delegate* unmanaged[Cdecl]<
-                    napi_env, napi_callback_info, napi_value> handle)
-                => Handle = (nint)handle;
+#if NETFRAMEWORK
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            public delegate napi_value Delegate(napi_env env, napi_callback_info callbackInfo);
 
             public napi_callback(napi_callback.Delegate callback)
                 => Handle = Marshal.GetFunctionPointerForDelegate(callback);
-
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-            public delegate napi_value Delegate(napi_env env, napi_callback_info callbackInfo);
+#else
+            public napi_callback(
+                delegate* unmanaged[Cdecl]<napi_env, napi_callback_info, napi_value> handle)
+                => Handle = (nint)handle;
+#endif
         }
 
         public struct napi_finalize
         {
             public nint Handle;
 
-            public napi_finalize(delegate* unmanaged[Cdecl]<napi_env, nint, nint, void> handle)
-                => Handle = (nint)handle;
+#if NETFRAMEWORK
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            public delegate void Delegate(napi_env env, nint data, nint hint);
 
             public napi_finalize(napi_finalize.Delegate callback)
                 => Handle = Marshal.GetFunctionPointerForDelegate(callback);
-
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-            public delegate void Delegate(napi_env env, nint data, nint hint);
+#else
+            public napi_finalize(delegate* unmanaged[Cdecl]<napi_env, nint, nint, void> handle)
+                => Handle = (nint)handle;
+#endif
         }
 
         public struct napi_property_descriptor

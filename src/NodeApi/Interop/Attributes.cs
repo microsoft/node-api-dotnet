@@ -36,4 +36,11 @@ public sealed class DoesNotReturnIfAttribute : Attribute
     public bool ParameterValue { get; }
 }
 
+[AttributeUsage(AttributeTargets.Method, Inherited = false)]
+public sealed class UnmanagedCallersOnlyAttribute : Attribute
+{
+    public UnmanagedCallersOnlyAttribute() { }
+    public Type[]? CallConvs { get; set; }
+}
+
 #endif

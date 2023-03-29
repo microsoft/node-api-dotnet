@@ -173,7 +173,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             utf8Name,
             new napi_callback(
                 JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
-                InvokeJSCallbackNoContextDelegate : InvokeJSCallbackDelegate),
+                s_invokeJSCallbackNC : s_invokeJSCallback),
             (nint)descriptorHandle);
         func.AddGCHandleFinalizer((nint)descriptorHandle);
         return func;
@@ -214,7 +214,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         return napi_create_external(
             Env,
             (nint)valueHandle,
-            new napi_finalize(FinalizeGCHandleDelegate),
+            new napi_finalize(s_finalizeGCHandle),
             default,
             out napi_value result)
             .ThrowIfFailed(result);
@@ -244,7 +244,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             (nint)pinnedMemory.Pointer,
             (nuint)pinnedMemory.Length,
             // We pass object to finalize as a hint parameter
-            new napi_finalize(FinalizeHintHandleDelegate),
+            new napi_finalize(s_finalizeHintHandle),
             (nint)GCHandle.Alloc(pinnedMemory),
             out napi_value result)
             .ThrowIfFailed(result);

@@ -60,6 +60,14 @@ public static partial class JSNativeApi
         public struct napi_threadsafe_function_call_js
         {
             public nint Handle;
+
+#if NETFRAMEWORK
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            public delegate void Delegate(napi_env env, napi_value js_callback, nint context, nint data);
+
+            public napi_threadsafe_function_call_js(Delegate callback)
+                => Handle = Marshal.GetFunctionPointerForDelegate(callback);
+#else
             public napi_threadsafe_function_call_js(
                 delegate* unmanaged[Cdecl]<
                     napi_env /*env*/,
@@ -68,12 +76,7 @@ public static partial class JSNativeApi
                     nint /*data*/,
                     void> handle)
                 => Handle = (nint)handle;
-
-            public napi_threadsafe_function_call_js(Delegate callback)
-                => Handle = Marshal.GetFunctionPointerForDelegate(callback);
-
-            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-            public delegate void Delegate(napi_env env, napi_value js_callback, nint context, nint data);
+#endif
         }
 
         public struct napi_node_version
