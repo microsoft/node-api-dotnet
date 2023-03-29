@@ -115,6 +115,7 @@ exports.whichBuildType = whichBuildType;
 // Load the addon module, using either hosted or native AOT mode.
 exports.dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
 exports.dotnetModule = process.env.TEST_DOTNET_MODULE_PATH;
+exports.dotnetVersion = process.env.TEST_DOTNET_VERSION;
 
 exports.loadDotnetModule = function () {
   // The Node API module may need the require() function at initialization time; passing it as
@@ -126,7 +127,7 @@ exports.loadDotnetModule = function () {
     // Normally the index.js script in the npm package takes care of locating the correct
     // native host and managed host binaries for the current environment.
     dotnetModule = require(exports.dotnetHost)
-      .initialize(exports.dotnetHost.replace(/\.node$/, '.DotNetHost.dll'))
+      .initialize(exports.dotnetVersion, exports.dotnetHost.replace(/\.node$/, '.DotNetHost.dll'))
       .require(exports.dotnetModule);
   } else {
     dotnetModule = require(exports.dotnetModule);

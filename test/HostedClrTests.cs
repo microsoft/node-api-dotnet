@@ -37,11 +37,12 @@ public class HostedClrTests
 
             if (moduleFilePath != null)
             {
+#if !NETFRAMEWORK
                 if (moduleName != "napi-dotnet-init")
                 {
                     BuildTypeDefinitions(moduleName, moduleFilePath);
                 }
-
+#endif
                 BuildTestModuleTypeScript(moduleName);
             }
 
@@ -76,6 +77,7 @@ public class HostedClrTests
         {
             [ModulePathEnvironmentVariableName] = moduleFilePath,
             [HostPathEnvironmentVariableName] = hostFilePath,
+            [DotNetVersionEnvironmentVariableName] = GetCurrentFrameworkTarget(),
 
             // CLR host tracing (very verbose).
             // This will cause the test to always fail because tracing writes to stderr.

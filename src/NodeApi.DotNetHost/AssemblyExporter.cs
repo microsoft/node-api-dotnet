@@ -3,9 +3,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
 
 using static Microsoft.JavaScript.NodeApi.DotNetHost.ManagedHost;
@@ -165,13 +167,18 @@ internal class AssemblyExporter
 
     private JSValue ExportClass(Type type)
     {
-        Trace($"> AssemblyExporter.ExportClass({type.FullName})");
-
         if (_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
         {
-            Trace($"< AssemblyExporter.ExportClass() => already exported");
             return typeObjectReference!.GetValue()!.Value;
         }
+
+        if (type == typeof(object) || type == typeof(string) ||
+            type == typeof(void) || type.IsPrimitive)
+        {
+            return default;
+        }
+
+        Trace($"> AssemblyExporter.ExportClass({type.FullName})");
 
         bool isStatic = type.IsAbstract && type.IsSealed;
         Type classBuilderType =
@@ -234,14 +241,16 @@ internal class AssemblyExporter
         foreach (MemberInfo member in type.GetMembers
             (BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
         {
-            if (member is PropertyInfo property && property.PropertyType.Assembly == type.Assembly)
+            if (member is PropertyInfo property &&
+                property.PropertyType.Assembly == type.Assembly &&
+                IsSupportedType(property.PropertyType))
             {
                 ExportClass(property.PropertyType);
             }
             else if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
                 method.ReturnType.Assembly == type.Assembly &&
-                method.ReturnType != typeof(void))
+                IsSupportedType(method.ReturnType))
             {
                 ExportClass(method.ReturnType);
             }
@@ -272,6 +281,11 @@ internal class AssemblyExporter
             BindingFlags.Public | BindingFlags.Static |
             (isStatic ? default : BindingFlags.Instance)))
         {
+            if (!IsSupportedType(property.PropertyType))
+            {
+                continue;
+            }
+
             JSPropertyAttributes propertyAttributes = attributes;
             bool isStaticProperty = property.GetMethod?.IsStatic == true ||
                 property.SetMethod?.IsStatic == true;
@@ -437,6 +451,37 @@ internal class AssemblyExporter
         return enumObject;
     }
 
+    private static bool IsSupportedType(Type type)
+    {
+        if (type.IsPointer ||
+            type == typeof(Type) ||
+            type.Namespace == "System.Reflection" ||
+            type.Namespace.StartsWith("System.Collections.") ||
+            type.Namespace.StartsWith("System.Threading."))
+        {
+            return false;
+        }
+
+#if NETFRAMEWORK
+        if (type.IsByRef)
+#else
+        if (type.IsByRef || type.IsByRefLike)
+#endif
+        {
+            // ref parameters aren't yet supported.
+            // ref structs like Span<T> aren't yet supported.
+            return false;
+        }
+
+        if (typeof(Stream).IsAssignableFrom(type))
+        {
+            // Streams should be projected as Duplex.
+            return false;
+        }
+
+        return true;
+    }
+
     private static bool IsSupportedConstructor(ConstructorInfo constructor)
     {
         return constructor.GetParameters().All(IsSupportedParameter);
@@ -445,6 +490,7 @@ internal class AssemblyExporter
     private static bool IsSupportedMethod(MethodInfo method)
     {
         return !method.IsGenericMethodDefinition &&
+            method.CallingConvention != CallingConventions.VarArgs &&
             method.GetParameters().All(IsSupportedParameter) &&
             IsSupportedParameter(method.ReturnParameter);
     }
@@ -458,36 +504,6 @@ internal class AssemblyExporter
         }
 
         Type parameterType = parameter.ParameterType;
-
-#if NETFRAMEWORK
-        if (parameterType.IsByRef)
-#else
-        if (parameterType.IsByRef || parameterType.IsByRefLike)
-#endif
-        {
-            // ref parameters aren't yet supported.
-            // ref structs like Span<T> aren't yet supported.
-            return false;
-        }
-
-        if (parameterType.IsPointer)
-        {
-            return false;
-        }
-
-        if (parameterType.IsGenericType &&
-            parameterType.GetGenericTypeDefinition() == typeof(IEnumerator<>))
-        {
-            // Enumerables should be projected as iterables.
-            return false;
-        }
-
-        if (parameter.ParameterType == typeof(Type))
-        {
-            // Methods using reflection aren't supported.
-            return false;
-        }
-
-        return true;
+        return IsSupportedType(parameterType);
     }
 }

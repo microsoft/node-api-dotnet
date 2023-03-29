@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' ">net7.0;net6.0;net472</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and not $([MSBuild]::IsOsPlatform('Windows')) ">net7.0;net6.0</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and $([MSBuild]::IsOsPlatform('Windows')) ">net7.0;net6.0;net472</TargetFrameworks>
     <LangVersion>10</LangVersion>
     <Nullable>enable</Nullable>
     <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>

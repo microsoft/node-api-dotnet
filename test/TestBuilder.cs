@@ -20,10 +20,12 @@ internal static class TestBuilder
     // JS code loads test modules via these environment variables:
     //     const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
     //     const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
+    //     const dotnetVersion = process.env['TEST_DOTNET_VERSION'];
     //     const test = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
     // (A real module would choose between one or the other, so its require code would be simpler.)
     public const string ModulePathEnvironmentVariableName = "TEST_DOTNET_MODULE_PATH";
     public const string HostPathEnvironmentVariableName = "TEST_DOTNET_HOST_PATH";
+    public const string DotNetVersionEnvironmentVariableName = "TEST_DOTNET_VERSION";
 
     public static string Configuration { get; } =
 #if DEBUG
@@ -166,7 +168,8 @@ internal static class TestBuilder
     public static string GetCurrentFrameworkTarget()
     {
         Version frameworkVersion = Environment.Version;
-        return $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
+        return frameworkVersion.Major == 4 ? "net472" :
+            $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
     }
 
     private static bool GetNoBuild()
