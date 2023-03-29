@@ -15,12 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" />
-    <PackageReference Include="Microsoft.Build.Locator" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="NuGet.Frameworks" /><!-- Necessary to resolve assembly version conflicts when loading MSBuild assemblies in test code. -->
   </ItemGroup>
 
   <ItemGroup>

@@ -52,9 +52,6 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release
 
-    - name: Build native binaries
-      run: dotnet publish --configuration Release --framework net7.0
-
     - name: Build packages
       run: dotnet pack --configuration Release
 

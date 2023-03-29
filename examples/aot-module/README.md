@@ -7,7 +7,6 @@ module's APIs via the auto-generated `.d.ts` file.
 
 | Command                          | Explanation
 |----------------------------------|--------------------------------------------------
-| `dotnet publish -f net7.0 ../..` | Build NodeApi .NET native AOT host.
-| `dotnet pack ../..`              | Build NodeApi .NET & npm packages.
-| `dotnet publish`                 | Install NodeApi .NET packages into example project; build example project and compile to native binary.
+| `dotnet pack ../..`              | Build Node API .NET packages.
+| `dotnet publish`                 | Install Node API .NET packages into example project; build example project and compile to native binary.
 | `node example.js`                | Run example JS code that calls the example module.

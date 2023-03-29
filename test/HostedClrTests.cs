@@ -85,31 +85,6 @@ public class HostedClrTests
 
     private static string BuildHostModule()
     {
-        if (Environment.Version.Major < 7)
-        {
-            // The AOT native host can only be built for .NET 7.0.
-            string nativeHostFilePath = Path.Join(
-                RepoRootDirectory,
-                "out",
-                "bin",
-                Configuration,
-                "NodeApi",
-                "net7.0",
-                GetCurrentPlatformRuntimeIdentifier(),
-                "publish",
-                "Microsoft.JavaScript.NodeApi.node");
-            if (!File.Exists(nativeHostFilePath))
-            {
-                throw new FileNotFoundException(
-                    "Node API native host module not found at " + nativeHostFilePath +
-                    ". The native host must be built with .NET 7 before running " +
-                    ".NET 6 tests. Use the command: dotnet publish -f net7.0",
-                    nativeHostFilePath);
-            }
-
-            return nativeHostFilePath;
-        }
-
         string projectFilePath = Path.Join(RepoRootDirectory, "src", "NodeApi", "NodeApi.csproj");
 
         string logDir = Path.Join(
@@ -124,21 +99,22 @@ public class HostedClrTests
             ["Configuration"] = Configuration,
         };
 
-        string? buildResult = BuildProject(
-          projectFilePath,
-          targets: new[] { "Restore", "Publish" },
-          properties,
-          returnProperty: "PublishDir",
-          logFilePath: logFilePath,
-          verboseLog: true);
+        BuildProject(
+            projectFilePath,
+            "Publish",
+            properties,
+            logFilePath,
+            verboseLog: false);
 
-        if (string.IsNullOrEmpty(buildResult))
-        {
-            Assert.Fail("Host publish failed. Check the log for details: " + logFilePath);
-        }
-
-        string publishDir = buildResult.Replace(
-            Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        string publishDir = Path.Combine(
+            RepoRootDirectory,
+            "out",
+            "bin",
+            Configuration,
+            "NodeApi",
+            "net7.0",
+            GetCurrentPlatformRuntimeIdentifier(),
+            "publish");
         string moduleFilePath = Path.Combine(publishDir, "Microsoft.JavaScript.NodeApi.node");
         Assert.True(
             File.Exists(moduleFilePath), "Host module file was not built: " + moduleFilePath);
@@ -163,21 +139,23 @@ public class HostedClrTests
             ["Configuration"] = Configuration,
         };
 
-        string? buildResult = BuildProject(
-          projectFilePath,
-          targets: new[] { "Restore", "Build" },
-          properties,
-          returnProperty: "TargetPath",
-          logFilePath: logFilePath,
-          verboseLog: false);
+        BuildProject(
+            projectFilePath,
+            "Build",
+            properties,
+            logFilePath: logFilePath,
+            verboseLog: false);
 
-        if (string.IsNullOrEmpty(buildResult))
-        {
-            return null;
-        }
-
-        string moduleFilePath = buildResult.Replace(
-            Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        string moduleFilePath = Path.Combine(
+            RepoRootDirectory,
+            "out",
+            "bin",
+            Configuration,
+            "TestCases",
+            moduleName,
+            GetCurrentFrameworkTarget(),
+            GetCurrentPlatformRuntimeIdentifier(),
+            moduleName + ".dll");
         Assert.True(File.Exists(moduleFilePath), "Module file was not built: " + moduleFilePath);
         return moduleFilePath;
     }

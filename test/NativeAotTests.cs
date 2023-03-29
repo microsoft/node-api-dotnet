@@ -74,21 +74,24 @@ public class NativeAotTests
             ["Configuration"] = Configuration,
         };
 
-        string? buildResult = BuildProject(
-          projectFilePath,
-          targets: new[] { "Restore", "Publish" },
-          properties,
-          returnProperty: "NativeBinary",
-          logFilePath: logFilePath,
-          verboseLog: false);
+        BuildProject(
+            projectFilePath,
+            "Publish",
+            properties,
+            logFilePath,
+            verboseLog: false);
 
-        if (string.IsNullOrEmpty(buildResult))
-        {
-            return null;
-        }
-
-        string moduleFilePath = buildResult.Replace(
-            Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        string moduleFilePath = Path.Combine(
+            RepoRootDirectory,
+            "out",
+            "bin",
+            Configuration,
+            "TestCases",
+            moduleName,
+            GetCurrentFrameworkTarget(),
+            GetCurrentPlatformRuntimeIdentifier(),
+            "native",
+            moduleName + ".node");
         moduleFilePath = Path.ChangeExtension(moduleFilePath, ".node");
         Assert.True(File.Exists(moduleFilePath), "Module file was not built: " + moduleFilePath);
         return moduleFilePath;

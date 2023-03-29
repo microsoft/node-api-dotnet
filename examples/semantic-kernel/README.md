@@ -14,8 +14,7 @@ Then run the following commands in sequence:
 
 | Command                          | Explanation
 |----------------------------------|--------------------------------------------------
-| `dotnet publish -f net7.0 ../..` | Build NodeApi .NET host.
-| `dotnet pack ../..`              | Build NodeApi .NET & npm packages.
+| `dotnet pack ../..`              | Build Node API .NET packages.
 | `dotnet restore`                 | Install `SemanticKernel` nuget package into the project.
 | `npm install`                    | Install `node-api-dotnet` npm package into the project.
 | `node example.js`                | Run example JS code that uses the above packages to call the Azure OpenAI service.
