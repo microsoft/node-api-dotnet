@@ -5,7 +5,9 @@ import SK from './semantic-kernel.js';
 
 const kernel = SK.Kernel.Builder.Build();
 
-kernel.Config.AddAzureOpenAICompletionBackend(
+// The JS marshaller does not yet support extension methods.
+SK.KernelConfigExtensions.AddAzureOpenAITextCompletion(
+  kernel.Config,
   'davinci-backend',
   process.env['OPENAI_DEPLOYMENT'],
   process.env['OPENAI_ENDPOINT'],
