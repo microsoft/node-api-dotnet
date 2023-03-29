@@ -18,7 +18,9 @@ if (!configuration || rids.length === 0) {
 
 const assemblyName = 'Microsoft.JavaScript.NodeApi';
 
-const targetFrameworks = ['net7.0', 'net6.0', 'net472'];
+const targetFrameworks = ['net7.0', 'net6.0'];
+if (process.platform === 'win32') targetFrameworks.push('net472');
+
 const aotTargetFramework = 'net7.0';
 const defaultManagedHostTargetFramework = 'net6.0';
 

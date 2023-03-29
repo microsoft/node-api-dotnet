@@ -456,8 +456,8 @@ internal class AssemblyExporter
         if (type.IsPointer ||
             type == typeof(Type) ||
             type.Namespace == "System.Reflection" ||
-            type.Namespace.StartsWith("System.Collections.") ||
-            type.Namespace.StartsWith("System.Threading."))
+            type.Namespace?.StartsWith("System.Collections.") == true ||
+            type.Namespace?.StartsWith("System.Threading.") == true)
         {
             return false;
         }
