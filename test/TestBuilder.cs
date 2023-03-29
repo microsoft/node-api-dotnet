@@ -157,6 +157,20 @@ internal static class TestBuilder
         return $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
     }
 
+    private static bool GetNoBuild()
+    {
+        string filePath = Path.Join(
+            RepoRootDirectory,
+            "out",
+            "obj",
+            Configuration,
+            "NodeApi.Test",
+            GetCurrentFrameworkTarget(),
+            GetCurrentPlatformRuntimeIdentifier(),
+            "no-build.txt");
+        return File.Exists(filePath);
+    }
+
     public static void BuildProject(
       string projectFilePath,
       string target,
@@ -164,6 +178,8 @@ internal static class TestBuilder
       string logFilePath,
       bool verboseLog = false)
     {
+        if (GetNoBuild()) return;
+
         StreamWriter logWriter = new(logFilePath, new FileStreamOptions
         {
             Mode = FileMode.Create,

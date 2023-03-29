@@ -27,14 +27,11 @@
   </ItemGroup>
 
   <!--
-    Work around MSBuild.Locator NuGet.Frameworks version conflict.
-    https://github.com/microsoft/MSBuildLocator/issues/127
-    https://github.com/dotnet/roslyn/issues/61454
+    Pass the "no-build" flag to the tests so they can also skip the automatic build of dependencies.
   -->
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Copy SourceFiles="$([System.IO.Directory]::GetParent($(BundledRuntimeIdentifierGraphFile)))\NuGet.Frameworks.dll"
-          DestinationFolder="$(OutputPath)"
-          ContinueOnError="false" />
+  <Target Name="RecordTestNoBuild" BeforeTargets="VSTest">
+    <WriteLinesToFile Condition=" '$(VSTestNoBuild)' == 'true' " File="$(IntermediateOutputPath)\no-build.txt" />
+    <Delete Condition=" '$(VSTestNoBuild)' != 'true' " Files="$(IntermediateOutputPath)\no-build.txt" />
   </Target>
 
 </Project>
