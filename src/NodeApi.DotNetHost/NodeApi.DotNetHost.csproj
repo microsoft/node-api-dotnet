@@ -12,7 +12,9 @@
     <ProjectReference Include="..\NodeApi\NodeApi.csproj" GeneratePathProperty="true" PrivateAssets="all" />
   </ItemGroup>
 
-  <Target Name="PublishNativeHost" BeforeTargets="Pack">
+  <Target Name="PublishNativeHost" BeforeTargets="Pack"
+    Condition=" '$(NoPublish)' != 'true' "
+  >
     <MSBuild
       Projects="..\NodeApi\NodeApi.csproj"
       Targets="Publish"
