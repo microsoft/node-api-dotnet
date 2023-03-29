@@ -5,7 +5,6 @@
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PublishAot>true</PublishAot>
-    <NativeLib>Shared</NativeLib>
     <PublishNodeModule>true</PublishNodeModule>
     <PublishDir>bin</PublishDir>
   </PropertyGroup>

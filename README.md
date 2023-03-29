@@ -4,8 +4,10 @@ Call nearly any .NET APIs in-proc from JavaScript code, with high performance an
 type-checking. The interop uses [Node API](https://nodejs.org/api/n-api.html) so it is compatible
 with any Node.js version (without rebuilding) or other JavaScript engine that supports Node API.
 
-_**Status: In Development** - Core functionality works, but many things are incomplete, and it
-isn't yet all packaged up nicely in a way that can be easily consumed._
+:warning: _**Status: In Development** - Core functionality works, but many things are incomplete,
+and it isn't yet all packaged up nicely in a way that can be easily consumed._
+
+[Instructions for getting started are below.](#getting-started)
 
 ### Minimal example
 ```JavaScript
@@ -33,12 +35,10 @@ const MyType = ExampleAssembly['Namespace.Qualified.MyType'];
 
 ### Generate type definitions for .NET APIs
 If writing TypeScript, or type-checked JavaScript, there is a tool to generate type `.d.ts` type
-definitions for .NET APIs. It also generates a small `.js` file that exports the assembly in a more
-natural way as a JS module:
+definitions for .NET APIs. Soon, it should also generate a small `.js` file that exports the
+assembly in a more natural way as a JS module.
 ```bash
-$ node-api-dotnet-ts-gen "path/to/ExampleAssembly.dll"
-Generated ExampleAssembly.js
-Generated ExampleAssembly.d.ts
+$ npm exec node-api-dotnet-generator --assembly ExampleAssembly.dll --typedefs ExampleAssembly.d.ts
 ```
 ```TypeScript
 import { ExampleClass } from './ExampleAssembly';
@@ -90,7 +90,7 @@ assembly). The source generator also enables building ahead-of-time compiled lib
 can be called by JavaScript without depending on the .NET Runtime. (More on that below.)
 
 ### Optionally work directly with JS types in C#
-The class library includes an object model of for JavaScript type system. `JSValue` represents a
+The class library includes an object model for the JavaScript type system. `JSValue` represents a
 value of any type, and there are more types like `JSObject`, `JSArray`, `JSMap`, `JSPromise`, etc.
 C# code can work directly with those types if desired:
 
@@ -111,14 +111,16 @@ public static JSPromise JSAsyncExample(JSValue input)
 ### Automatic efficient marshaling
 There are two ways to get automatic marshaling between C# and JavaScript types:
   1. Compile a C# class library with `[JSExport]` attributes like the examples above. The source
-  generator generates marshaling code that is compiled with the assembly.
+  generator produces marshaling code that is compiled with the assembly.
 
   2. Load a pre-built .NET assembly, as in the earlier examples. The loader will use reflection to
   scan the APIs, then emit marshaling code on-demand for each type that is referenced by JS. The
-  code is logically equivalent to that from the source generator, but is instead emitted as IL
-  using the [.NET System.Reflection.Emit APIs](https://learn.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/emitting-dynamic-methods-and-assemblies). So there is a small startup cost
-  from that reflection and IL emitting, but subsequent calls to the same APIs may be just as fast
-  as the pre-compiled marshaling code (and are just as likely to be JITted).
+  dynamic marshalling code is derived from the same expression trees that are used for compile-time
+  source-generation, but is generated and at runtime and compiled with
+  [`LambdaExpression.Compile()`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.expressions.lambdaexpression.compile).
+  So there is a small startup cost from that reflection and compilation, but subsequent calls to
+  the same APIs may be just as fast as the pre-compiled marshaling code (and are just as likely
+  to be JITted).
 
 The marshaller uses the strong typing information from the C# API declarations as hints about how to
 convert values beteen JavaScript and C#. Here's a general summary of conversions:
@@ -156,7 +158,7 @@ There are advantages and disadvantages to either approach:
 |---------------------|--------------|-----------------|
 | API compatibility   | Broad compatibility with .NET APIs | Limited compatibility with APIs designed to support AOT |
 | Ease of deployment  | Requires a matching version of .NET to be installed on the target system | A .NET installation is not required (though some platform libs may be required on Linux/Mac)
-| Size of deployment  | Compact - only IL assemblies need to be deployed | Larger due to building necessary runtime code - minimum 3 MB on Windows, ~13 MB on Linux |
+| Size of deployment  | Compact - only IL assemblies need to be deployed | Larger due to bundling necessary runtime code - minimum ~3 MB per platform |
 | Performance         | Slightly slower startup (JIT) | Slightly faster startup (no JIT) |
 | Runtime limitations | Full .NET functionality | Some .NET features like reflection and code-generation aren't supported |
 
@@ -182,6 +184,7 @@ Thanks to these design choices, JS to .NET calls are [more than twice as fast](
 #### Requirements
  - .NET 6 or later
     - .NET 7 or later is required for AOT support.
+    - .NET Framework 4.x support is [coming soon](https://github.com/microsoft/node-api-dotnet/pull/51).
  - Node.js v16 or later
     - Other JS engines may be supported in the future.
  - OS: Windows, Mac, or Linux

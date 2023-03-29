@@ -5,9 +5,13 @@
     <RootNamespace>Microsoft.JavaScript.NodeApi</RootNamespace>
     <IsPackable>true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NativeLib>Shared</NativeLib>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0' ">
     <SelfContained>false</SelfContained>
+    <PublishAot>true</PublishAot>
+    <StripSymbols>true</StripSymbols>
     <PublishNodeModule>true</PublishNodeModule>
   </PropertyGroup>
 

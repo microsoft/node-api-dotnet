@@ -107,7 +107,6 @@ For a minimal example of this scenario, see
     ```xml
     <TargetFramework>net7.0</TargetFramework>
     <PublishAot>true</PublishAot>
-    <NativeLib>Shared</NativeLib>
     <PublishNodeModule>true</PublishNodeModule>
     ```
     Then publish the project to produce the native module (with `.node` extension):

@@ -5,7 +5,6 @@
     <RootNamespace>Microsoft.JavaScript.NodeApi.DotNetHost</RootNamespace>
     <IsPackable>true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <PublishAot>false</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>

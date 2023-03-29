@@ -5,7 +5,6 @@
     <RootNamespace>Microsoft.JavaScript.NodeApi.Generator</RootNamespace>
     <OutputType>Exe</OutputType>
     <IsPackable>true</IsPackable>
-    <PublishAot>false</PublishAot>
     <NoWarn>$(NoWarn);SYSLIB1045</NoWarn><!-- Use GeneratedRegexAttribute -->
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>

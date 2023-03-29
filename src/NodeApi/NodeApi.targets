@@ -4,11 +4,14 @@
     BeforeTargets="PublishManagedAssembly"
     Condition=" '$(PublishNodeModule)' == 'true' "
   >
-    <!-- Rename the native library (and its PDB) to have a .node extension. -->
+    <!-- Rename the native library (and its symbols file) to have a .node extension. -->
     <Move SourceFiles="$(PublishDir)$(TargetName)$(NativeBinaryExt)"
       DestinationFiles="$(PublishDir)$(TargetName).node" />
     <Move Condition="Exists('$(PublishDir)$(TargetName).pdb')"
       SourceFiles="$(PublishDir)$(TargetName).pdb"
       DestinationFiles="$(PublishDir)$(TargetName).node.pdb" />
+    <Move Condition="Exists('$(PublishDir)$(TargetName).so.dbg')"
+      SourceFiles="$(PublishDir)$(TargetName).so.dbg"
+      DestinationFiles="$(PublishDir)$(TargetName).node.dbg" />
   </Target>
 </Project>
