@@ -2,7 +2,6 @@
     <Import Project="../../Directory.Build.props" />
 
     <PropertyGroup>
-        <NativeLib>Shared</NativeLib>
         <BaseIntermediateOutputPath>$(BaseOutputPath)obj/$(Configuration)/TestCases/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
         <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
         <OutputPath>$(BaseOutputPath)bin/$(Configuration)/TestCases/$(MSBuildProjectName)/</OutputPath>
