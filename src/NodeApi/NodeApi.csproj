@@ -9,7 +9,6 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0' ">
-    <SelfContained>false</SelfContained>
     <PublishAot>true</PublishAot>
     <StripSymbols>true</StripSymbols>
     <PublishNodeModule>true</PublishNodeModule>

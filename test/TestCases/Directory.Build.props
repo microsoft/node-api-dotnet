@@ -5,12 +5,17 @@
         <BaseIntermediateOutputPath>$(BaseOutputPath)obj/$(Configuration)/TestCases/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
         <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
         <OutputPath>$(BaseOutputPath)bin/$(Configuration)/TestCases/$(MSBuildProjectName)/</OutputPath>
-        <PublishAot>true</PublishAot>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>CS1591</NoWarn>
 
         <!-- Always write *.NodeApi.g.cs in the obj/ directory. -->
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0' ">
+      <PublishAot>true</PublishAot>
+      <StripSymbols>true</StripSymbols>
+      <PublishNodeModule>true</PublishNodeModule>
     </PropertyGroup>
 
     <PropertyGroup>
