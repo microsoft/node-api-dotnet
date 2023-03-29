@@ -12,6 +12,16 @@
     <ProjectReference Include="..\NodeApi\NodeApi.csproj" GeneratePathProperty="true" PrivateAssets="all" />
   </ItemGroup>
 
+  <Target Name="PublishNativeHost" BeforeTargets="Pack"
+    Condition=" '$(NoPublish)' != 'true' "
+  >
+    <MSBuild
+      Projects="..\NodeApi\NodeApi.csproj"
+      Targets="Publish"
+      Properties="Configuration=$(Configuration);TargetFramework=net7.0"
+    />
+  </Target>
+
   <Target Name="NpmPack"
     AfterTargets="Pack"
     Outputs="$(PackageOutputPath)node-api-dotnet-$(PackageVersion).tgz"

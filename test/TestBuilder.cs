@@ -7,10 +7,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Microsoft.Build.Evaluation;
-using Microsoft.Build.Framework;
-using Microsoft.Build.Locator;
-using Microsoft.Build.Logging;
 using Microsoft.JavaScript.NodeApi.Generator;
 using Xunit;
 
@@ -28,26 +24,6 @@ internal static class TestBuilder
     // (A real module would choose between one or the other, so its require code would be simpler.)
     public const string ModulePathEnvironmentVariableName = "TEST_DOTNET_MODULE_PATH";
     public const string HostPathEnvironmentVariableName = "TEST_DOTNET_HOST_PATH";
-
-    private static bool s_msbuildInitialized = false;
-
-    private static void InitializeMsbuild()
-    {
-        if (!s_msbuildInitialized)
-        {
-            // Find an istalled instance of MSBuild that matches the current runtime major version
-            // and is not a preview.
-            VisualStudioInstance[] msbuildInstances =
-                MSBuildLocator.QueryVisualStudioInstances().ToArray();
-            VisualStudioInstance msbuildInstance = msbuildInstances
-                .Where((instance) => instance.Version.Major == Environment.Version.Major &&
-                    !instance.MSBuildPath.Contains("preview"))
-                .OrderByDescending(instance => instance.Version)
-                .First();
-            MSBuildLocator.RegisterInstance(msbuildInstance);
-            s_msbuildInitialized = true;
-        }
-    }
 
     public static string Configuration { get; } =
 #if DEBUG
@@ -181,47 +157,70 @@ internal static class TestBuilder
         return $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
     }
 
-    public static string? BuildProject(
-      string projectFilePath,
-      string[] targets,
-      IDictionary<string, string> properties,
-      string returnProperty,
-      string logFilePath,
-      bool verboseLog = false)
+    private static bool GetNoBuild()
     {
-        // MSBuild must be explicitly located & initialized before being loaded by the JIT,
-        // therefore any use of MSBuild types must be kept in separate methods called by this one.
-        InitializeMsbuild();
-
-        return BuildProjectInternal(
-            projectFilePath, targets, properties, returnProperty, logFilePath, verboseLog);
+        string filePath = Path.Join(
+            RepoRootDirectory,
+            "out",
+            "obj",
+            Configuration,
+            "NodeApi.Test",
+            GetCurrentFrameworkTarget(),
+            GetCurrentPlatformRuntimeIdentifier(),
+            "no-build.txt");
+        return File.Exists(filePath);
     }
 
-    private static string? BuildProjectInternal(
+    public static void BuildProject(
       string projectFilePath,
-      string[] targets,
+      string target,
       IDictionary<string, string> properties,
-      string returnProperty,
       string logFilePath,
       bool verboseLog = false)
     {
-        var logger = new FileLogger
-        {
-            Parameters = "LOGFILE=" + logFilePath,
-            Verbosity = verboseLog ? LoggerVerbosity.Diagnostic : LoggerVerbosity.Normal,
-        };
+        if (GetNoBuild()) return;
 
-        using var projectCollection = new ProjectCollection();
-
-        Project project = projectCollection.LoadProject(projectFilePath, properties, toolsVersion: null);
-        bool buildResult = project.Build(targets, new[] { logger });
-        if (!buildResult)
+        StreamWriter logWriter = new(logFilePath, new FileStreamOptions
         {
-            return null;
+            Mode = FileMode.Create,
+            Access = FileAccess.Write,
+            Share = FileShare.Read,
+        });
+
+        ProcessStartInfo startInfo = new("dotnet");
+        startInfo.ArgumentList.Add("build");
+        startInfo.ArgumentList.Add(projectFilePath);
+        startInfo.ArgumentList.Add("/t:" + target);
+        startInfo.ArgumentList.Add(verboseLog ? "/v:d" : "/v:n");
+        foreach (KeyValuePair<string, string> property in properties)
+        {
+            startInfo.ArgumentList.Add($"/p:{property.Key}={property.Value}");
         }
 
-        string returnValue = project.GetPropertyValue(returnProperty);
-        return returnValue;
+        startInfo.UseShellExecute = false;
+        startInfo.RedirectStandardOutput = true;
+        startInfo.RedirectStandardError = true;
+        startInfo.WorkingDirectory = Path.GetDirectoryName(logFilePath)!;
+
+        logWriter.WriteLine($"dotnet {string.Join(" ", startInfo.ArgumentList)}");
+        logWriter.WriteLine();
+        logWriter.Flush();
+
+        Process buildProcess = Process.Start(startInfo)!;
+
+        bool hasErrorOutput = LogOutput(buildProcess, logWriter);
+
+        if (buildProcess.ExitCode != 0)
+        {
+            string failMessage = "Build process exited with code: " + buildProcess.ExitCode + ". " +
+                "Check the log for details: " + logFilePath;
+            Assert.Fail(failMessage);
+        }
+        else if (hasErrorOutput)
+        {
+            Assert.Fail("Build process produced error output. " +
+                "Check the log for details: " + logFilePath);
+        }
     }
 
     public static void BuildTypeDefinitions(string moduleName, string moduleFilePath)
@@ -242,13 +241,12 @@ internal static class TestBuilder
         // This assumes the `node` executable is on the current PATH.
         string nodeExe = "node";
 
-        StreamWriter outputWriter = new(logFilePath, new FileStreamOptions
+        StreamWriter logWriter = new(logFilePath, new FileStreamOptions
         {
             Mode = FileMode.Create,
             Access = FileAccess.Write,
             Share = FileShare.Read,
         });
-        bool hasErrorOutput = false;
 
         var startInfo = new ProcessStartInfo(nodeExe, $"--expose-gc {jsFilePath}")
         {
@@ -261,42 +259,15 @@ internal static class TestBuilder
         foreach ((string name, string value) in testEnvironmentVariables)
         {
             startInfo.Environment[name] = value;
-            outputWriter.WriteLine($"{name}={value}");
+            logWriter.WriteLine($"{name}={value}");
         }
 
-        outputWriter.WriteLine($"{nodeExe} --expose-gc {jsFilePath}");
-        outputWriter.WriteLine();
-        outputWriter.Flush();
+        logWriter.WriteLine($"{nodeExe} --expose-gc {jsFilePath}");
+        logWriter.WriteLine();
+        logWriter.Flush();
 
         Process nodeProcess = Process.Start(startInfo)!;
-        nodeProcess.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                lock (outputWriter)
-                {
-                    outputWriter.WriteLine(e.Data);
-                    outputWriter.Flush();
-                }
-            }
-        };
-        nodeProcess.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                lock (outputWriter)
-                {
-                    outputWriter.WriteLine(e.Data);
-                    outputWriter.Flush();
-                    hasErrorOutput = e.Data.Trim().Length > 0;
-                }
-            }
-        };
-        nodeProcess.BeginOutputReadLine();
-        nodeProcess.BeginErrorReadLine();
-
-        nodeProcess.WaitForExit();
-        outputWriter.Close();
+        bool hasErrorOutput = LogOutput(nodeProcess, logWriter);
 
         if (nodeProcess.ExitCode != 0)
         {
@@ -325,5 +296,41 @@ internal static class TestBuilder
             Assert.Fail("Node process produced error output. " +
                 "Check the log for details: " + logFilePath);
         }
+    }
+
+    private static bool LogOutput(
+        Process process,
+        StreamWriter logWriter)
+    {
+        bool hasErrorOutput = false;
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+            {
+                lock (logWriter)
+                {
+                    logWriter.WriteLine(e.Data);
+                    logWriter.Flush();
+                }
+            }
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+            {
+                lock (logWriter)
+                {
+                    logWriter.WriteLine(e.Data);
+                    logWriter.Flush();
+                    hasErrorOutput = e.Data.Trim().Length > 0;
+                }
+            }
+        };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        process.WaitForExit();
+        logWriter.Close();
+        return hasErrorOutput;
     }
 }

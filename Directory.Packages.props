@@ -3,13 +3,10 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Build" Version="17.3.2" />
-    <PackageVersion Include="Microsoft.Build.Locator" Version="1.5.5" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.1" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.5.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.5.119" />
-    <PackageVersion Include="NuGet.Frameworks" Version="6.4.0" />
     <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="6.0.0" />
     <PackageVersion Include="xunit" Version="2.4.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.4.5" />

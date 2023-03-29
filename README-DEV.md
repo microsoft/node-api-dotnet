@@ -11,25 +11,19 @@ from re-using a previously-loaded (possibly outdated) version of the source gene
 
 ## Build Packages
 ```bash
-dotnet publish -f net7.0 -c Release
 dotnet pack -c Release
 ```
 This produces both nuget and npm packages (for the current platform only) in the `out/pkg`
-directory. Binaries for the `net7.0` target framework must be built and published first
-so that the Node API .NET native AOT host can be packaged.
+directory.
 
 ## Test
 ```bash
-dotnet publish -f net7.0
 dotnet test
 ```
 
-Binaries for the `net7.0` target framework must be built and published first
-because tests require the Node API .NET native AOT host.
-
-Use the `--filter` option to run a subset of test cases:
+Use `--framework` to specify a target framework, or `--filter` to run a subset of test cases:
 ```bash
-dotnet test --filter "DisplayName~aot"
+dotnet test --framework net7.0 --filter "DisplayName~aot"
 ```
 
 The list of test cases is automatically derived from the set of `.js` files under the

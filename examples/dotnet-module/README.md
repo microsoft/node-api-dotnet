@@ -6,8 +6,7 @@ doc-comments for the module's APIs via the auto-generated `.d.ts` file.
 
 | Command                          | Explanation
 |----------------------------------|--------------------------------------------------
-| `dotnet publish -f net7.0 ../..` | Build NodeApi .NET host.
-| `dotnet pack ../..`              | Build NodeApi .NET & npm packages.
-| `npm install`                    | Install NodeApi npm package into example project.
-| `dotnet build`                   | Install NodeApi .NET packages into example project; build example project.
+| `dotnet pack ../..`              | Build Node API .NET packages.
+| `npm install`                    | Install Node API .NET npm package into example project.
+| `dotnet build`                   | Install Node API .NET nuget packages into example project; build example project.
 | `node example.js`                | Run example JS code that calls the example module.
