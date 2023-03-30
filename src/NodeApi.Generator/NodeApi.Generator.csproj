@@ -8,6 +8,7 @@
     <NoWarn>$(NoWarn);SYSLIB1045</NoWarn><!-- Use GeneratedRegexAttribute -->
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
