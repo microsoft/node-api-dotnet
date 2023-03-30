@@ -39,7 +39,7 @@ internal record struct JSErrorInfo(string? Message, napi_status Status)
         return new JSErrorInfo(null, errorInfo->error_code);
     }
 
-    private unsafe static string? PtrToStringUTF8(byte* ptr)
+    private static unsafe string? PtrToStringUTF8(byte* ptr)
     {
         if (ptr == null) return null;
         int length = 0;

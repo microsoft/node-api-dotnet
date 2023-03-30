@@ -831,7 +831,7 @@ public static partial class JSNativeApi
 
     public static unsafe void SetObjectTypeTag(this JSValue thisValue, ref Guid typeGuid)
     {
-        #if NETFRAMEWORK
+#if NETFRAMEWORK
         byte[] guidBytes = typeGuid.ToByteArray();
         napi_type_tag typeTag;
         fixed (byte* guidBytesPtr = &guidBytes[0])
@@ -839,11 +839,11 @@ public static partial class JSNativeApi
             typeTag = Marshal.PtrToStructure<napi_type_tag>((nint)guidBytesPtr);
         }
         thisValue.SetObjectTypeTag(typeTag);
-        #else
+#else
         ReadOnlySpan<Guid> guidSpan = MemoryMarshal.CreateReadOnlySpan(ref typeGuid, 1);
         ReadOnlySpan<byte> guidBytes = MemoryMarshal.AsBytes(guidSpan);
         thisValue.SetObjectTypeTag(MemoryMarshal.AsRef<napi_type_tag>(guidBytes));
-        #endif
+#endif
     }
 
     public static bool CheckObjectTypeTag(this JSValue thisValue, in napi_type_tag typeTag)

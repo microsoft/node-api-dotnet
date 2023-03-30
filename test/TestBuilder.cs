@@ -215,7 +215,7 @@ internal static class TestBuilder
         if (GetNoBuild()) return;
 
         StreamWriter logWriter = new(File.Open(
-            logFilePath, FileMode.Create, FileAccess.Write,  FileShare.Read));
+            logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
 
         List<string> arguments = new()
         {
@@ -269,7 +269,7 @@ internal static class TestBuilder
         string nodeExe = "node";
 
         StreamWriter logWriter = new(File.Open(
-            logFilePath, FileMode.Create, FileAccess.Write,  FileShare.Read));
+            logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
 
         var startInfo = new ProcessStartInfo(nodeExe, $"--expose-gc {jsFilePath}")
         {

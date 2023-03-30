@@ -75,8 +75,8 @@ public sealed class ManagedHost : IDisposable
         Trace($"> ManagedHost.InitializeModule({argument})");
 
         string[] args = argument.Split(',');
-        napi_env env = new napi_env((nint)ulong.Parse(args[0], NumberStyles.HexNumber));
-        napi_value exports = new napi_value((nint)ulong.Parse(args[1], NumberStyles.HexNumber));
+        napi_env env = new((nint)ulong.Parse(args[0], NumberStyles.HexNumber));
+        napi_value exports = new((nint)ulong.Parse(args[1], NumberStyles.HexNumber));
         napi_value* pResult = (napi_value*)(nint)ulong.Parse(args[2], NumberStyles.HexNumber);
 #else
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]

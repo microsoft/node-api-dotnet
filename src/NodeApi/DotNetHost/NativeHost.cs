@@ -85,7 +85,7 @@ internal partial class NativeHost : IDisposable
                 targetFramework.Length >= 5)
             {
                 // .NET Framework
-                Version frameworkVersion = new Version(
+                Version frameworkVersion = new(
                     int.Parse(targetFramework.Substring(3, 1)),
                     int.Parse(targetFramework.Substring(4, 1)),
                     targetFramework.Length == 5 ? 0 :
@@ -122,7 +122,7 @@ internal partial class NativeHost : IDisposable
         ICLRRuntimeHost* runtimeHost = null;
         try
         {
-            var policyFlags = CLRMetaHostPolicyFlags.ApplyUpgradePolicy;
+            CLRMetaHostPolicyFlags policyFlags = CLRMetaHostPolicyFlags.ApplyUpgradePolicy;
             runtimeInfo = hostPolicy->GetRequestedRuntime(
                 policyFlags, managedHostPath, out string runtimeVersion);
             Trace("    Runtime version: " + runtimeVersion);

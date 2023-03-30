@@ -1736,8 +1736,8 @@ public static partial class JSNativeApi
         internal static nint StringToHGlobalUtf8(string s)
         {
             if (s == null) return default;
-            var bytes = Encoding.UTF8.GetBytes(s);
-            var ptr = Marshal.AllocHGlobal(bytes.Length + 1);
+            byte[] bytes = Encoding.UTF8.GetBytes(s);
+            nint ptr = Marshal.AllocHGlobal(bytes.Length + 1);
             Marshal.Copy(bytes, 0, ptr, bytes.Length);
             Marshal.WriteByte(ptr, bytes.Length, 0);
             return ptr;
