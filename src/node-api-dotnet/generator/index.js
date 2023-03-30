@@ -12,7 +12,7 @@ const dotnet = require('node-api-dotnet');
 dotnet.load(path.join(assemblyDir, 'System.Reflection.MetadataLoadContext.dll'));
 dotnet.load(path.join(assemblyDir, 'Microsoft.CodeAnalysis.dll'));
 
-const Geneartor = dotnet.load(path.join(assemblyDir, 'Microsoft.JavaScript.NodeApi.Generator.dll'));
+const Generator = dotnet.load(path.join(assemblyDir, 'Microsoft.JavaScript.NodeApi.Generator.dll'));
 
 const args = process.argv.slice(2);
-Geneartor.Program.Main(args);
+Generator.Program.Main(args);
