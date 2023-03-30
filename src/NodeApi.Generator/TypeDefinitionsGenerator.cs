@@ -656,7 +656,8 @@ public class TypeDefinitionsGenerator : SourceGenerator
             }
             else
             {
-                return $"{TSIdentifier(parameters[0].Name)}: {parameterType}";
+                string optionalToken = parameters[0].IsOptional ? "?" : "";
+                return $"{TSIdentifier(parameters[0].Name)}{optionalToken}: {parameterType}";
             }
         }
 
@@ -666,7 +667,8 @@ public class TypeDefinitionsGenerator : SourceGenerator
         foreach (ParameterInfo p in parameters)
         {
             string parameterType = GetTSType(p);
-            s.AppendLine($"{TSIdentifier(p.Name)}: {parameterType},");
+            string optionalToken = p.IsOptional ? "?" : "";
+            s.AppendLine($"{TSIdentifier(p.Name)}{optionalToken}: {parameterType},");
         }
 
         return s.ToString();

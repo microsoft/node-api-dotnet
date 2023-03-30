@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 
 const nodeMajorVersion = process.versions.node.split('.')[0];
-if (nodeMajorVersion < 18) {
-  console.error('Node.js version 18 or later is required.');
+if (nodeMajorVersion < 16) {
+  console.error('Node.js version 16 or later is required.');
   process.exit(1);
 }
 
