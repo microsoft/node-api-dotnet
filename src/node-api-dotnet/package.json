@@ -1,11 +1,11 @@
 {
   "name": "node-api-dotnet",
   "version": "0.1.0",
-  "description": "",
+  "description": "Node-API bindings for .Net",
   "main": "index.js",
   "scripts": {
   },
-  "author": "",
+  "author": "Microsoft",
   "license": "MIT",
   "types": "./index.d.ts"
 }

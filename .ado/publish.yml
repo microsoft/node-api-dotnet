@@ -1,0 +1,163 @@
+name: 0.0.$(Date:yyMM.d)$(Rev:rrr)
+
+# TODO: sign binaries/packages
+# TODO: publish packages to Nuget.org and npmjs
+# TODO: publish symbols
+# TODO: publish to source server
+
+trigger:
+- main
+
+parameters:
+  # x86 versions are not supported by NativeAOT
+  # win-arm64 is not supported by Node.JS as of 3/29/2023
+  # linux-arm64 must be added after we learn how to set up the cross-compilation environment.
+  # Use net7.0 as the latest stable version except for osx-arm64 which is only supported in net8.0.
+- name: buildMatrix
+  type: object
+  default:
+    - Name: win_x64
+      VMImage: windows-latest
+      TargetRuntime: win-x64
+      DotNetVersion: '7.0.x'
+      DotNetMoniker: net7.0
+    - Name: osx_x64
+      VMImage: macos-latest
+      TargetRuntime: osx-x64
+      DotNetVersion: '7.0.x'
+      DotNetMoniker: net7.0
+    - Name: osx_arm64
+      VMImage: macos-latest
+      TargetRuntime: osx-arm64
+      DotNetVersion: '8.0.x'
+      DotNetMoniker: net8.0
+    - Name: linux_x64
+      VMImage: ubuntu-latest
+      TargetRuntime: linux-x64
+      DotNetVersion: '7.0.x'
+      DotNetMoniker: net7.0
+
+jobs:
+  - ${{ each matrixEntry in parameters.buildMatrix }}:
+    - job: buildAOTBinary${{ matrixEntry.Name }}
+      displayName: Build ${{ matrixEntry.TargetRuntime }} AOT binary
+      pool:
+        vmImage: ${{ matrixEntry.VMImage }}
+
+      steps:
+        - checkout: self
+          displayName: Deep git fetch for version generation
+          fetchDepth: 0 # Use deep fetch for the version calculation by Nerdbank.GitVersioning
+          clean: false
+          submodules: false
+          lfs: false
+
+        - task: UseDotNet@2
+          displayName: Install .Net
+          inputs:
+            packageType: 'sdk'
+            version: ${{ matrixEntry.DotNetVersion }}
+            includePreviewVersions: true
+
+        - task: DeleteFiles@1 # To enable net8.0 use for osx-arm64
+          displayName: Delete 'global.json'
+          inputs:
+            Contents: 'global.json'
+          condition: eq('${{ matrixEntry.DotNetMoniker }}', 'net8.0')
+
+        - script: dotnet publish --configuration Release --runtime ${{ matrixEntry.TargetRuntime }} --no-self-contained --framework ${{ matrixEntry.DotNetMoniker }}
+          displayName: Build native binaries
+          env:
+            TargetFrameworks: ${{ matrixEntry.DotNetMoniker }}
+
+        - task: CopyFiles@2
+          displayName: Copy build artifacts to staging
+          inputs:
+            sourceFolder: $(Build.SourcesDirectory)/out/bin/Release/NodeApi/${{ matrixEntry.DotNetMoniker }}/${{ matrixEntry.TargetRuntime }}/publish
+            targetFolder: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
+            contents: Microsoft.JavaScript.NodeApi.node
+
+        - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+          displayName: "📒 Generate Manifest: ${{ matrixEntry.TargetRuntime }}"
+          inputs:
+            BuildDropPath: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
+
+        - task: PublishPipelineArtifact@1
+          displayName: "Publish Artifacts: ${{ matrixEntry.TargetRuntime }}"
+          # Do nothing if the artifact was already published. E.g. after rerunning a past successful job attempt
+          continueOnError: true
+          inputs:
+            artifactName: ${{ matrixEntry.TargetRuntime }}
+            targetPath: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
+
+  - job: createPackages
+    displayName: Create Nuget and NPM packages
+    dependsOn:
+      - ${{ each matrixEntry in parameters.buildMatrix }}:
+        - buildAOTBinary${{ matrixEntry.Name }}
+
+    variables:
+      VMImage: windows-latest
+      TargetRuntime: win-x64
+      DotNetVersion: '7.0.x'
+      DotNetMoniker: net7.0
+      targetRuntimes:
+
+    pool:
+      vmImage: $(VMImage)
+
+    steps:
+      - checkout: self
+        displayName: Deep git fetch for version generation
+        fetchDepth: 0 # Use deep fetch for the version calculation by Nerdbank.GitVersioning
+        clean: false
+        submodules: false
+        lfs: false
+
+      - task: UseDotNet@2
+        displayName: Install .Net
+        inputs:
+          packageType: 'sdk'
+          version: $(DotNetVersion)
+          includePreviewVersions: true
+
+      - script: dotnet build --configuration Release
+        displayName: Build managed assemblies
+
+      - ${{ each matrixEntry in parameters.buildMatrix }}:
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download ${{ matrixEntry.TargetRuntime }} AOT'
+          inputs:
+            artifact: ${{ matrixEntry.TargetRuntime }}
+            path: $(Build.SourcesDirectory)/out/bin/Release/NodeApi/$(DotNetMoniker)/${{ matrixEntry.TargetRuntime }}/publish
+
+      - ${{ each matrixEntry in parameters.buildMatrix }}:
+        - powershell: |
+            Write-Host "##vso[task.setvariable variable=targetRuntimes;]$(targetRuntimes) ${{ matrixEntry.TargetRuntime }}"
+            Write-Host "targetRuntimes: $(targetRuntimes) ${{ matrixEntry.TargetRuntime }}"
+          displayName: 'Create RID list - ${{ matrixEntry.TargetRuntime }}'
+
+      - script: dotnet pack --configuration Release -p:NoPublish=true
+        displayName: Build packages
+        env:
+          RuntimeIdentifierList: $(targetRuntimes)
+
+      - task: CopyFiles@2
+        displayName: Copy packages to staging
+        inputs:
+          sourceFolder: $(Build.SourcesDirectory)/out/pkg
+          targetFolder: $(Build.StagingDirectory)/pkg
+          contents: |
+            *.nupkg
+            *.tgz
+
+      - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+        displayName: 📒 Generate Manifest
+        inputs:
+          BuildDropPath: $(Build.StagingDirectory)/pkg
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish final artifacts"
+        inputs:
+          targetPath: $(Build.StagingDirectory)/pkg
+          artifactName: 'Published Packages'
