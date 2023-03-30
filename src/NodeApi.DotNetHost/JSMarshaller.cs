@@ -26,6 +26,8 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// </remarks>
 public class JSMarshaller
 {
+    private readonly Lazy<JSInterfaceMarshaller> _interfaceMarshaller = new();
+
     private readonly ConcurrentDictionary<Type, Delegate> _fromJSDelegates = new();
     private readonly ConcurrentDictionary<Type, Delegate> _toJSDelegates = new();
     private readonly ConcurrentDictionary<Type, LambdaExpression> _fromJSExpressions = new();
@@ -1299,7 +1301,7 @@ public class JSMarshaller
             // It could be either a wrapped .NET object passed back from JS or a JS object
             // that implements a .NET interface. For the latter case, dynamically build
             // a class that implements the interface by proxying member access to JS.
-            Type adapterType = JSInterfaceMarshaller.Implement(toType, this);
+            Type adapterType = _interfaceMarshaller.Value.Implement(toType, this);
             ConstructorInfo adapterConstructor =
                 adapterType.GetConstructor(new[] { typeof(JSValue) })!;
             statements = new[]

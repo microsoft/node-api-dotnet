@@ -28,4 +28,8 @@
             OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     </ItemGroup>
 
-</Project>
+    <PropertyGroup>
+      <!-- Use a local nuget package cache folder that is easy to wipe when testing. -->
+      <RestorePackagesPath>$(MSBuildThisFileDirectory)..\..\out\pkg</RestorePackagesPath>
+    </PropertyGroup>
+  </Project>
