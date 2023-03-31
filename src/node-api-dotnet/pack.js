@@ -79,7 +79,7 @@ function packGeneratorPackage() {
   const packageStageDir = path.join(outPkgDir, packageName);
   mkdirClean(packageStageDir);
 
-  // Crate a node_modules link so the dependency can be resolved when linked for development.
+  // Create a node_modules link so the dependency can be resolved when linked for development.
   const dependencyPath = path.join(outPkgDir, 'node-api-dotnet');
   const linkPath = path.join(packageStageDir, 'node_modules', 'node-api-dotnet');
   if (!fs.existsSync(path.dirname(linkPath))) fs.mkdirSync(path.dirname(linkPath));

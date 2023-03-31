@@ -8,7 +8,7 @@
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
   </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0' ">
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0' or '$(TargetFramework)' == 'net8.0' ">
     <PublishAot>true</PublishAot>
     <StripSymbols>true</StripSymbols>
     <PublishNodeModule>true</PublishNodeModule>

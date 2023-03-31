@@ -1,10 +1,10 @@
 {
   "name": "node-api-dotnet-generator",
   "version": "0.1.0",
-  "description": "",
+  "description": "Node-API for .Net code generator",
   "main": "index.js",
   "bin": "index.js",
-  "author": "",
+  "author": "Microsoft",
   "license": "MIT",
   "dependencies": {
     "node-api-dotnet": "0.1.0"
