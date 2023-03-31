@@ -24,25 +24,25 @@ parameters:
     - Name: win_x64
       VMImage: windows-latest
       TargetRuntime: win-x64
-      DotNetVersion: '7.0.x'
+      DotNetVersion: 7.0.x
       DotNetMoniker: net7.0
       UseGlobalJson: true
     - Name: osx_x64
       VMImage: macos-latest
       TargetRuntime: osx-x64
-      DotNetVersion: '7.0.x'
+      DotNetVersion: 7.0.x
       DotNetMoniker: net7.0
       UseGlobalJson: true
     - Name: osx_arm64
       VMImage: macos-latest
       TargetRuntime: osx-arm64
-      DotNetVersion: '8.0.x'
+      DotNetVersion: 8.0.x
       DotNetMoniker: net8.0
       UseGlobalJson: false
     - Name: linux_x64
       VMImage: ubuntu-latest
       TargetRuntime: linux-x64
-      DotNetVersion: '7.0.x'
+      DotNetVersion: 7.0.x
       DotNetMoniker: net7.0
       UseGlobalJson: true
 
@@ -66,7 +66,7 @@ jobs:
         - task: UseDotNet@2
           displayName: Install .Net ${{ matrixEntry.DotNetVersion }}
           inputs:
-            packageType: 'sdk'
+            packageType: sdk
             version: ${{ matrixEntry.DotNetVersion }}
             includePreviewVersions: ${{ eq(matrixEntry.UseGlobalJson, false) }}
             useGlobalJson: ${{ matrixEntry.UseGlobalJson }}
@@ -78,9 +78,9 @@ jobs:
           displayName: Print .Net info
 
         - task: DeleteFiles@1 # To enable net8.0 use for osx-arm64
-          displayName: Delete 'global.json'
+          displayName: Delete global.json
           inputs:
-            Contents: 'global.json'
+            Contents: global.json
           condition: eq(${{ matrixEntry.UseGlobalJson }}, false)
 
         - script: >
@@ -121,7 +121,7 @@ jobs:
     variables:
       VMImage: windows-latest
       TargetRuntime: win-x64
-      DotNetVersion: '7.0.x'
+      DotNetVersion: 7.0.x
       DotNetMoniker: net7.0
       UseGlobalJson: true
       TargetRuntimeList:
@@ -140,13 +140,13 @@ jobs:
       - task: UseDotNet@2
         displayName: Install .Net 6.0.x
         inputs:
-          packageType: 'sdk'
-          version: '6.0.x'
+          packageType: sdk
+          version: 6.0.x
 
       - task: UseDotNet@2
         displayName: Install .Net $(DotNetVersion)
         inputs:
-          packageType: 'sdk'
+          packageType: sdk
           version: $(DotNetVersion)
           useGlobalJson: true
 
@@ -178,9 +178,9 @@ jobs:
         displayName: Show RID list
 
       - task: DeleteFiles@1 # Code signing utility requires net6.0 runtime
-        displayName: Delete 'global.json' for CodeSign
+        displayName: Delete global.json for CodeSign
         inputs:
-          Contents: 'global.json'
+          Contents: global.json
 
       - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
         displayName: CodeSign Binaries
@@ -271,4 +271,4 @@ jobs:
         displayName: Publish artifact with packages
         inputs:
           targetPath: $(Build.StagingDirectory)/pkg
-          artifactName: 'Published Packages'
+          artifactName: published-packages
