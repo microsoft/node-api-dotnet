@@ -60,12 +60,7 @@ public class NativeAotTests
       string moduleName,
       string logFilePath)
     {
-        string projectFilePath = Path.Join(
-            TestCasesDirectory, moduleName, moduleName + ".csproj");
-
-        // Auto-generate an empty project file. All project info is inherited from
-        // TestCases/Directory.Build.{props,targets}
-        File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n</Project>\n");
+        string projectFilePath = CreateProjectFile(moduleName);
 
         var properties = new Dictionary<string, string>
         {

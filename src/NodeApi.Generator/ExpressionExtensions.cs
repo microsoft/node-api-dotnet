@@ -112,6 +112,21 @@ internal static class ExpressionExtensions
                 "[" + ToCS(index.Arguments[0], path, variables) + "]",
 
             MethodCallExpression { Method.IsSpecialName: true } call =>
+#if NETFRAMEWORK
+                call.Method.Name.StartsWith("get_") ?
+                    (call.Method.IsStatic ?
+                        FormatType(call.Method.DeclaringType!) +
+                            "." + call.Method.Name.Substring(4):
+                        WithParentheses(call.Object!, path, variables) +
+                            "." + call.Method.Name.Substring(4)) :
+                call.Method.Name.StartsWith("set_") ?
+                    (call.Method.IsStatic ?
+                        FormatType(call.Method.DeclaringType!) +
+                            "." + call.Method.Name.Substring(4) :
+                        WithParentheses(call.Object!, path, variables) +
+                            "." + call.Method.Name.Substring(4) +
+                    " = " + ToCS(call.Arguments.Single(), path, variables)) :
+#else
                 call.Method.Name.StartsWith("get_") ?
                     (call.Method.IsStatic ?
                         string.Concat(FormatType(call.Method.DeclaringType!),
@@ -125,6 +140,7 @@ internal static class ExpressionExtensions
                         string.Concat(WithParentheses(call.Object!, path, variables),
                             ".", call.Method.Name.AsSpan(4))) +
                     " = " + ToCS(call.Arguments.Single(), path, variables) :
+#endif
                 throw new NotImplementedException("Special method not implemented: " + call.Method),
 
             MethodCallExpression call =>

@@ -97,7 +97,13 @@ public partial class NodeStream : Stream
         => Read(buffer.AsSpan(offset, count));
 
     /// <inheritdoc/>
+#pragma warning disable IDE0060 // Unused parameter 'buffer'
+#if NETFRAMEWORK
+    public int Read(Span<byte> buffer)
+#else
     public override int Read(Span<byte> buffer)
+#endif
+#pragma warning restore IDE0060
     {
         // Synchronous reading could block the Node.js event loop while waiting for more data
         // which will never come because data events are dispatched by the event loop.
@@ -114,7 +120,11 @@ public partial class NodeStream : Stream
         => ReadAsync(buffer.AsMemory(offset, count), cancellation).AsTask();
 
     /// <inheritdoc/>
+#if NETFRAMEWORK
+    public async ValueTask<int> ReadAsync(
+#else
     public override async ValueTask<int> ReadAsync(
+#endif
         Memory<byte> buffer,
         CancellationToken cancellation = default)
     {
@@ -190,7 +200,11 @@ public partial class NodeStream : Stream
     }
 
     /// <inheritdoc/>
+#if NETFRAMEWORK
+    public async ValueTask WriteAsync(
+#else
     public override async ValueTask WriteAsync(
+#endif
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellation = default)
     {

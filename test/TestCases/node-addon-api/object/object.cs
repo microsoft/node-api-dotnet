@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Microsoft.JavaScript.NodeApi;
 
@@ -133,9 +134,9 @@ public partial class TestObject : TestHelper, ITestObject
         JSValue obj = args[0];
         long sum = 0;
 
-        foreach ((JSValue _, JSValue value) in obj.Properties)
+        foreach (KeyValuePair<JSValue, JSValue> pair in obj.Properties)
         {
-            sum += (long)value;
+            sum += (long)pair.Value;
         }
 
         return sum;
@@ -145,9 +146,9 @@ public partial class TestObject : TestHelper, ITestObject
     {
         JSValue obj = args[0];
 
-        foreach ((JSValue name, JSValue value) in obj.Properties)
+        foreach (KeyValuePair<JSValue, JSValue> pair in obj.Properties)
         {
-            obj[name] = (long)value + 1;
+            obj[pair.Key] = (long)pair.Value + 1;
         }
 
         return JSValue.Undefined;

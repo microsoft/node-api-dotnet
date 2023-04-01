@@ -28,14 +28,24 @@ internal record struct JSErrorInfo(string? Message, napi_status Status)
 
         if (errorInfo->error_message != null)
         {
-            string message = Encoding.UTF8.GetString(
-                MemoryMarshal.CreateReadOnlySpanFromNullTerminated(errorInfo->error_message));
+#if NETFRAMEWORK
+            string message = PtrToStringUTF8(errorInfo->error_message)!;
+#else
+            string message = Marshal.PtrToStringUTF8((nint)errorInfo->error_message)!;
+#endif
             return new JSErrorInfo(message, errorInfo->error_code);
         }
 
         return new JSErrorInfo(null, errorInfo->error_code);
     }
 
+    private static unsafe string? PtrToStringUTF8(byte* ptr)
+    {
+        if (ptr == null) return null;
+        int length = 0;
+        while (ptr[length] != 0) length++;
+        return Encoding.UTF8.GetString(ptr, length);
+    }
 }
 
 public struct JSError
@@ -221,7 +231,9 @@ public struct JSError
         // Attempting to create a reference on the error object.
         // If it's not a Object/Function/Symbol, this call will return an error status.
         if (JSReference.TryCreateReference(error, isWeak: false, out JSReference? errorRef))
-            return errorRef;
+        {
+            return errorRef!;
+        }
 
         using var fataScope = new FatalIfFailedScope();
 
@@ -279,7 +291,7 @@ public static partial class JSNativeApi
             message = status.ToString();
         }
 
-        JSError.Fatal(message, memberName, sourceFilePath, sourceLineNumber);
+        JSError.Fatal(message!, memberName, sourceFilePath, sourceLineNumber);
     }
 
     public static void ThrowIfFailed([DoesNotReturnIf(true)] this napi_status status,

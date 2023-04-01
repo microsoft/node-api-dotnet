@@ -27,10 +27,7 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public JSValue(napi_value handle, JSValueScope? scope)
     {
-        if (!handle.IsNull)
-        {
-            ArgumentNullException.ThrowIfNull(scope);
-        }
+        if (!handle.IsNull && scope is null) throw new ArgumentNullException(nameof(scope));
         _handle = handle;
         _scope = scope;
     }
@@ -129,6 +126,16 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
     }
 
+    public static unsafe JSValue CreateStringUtf16(string value)
+    {
+        fixed (char* spanPtr = value)
+        {
+            return napi_create_string_utf16(
+                Env, spanPtr, (nuint)value.Length, out napi_value result)
+                .ThrowIfFailed(result);
+        }
+    }
+
     public static JSValue CreateSymbol(JSValue description)
         => napi_create_symbol(
             Env, (napi_value)description, out napi_value result).ThrowIfFailed(result);
@@ -164,19 +171,49 @@ public readonly struct JSValue : IEquatable<JSValue>
             utf8Name,
             new napi_callback(
                 JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
-                &InvokeJSCallbackNoContext : &InvokeJSCallback),
+                s_invokeJSCallbackNC : s_invokeJSCallback),
             (nint)descriptorHandle);
         func.AddGCHandleFinalizer((nint)descriptorHandle);
         return func;
     }
 
-    public static JSValue CreateFunction(
+#if NETFRAMEWORK
+    private static unsafe JSValue CreateFunction(
+        byte* utf8Name, int utf8NameLength, JSCallback callback, object? callbackData = null)
+    {
+        GCHandle descriptorHandle = GCHandle.Alloc(
+            new JSCallbackDescriptor(callback, callbackData));
+        JSValue func = napi_create_function(
+            Env,
+            utf8Name,
+            (nuint)utf8NameLength,
+            new napi_callback(
+                JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
+                s_invokeJSCallbackNC : s_invokeJSCallback),
+            (nint)descriptorHandle, out napi_value result)
+            .ThrowIfFailed(result);
+        func.AddGCHandleFinalizer((nint)descriptorHandle);
+        return func;
+    }
+#endif
+
+    public static unsafe JSValue CreateFunction(
         string name, JSCallback callback, object? callbackData = null)
     {
+#if NETFRAMEWORK
+        int byteCount = Encoding.UTF8.GetByteCount(name);
+        byte* utf8Name = stackalloc byte[byteCount];
+        fixed (char* pName = name)
+        {
+            Encoding.UTF8.GetBytes(pName, name.Length, utf8Name, byteCount);
+        }
+        return CreateFunction(utf8Name, byteCount, callback, callbackData);
+#else
         int byteCount = Encoding.UTF8.GetByteCount(name);
         Span<byte> utf8Name = stackalloc byte[byteCount];
         Encoding.UTF8.GetBytes(name, utf8Name);
         return CreateFunction(utf8Name, callback, callbackData);
+#endif
     }
 
     public static JSValue CreateError(JSValue? code, JSValue message)
@@ -201,7 +238,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         return napi_create_external(
             Env,
             (nint)valueHandle,
-            new napi_finalize(&FinalizeGCHandle),
+            new napi_finalize(s_finalizeGCHandle),
             default,
             out napi_value result)
             .ThrowIfFailed(result);
@@ -231,7 +268,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             (nint)pinnedMemory.Pointer,
             (nuint)pinnedMemory.Length,
             // We pass object to finalize as a hint parameter
-            new napi_finalize(&FinalizeHintHandle),
+            new napi_finalize(s_finalizeHintHandle),
             (nint)GCHandle.Alloc(pinnedMemory),
             out napi_value result)
             .ThrowIfFailed(result);

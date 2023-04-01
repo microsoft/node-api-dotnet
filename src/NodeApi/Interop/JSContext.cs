@@ -341,6 +341,7 @@ public sealed class JSContext : IDisposable
             });
     }
 
+#if !NETFRAMEWORK
     public JSValue GetOrCreateCollectionWrapper<T>(
         IReadOnlySet<T> collection,
         JSValue.From<T> toJS,
@@ -355,6 +356,7 @@ public sealed class JSContext : IDisposable
                 return new JSProxy(new JSSet(), proxyHandler, collection);
             });
     }
+#endif // !NETFRAMEWORK
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         ISet<T> collection,

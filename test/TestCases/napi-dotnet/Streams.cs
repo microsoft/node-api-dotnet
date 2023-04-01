@@ -34,12 +34,21 @@ public static class Streams
     {
         using Stream fileStream = File.OpenRead(filePath);
 
+#if NETFRAMEWORK
+        byte[] buffer = new byte[4096];
+        int count;
+        while ((count = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        {
+            await toStream.WriteAsync(buffer, 0, count);
+        }
+#else
         Memory<byte> buffer = new byte[4096].AsMemory();
         int count;
         while ((count = await fileStream.ReadAsync(buffer)) > 0)
         {
             await toStream.WriteAsync(buffer.Slice(0, count));
         }
+#endif
     }
 
     /// <summary>
@@ -49,12 +58,21 @@ public static class Streams
     {
         using Stream fileStream = File.Create(filePath);
 
+#if NETFRAMEWORK
+        byte[] buffer = new byte[4096];
+        int count;
+        while ((count = await fromStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        {
+            await fileStream.WriteAsync(buffer, 0, count);
+        }
+#else
         Memory<byte> buffer = new byte[4096].AsMemory();
         int count;
         while ((count = await fromStream.ReadAsync(buffer)) > 0)
         {
             await fileStream.WriteAsync(buffer.Slice(0, count));
         }
+#endif
     }
 }
 

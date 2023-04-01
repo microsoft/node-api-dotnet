@@ -22,22 +22,24 @@ internal static class TypeExtensions
     private const BindingFlags PublicStatic = ExactPublic | BindingFlags.Static;
     private const BindingFlags PublicInstance = ExactPublic | BindingFlags.Instance;
 
-    private static readonly Type[] s_oneGenericMethodParam = new[]
+#if !NETFRAMEWORK
+    private static readonly Type[] s_oneGenericMethodParam = new Type[]
     {
         Type.MakeGenericMethodParameter(0),
     };
-    private static readonly Type[] s_twoGenericMethodParams = new[]
+    private static readonly Type[] s_twoGenericMethodParams = new Type[]
     {
         Type.MakeGenericMethodParameter(0),
         Type.MakeGenericMethodParameter(1),
     };
+#endif
 
     public static object CreateInstance(
         this Type type, Type[]? types = null, object?[]? args = null)
         => type.GetInstanceConstructor(types ?? Array.Empty<Type>()).Invoke(args);
 
     public static ConstructorInfo GetInstanceConstructor(this Type type, Type[] types)
-        => type.GetConstructor(PublicInstance, types) ??
+        => type.GetConstructor(types) ??
             throw new MissingMemberException($"Constructor not found on type {type.Name}.");
 
     public static PropertyInfo GetStaticProperty(this Type type, string name)
@@ -61,25 +63,9 @@ internal static class TypeExtensions
                 $"Static method {name} not found on type {type.Name}.");
 
     public static MethodInfo GetStaticMethod(this Type type, string name, Type[] types)
-        => type.GetMethod(name, PublicStatic, types) ??
+        => type.GetMethod(name, PublicStatic, binder: null, types, modifiers: null) ??
             throw new MissingMemberException(
                 $"Static method {name}({string.Join(", ", types.Select((t) => t.Name))}) " +
-                $"not found on type {type.Name}.");
-
-    public static MethodInfo GetStaticMethod(
-        this Type type, string name, Type[] types, Type genericArg)
-        => type.GetMethod(name, PublicStatic, MakeGenericTypes(types, s_oneGenericMethodParam))
-            ?.MakeGenericMethod(genericArg) ??
-            throw new MissingMemberException(
-                $"Static method {name}<T>({string.Join(", ", types.Select((t) => t.Name))}) " +
-                $"not found on type {type.Name}.");
-
-    public static MethodInfo GetStaticMethod(
-        this Type type, string name, Type[] types, Type genericArgOne, Type genericArgTwo)
-        => type.GetMethod(name, PublicStatic, MakeGenericTypes(types, s_twoGenericMethodParams))
-            ?.MakeGenericMethod(genericArgOne, genericArgTwo) ??
-            throw new MissingMemberException(
-                $"Static method {name}<K,V>({string.Join(", ", types.Select((t) => t.Name))}) " +
                 $"not found on type {type.Name}.");
 
     public static MethodInfo GetInstanceMethod(this Type type, string name)
@@ -88,35 +74,19 @@ internal static class TypeExtensions
                 $"Instance method {name} not found on type {type.Name}.");
 
     public static MethodInfo GetInstanceMethod(this Type type, string name, Type[] types)
-        => type.GetMethod(name, PublicInstance, types) ??
+        => type.GetMethod(name, PublicInstance, binder: null, types, modifiers: null) ??
             throw new MissingMemberException(
                 $"Instance method {name}({string.Join(", ", types.Select((t) => t.Name))}) " +
                 $"not found on type {type.Name}.");
 
-    public static MethodInfo GetInstanceMethod(
-        this Type type, string name, Type[] types, Type genericArg)
-        => type.GetMethod(name, PublicInstance, MakeGenericTypes(types, s_oneGenericMethodParam))
-            ?.MakeGenericMethod(genericArg) ??
-            throw new MissingMemberException(
-                $"Instance method {name}<T>({string.Join(", ", types.Select((t) => t.Name))}) " +
-                $"not found on type {type.Name}.");
-
-    public static MethodInfo GetInstanceMethod(
-        this Type type, string name, Type[] types, Type genericArgOne, Type genericArgTwo)
-        => type.GetMethod(name, PublicInstance, MakeGenericTypes(types, s_twoGenericMethodParams))
-            ?.MakeGenericMethod(genericArgOne, genericArgTwo) ??
-            throw new MissingMemberException(
-                $"Instance method {name}<K,V>({string.Join(", ", types.Select((t) => t.Name))}) " +
-                $"not found on type {type.Name}.");
-
     public static MethodInfo GetExplicitConversion(
-        this Type declaringType, Type fromType, Type toType)
-        => declaringType.GetMethods(PublicStatic)
-            .Where((m) => m.Name == "op_Explicit" && m.ReturnType == toType &&
-                m.GetParameters()[0].ParameterType == fromType).SingleOrDefault() ??
-            throw new MissingMemberException(
-                $"Explicit conversion method for {fromType.Name}->{toType.Name} " +
-                $"not found on type {declaringType.Name}.");
+    this Type declaringType, Type fromType, Type toType)
+    => declaringType.GetMethods(PublicStatic)
+        .Where((m) => m.Name == "op_Explicit" && m.ReturnType == toType &&
+            m.GetParameters()[0].ParameterType == fromType).SingleOrDefault() ??
+        throw new MissingMemberException(
+            $"Explicit conversion method for {fromType.Name}->{toType.Name} " +
+            $"not found on type {declaringType.Name}.");
 
     public static MethodInfo GetImplicitConversion(
         this Type declaringType, Type fromType, Type toType)
@@ -126,6 +96,125 @@ internal static class TypeExtensions
             throw new MissingMemberException(
                 $"Explicit conversion method for {fromType.Name}->{toType.Name} " +
                 $"not found on type {declaringType.Name}.");
+
+#if NETFRAMEWORK
+
+    public static MethodInfo GetStaticMethod(
+        this Type type, string name, Type[] types, Type genericArg)
+    {
+        return type.GetMethods(PublicStatic)
+            .Where((m) => m.Name == name && m.IsGenericMethodDefinition &&
+                m.GetGenericArguments().Length == 1 &&
+                ParameterTypesEqual(m.GetParameters(), types))
+            .Select((m) => m.MakeGenericMethod(genericArg))
+            .SingleOrDefault() ??
+            throw new MissingMemberException(
+                $"Static method {name}<>({string.Join(", ", types.Select((t) => t.Name))}) " +
+                $"not found on type {type.Name}.");
+    }
+
+    public static MethodInfo GetStaticMethod(
+        this Type type, string name, Type[] types, Type genericArgOne, Type genericArgTwo)
+    {
+        return type.GetMethods(PublicStatic)
+            .Where((m) => m.Name == name && m.IsGenericMethodDefinition &&
+                m.GetGenericArguments().Length == 2 &&
+                ParameterTypesEqual(m.GetParameters(), types))
+            .Select((m) => m.MakeGenericMethod(genericArgOne, genericArgTwo))
+            .SingleOrDefault() ??
+            throw new MissingMemberException(
+                $"Static method {name}<,>({string.Join(", ", types.Select((t) => t.Name))}) " +
+                $"not found on type {type.Name}.");
+    }
+
+    public static MethodInfo GetInstanceMethod(
+        this Type type, string name, Type[] types, Type genericArg)
+    {
+        return type.GetMethods(PublicInstance)
+            .Where((m) => m.Name == name && m.IsGenericMethodDefinition &&
+                m.GetGenericArguments().Length == 1 &&
+                ParameterTypesEqual(m.GetParameters(), types))
+            .Select((m) => m.MakeGenericMethod(genericArg))
+            .SingleOrDefault() ??
+            throw new MissingMemberException(
+                $"Instance method {name}<>({string.Join(", ", types.Select((t) => t.Name))}) " +
+                $"not found on type {type.Name}.");
+    }
+
+    public static MethodInfo GetInstanceMethod(
+        this Type type, string name, Type[] types, Type genericArgOne, Type genericArgTwo)
+    {
+        return type.GetMethods(PublicInstance)
+            .Where((m) => m.Name == name && m.IsGenericMethodDefinition &&
+                m.GetGenericArguments().Length == 2 &&
+                ParameterTypesEqual(m.GetParameters(), types))
+            .Select((m) => m.MakeGenericMethod(genericArgOne, genericArgTwo))
+            .SingleOrDefault() ??
+            throw new MissingMemberException(
+                $"Instance method {name}<,>({string.Join(", ", types.Select((t) => t.Name))}) " +
+                $"not found on type {type.Name}.");
+    }
+
+    private static bool ParameterTypesEqual(ParameterInfo[] parameters, Type[] types)
+    {
+        // Reflection in .NET Framework does not support generic perameters as well.
+        // So it's necessary to scan all the methods and try to match parameter types
+        // by comparing generic type definitions.
+
+        if (parameters.Length != types.Length) return false;
+
+        for (int i = 0; i <  parameters.Length; i++)
+        {
+            Type parameterType = parameters[i].ParameterType;
+            if (parameterType.IsGenericType)
+            {
+                if (!parameterType.GetGenericTypeDefinition().Equals(types[i]))
+                {
+                    return false;
+                }
+            }
+            else if (!parameterType.Equals(types[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+#else // !NETFRAMEWORK
+
+    public static MethodInfo GetStaticMethod(
+        this Type type, string name, Type[] types, Type genericArg)
+        => type.GetMethod(name, PublicStatic, binder: null, MakeGenericTypes(types, s_oneGenericMethodParam), modifiers: null)
+            ?.MakeGenericMethod(genericArg) ??
+            throw new MissingMemberException(
+                $"Static method {name}<T>({string.Join(", ", types.Select((t) => t.Name))}) " +
+                $"not found on type {type.Name}.");
+
+    public static MethodInfo GetStaticMethod(
+        this Type type, string name, Type[] types, Type genericArgOne, Type genericArgTwo)
+        => type.GetMethod(name, PublicStatic, binder: null, MakeGenericTypes(types, s_twoGenericMethodParams), modifiers: null)
+            ?.MakeGenericMethod(genericArgOne, genericArgTwo) ??
+            throw new MissingMemberException(
+                $"Static method {name}<K,V>({string.Join(", ", types.Select((t) => t.Name))}) " +
+                $"not found on type {type.Name}.");
+
+    public static MethodInfo GetInstanceMethod(
+        this Type type, string name, Type[] types, Type genericArg)
+        => type.GetMethod(name, PublicInstance, binder: null, MakeGenericTypes(types, s_oneGenericMethodParam), modifiers: null)
+            ?.MakeGenericMethod(genericArg) ??
+            throw new MissingMemberException(
+                $"Instance method {name}<T>({string.Join(", ", types.Select((t) => t.Name))}) " +
+                $"not found on type {type.Name}.");
+
+    public static MethodInfo GetInstanceMethod(
+        this Type type, string name, Type[] types, Type genericArgOne, Type genericArgTwo)
+        => type.GetMethod(name, PublicInstance, binder: null, MakeGenericTypes(types, s_twoGenericMethodParams), modifiers: null)
+            ?.MakeGenericMethod(genericArgOne, genericArgTwo) ??
+            throw new MissingMemberException(
+                $"Instance method {name}<K,V>({string.Join(", ", types.Select((t) => t.Name))}) " +
+                $"not found on type {type.Name}.");
 
     private static Type[] MakeGenericTypes(Type[] types, Type[] typeArgs)
     {
@@ -152,4 +241,6 @@ internal static class TypeExtensions
             })
             .ToArray();
     }
+
+#endif // !NETFRAMEWORK
 }

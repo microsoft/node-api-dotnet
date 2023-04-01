@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#if !NETFRAMEWORK
+
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -250,3 +252,5 @@ internal static partial class HostFxr
         HostFeatureDisabled = 0x800080a7,
     }
 }
+
+#endif // NETFRAMEWORK

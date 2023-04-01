@@ -18,7 +18,13 @@ public class HostedClrTests
     private static readonly Dictionary<string, string?> s_builtTestModules = new();
     private static readonly Lazy<string> s_builtHostModule = new(() => BuildHostModule());
 
+#if NETFRAMEWORK
+    // The .NET Framework host does not yet support multiple instances of a module.
+    public static IEnumerable<object[]> TestCases { get; } = ListTestCases(
+        (testCaseName) => !testCaseName.Contains("/multi_instance"));
+#else
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases();
+#endif
 
     [Theory]
     [MemberData(nameof(TestCases))]
@@ -37,11 +43,6 @@ public class HostedClrTests
 
             if (moduleFilePath != null)
             {
-                if (moduleName != "napi-dotnet-init")
-                {
-                    BuildTypeDefinitions(moduleName, moduleFilePath);
-                }
-
                 BuildTestModuleTypeScript(moduleName);
             }
 
@@ -69,13 +70,14 @@ public class HostedClrTests
         hostFilePath = hostFilePath2;
 
         // TODO: Support compiling TS files to JS.
-        string jsFilePath = Path.Join(TestCasesDirectory, moduleName, testCasePath + ".js");
+        string jsFilePath = Path.Combine(TestCasesDirectory, moduleName, testCasePath + ".js");
 
         string runLogFilePath = GetRunLogFilePath("hosted", moduleName, testCasePath);
         RunNodeTestCase(jsFilePath, runLogFilePath, new Dictionary<string, string>
         {
             [ModulePathEnvironmentVariableName] = moduleFilePath,
             [HostPathEnvironmentVariableName] = hostFilePath,
+            [DotNetVersionEnvironmentVariableName] = GetCurrentFrameworkTarget(),
 
             // CLR host tracing (very verbose).
             // This will cause the test to always fail because tracing writes to stderr.
@@ -85,12 +87,12 @@ public class HostedClrTests
 
     private static string BuildHostModule()
     {
-        string projectFilePath = Path.Join(RepoRootDirectory, "src", "NodeApi", "NodeApi.csproj");
+        string projectFilePath = Path.Combine(RepoRootDirectory, "src", "NodeApi", "NodeApi.csproj");
 
-        string logDir = Path.Join(
+        string logDir = Path.Combine(
             RepoRootDirectory, "out", "obj", Configuration);
         Directory.CreateDirectory(logDir);
-        string logFilePath = Path.Join(logDir, "publish-host.log");
+        string logFilePath = Path.Combine(logDir, "publish-host.log");
 
         var properties = new Dictionary<string, string>
         {
@@ -125,12 +127,7 @@ public class HostedClrTests
       string moduleName,
       string logFilePath)
     {
-        string projectFilePath = Path.Join(
-            TestCasesDirectory, moduleName, moduleName + ".csproj");
-
-        // Auto-generate an empty project file. All project info is inherited from
-        // TestCases/Directory.Build.{props,targets}
-        File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n</Project>\n");
+        string projectFilePath = CreateProjectFile(moduleName);
 
         var properties = new Dictionary<string, string>
         {

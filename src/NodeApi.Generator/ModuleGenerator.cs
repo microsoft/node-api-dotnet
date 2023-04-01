@@ -278,9 +278,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "{";
 
         // The unmanaged entrypoint is used only when the AOT-compiled module is loaded.
+        s += "#if !NETFRAMEWORK";
         s += $"[UnmanagedCallersOnly(EntryPoint = \"{ModuleRegisterFunctionName}\")]";
         s += $"public static napi_value _{ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += $"{s.Indent}=> {ModuleInitializeMethodName}(env, exports);";
+        s += "#endif";
         s++;
 
         // The main initialization entrypoint is called by the `ManagedHost`, and by the unmanaged entrypoint.
@@ -765,7 +767,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         _marshaller.BuildToJSPropertyGetExpression(property.AsPropertyInfo());
                     s += "get";
                     string cs = ReplaceMethodVariables(getterAdapter.ToCS());
-                    s += string.Join("\n", cs.Split("\n").Skip(1));
+                    s += string.Join("\n", cs.Split('\n').Skip(1));
                 }
 
                 if (!property.IsReadOnly)
@@ -774,7 +776,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         _marshaller.BuildToJSPropertySetExpression(property.AsPropertyInfo());
                     s += "set";
                     string cs = ReplaceMethodVariables(setterAdapter.ToCS());
-                    s += string.Join("\n", cs.Split("\n").Skip(1));
+                    s += string.Join("\n", cs.Split('\n').Skip(1));
                 }
 
                 s += "}";

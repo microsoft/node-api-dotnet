@@ -12,11 +12,11 @@ namespace Microsoft.JavaScript.NodeApi.TestCases;
 [JSExport]
 public static class Counter
 {
-    private static uint s_count;
+    private static int s_count;
 
-    public static uint Count()
+    public static int Count()
     {
-        uint result = Interlocked.Increment(ref s_count);
+        int result = Interlocked.Increment(ref s_count);
 
         Console.WriteLine($"Counter.Count() => {result}");
 

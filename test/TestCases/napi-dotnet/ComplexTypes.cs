@@ -42,7 +42,9 @@ public static class ComplexTypes
 
     public static ISet<int> Set { get; set; } = new HashSet<int>();
 
+#if !NETFRAMEWORK
     public static IReadOnlySet<int> ReadOnlySet { get; set; } = new HashSet<int>();
+#endif
 
     public static IDictionary<int, string> Dictionary { get; set; } = new Dictionary<int, string>();
 

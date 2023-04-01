@@ -7,6 +7,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
+using System.Text;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -50,14 +51,27 @@ public static partial class JSNativeApi
 
         [DllImport("libdl")]
         private static extern nint dlopen(nint fileName, int flags);
-        
+
         private const int RTLD_LAZY = 1;
-#endif
+#endif // !NET7_0_OR_GREATER
+
+#if NETFRAMEWORK
+        [DllImport("kernel32")]
+        private static extern nint GetProcAddress(nint hModule, string procName);
+
+        private static class NativeLibrary
+        {
+            public static nint GetExport(nint handle, string name)
+            {
+                return GetProcAddress(handle, name);
+            }
+        }
+#endif // NETFRAMEWORK
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate napi_value napi_register_module_v1(napi_env env, napi_value exports);
 
-        public static readonly nuint NAPI_AUTO_LENGTH = nuint.MaxValue;
+        public static readonly nuint NAPI_AUTO_LENGTH = unchecked((nuint)(-1));
 
         private struct FunctionFields
         {
@@ -315,19 +329,35 @@ public static partial class JSNativeApi
 
         public struct napi_callback
         {
-            public delegate* unmanaged[Cdecl]<napi_env, napi_callback_info, napi_value> Handle;
+            public nint Handle;
 
-            public napi_callback(delegate* unmanaged[Cdecl]<
-                    napi_env, napi_callback_info, napi_value> handle)
-                => Handle = handle;
+#if NETFRAMEWORK
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            public delegate napi_value Delegate(napi_env env, napi_callback_info callbackInfo);
+
+            public napi_callback(napi_callback.Delegate callback)
+                => Handle = Marshal.GetFunctionPointerForDelegate(callback);
+#else
+            public napi_callback(
+                delegate* unmanaged[Cdecl]<napi_env, napi_callback_info, napi_value> handle)
+                => Handle = (nint)handle;
+#endif
         }
 
         public struct napi_finalize
         {
-            public delegate* unmanaged[Cdecl]<napi_env, nint, nint, void> Handle;
+            public nint Handle;
 
+#if NETFRAMEWORK
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            public delegate void Delegate(napi_env env, nint data, nint hint);
+
+            public napi_finalize(napi_finalize.Delegate callback)
+                => Handle = Marshal.GetFunctionPointerForDelegate(callback);
+#else
             public napi_finalize(delegate* unmanaged[Cdecl]<napi_env, nint, nint, void> handle)
-                => Handle = handle;
+                => Handle = (nint)handle;
+#endif
         }
 
         public struct napi_property_descriptor
@@ -872,7 +902,8 @@ public static partial class JSNativeApi
                     (nint)constructor.Handle,
                     data,
                     (nint)property_count,
-                    properties, (nint)result_native);
+                    properties,
+                    (nint)result_native);
             }
         }
 
@@ -1689,17 +1720,27 @@ public static partial class JSNativeApi
             var funcDelegate = (delegate* unmanaged[Cdecl]<
                 napi_env, nint, nint, napi_status>)funcHandle;
 
-            nint value1_native = value1 == null ? default : Marshal.StringToCoTaskMemUTF8(value1);
-            nint value2_native = value2 == null ? default : Marshal.StringToCoTaskMemUTF8(value2);
+            nint value1_native = value1 == null ? default : StringToHGlobalUtf8(value1);
+            nint value2_native = value2 == null ? default : StringToHGlobalUtf8(value2);
             try
             {
                 return funcDelegate(env, value1_native, value2_native);
             }
             finally
             {
-                if (value1_native != default) Marshal.FreeCoTaskMem(value1_native);
-                if (value2_native != default) Marshal.FreeCoTaskMem(value2_native);
+                if (value1_native != default) Marshal.FreeHGlobal(value1_native);
+                if (value2_native != default) Marshal.FreeHGlobal(value2_native);
             }
+        }
+
+        internal static nint StringToHGlobalUtf8(string s)
+        {
+            if (s == null) return default;
+            byte[] bytes = Encoding.UTF8.GetBytes(s);
+            nint ptr = Marshal.AllocHGlobal(bytes.Length + 1);
+            Marshal.Copy(bytes, 0, ptr, bytes.Length);
+            Marshal.WriteByte(ptr, bytes.Length, 0);
+            return ptr;
         }
     }
 }

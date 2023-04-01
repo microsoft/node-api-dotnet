@@ -30,7 +30,7 @@ public static class TaskExtensions
 
     public static JSPromise AsPromise(this Task task)
     {
-        if (task.IsCompletedSuccessfully)
+        if (task.Status == TaskStatus.RanToCompletion)
         {
             return JSPromise.Resolve();
         }
@@ -44,7 +44,7 @@ public static class TaskExtensions
 
     public static JSPromise AsPromise(this Task<JSValue> task)
     {
-        if (task.IsCompletedSuccessfully)
+        if (task.Status == TaskStatus.RanToCompletion)
         {
             return JSPromise.Resolve(task.Result);
         }
@@ -58,7 +58,7 @@ public static class TaskExtensions
 
     public static JSPromise AsPromise<T>(this Task<T> task, JSValue.From<T> toJS)
     {
-        if (task.IsCompletedSuccessfully)
+        if (task.Status == TaskStatus.RanToCompletion)
         {
             return JSPromise.Resolve(toJS(task.Result));
         }

@@ -22,13 +22,47 @@ namespace Microsoft.JavaScript.NodeApi.Generator;
 /// </remarks>
 internal static class SymbolExtensions
 {
-    private static readonly Dictionary<string, Type> s_symbolicTypes = new();
-    private static readonly AssemblyBuilder s_assemblyBuilder =
-        AssemblyBuilder.DefineDynamicAssembly(
-            new AssemblyName(typeof(SymbolExtensions).FullName!),
-            AssemblyBuilderAccess.Run);
-    private static readonly ModuleBuilder s_moduleBuilder =
-        s_assemblyBuilder.DefineDynamicModule(typeof(SymbolExtensions).Name);
+    // The type cache must be thread-static (and initialized by each thread)
+    // because the build server may keep the analyzer in memory and re-use it
+    // across multiple compilations.
+
+    [ThreadStatic]
+    private static AssemblyBuilder? s_assemblyBuilder;
+
+    [ThreadStatic]
+    private static ModuleBuilder? s_moduleBuilder;
+
+    [ThreadStatic]
+    private static Dictionary<string, Type>? s_symbolicTypes;
+
+    private static ModuleBuilder ModuleBuilder
+    {
+        get
+        {
+            if (s_moduleBuilder == null)
+            {
+#pragma warning disable RS1035 // Environment is banned for use by analyzers
+                // Use a unique assembly name per thread.
+                string assemblyName = typeof(SymbolExtensions).FullName +
+                    "_" + Environment.CurrentManagedThreadId;
+#pragma warning restore RS1035
+                s_assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
+                    new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
+                s_moduleBuilder = s_assemblyBuilder.DefineDynamicModule(
+                    typeof(SymbolExtensions).Name);
+            }
+            return s_moduleBuilder;
+        }
+    }
+
+    private static IDictionary<string, Type> SymbolicTypes
+    {
+        get
+        {
+            s_symbolicTypes ??= new Dictionary<string, Type>();
+            return s_symbolicTypes;
+        }
+    }
 
     /// <summary>
     /// Gets either the actual type (if it is a system type) or a symbolic type
@@ -69,7 +103,7 @@ internal static class SymbolExtensions
             return systemType;
         }
 
-        if (s_symbolicTypes.TryGetValue(typeFullName, out Type? symbolicType))
+        if (SymbolicTypes.TryGetValue(typeFullName, out Type? symbolicType))
         {
             if (genericArguments.Length > 0)
             {
@@ -91,7 +125,7 @@ internal static class SymbolExtensions
         };
 
         // Update the map entry to refer to the built type instead of the type builder.
-        s_symbolicTypes[typeFullName] = symbolicType;
+        SymbolicTypes[typeFullName] = symbolicType;
 
         if (genericArguments.Length > 0)
         {
@@ -107,7 +141,7 @@ internal static class SymbolExtensions
         string typeFullName)
     {
         Type underlyingType = ((INamedTypeSymbol)typeSymbol).EnumUnderlyingType!.AsType();
-        EnumBuilder enumBuilder = s_moduleBuilder.DefineEnum(
+        EnumBuilder enumBuilder = ModuleBuilder.DefineEnum(
             typeFullName, TypeAttributes.Public, underlyingType);
         foreach (IFieldSymbol fieldSymbol in typeSymbol.GetMembers().OfType<IFieldSymbol>())
         {
@@ -126,13 +160,13 @@ internal static class SymbolExtensions
             attributes |= TypeAttributes.Interface;
         }
 
-        TypeBuilder typeBuilder = s_moduleBuilder.DefineType(
+        TypeBuilder typeBuilder = ModuleBuilder.DefineType(
             name: typeFullName,
             attributes,
             parent: typeSymbol.BaseType?.AsType());
 
         // Add the type builder to the map while building it, to support circular references.
-        s_symbolicTypes.Add(typeFullName, typeBuilder);
+        SymbolicTypes.Add(typeFullName, typeBuilder);
 
         foreach (Type interfaceType in typeSymbol.Interfaces.Select(AsType))
         {
@@ -174,7 +208,6 @@ internal static class SymbolExtensions
             {
                 Type attributeType = attribute.AttributeClass.AsType();
                 ConstructorInfo constructor = attributeType.GetConstructor(
-                    BindingFlags.Public | BindingFlags.Instance,
                     attribute.ConstructorArguments.Select((a) => a.Type!.AsType()).ToArray()) ??
                     throw new MissingMemberException(
                         $"Constructor not found for attribute: {attributeType.Name}");
@@ -304,7 +337,6 @@ internal static class SymbolExtensions
 
         Type type = methodSymbol.ContainingType.AsType();
         ConstructorInfo? constructorInfo = type.GetConstructor(
-            BindingFlags.Public | BindingFlags.Instance,
             methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
         return constructorInfo ?? throw new InvalidOperationException(
                 $"Constructor not found for type: {type.Name}");
@@ -321,7 +353,9 @@ internal static class SymbolExtensions
         MethodInfo? methodInfo = type.GetMethod(
             methodSymbol.Name,
             bindingFlags,
-            methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
+            binder: null,
+            methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray(),
+            modifiers: null);
         return methodInfo ?? throw new InvalidOperationException(
                 $"Method not found: {type.Name}.{methodSymbol.Name}");
     }

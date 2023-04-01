@@ -52,7 +52,11 @@ internal class SourceBuilder : SourceText
 
     private void AppendLine(string line)
     {
+#if NETFRAMEWORK
+        if (line.Contains("\n"))
+#else
         if (line.Contains('\n'))
+#endif
         {
             foreach (string singleLine in line.Split('\n'))
             {

@@ -13,7 +13,7 @@
     Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' "
   >
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; &quot;$(TargetPath)&quot; &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot;"
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
   <Target Name="PublishNodeApiTypeDefinitions"

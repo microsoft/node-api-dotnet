@@ -4,8 +4,9 @@
 const assert = require('assert');
 
 const dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
+const dotnetVersion = process.env.TEST_DOTNET_VERSION;
 const dotnet = require(dotnetHost)
-  .initialize(dotnetHost.replace(/\.node$/, '.DotNetHost.dll'));
+  .initialize(dotnetVersion, dotnetHost.replace(/\.node$/, '.DotNetHost.dll'));
 
 const Console = dotnet.Console;
 Console.WriteLine('Hello from .NET!');

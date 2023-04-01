@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Microsoft.JavaScript.NodeApi.Generator;
+using System.Text;
 using Xunit;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
@@ -17,13 +17,10 @@ namespace Microsoft.JavaScript.NodeApi.Test;
 /// </summary>
 internal static class TestBuilder
 {
-    // JS code loads test modules via these environment variables:
-    //     const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
-    //     const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
-    //     const test = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
-    // (A real module would choose between one or the other, so its require code would be simpler.)
+    // JS code locates test modules using these environment variables.
     public const string ModulePathEnvironmentVariableName = "TEST_DOTNET_MODULE_PATH";
     public const string HostPathEnvironmentVariableName = "TEST_DOTNET_HOST_PATH";
+    public const string DotNetVersionEnvironmentVariableName = "TEST_DOTNET_VERSION";
 
     public static string Configuration { get; } =
 #if DEBUG
@@ -38,9 +35,14 @@ internal static class TestBuilder
 
     private static string GetRootDirectory()
     {
+        string? solutionDir = Path.GetDirectoryName(
+#if NETFRAMEWORK
+            new Uri(typeof(TestBuilder).Assembly.CodeBase).LocalPath)!;
+#else
 #pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
-        string? solutionDir = Path.GetDirectoryName(typeof(TestBuilder).Assembly.Location)!;
+            typeof(TestBuilder).Assembly.Location)!;
 #pragma warning restore IL3000
+#endif
 
         // This assumes there is only a .SLN file at the root of the repo.
         while (Directory.GetFiles(solutionDir, "*.sln").Length == 0)
@@ -59,7 +61,7 @@ internal static class TestBuilder
     private static string GetTestCasesDirectory()
     {
         // This assumes tests are organized in this test/TestCases directory structure.
-        string testCasesDir = Path.Join(GetRootDirectory(), "test", "TestCases");
+        string testCasesDir = Path.Combine(GetRootDirectory(), "test", "TestCases");
 
         if (!Directory.Exists(testCasesDir))
         {
@@ -71,29 +73,34 @@ internal static class TestBuilder
 
     public static IEnumerable<object[]> ListTestCases(Predicate<string>? filter = null)
     {
-        var dirQueue = new Queue<string>();
-        dirQueue.Enqueue(TestCasesDirectory);
-        while (dirQueue.Count > 0)
+        var moduleQueue = new Queue<string>();
+        foreach (string subDir in Directory.GetDirectories(TestCasesDirectory))
         {
-            string dir = dirQueue.Dequeue();
-            foreach (string subDir in Directory.GetDirectories(dir))
+            if (Path.GetFileName(subDir) != "common")
             {
-                if (subDir != "common")
-                {
-                    dirQueue.Enqueue(subDir);
-                }
+                moduleQueue.Enqueue(Path.GetFileName(subDir));
             }
+        }
 
-            string moduleName = Path.GetRelativePath(TestCasesDirectory, dir);
-            if (string.IsNullOrEmpty(moduleName))
+        while (moduleQueue.Count > 0)
+        {
+            string moduleName = moduleQueue.Dequeue();
+            string modulePath = Path.Combine(
+                TestCasesDirectory,
+                moduleName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+            foreach (string subDir in Directory.GetDirectories(modulePath))
             {
-                continue;
+                string subDirName = Path.GetFileName(subDir);
+                if (subDirName != "common")
+                {
+                    moduleQueue.Enqueue(moduleName + '/' + subDirName);
+                }
             }
 
             moduleName = moduleName.Replace(Path.DirectorySeparatorChar, '/');
 
-            foreach (string jsFile in Directory.GetFiles(dir, "*.js")
-              .Concat(Directory.GetFiles(dir, "*.ts")))
+            foreach (string jsFile in Directory.GetFiles(modulePath, "*.js")
+              .Concat(Directory.GetFiles(modulePath, "*.ts")))
             {
                 if (jsFile.EndsWith(".d.ts")) continue;
                 string testCaseName = Path.GetFileNameWithoutExtension(jsFile);
@@ -107,14 +114,16 @@ internal static class TestBuilder
 
     private static string GetModuleIntermediateOutputPath(string moduleName)
     {
-        string directoryPath = Path.Join(
+        string directoryPath = Path.Combine(
             RepoRootDirectory,
-            "out",
-            "obj",
-            Configuration,
-            "TestCases",
-            moduleName,
-            GetCurrentFrameworkTarget());
+            string.Join(
+                Path.DirectorySeparatorChar.ToString(),
+                "out",
+                "obj",
+                Configuration,
+                "TestCases",
+                moduleName,
+                GetCurrentFrameworkTarget()));
         Directory.CreateDirectory(directoryPath);
         return directoryPath;
     }
@@ -122,13 +131,13 @@ internal static class TestBuilder
     public static string GetBuildLogFilePath(string moduleName)
     {
         string logDir = GetModuleIntermediateOutputPath(moduleName);
-        return Path.Join(logDir, "build.log");
+        return Path.Combine(logDir, "build.log");
     }
 
     public static string GetRunLogFilePath(string prefix, string moduleName, string testCasePath)
     {
         string logDir = GetModuleIntermediateOutputPath(moduleName);
-        return Path.Join(logDir, $"{prefix}-{Path.GetFileName(testCasePath)}.log");
+        return Path.Combine(logDir, $"{prefix}-{Path.GetFileName(testCasePath)}.log");
     }
 
     public static string GetCurrentPlatformRuntimeIdentifier()
@@ -154,12 +163,32 @@ internal static class TestBuilder
     public static string GetCurrentFrameworkTarget()
     {
         Version frameworkVersion = Environment.Version;
-        return $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
+        return frameworkVersion.Major == 4 ? "net472" :
+            $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
+    }
+
+    public static string CreateProjectFile(string moduleName)
+    {
+        string projectFilePath = Path.Combine(
+            TestCasesDirectory, moduleName, moduleName + ".csproj");
+
+        string noTypeDefs = "<PropertyGroup>\n" +
+            "<GenerateNodeApiTypeDefinitions>false</GenerateNodeApiTypeDefinitions>\n" +
+            "</PropertyGroup>\n";
+
+        // Auto-generate an empty project file. All project info is inherited from
+        // TestCases/Directory.Build.{props,targets}, except for certain test modules
+        // that need to skip typedef generation.
+        File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n" +
+            (moduleName == "napi-dotnet-init" ? noTypeDefs : string.Empty) +
+            "</Project>\n");
+
+        return projectFilePath;
     }
 
     private static bool GetNoBuild()
     {
-        string filePath = Path.Join(
+        string filePath = Path.Combine(
             RepoRootDirectory,
             "out",
             "obj",
@@ -180,55 +209,49 @@ internal static class TestBuilder
     {
         if (GetNoBuild()) return;
 
-        StreamWriter logWriter = new(logFilePath, new FileStreamOptions
-        {
-            Mode = FileMode.Create,
-            Access = FileAccess.Write,
-            Share = FileShare.Read,
-        });
+        StreamWriter logWriter = new(File.Open(
+            logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
 
-        ProcessStartInfo startInfo = new("dotnet");
-        startInfo.ArgumentList.Add("build");
-        startInfo.ArgumentList.Add(projectFilePath);
-        startInfo.ArgumentList.Add("/t:" + target);
-        startInfo.ArgumentList.Add(verboseLog ? "/v:d" : "/v:n");
+        List<string> arguments = new()
+        {
+            "build",
+            projectFilePath,
+            "/t:" + target,
+            verboseLog ? "/v:d" : "/v:n",
+        };
         foreach (KeyValuePair<string, string> property in properties)
         {
-            startInfo.ArgumentList.Add($"/p:{property.Key}={property.Value}");
+            arguments.Add($"/p:{property.Key}={property.Value}");
         }
+        ProcessStartInfo startInfo = new(
+            "dotnet",
+            string.Join(" ", arguments.Select((a) => a.Contains(' ') ? $"\"{a}\"" : a).ToArray()))
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            WorkingDirectory = Path.GetDirectoryName(logFilePath)!,
+        };
 
-        startInfo.UseShellExecute = false;
-        startInfo.RedirectStandardOutput = true;
-        startInfo.RedirectStandardError = true;
-        startInfo.WorkingDirectory = Path.GetDirectoryName(logFilePath)!;
-
-        logWriter.WriteLine($"dotnet {string.Join(" ", startInfo.ArgumentList)}");
+        logWriter.WriteLine($"dotnet {startInfo.Arguments}");
         logWriter.WriteLine();
         logWriter.Flush();
 
         Process buildProcess = Process.Start(startInfo)!;
-
-        bool hasErrorOutput = LogOutput(buildProcess, logWriter);
+        string? errorOutput = LogOutput(buildProcess, logWriter);
 
         if (buildProcess.ExitCode != 0)
         {
             string failMessage = "Build process exited with code: " + buildProcess.ExitCode + ". " +
-                "Check the log for details: " + logFilePath;
+                (errorOutput != null ? "\n" + errorOutput + "\n" : string.Empty) +
+                "Full output: " + logFilePath;
             Assert.Fail(failMessage);
         }
-        else if (hasErrorOutput)
+        else if (errorOutput != null)
         {
-            Assert.Fail("Build process produced error output. " +
-                "Check the log for details: " + logFilePath);
+            Assert.Fail($"Build process produced error output:\n{errorOutput}\n" +
+                "Full output: " + logFilePath);
         }
-    }
-
-    public static void BuildTypeDefinitions(string moduleName, string moduleFilePath)
-    {
-        string typeDefinitionsFilePath = Path.Join(
-            TestCasesDirectory, moduleName, moduleName + ".d.ts");
-        TypeDefinitionsGenerator.GenerateTypeDefinitions(
-            moduleFilePath, referenceAssemblyPaths: Array.Empty<string>(), typeDefinitionsFilePath);
     }
 
     public static void RunNodeTestCase(
@@ -241,12 +264,8 @@ internal static class TestBuilder
         // This assumes the `node` executable is on the current PATH.
         string nodeExe = "node";
 
-        StreamWriter logWriter = new(logFilePath, new FileStreamOptions
-        {
-            Mode = FileMode.Create,
-            Access = FileAccess.Write,
-            Share = FileShare.Read,
-        });
+        StreamWriter logWriter = new(File.Open(
+            logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
 
         var startInfo = new ProcessStartInfo(nodeExe, $"--expose-gc {jsFilePath}")
         {
@@ -256,10 +275,10 @@ internal static class TestBuilder
             WorkingDirectory = Path.GetDirectoryName(logFilePath)!,
         };
 
-        foreach ((string name, string value) in testEnvironmentVariables)
+        foreach (KeyValuePair<string, string> pair in testEnvironmentVariables)
         {
-            startInfo.Environment[name] = value;
-            logWriter.WriteLine($"{name}={value}");
+            startInfo.Environment[pair.Key] = pair.Value;
+            logWriter.WriteLine($"{pair.Key}={pair.Value}");
         }
 
         logWriter.WriteLine($"{nodeExe} --expose-gc {jsFilePath}");
@@ -267,12 +286,13 @@ internal static class TestBuilder
         logWriter.Flush();
 
         Process nodeProcess = Process.Start(startInfo)!;
-        bool hasErrorOutput = LogOutput(nodeProcess, logWriter);
+        string? errorOutput = LogOutput(nodeProcess, logWriter);
 
         if (nodeProcess.ExitCode != 0)
         {
             string failMessage = "Node process exited with code: " + nodeProcess.ExitCode + ". " +
-                "Check the log for details: " + logFilePath;
+                (errorOutput != null ? "\n" + errorOutput + "\n" : string.Empty) +
+                "Full output: " + logFilePath;
 
             string jsFileName = Path.GetFileName(jsFilePath);
             string[] logLines = File.ReadAllLines(logFilePath);
@@ -291,18 +311,18 @@ internal static class TestBuilder
 
             Assert.Fail(failMessage);
         }
-        else if (hasErrorOutput)
+        else if (errorOutput != null)
         {
-            Assert.Fail("Node process produced error output. " +
-                "Check the log for details: " + logFilePath);
+            Assert.Fail($"Build process produced error output:\n{errorOutput}\n" +
+                "Full output: " + logFilePath);
         }
     }
 
-    private static bool LogOutput(
+    private static string? LogOutput(
         Process process,
         StreamWriter logWriter)
     {
-        bool hasErrorOutput = false;
+        StringBuilder errorOutput = new();
         process.OutputDataReceived += (_, e) =>
         {
             if (e.Data != null)
@@ -322,7 +342,7 @@ internal static class TestBuilder
                 {
                     logWriter.WriteLine(e.Data);
                     logWriter.Flush();
-                    hasErrorOutput = e.Data.Trim().Length > 0;
+                    errorOutput.AppendLine(e.Data);
                 }
             }
         };
@@ -331,6 +351,6 @@ internal static class TestBuilder
 
         process.WaitForExit();
         logWriter.Close();
-        return hasErrorOutput;
+        return errorOutput.Length > 0 ? errorOutput.ToString() : null;
     }
 }

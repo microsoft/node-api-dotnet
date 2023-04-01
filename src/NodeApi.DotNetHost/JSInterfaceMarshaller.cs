@@ -14,32 +14,38 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// <summary>
 /// Supports dynamic implementation of .NET interfaces by JavaScript.
 /// </summary>
-internal static class JSInterfaceMarshaller
+internal class JSInterfaceMarshaller
 {
-    private static readonly ConcurrentDictionary<Type, Type> s_interfaceTypes = new();
-    private static readonly AssemblyBuilder s_assemblyBuilder =
-        AssemblyBuilder.DefineDynamicAssembly(
-            new AssemblyName(typeof(JSInterface).FullName!),
-            AssemblyBuilderAccess.Run);
-    private static readonly ModuleBuilder s_moduleBuilder =
-        s_assemblyBuilder.DefineDynamicModule(typeof(JSInterface).Name);
+    private readonly ConcurrentDictionary<Type, Type> _interfaceTypes = new();
+    private readonly AssemblyBuilder _assemblyBuilder;
+    private readonly ModuleBuilder _moduleBuilder;
+
+    public JSInterfaceMarshaller()
+    {
+        string assemblyName = typeof(JSInterface).FullName +
+            "_" + Environment.CurrentManagedThreadId;
+        _assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
+        _moduleBuilder =
+            _assemblyBuilder.DefineDynamicModule(typeof(JSInterface).Name);
+    }
 
     /// <summary>
     /// Defines a class type that extends <see cref="JSInterface" /> and implements the requested
     /// interface type by forwarding all member access to the JS value.
     /// </summary>
-    public static Type Implement(Type interfaceType, JSMarshaller marshaller)
+    public Type Implement(Type interfaceType, JSMarshaller marshaller)
     {
-        return s_interfaceTypes.GetOrAdd(
+        return _interfaceTypes.GetOrAdd(
             interfaceType,
             (t) => BuildInterfaceImplementation(interfaceType, marshaller));
     }
 
 #pragma warning disable IDE0060 // Unused parameter 'marshaller'
-    private static Type BuildInterfaceImplementation(Type interfaceType, JSMarshaller marshaller)
+    private Type BuildInterfaceImplementation(Type interfaceType, JSMarshaller marshaller)
 #pragma warning restore IDE0060 // Unused parameter
     {
-        TypeBuilder typeBuilder = s_moduleBuilder.DefineType(
+        TypeBuilder typeBuilder = _moduleBuilder.DefineType(
             "proxy_" +
             JSMarshaller.FullTypeName(interfaceType),
             TypeAttributes.Class | TypeAttributes.Sealed,

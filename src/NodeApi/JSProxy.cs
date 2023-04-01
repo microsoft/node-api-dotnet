@@ -43,7 +43,7 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
         object? target = null,
         bool revocable = false)
     {
-        ArgumentNullException.ThrowIfNull(handler);
+        if (handler is null) throw new ArgumentNullException(nameof(handler));
 
         if (target != null)
         {

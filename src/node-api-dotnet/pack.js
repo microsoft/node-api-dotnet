@@ -17,7 +17,12 @@ if (!configuration || rids.length === 0) {
 }
 
 const assemblyName = 'Microsoft.JavaScript.NodeApi';
-const targetFrameworks = ['net7.0', 'net6.0']; // AOT binaries use the first TFM in this list.
+
+const targetFrameworks = ['net7.0', 'net6.0'];
+if (process.platform === 'win32') targetFrameworks.push('net472');
+
+const aotTargetFramework = 'net7.0';
+const defaultManagedHostTargetFramework = 'net6.0';
 
 const fs = require('fs');
 const path = require('path');
@@ -44,7 +49,9 @@ function packMainPackage() {
   const buildVersion = writePackageJson(packageStageDir, packageJson);
 
   // Copy script files to the staging dir.
-  copyScriptFiles(packageStageDir, '.', 'index.js', 'index.d.ts');
+  copyScriptFiles(packageStageDir, '.', 'init.js', 'index.d.ts');
+
+  generateTargetFrameworkScriptFiles(packageStageDir);
 
   // Copy binaries to the staging dir.
 
@@ -55,6 +62,9 @@ function packMainPackage() {
     `NodeApi/${assemblyName}.runtimeconfig.json`,
     `NodeApi/${assemblyName}.dll`,
     `NodeApi.DotNetHost/${assemblyName}.DotNetHost.dll`,
+    `NodeApi/System.Memory.dll`,
+    `NodeApi/System.Runtime.CompilerServices.Unsafe.dll`,
+    `NodeApi/System.Threading.Tasks.Extensions.dll`,
   );
 
   // The .node binary is platform-specific but framework-independent.
@@ -110,7 +120,7 @@ function mkdirClean(dir) {
 }
 
 function writePackageJson(packageStageDir, packageJson) {
-  const buildVersion = getAssemblyFileVersion(assemblyName, targetFrameworks[0], rids[0]);
+  const buildVersion = getAssemblyFileVersion(assemblyName, aotTargetFramework, rids[0]);
   packageJson.version = buildVersion;
   if (packageJson.dependencies && packageJson.dependencies['node-api-dotnet']) {
     packageJson.dependencies['node-api-dotnet'] = buildVersion;
@@ -134,6 +144,10 @@ function copyFrameworkSpecificBinaries(targetFrameworks, packageStageDir, ...bin
     fs.mkdirSync(tfmStageDir);
     binFiles.forEach((binFile) => {
       const [projectName, binFileName] = binFile.split('/', 2);
+
+      // "System." assemblies like System.Memory are only needed for .NET 4.x
+      if (tfm.includes('.') && binFileName.startsWith('System.')) return;
+
       const binPath = path.join(outBinDir, projectName, tfm, rids[0], binFileName);
       copyFile(binPath, path.join(tfmStageDir, binFileName));
     });
@@ -166,4 +180,21 @@ function getAssemblyFileVersion(assemblyName, targetFramework, rid) {
 function copyFile(sourceFilePath, destFilePath) {
   console.log(`${sourceFilePath} -> ${destFilePath}`);
   fs.copyFileSync(sourceFilePath, destFilePath);
+}
+
+function generateTargetFrameworkScriptFiles(packageStageDir) {
+  // Generate `index.js` for the default target framework, plus one for each supported target.
+  generateTargetFrameworkScriptFile(
+    path.join(packageStageDir, 'index.js'), defaultManagedHostTargetFramework);
+  for (let tfm of targetFrameworks) {
+    generateTargetFrameworkScriptFile(path.join(packageStageDir, tfm + '.js'), tfm);
+  }
+}
+
+function generateTargetFrameworkScriptFile(filePath, tfm) {
+  // Each generated entrypoint script uses `init.js` to request a specific target framework version.
+  const js = `const initialize = require('./init');
+module.exports = initialize('${tfm}');
+`;
+  fs.writeFileSync(filePath, js);
 }
