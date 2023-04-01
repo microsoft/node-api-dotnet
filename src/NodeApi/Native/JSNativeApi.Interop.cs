@@ -1728,8 +1728,8 @@ public static partial class JSNativeApi
             }
             finally
             {
-                if (value1_native != default) Marshal.FreeCoTaskMem(value1_native);
-                if (value2_native != default) Marshal.FreeCoTaskMem(value2_native);
+                if (value1_native != default) Marshal.FreeHGlobal(value1_native);
+                if (value2_native != default) Marshal.FreeHGlobal(value2_native);
             }
         }
 

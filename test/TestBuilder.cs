@@ -17,12 +17,7 @@ namespace Microsoft.JavaScript.NodeApi.Test;
 /// </summary>
 internal static class TestBuilder
 {
-    // JS code loads test modules via these environment variables:
-    //     const dotnetModule = process.env['TEST_DOTNET_MODULE_PATH'];
-    //     const dotnetHost = process.env['TEST_DOTNET_HOST_PATH'];
-    //     const dotnetVersion = process.env['TEST_DOTNET_VERSION'];
-    //     const test = dotnetHost ? require(dotnetHost).require(dotnetModule) : require(dotnetModule);
-    // (A real module would choose between one or the other, so its require code would be simpler.)
+    // JS code locates test modules using these environment variables.
     public const string ModulePathEnvironmentVariableName = "TEST_DOTNET_MODULE_PATH";
     public const string HostPathEnvironmentVariableName = "TEST_DOTNET_HOST_PATH";
     public const string DotNetVersionEnvironmentVariableName = "TEST_DOTNET_VERSION";

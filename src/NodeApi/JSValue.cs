@@ -126,7 +126,6 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
     }
 
-#if NETFRAMEWORK
     public static unsafe JSValue CreateStringUtf16(string value)
     {
         fixed (char* spanPtr = value)
@@ -136,7 +135,6 @@ public readonly struct JSValue : IEquatable<JSValue>
                 .ThrowIfFailed(result);
         }
     }
-#endif
 
     public static JSValue CreateSymbol(JSValue description)
         => napi_create_symbol(
@@ -179,17 +177,43 @@ public readonly struct JSValue : IEquatable<JSValue>
         return func;
     }
 
-    public static JSValue CreateFunction(
+#if NETFRAMEWORK
+    private static unsafe JSValue CreateFunction(
+        byte* utf8Name, int utf8NameLength, JSCallback callback, object? callbackData = null)
+    {
+        GCHandle descriptorHandle = GCHandle.Alloc(
+            new JSCallbackDescriptor(callback, callbackData));
+        JSValue func = napi_create_function(
+            Env,
+            utf8Name,
+            (nuint)utf8NameLength,
+            new napi_callback(
+                JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
+                s_invokeJSCallbackNC : s_invokeJSCallback),
+            (nint)descriptorHandle, out napi_value result)
+            .ThrowIfFailed(result);
+        func.AddGCHandleFinalizer((nint)descriptorHandle);
+        return func;
+    }
+#endif
+
+    public static unsafe JSValue CreateFunction(
         string name, JSCallback callback, object? callbackData = null)
     {
 #if NETFRAMEWORK
-        byte[] utf8Name = Encoding.UTF8.GetBytes(name);
+        int byteCount = Encoding.UTF8.GetByteCount(name);
+        var utf8Name = stackalloc byte[byteCount];
+        fixed (char* pName = name)
+        {
+            Encoding.UTF8.GetBytes(pName, name.Length, utf8Name, byteCount);
+        }
+        return CreateFunction(utf8Name, byteCount, callback, callbackData);
 #else
         int byteCount = Encoding.UTF8.GetByteCount(name);
         Span<byte> utf8Name = stackalloc byte[byteCount];
         Encoding.UTF8.GetBytes(name, utf8Name);
-#endif
         return CreateFunction(utf8Name, callback, callbackData);
+#endif
     }
 
     public static JSValue CreateError(JSValue? code, JSValue message)

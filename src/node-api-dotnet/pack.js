@@ -183,6 +183,7 @@ function copyFile(sourceFilePath, destFilePath) {
 }
 
 function generateTargetFrameworkScriptFiles(packageStageDir) {
+  // Generate `index.js` for the default target framework, plus one for each supported target.
   generateTargetFrameworkScriptFile(
     path.join(packageStageDir, 'index.js'), defaultManagedHostTargetFramework);
   for (let tfm of targetFrameworks) {
@@ -191,6 +192,7 @@ function generateTargetFrameworkScriptFiles(packageStageDir) {
 }
 
 function generateTargetFrameworkScriptFile(filePath, tfm) {
+  // Each generated entrypoint script uses `init.js` to request a specific target framework version.
   const js = `const initialize = require('./init');
 module.exports = initialize('${tfm}');
 `;

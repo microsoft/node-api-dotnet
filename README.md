@@ -184,11 +184,13 @@ Thanks to these design choices, JS to .NET calls are [more than twice as fast](
 #### Requirements
  - .NET 6 or later
     - .NET 7 or later is required for AOT support.
-    - .NET Framework 4.x support is [coming soon](https://github.com/microsoft/node-api-dotnet/pull/51).
+    - .NET Framework 4.7.2 or later is supported at runtime,
+      but .NET 6 SDK is still required for building.
  - Node.js v16 or later
     - Other JS engines may be supported in the future.
  - OS: Windows, Mac, or Linux
     - It should work on any platform where .NET 6 is supported.
+
 #### Instructions
 Choose between one of the following scenarios:
  - [Dynamically invoke .NET APIs from JavaScript](./Docs/dynamic-invoke.md)

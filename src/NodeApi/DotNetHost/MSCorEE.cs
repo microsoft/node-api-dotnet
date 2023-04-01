@@ -69,7 +69,7 @@ internal static unsafe partial class MSCorEE
         Guid* riid,
         void** ppInterface);
 
-#pragma warning disable CS0649 // (VTable property) is never assigned to
+#pragma warning disable CS0649 // VTable fields are never assigned to
 
     public enum CLRMetaHostPolicyFlags : uint
     {

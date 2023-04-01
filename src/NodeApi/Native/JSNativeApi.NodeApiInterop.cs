@@ -149,8 +149,8 @@ public static partial class JSNativeApi
             }
             finally
             {
-                if (location_native != default) Marshal.FreeCoTaskMem(location_native);
-                if (message_native != default) Marshal.FreeCoTaskMem(message_native);
+                if (location_native != default) Marshal.FreeHGlobal(location_native);
+                if (message_native != default) Marshal.FreeHGlobal(message_native);
             }
             throw new InvalidOperationException("This line must be unreachable");
         }

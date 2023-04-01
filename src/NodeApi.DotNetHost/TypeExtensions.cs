@@ -29,7 +29,6 @@ internal static class TypeExtensions
     };
     private static readonly Type[] s_twoGenericMethodParams = new Type[]
     {
-        // TODO: Use an alternate method of finding generic methods that works with .NET Framework.
         Type.MakeGenericMethodParameter(0),
         Type.MakeGenericMethodParameter(1),
     };
@@ -158,6 +157,10 @@ internal static class TypeExtensions
 
     private static bool ParameterTypesEqual(ParameterInfo[] parameters, Type[] types)
     {
+        // Reflection in .NET Framework does not support generic perameters as well.
+        // So it's necessary to scan all the methods and try to match parameter types
+        // by comparing generic type definitions.
+
         if (parameters.Length != types.Length) return false;
 
         for (int i = 0; i <  parameters.Length; i++)

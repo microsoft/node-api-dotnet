@@ -236,7 +236,6 @@ public class JSThreadSafeFunction
         }
     }
 
-
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe void DefaultCallJS(napi_env env, napi_value jsCallback, nint context, nint data)
     {

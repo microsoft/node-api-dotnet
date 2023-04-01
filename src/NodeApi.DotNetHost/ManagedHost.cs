@@ -74,6 +74,8 @@ public sealed class ManagedHost : IDisposable
     {
         Trace($"> ManagedHost.InitializeModule({argument})");
 
+        // MSCOREE only supports passing a string argument to the activated assembly,
+        // so handle values need to be parsed from the string.
         string[] args = argument.Split(',');
         napi_env env = new((nint)ulong.Parse(args[0], NumberStyles.HexNumber));
         napi_value exports = new((nint)ulong.Parse(args[1], NumberStyles.HexNumber));
@@ -160,6 +162,7 @@ public sealed class ManagedHost : IDisposable
         }
 
 #if NETFRAMEWORK
+        // TODO: Load module assemblies in separate appdomains.
         Assembly assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
@@ -272,6 +275,7 @@ public sealed class ManagedHost : IDisposable
         }
 
 #if NETFRAMEWORK
+        // TODO: Load assemblies in a separate appdomain.
         Assembly assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
