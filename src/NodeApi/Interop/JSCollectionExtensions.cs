@@ -225,10 +225,10 @@ internal class JSAsyncIterableEnumerable<T> : IAsyncEnumerable<T>, IEquatable<JS
 
     protected JSValue.To<T> FromJS { get; }
 
+#pragma warning disable IDE0060 // Unused parameter
     public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken)
         => new JSAsyncIterableEnumerator<T>(Value, FromJS);
 
-#pragma warning disable IDE0060 // Unused parameter
     public ValueTask DisposeAsync(CancellationToken cancellationToken)
     {
         _iterableReference.Dispose();
