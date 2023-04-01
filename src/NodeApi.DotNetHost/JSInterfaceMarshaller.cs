@@ -23,7 +23,7 @@ internal class JSInterfaceMarshaller
     public JSInterfaceMarshaller()
     {
         string assemblyName = typeof(JSInterface).FullName +
-            "_" + System.Threading.Thread.CurrentThread.ManagedThreadId;
+            "_" + Environment.CurrentManagedThreadId;
         _assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
             new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
         _moduleBuilder =

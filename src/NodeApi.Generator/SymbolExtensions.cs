@@ -41,9 +41,11 @@ internal static class SymbolExtensions
         {
             if (s_moduleBuilder == null)
             {
+#pragma warning disable RS1035 // Environment is banned for use by analyzers
                 // Use a unique assembly name per thread.
                 string assemblyName = typeof(SymbolExtensions).FullName +
-                    "_" + System.Threading.Thread.CurrentThread.ManagedThreadId;
+                    "_" + Environment.CurrentManagedThreadId;
+#pragma warning restore RS1035
                 s_assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
                     new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
                 s_moduleBuilder = s_assemblyBuilder.DefineDynamicModule(
@@ -57,10 +59,7 @@ internal static class SymbolExtensions
     {
         get
         {
-            if (s_symbolicTypes == null)
-            {
-                s_symbolicTypes = new Dictionary<string, Type>();
-            }
+            s_symbolicTypes ??= new Dictionary<string, Type>();
             return s_symbolicTypes;
         }
     }

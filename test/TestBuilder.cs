@@ -225,12 +225,13 @@ internal static class TestBuilder
         }
         ProcessStartInfo startInfo = new(
             "dotnet",
-            string.Join(" ", arguments.Select((a) => a.Contains(' ') ? $"\"{a}\"" : a).ToArray()));
-
-        startInfo.UseShellExecute = false;
-        startInfo.RedirectStandardOutput = true;
-        startInfo.RedirectStandardError = true;
-        startInfo.WorkingDirectory = Path.GetDirectoryName(logFilePath)!;
+            string.Join(" ", arguments.Select((a) => a.Contains(' ') ? $"\"{a}\"" : a).ToArray()))
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            WorkingDirectory = Path.GetDirectoryName(logFilePath)!,
+        };
 
         logWriter.WriteLine($"dotnet {startInfo.Arguments}");
         logWriter.WriteLine();

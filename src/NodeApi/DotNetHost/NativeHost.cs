@@ -94,7 +94,7 @@ internal unsafe partial class NativeHost : IDisposable
 
         try
         {
-            if (!targetFramework.Contains(".") && targetFramework.StartsWith("net") &&
+            if (!targetFramework.Contains('.') && targetFramework.StartsWith("net") &&
                 targetFramework.Length >= 5)
             {
                 // .NET Framework
@@ -108,7 +108,11 @@ internal unsafe partial class NativeHost : IDisposable
             else
             {
                 // .NET 5 or later
+#if NETFRAMEWORK
                 Version dotnetVersion = Version.Parse(targetFramework.Substring(3));
+#else
+                Version dotnetVersion = Version.Parse(targetFramework.AsSpan(3));
+#endif
                 return InitializeDotNetHost(dotnetVersion, managedHostPath);
             }
         }

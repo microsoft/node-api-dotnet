@@ -202,7 +202,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
 #if NETFRAMEWORK
         int byteCount = Encoding.UTF8.GetByteCount(name);
-        var utf8Name = stackalloc byte[byteCount];
+        byte* utf8Name = stackalloc byte[byteCount];
         fixed (char* pName = name)
         {
             Encoding.UTF8.GetBytes(pName, name.Length, utf8Name, byteCount);

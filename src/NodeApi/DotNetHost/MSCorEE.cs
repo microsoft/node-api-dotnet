@@ -63,23 +63,25 @@ internal static unsafe partial class MSCorEE
         return CLRCreateInstance(&clsid, &iid, (void**)&pInterface).ThrowIfFailed(pInterface);
     }
 
+#pragma warning disable SYSLIB1054 // Use [LibraryImport]
     [DllImport("mscoree")]
     private static extern HRESULT CLRCreateInstance(
         Guid* rclsid,
         Guid* riid,
         void** ppInterface);
+#pragma warning restore SYSLIB1054
 
 #pragma warning disable CS0649 // VTable fields are never assigned to
 
     public enum CLRMetaHostPolicyFlags : uint
     {
-        HighCompat          = 0x00,
-        ApplyUpgradePolicy  = 0x08,
-        EmulateExeLaunch    = 0x10,
-        ShowErrorDialog     = 0x20,
+        HighCompat = 0x00,
+        ApplyUpgradePolicy = 0x08,
+        EmulateExeLaunch = 0x10,
+        ShowErrorDialog = 0x20,
         UseProcessImagePath = 0x40,
-        EnsureSkuSupported  = 0x80,
-        IgnoreErrorModed    = 0x1000,
+        EnsureSkuSupported = 0x80,
+        IgnoreErrorModed = 0x1000,
     }
 
     public struct ICLRMetaHostPolicy
@@ -89,7 +91,7 @@ internal static unsafe partial class MSCorEE
             T* pInterface;
             fixed (ICLRMetaHostPolicy* pThis = &this)
             {
-                return this.vtable->QueryInterface(pThis, &iid, (void**)&pInterface)
+                return _vtable->QueryInterface(pThis, &iid, (void**)&pInterface)
                     .ThrowIfFailed(pInterface);
             }
         }
@@ -98,7 +100,7 @@ internal static unsafe partial class MSCorEE
         {
             fixed (ICLRMetaHostPolicy* pThis = &this)
             {
-                return this.vtable->AddRef(pThis);
+                return _vtable->AddRef(pThis);
             }
         }
 
@@ -106,7 +108,7 @@ internal static unsafe partial class MSCorEE
         {
             fixed (ICLRMetaHostPolicy* pThis = &this)
             {
-                return this.vtable->Release(pThis);
+                return _vtable->Release(pThis);
             }
         }
 
@@ -123,7 +125,7 @@ internal static unsafe partial class MSCorEE
             fixed (char* pVersion = stackalloc char[20])
             fixed (Guid* riid = &IID_ICLRRuntimeInfo)
             {
-                this.vtable->GetRequestedRuntime(
+                _vtable->GetRequestedRuntime(
                     pThis,
                     (uint)policyFlags,
                     pAssemblyPath,
@@ -140,7 +142,7 @@ internal static unsafe partial class MSCorEE
             }
         }
 
-        private VTable* vtable;
+        private readonly VTable* _vtable;
 
         private struct VTable
         {
@@ -172,7 +174,7 @@ internal static unsafe partial class MSCorEE
             T* pInterface;
             fixed (ICLRRuntimeInfo* pThis = &this)
             {
-                return this.vtable->QueryInterface(pThis, &iid, (void**)&pInterface)
+                return _vtable->QueryInterface(pThis, &iid, (void**)&pInterface)
                     .ThrowIfFailed(pInterface);
             }
         }
@@ -181,7 +183,7 @@ internal static unsafe partial class MSCorEE
         {
             fixed (ICLRRuntimeInfo* pThis = &this)
             {
-                return this.vtable->AddRef(pThis);
+                return _vtable->AddRef(pThis);
             }
         }
 
@@ -189,7 +191,7 @@ internal static unsafe partial class MSCorEE
         {
             fixed (ICLRRuntimeInfo* pThis = &this)
             {
-                return this.vtable->Release(pThis);
+                return _vtable->Release(pThis);
             }
         }
 
@@ -198,12 +200,12 @@ internal static unsafe partial class MSCorEE
             T* pInterface;
             fixed (ICLRRuntimeInfo* pThis = &this)
             {
-                return this.vtable->GetInterface(pThis, &clsid, &iid, (void**)&pInterface)
+                return _vtable->GetInterface(pThis, &clsid, &iid, (void**)&pInterface)
                     .ThrowIfFailed(pInterface);
             }
         }
 
-        private VTable* vtable;
+        private readonly VTable* _vtable;
 
         private struct VTable
         {
@@ -241,7 +243,7 @@ internal static unsafe partial class MSCorEE
             T* pInterface;
             fixed (ICLRRuntimeHost* pThis = &this)
             {
-                return this.vtable->QueryInterface(pThis, &iid, (void**)&pInterface)
+                return _vtable->QueryInterface(pThis, &iid, (void**)&pInterface)
                     .ThrowIfFailed(pInterface);
             }
         }
@@ -250,7 +252,7 @@ internal static unsafe partial class MSCorEE
         {
             fixed (ICLRRuntimeHost* pThis = &this)
             {
-                return this.vtable->AddRef(pThis);
+                return _vtable->AddRef(pThis);
             }
         }
 
@@ -258,7 +260,7 @@ internal static unsafe partial class MSCorEE
         {
             fixed (ICLRRuntimeHost* pThis = &this)
             {
-                return this.vtable->Release(pThis);
+                return _vtable->Release(pThis);
             }
         }
 
@@ -266,7 +268,7 @@ internal static unsafe partial class MSCorEE
         {
             fixed (ICLRRuntimeHost* pThis = &this)
             {
-                this.vtable->Start(pThis).ThrowIfFailed();
+                _vtable->Start(pThis).ThrowIfFailed();
             }
         }
 
@@ -274,7 +276,7 @@ internal static unsafe partial class MSCorEE
         {
             fixed (ICLRRuntimeHost* pThis = &this)
             {
-                this.vtable->Stop(pThis).ThrowIfFailed();
+                _vtable->Stop(pThis).ThrowIfFailed();
             }
         }
 
@@ -291,7 +293,7 @@ internal static unsafe partial class MSCorEE
             fixed (char* pMethodName = methodName)
             fixed (char* pArgument = argument)
             {
-                return this.vtable->ExecuteInDefaultAppDomain(
+                return _vtable->ExecuteInDefaultAppDomain(
                     pThis,
                     pAssemblyPath,
                     pTypeName,
@@ -301,7 +303,7 @@ internal static unsafe partial class MSCorEE
             }
         }
 
-        private VTable* vtable;
+        private readonly VTable* _vtable;
 
         private struct VTable
         {

@@ -27,10 +27,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
-    <PackageReference Include="Nullability.Source" Condition="$(NetFramework)">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+    <PackageReference Include="Nullability.Source" Condition="$(NetFramework)" />
     <PackageReference Include="System.Reflection.MetadataLoadContext" />
   </ItemGroup>
 
