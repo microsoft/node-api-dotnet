@@ -78,13 +78,53 @@ public class JSMarshaller
     /// </summary>
     public bool AutoCamelCase { get; set; }
 
-    public string ToCamelCase(string name)
+    private string ToCamelCase(string name)
     {
         if (!AutoCamelCase) return name;
 
         StringBuilder sb = new(name);
         sb[0] = char.ToLowerInvariant(sb[0]);
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Checks whether a type is converted to a JavaScript built-in type.
+    /// </summary>
+    public static bool IsConvertedType(Type type)
+    {
+        if (type.IsPrimitive ||
+            type == typeof(string) ||
+            type == typeof(Array) ||
+            type == typeof(Task) ||
+            type == typeof(DateTime))
+        {
+            return true;
+        }
+
+        if (type.IsGenericType)
+        {
+            type = type.GetGenericTypeDefinition();
+        }
+
+        if (type.IsGenericTypeDefinition &&
+            (type == typeof(Task<>) ||
+            type == typeof(IEnumerable<>) ||
+            type == typeof(IAsyncEnumerable<>) ||
+            type == typeof(ICollection<>) ||
+            type == typeof(IReadOnlyCollection<>) ||
+            type == typeof(ISet<>) ||
+#if !NETFRAMEWORK
+            type == typeof(IReadOnlySet<>) ||
+#endif
+            type == typeof(IList<>) ||
+            type == typeof(IReadOnlyList<>) ||
+            type == typeof(IDictionary<,>) ||
+            type == typeof(IReadOnlyDictionary<,>)))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1188,10 +1228,13 @@ public class JSMarshaller
         Expression resultExpression = nullableType == null ? resultVariable :
             Expression.Property(resultVariable, nullableType.GetProperty("Value")!);
 
-        resultExpression = InlineOrInvoke(
-            GetToJSValueExpression(resultType),
-            resultExpression,
-            nameof(BuildResultExpression));
+        if (resultType != typeof(JSValue))
+        {
+            resultExpression = InlineOrInvoke(
+                GetToJSValueExpression(resultType),
+                resultExpression,
+                nameof(BuildResultExpression));
+        }
 
         if (nullableType != null)
         {
@@ -1325,6 +1368,10 @@ public class JSMarshaller
                     Expression.TypeAs(Expression.Call(s_tryUnwrap, valueParameter), toType),
                     Expression.New(adapterConstructor, valueParameter)),
             };
+        }
+        else if (toType == typeof(JSValue))
+        {
+            statements = new[] { valueParameter };
         }
         else
         {
@@ -1477,6 +1524,10 @@ public class JSMarshaller
                         getOrCreateObjectWrapper,
                         valueExpression)),
             };
+        }
+        else if (fromType == typeof(JSValue))
+        {
+            statements = new[] { valueParameter };
         }
         else
         {
@@ -1796,7 +1847,7 @@ public class JSMarshaller
         else if (typeDefinition == typeof(IReadOnlyList<>) ||
             typeDefinition == typeof(IReadOnlyCollection<>) ||
             typeDefinition == typeof(IEnumerable<>) ||
-            typeDefinition == typeof(IAsyncEnumerator<>))
+            typeDefinition == typeof(IAsyncEnumerable<>))
         {
             /*
              * JSNativeApi.TryUnwrap(value) as IReadOnlyCollection<T> ??
@@ -2020,6 +2071,7 @@ public class JSMarshaller
 
     private static MethodInfo? GetCastFromJSValueMethod(Type toType)
     {
+        if (toType == typeof(JSValue)) return null;
         return typeof(JSValue).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where((m) => m.Name == "op_Explicit" && m.ReturnType == toType &&
                 m.GetParameters().Length == 1 &&
@@ -2029,6 +2081,7 @@ public class JSMarshaller
 
     private static MethodInfo? GetCastToJSValueMethod(Type fromType)
     {
+        if (fromType == typeof(JSValue)) return null;
         return typeof(JSValue).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where((m) => m.Name == "op_Implicit" && m.ReturnType == typeof(JSValue) &&
                 m.GetParameters().Length == 1 &&

@@ -243,14 +243,16 @@ internal class AssemblyExporter
         {
             if (member is PropertyInfo property &&
                 property.PropertyType.Assembly == type.Assembly &&
-                IsSupportedType(property.PropertyType))
+                IsSupportedType(property.PropertyType) &&
+                !JSMarshaller.IsConvertedType(property.PropertyType))
             {
                 ExportClass(property.PropertyType);
             }
             else if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
                 method.ReturnType.Assembly == type.Assembly &&
-                IsSupportedType(method.ReturnType))
+                IsSupportedType(method.ReturnType) &&
+                !JSMarshaller.IsConvertedType(method.ReturnType))
             {
                 ExportClass(method.ReturnType);
             }
