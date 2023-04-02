@@ -24,7 +24,7 @@
     <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
     <PackageProjectUrl>https://github.com/microsoft/node-api-dotnet</PackageProjectUrl>
     <Description>Node-API bindings for .Net</Description>
-    <PackageTags>Node-API;NAPI;dotnet;.net</PackageTags>
+    <PackageTags>Node-API;NAPI;Node.JS;JavaScript</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
