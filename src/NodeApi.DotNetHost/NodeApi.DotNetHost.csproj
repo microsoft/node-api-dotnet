@@ -10,6 +10,10 @@
   <ItemGroup>
     <ProjectReference Include="..\NodeApi\NodeApi.csproj" GeneratePathProperty="true" PrivateAssets="all" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <None Pack="true" PackagePath="\" Include="..\..\README.md" />
+  </ItemGroup>
 
   <Target Name="PublishNativeHost" BeforeTargets="Pack"
     Condition=" '$(NoPublish)' != 'true' "

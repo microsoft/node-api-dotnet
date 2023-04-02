@@ -44,6 +44,7 @@
   <Import Project="NodeApi.targets" />
   <ItemGroup>
     <None Pack="true" PackagePath="build\$(AssemblyName).targets" Include="NodeApi.targets" />
+    <None Pack="true" PackagePath="\" Include="..\..\README.md" />
   </ItemGroup>
 
 </Project>

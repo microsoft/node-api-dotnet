@@ -18,6 +18,16 @@
     <VSTestLogger Condition="'$(VSTestLogger)' == ''">console%3Bverbosity=normal</VSTestLogger>
   </PropertyGroup>
 
+  <PropertyGroup Label="Nuget metadata">
+    <Authors>Microsoft</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
+    <PackageProjectUrl>https://github.com/microsoft/node-api-dotnet</PackageProjectUrl>
+    <Description>Node-API bindings for .Net</Description>
+    <PackageTags>Node-API;NAPI;dotnet;.net</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
   <PropertyGroup Condition=" '$(TargetFramework)' == 'net472' ">
     <NetFramework>true</NetFramework>
     <DefineConstants>$(DefineConstants);NETFRAMEWORK</DefineConstants>
