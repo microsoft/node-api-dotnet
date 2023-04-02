@@ -34,7 +34,12 @@ public sealed class ManagedHost : IDisposable
     /// The marshaller dynamically generates adapter delegates for calls to & from JS,
     /// for assemblies that were not pre-built as Node API modules.
     /// </summary>
-    private readonly JSMarshaller _marshaller = new();
+    private readonly JSMarshaller _marshaller = new()
+    {
+        // Currently dynamic invocation does not use automatic camel-casing.
+        // However source-generated marshalling (for a .NET node module) does.
+        AutoCamelCase = false,
+    };
 
     private readonly Dictionary<string, JSReference> _loadedModules = new();
     private readonly Dictionary<string, AssemblyExporter> _loadedAssemblies = new();

@@ -5,8 +5,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi.DotNetHost;
@@ -41,54 +43,82 @@ internal class JSInterfaceMarshaller
             (t) => BuildInterfaceImplementation(interfaceType, marshaller));
     }
 
-#pragma warning disable IDE0060 // Unused parameter 'marshaller'
     private Type BuildInterfaceImplementation(Type interfaceType, JSMarshaller marshaller)
-#pragma warning restore IDE0060 // Unused parameter
     {
         TypeBuilder typeBuilder = _moduleBuilder.DefineType(
-            "proxy_" +
-            JSMarshaller.FullTypeName(interfaceType),
+            "proxy_" + JSMarshaller.FullTypeName(interfaceType),
             TypeAttributes.Class | TypeAttributes.Sealed,
             typeof(JSInterface),
             new[] { interfaceType });
 
-        ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
-            MethodAttributes.Public,
-            CallingConventions.HasThis,
-            new[] { typeof(JSValue) });
-        constructorBuilder.DefineParameter(1, ParameterAttributes.None, "value");
+        BuildConstructorImplementation(typeBuilder);
 
-        ////ConstructorInfo baseConstructor =
-        ////    typeof(JSInterface).GetConstructor(BindingFlags.NonPublic, new[] { typeof(JSValue) })!;
+        // Each method or property getter/setter requires a static fields holding the
+        // implementation delegate. The fields can't be initialized until the type is fully built.
+        List<KeyValuePair<string, LambdaExpression>> delegateFields = new();
 
-        ILGenerator il = constructorBuilder.GetILGenerator();
-        il.Emit(OpCodes.Ldarg_0);
-        // TODO: Call base constructor
-        ////il.Emit(OpCodes.Call, baseConstructor);
-        il.Emit(OpCodes.Ret);
+        FieldBuilder CreateDelegateField(LambdaExpression lambda)
+        {
+            // The lambda expressions created by JSMarshaller have unique names
+            // build from the method name and parameters.
+            string fieldName = "_" + lambda.Name;
+            FieldBuilder fieldBuilder = typeBuilder.DefineField(
+                fieldName,
+                typeof(Delegate),
+                requiredCustomModifiers: null,
+                optionalCustomModifiers: null,
+                FieldAttributes.Private | FieldAttributes.Static);
+            delegateFields.Add(new KeyValuePair<string, LambdaExpression>(fieldName, lambda));
+            return fieldBuilder;
+        }
 
         IEnumerable<Type> allInterfaces =
             new[] { interfaceType }.Concat(GetInterfaces(interfaceType)).Distinct();
 
-        foreach (MemberInfo member in allInterfaces.SelectMany((i) => i.GetMembers()))
+        foreach (var property in allInterfaces.SelectMany((i) => i.GetProperties())
+            .Where((p) => p.GetMethod?.IsStatic != true && p.SetMethod?.IsStatic != true))
         {
-            if (member is PropertyInfo property)
+            FieldBuilder? getFieldBuilder = null;
+            if (property.GetMethod?.IsPublic == true)
             {
-                BuildPropertyImplementation(typeBuilder, property);
+                getFieldBuilder = CreateDelegateField(
+                    marshaller.BuildToJSPropertyGetExpression(property));
             }
-            else if (member is MethodInfo method && !method.IsSpecialName)
+
+            FieldBuilder? setFieldBuilder = null;
+            if (property.SetMethod?.IsPublic == true)
             {
-                BuildMethodImplementation(typeBuilder, method);
+                setFieldBuilder = CreateDelegateField(
+                    marshaller.BuildToJSPropertySetExpression(property));
             }
-            else if (member is EventInfo)
-            {
-                // TODO: Events
-            }
+
+            BuildPropertyImplementation(
+                typeBuilder,
+                property,
+                getFieldBuilder,
+                setFieldBuilder,
+                marshaller);
         }
+
+        foreach (var method in allInterfaces.SelectMany((i) => i.GetMethods())
+            .Where((m) => !m.IsStatic && !m.IsSpecialName))
+        {
+            FieldBuilder fieldBuilder = CreateDelegateField(
+                marshaller.BuildToJSMethodExpression(method));
+
+            BuildMethodImplementation(typeBuilder, method, fieldBuilder, marshaller);
+        }
+
+        // TODO: Events
 
         Type implementationType = typeBuilder.CreateType()!;
 
-        // TODO: Get implementation delegates from the marshaller and assign to static properties.
+        foreach (KeyValuePair<string, LambdaExpression> delegateFieldInfo in delegateFields)
+        {
+            FieldInfo delegateField = implementationType.GetField(
+                delegateFieldInfo.Key, BindingFlags.NonPublic | BindingFlags.Static)!;
+            delegateField.SetValue(null, delegateFieldInfo.Value.Compile());
+        }
 
         return implementationType;
     }
@@ -104,12 +134,35 @@ internal class JSInterfaceMarshaller
         return result;
     }
 
+    private static void BuildConstructorImplementation(TypeBuilder typeBuilder)
+    {
+        ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.HasThis,
+            new[] { typeof(JSValue) });
+        constructorBuilder.DefineParameter(1, ParameterAttributes.None, "value");
+
+        ConstructorInfo baseConstructor =
+            typeof(JSInterface).GetConstructor(
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                new[] { typeof(JSValue) },
+                modifiers: null)!;
+
+        ILGenerator il = constructorBuilder.GetILGenerator();
+        il.Emit(OpCodes.Ldarg_0); // this
+        il.Emit(OpCodes.Ldarg_1); // JSValue value
+        il.Emit(OpCodes.Call, baseConstructor);
+        il.Emit(OpCodes.Ret);
+    }
+
     private static void BuildPropertyImplementation(
         TypeBuilder typeBuilder,
-        PropertyInfo property)
+        PropertyInfo property,
+        FieldInfo? getDelegateField,
+        FieldInfo? setDelegateField,
+        JSMarshaller marshaller)
     {
-        if (property.GetMethod?.IsStatic == true || property.SetMethod?.IsStatic == true) return;
-
         PropertyBuilder propertyBuilder = typeBuilder.DefineProperty(
             property.Name,
             PropertyAttributes.None,
@@ -134,8 +187,39 @@ internal class JSInterfaceMarshaller
 
             ILGenerator il = getMethodBuilder.GetILGenerator();
 
-            // TODO: Getter IL
+            /*
+             * return this._get_property.DynamicInvoke(new object[] { Value });
+             */
 
+            // Load the static field for the delegate that implements the method by marshalling to JS.
+            il.Emit(OpCodes.Ldsfld, getDelegateField!);
+
+            // Create an array to hold the arguments passed to the delegate invocation.
+            il.Emit(OpCodes.Ldc_I4_1);
+            il.Emit(OpCodes.Newarr, typeof(object));
+
+            // Store the value from the Value property in the first array slot.
+            il.Emit(OpCodes.Dup); // Duplicate the array reference on the stack.
+            il.Emit(OpCodes.Ldc_I4_0);
+            il.Emit(OpCodes.Ldarg_0); // this
+            PropertyInfo valueProperty = typeof(JSInterface).GetProperty(
+                "Value", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            il.Emit(OpCodes.Call, valueProperty.GetMethod!);
+            il.Emit(OpCodes.Box, typeof(JSValue));
+            il.Emit(OpCodes.Stelem_Ref);
+
+            // Invoke the delegate.
+            il.Emit(OpCodes.Callvirt, typeof(Delegate).GetMethod(nameof(Delegate.DynamicInvoke))!);
+
+            // Return the result, casting to the return type.
+            if (property.PropertyType.IsValueType)
+            {
+                il.Emit(OpCodes.Unbox_Any, property.PropertyType);
+            }
+            else
+            {
+                il.Emit(OpCodes.Castclass, property.PropertyType);
+            }
             il.Emit(OpCodes.Ret);
 
             typeBuilder.DefineMethodOverride(getMethodBuilder, property.GetMethod);
@@ -155,7 +239,39 @@ internal class JSInterfaceMarshaller
 
             ILGenerator il = setMethodBuilder.GetILGenerator();
 
-            // TODO: Setter IL
+            /*
+             * return this._set_property.DynamicInvoke(new object[] { Value, value });
+             */
+
+            // Load the static field for the delegate that implements the method by marshalling to JS.
+            il.Emit(OpCodes.Ldsfld, setDelegateField!);
+
+            // Create an array to hold the arguments passed to the delegate invocation.
+            il.Emit(OpCodes.Ldc_I4_2);
+            il.Emit(OpCodes.Newarr, typeof(object));
+
+            // Store the value from the Value property in the first array slot.
+            il.Emit(OpCodes.Dup); // Duplicate the array reference on the stack.
+            il.Emit(OpCodes.Ldc_I4_0);
+            il.Emit(OpCodes.Ldarg_0); // this
+            PropertyInfo valueProperty = typeof(JSInterface).GetProperty(
+                "Value", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            il.Emit(OpCodes.Call, valueProperty.GetMethod!);
+            il.Emit(OpCodes.Box, typeof(JSValue));
+            il.Emit(OpCodes.Stelem_Ref);
+
+            // Store the set argument "value" in the second array slot.
+            il.Emit(OpCodes.Dup); // Duplicate the array reference on the stack.
+            il.Emit(OpCodes.Ldc_I4_1);
+            il.Emit(OpCodes.Ldarg_1); // value
+            if (property.PropertyType.IsValueType) il.Emit(OpCodes.Box, property.PropertyType);
+            il.Emit(OpCodes.Stelem_Ref);
+
+            // Invoke the delegate.
+            il.Emit(OpCodes.Callvirt, typeof(Delegate).GetMethod(nameof(Delegate.DynamicInvoke))!);
+
+            // Remove unused return value from the stack.
+            il.Emit(OpCodes.Pop);
 
             il.Emit(OpCodes.Ret);
 
@@ -164,12 +280,12 @@ internal class JSInterfaceMarshaller
         }
     }
 
-    private static void BuildMethodImplementation(
+    private void BuildMethodImplementation(
         TypeBuilder typeBuilder,
-        MethodInfo method)
+        MethodInfo method,
+        FieldInfo delegateField,
+        JSMarshaller marshaller)
     {
-        if (method.IsStatic) return;
-
         MethodAttributes attributes =
             MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.Final |
             MethodAttributes.NewSlot | MethodAttributes.HideBySig;
@@ -191,14 +307,96 @@ internal class JSInterfaceMarshaller
 
         ILGenerator il = methodBuilder.GetILGenerator();
 
-        // TODO: Method IL
-        // Define a static property for a delegate for each method.
-        // Emit IL to invoke the delegate, passing args and returning result.
-        // After building the type, get delegates from the marshaller and assign to static properties.
+        // TODO: Consider defining delegate types as needed for method signatures so the
+        // delegate invocations are not "dynamic". It would avoid boxing value types.
 
+        /*
+         * return this._method.DynamicInvoke(new object[] { Value, args... });
+         */
+
+        // Load the static field for the delegate that implements the method by marshalling to JS.
+        il.Emit(OpCodes.Ldsfld, delegateField);
+
+        // Create an array to hold the arguments passed to the delegate invocation.
+        il.Emit(OpCodes.Ldc_I4, 1 + parameters.Length);
+        il.Emit(OpCodes.Newarr, typeof(object));
+
+        // Store the value from the Value property in the first array slot.
+        il.Emit(OpCodes.Dup); // Duplicate the array reference on the stack.
+        il.Emit(OpCodes.Ldc_I4_0);
+        il.Emit(OpCodes.Ldarg_0); // this
+        PropertyInfo valueProperty = typeof(JSInterface).GetProperty(
+            "Value", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        il.Emit(OpCodes.Call, valueProperty.GetMethod!);
+        il.Emit(OpCodes.Box, typeof(JSValue));
+        il.Emit(OpCodes.Stelem_Ref);
+
+        // Store the arguments in the remaining array slots.
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            il.Emit(OpCodes.Dup);  // Duplicate the array reference on the stack.
+            il.Emit(OpCodes.Ldc_I4, 1 + i);
+            il.Emit(OpCodes.Ldarg, 1 + i);
+
+            if (parameters[i].ParameterType.IsValueType)
+            {
+                il.Emit(OpCodes.Box, parameters[i].ParameterType);
+            }
+
+            il.Emit(OpCodes.Stelem_Ref);
+        }
+
+        // Invoke the delegate.
+        il.Emit(OpCodes.Callvirt, typeof(Delegate).GetMethod(nameof(Delegate.DynamicInvoke))!);
+
+        // Return the result, casting to the return type if necessary.
+        if (method.ReturnType == typeof(void))
+        {
+            // Remove unused return value from the stack.
+            il.Emit(OpCodes.Pop);
+        }
+        else if (method.ReturnType.IsValueType)
+        {
+            il.Emit(OpCodes.Unbox_Any, method.ReturnType);
+        }
+        else
+        {
+            il.Emit(OpCodes.Castclass, method.ReturnType);
+        }
         il.Emit(OpCodes.Ret);
 
         typeBuilder.DefineMethodOverride(methodBuilder, method);
+    }
+
+    private class TestInterface : JSInterface
+    {
+        public TestInterface(JSValue value) : base(value) { }
+
+        private static Delegate? s_delegate;
+
+        public string StringProp
+        {
+            get
+            {
+                return (string)s_delegate!.DynamicInvoke(new object[] { Value })!;
+            }
+            set
+            {
+                s_delegate!.DynamicInvoke(new object[] { Value, value });
+            }
+        }
+
+        public int IntProp
+        {
+            get
+            {
+                return (int)s_delegate!.DynamicInvoke(new object[] { Value })!;
+            }
+            set
+            {
+                s_delegate!.DynamicInvoke(new object[] { Value, value });
+            }
+        }
     }
 
     private static void BuildMethodParameters(

@@ -73,6 +73,21 @@ public class JSMarshaller
             nameof(TaskExtensions.AsPromise), new[] { typeof(Task) })!;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the marshaller automatically converts
+    /// casing between TitleCase .NET member names and camelCase JavaScript member names.
+    /// </summary>
+    public bool AutoCamelCase { get; set; }
+
+    public string ToCamelCase(string name)
+    {
+        if (!AutoCamelCase) return name;
+
+        StringBuilder sb = new(name);
+        sb[0] = char.ToLowerInvariant(sb[0]);
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Converts from a JS value to a specified type.
     /// </summary>
     /// <typeparam name="T">The type the value will be converted to.</typeparam>
@@ -359,16 +374,16 @@ public class JSMarshaller
                     method.DeclaringType.Name + '.' + name;
             }
 
-            ParameterExpression thisParameter = Expression.Parameter(typeof(JSValue), "__this");
             ParameterExpression resultVariable = Expression.Parameter(typeof(JSValue), "__result");
 
-            ParameterInfo[] parameters = method.GetParameters();
-            ParameterExpression[] variables = new ParameterExpression[parameters.Length + 1];
-            variables[0] = thisParameter;
-            for (int i = 0; i < parameters.Length; i++)
+            ParameterInfo[] methodParameters = method.GetParameters();
+            ParameterExpression[] parameters = new ParameterExpression[methodParameters.Length + 1];
+            ParameterExpression thisParameter = Expression.Parameter(typeof(JSValue), "__this");
+            parameters[0] = thisParameter;
+            for (int i = 0; i < methodParameters.Length; i++)
             {
-                variables[i + 1] = Expression.Parameter(
-                    parameters[i].ParameterType, parameters[i].Name);
+                parameters[i + 1] = Expression.Parameter(
+                    methodParameters[i].ParameterType, methodParameters[i].Name);
             }
 
             /*
@@ -385,14 +400,14 @@ public class JSMarshaller
                 typeof(JSValue).GetImplicitConversion(typeof(string), typeof(JSValue)));
 
             Expression ParameterToJSValue(int index) => InlineOrInvoke(
-                GetToJSValueExpression(parameters[index].ParameterType),
-                variables[index + 1],
+                GetToJSValueExpression(methodParameters[index].ParameterType),
+                parameters[index + 1],
                 nameof(BuildToJSMethodExpression));
 
             // Switch on parameter count to avoid allocating an array if < 4 parameters.
             // (Expression trees don't support stackallock.)
             Expression callExpression;
-            if (parameters.Length == 0)
+            if (methodParameters.Length == 0)
             {
                 callExpression = Expression.Call(
                     typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
@@ -400,7 +415,7 @@ public class JSMarshaller
                     thisParameter,
                     methodName);
             }
-            else if (parameters.Length == 1)
+            else if (methodParameters.Length == 1)
             {
                 callExpression = Expression.Call(
                      typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
@@ -409,7 +424,7 @@ public class JSMarshaller
                     methodName,
                     ParameterToJSValue(0));
             }
-            else if (parameters.Length == 3)
+            else if (methodParameters.Length == 3)
             {
                 callExpression = Expression.Call(
                      typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
@@ -420,7 +435,7 @@ public class JSMarshaller
                     ParameterToJSValue(0),
                     ParameterToJSValue(1));
             }
-            else if (parameters.Length == 3)
+            else if (methodParameters.Length == 3)
             {
                 callExpression = Expression.Call(
                      typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
@@ -438,7 +453,7 @@ public class JSMarshaller
                      typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
                          new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue[]) }),
                     new[] { thisParameter, methodName }.Concat(
-                        parameters.Select((_, i) => ParameterToJSValue(i))).ToArray());
+                        methodParameters.Select((_, i) => ParameterToJSValue(i))).ToArray());
             }
 
             Expression callStatement = Expression.Assign(resultVariable, callExpression);
@@ -450,10 +465,10 @@ public class JSMarshaller
             return Expression.Lambda(
                 Expression.Block(
                     method.ReturnType,
-                    variables.Append(resultVariable),
+                    new[] { resultVariable },
                     new[] { callStatement, returnStatement }),
                 name,
-                variables);
+                parameters);
         }
         catch (Exception ex)
         {
@@ -487,7 +502,7 @@ public class JSMarshaller
             }
 
             ParameterExpression thisParameter = Expression.Parameter(typeof(JSValue), "__this");
-            ParameterExpression resultVariable = Expression.Parameter(typeof(JSValue), "__result");
+            ParameterExpression resultVariable = Expression.Variable(typeof(JSValue), "__result");
 
             /*
              * PropertyType get_PropertyName(JSValue __this)
@@ -517,7 +532,7 @@ public class JSMarshaller
             return Expression.Lambda(
                 Expression.Block(
                     property.PropertyType,
-                    new[] { thisParameter, resultVariable },
+                    new[] { resultVariable },
                     new[] { getStatement, returnStatement }),
                 name,
                 new[] { thisParameter });
@@ -559,7 +574,7 @@ public class JSMarshaller
             ParameterExpression valueParameter =
                 Expression.Parameter(property.PropertyType, "__value");
             ParameterExpression jsValueVariable =
-                Expression.Parameter(typeof(JSValue), "__jsValue");
+                Expression.Variable(typeof(JSValue), "__jsValue");
 
             /*
              * void set_PropertyName(JSValue __this, PropertyType __value)
@@ -590,7 +605,7 @@ public class JSMarshaller
             return Expression.Lambda(
                 Expression.Block(
                     typeof(void),
-                    new[] { thisParameter, valueParameter, jsValueVariable },
+                    new[] { jsValueVariable },
                     new[] { convertStatement, setStatement }),
                 name,
                 new[] { thisParameter, valueParameter });
@@ -2068,13 +2083,6 @@ public class JSMarshaller
         }
 
         return name;
-    }
-
-    public static string ToCamelCase(string name)
-    {
-        StringBuilder sb = new(name);
-        sb[0] = char.ToLowerInvariant(sb[0]);
-        return sb.ToString();
     }
 
     private static Expression InlineOrInvoke(

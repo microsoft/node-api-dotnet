@@ -456,8 +456,9 @@ internal class AssemblyExporter
         if (type.IsPointer ||
             type == typeof(Type) ||
             type.Namespace == "System.Reflection" ||
-            type.Namespace?.StartsWith("System.Collections.") == true ||
-            type.Namespace?.StartsWith("System.Threading.") == true)
+            (type.Namespace?.StartsWith("System.Collections.") == true && !type.IsGenericType) ||
+            (type.Namespace?.StartsWith("System.Threading.") == true && type != typeof(Task) &&
+            !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))))
         {
             return false;
         }

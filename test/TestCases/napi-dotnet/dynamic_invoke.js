@@ -43,3 +43,20 @@ assert.strictEqual(instance2.Value, 'test');
 const TestEnum = assembly.TestEnum;
 assert.strictEqual(TestEnum.Two, 2);
 assert.strictEqual(TestEnum[2], 'Two');
+
+test();
+async function test() {
+  const interfaceObj = assembly.AsyncMethods.InterfaceTest;
+  assert.strictEqual(typeof interfaceObj, 'object');
+
+  const interfaceResult = await interfaceObj.TestAsync('buddy');
+  assert.strictEqual(interfaceResult, 'Hey buddy!');
+
+  // Invoke a C# method that calls back to a JS object that implements an interface.
+  const asyncInterfaceImpl = {
+    async TestAsync(greeting) { return `Hello, ${greeting}!`; }
+  };
+  const reverseInterfaceResult =
+    await assembly.AsyncMethods.ReverseInterfaceTest(asyncInterfaceImpl, 'buddy');
+  assert.strictEqual(reverseInterfaceResult, 'Hello, buddy!');
+}
