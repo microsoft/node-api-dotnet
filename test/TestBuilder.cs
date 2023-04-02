@@ -327,23 +327,17 @@ internal static class TestBuilder
         {
             if (e.Data != null)
             {
-                lock (logWriter)
-                {
-                    logWriter.WriteLine(e.Data);
-                    logWriter.Flush();
-                }
+                logWriter.WriteLine(e.Data);
+                logWriter.Flush();
             }
         };
         process.ErrorDataReceived += (_, e) =>
         {
             if (e.Data != null)
             {
-                lock (logWriter)
-                {
-                    logWriter.WriteLine(e.Data);
-                    logWriter.Flush();
-                    errorOutput.AppendLine(e.Data);
-                }
+                logWriter.WriteLine(e.Data);
+                logWriter.Flush();
+                errorOutput.AppendLine(e.Data);
             }
         };
         process.BeginOutputReadLine();

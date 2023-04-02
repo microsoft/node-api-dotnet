@@ -243,14 +243,16 @@ internal class AssemblyExporter
         {
             if (member is PropertyInfo property &&
                 property.PropertyType.Assembly == type.Assembly &&
-                IsSupportedType(property.PropertyType))
+                IsSupportedType(property.PropertyType) &&
+                !JSMarshaller.IsConvertedType(property.PropertyType))
             {
                 ExportClass(property.PropertyType);
             }
             else if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
                 method.ReturnType.Assembly == type.Assembly &&
-                IsSupportedType(method.ReturnType))
+                IsSupportedType(method.ReturnType) &&
+                !JSMarshaller.IsConvertedType(method.ReturnType))
             {
                 ExportClass(method.ReturnType);
             }
@@ -456,8 +458,9 @@ internal class AssemblyExporter
         if (type.IsPointer ||
             type == typeof(Type) ||
             type.Namespace == "System.Reflection" ||
-            type.Namespace?.StartsWith("System.Collections.") == true ||
-            type.Namespace?.StartsWith("System.Threading.") == true)
+            (type.Namespace?.StartsWith("System.Collections.") == true && !type.IsGenericType) ||
+            (type.Namespace?.StartsWith("System.Threading.") == true && type != typeof(Task) &&
+            !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))))
         {
             return false;
         }
