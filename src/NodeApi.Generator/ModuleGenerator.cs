@@ -26,7 +26,13 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private const string ModuleInitializeMethodName = "Initialize";
     private const string ModuleRegisterFunctionName = "napi_register_module_v1";
 
-    private readonly JSMarshaller _marshaller = new();
+    private readonly JSMarshaller _marshaller = new()
+    {
+        // Currently source-generated marshalling uses auto camel-casing,
+        // while dynamic invocation does not.
+        AutoCamelCase = true,
+    };
+
     private readonly Dictionary<string, LambdaExpression> _callbackAdapters = new();
     private readonly List<ITypeSymbol> _exportedInterfaces = new();
 
