@@ -50,6 +50,7 @@ function packMainPackage() {
 
   // Copy script files to the staging dir.
   copyScriptFiles(packageStageDir, '.', 'init.js', 'index.d.ts');
+  copyScriptFiles(packageStageDir, '../..', 'README.md');
 
   generateTargetFrameworkScriptFiles(packageStageDir);
 
@@ -98,6 +99,7 @@ function packGeneratorPackage() {
   const buildVersion = writePackageJson(packageStageDir, packageJson);
 
   copyScriptFiles(packageStageDir, 'generator', 'index.js');
+  copyScriptFiles(packageStageDir, '../..', 'README.md');
 
   copyFrameworkSpecificBinaries(
     [ 'net6.0' ],
