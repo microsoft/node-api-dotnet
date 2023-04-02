@@ -74,6 +74,21 @@ public sealed class JSContext : IDisposable
     /// </remarks>
     private readonly ConcurrentDictionary<Type, JSReference> _structMap = new();
 
+    /// <summary>
+    /// Maps from JS class names to (strong references to) JS constructors for classes imported
+    /// from JS to C#.
+    /// </summary>
+    /// <remarks>
+    /// Enables C# code to construct instances of built-in JS classes, without having to resolve
+    /// the constructors every time.
+    /// </remarks>
+    private readonly ConcurrentDictionary<(string?, string?), JSReference> _importMap = new();
+
+    /// <summary>
+    /// Holds a reference to the require() function.
+    /// </summary>
+    private JSReference? _require;
+
     private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
 
     public object? Module { get; set; }
@@ -101,14 +116,41 @@ public sealed class JSContext : IDisposable
     }
 
     /// <summary>
-    /// Maps from JS class names to (strong references to) JS constructors for classes imported
-    /// from JS to C#.
+    /// Gets or sets the require() function.
     /// </summary>
     /// <remarks>
-    /// Enables C# code to construct instances of built-in JS classes, without having to resolve
-    /// the constructors every time.
+    /// Managed-host initialization will typically pass in the require function.
     /// </remarks>
-    private readonly ConcurrentDictionary<(string?, string?), JSReference> _importMap = new();
+    public JSValue Require
+    {
+        get
+        {
+            JSValue? value = _require?.GetValue();
+            if (value?.IsFunction() == true)
+            {
+                return value.Value;
+            }
+
+            JSValue globalRequire = JSValue.Global["require"];
+            if (globalRequire.IsFunction())
+            {
+                _require = new JSReference(globalRequire);
+                return globalRequire;
+            }
+
+            throw new InvalidOperationException(
+                "The global require function was not found. " +
+                "Set `global.require = require` before loading the module.");
+        }
+        set
+        {
+            if (_require is not null)
+            {
+                _require.Dispose();
+            }
+            _require = new JSReference(value);
+        }
+    }
 
     /// <summary>
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.
@@ -510,15 +552,7 @@ public sealed class JSContext : IDisposable
             else if (property == null)
             {
                 // Importing from a module via require().
-                JSValue require = JSValue.Global["require"];
-                if (!require.IsFunction())
-                {
-                    throw new InvalidOperationException(
-                        "The global require function was not found. " +
-                        "Set `global.require = require` before loading the module.");
-                }
-
-                JSValue moduleValue = require.Call(thisArg: JSValue.Undefined, module);
+                JSValue moduleValue = Require.Call(thisArg: JSValue.Undefined, module);
                 return new JSReference(moduleValue);
             }
             else
