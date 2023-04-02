@@ -3,9 +3,20 @@
   "version": "0.1.0",
   "description": "Node-API bindings for .Net",
   "main": "index.js",
+  "license": "MIT",
+  "author": "Microsoft",
   "scripts": {
   },
-  "author": "Microsoft",
-  "license": "MIT",
-  "types": "./index.d.ts"
+  "types": "./index.d.ts",
+  "keywords": [
+    "Node-API",
+    "NAPI",
+    ".Net",
+    "dotnet"
+  ],
+  "repository": "github:microsoft/node-api-dotnet",
+  "homepage": "https://github.com/microsoft/node-api-dotnet#readme",
+  "bugs": {
+    "url": "https://github.com/microsoft/node-api-dotnet/issues"
+  }
 }

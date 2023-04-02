@@ -4,9 +4,21 @@
   "description": "Node-API for .Net code generator",
   "main": "index.js",
   "bin": "index.js",
-  "author": "Microsoft",
   "license": "MIT",
+  "author": "Microsoft",
   "dependencies": {
     "node-api-dotnet": "0.1.0"
+  },
+  "keywords": [
+    "Node-API",
+    "NAPI",
+    "generator",
+    ".Net",
+    "dotnet"
+  ],
+  "repository": "github:microsoft/node-api-dotnet",
+  "homepage": "https://github.com/microsoft/node-api-dotnet#readme",
+  "bugs": {
+    "url": "https://github.com/microsoft/node-api-dotnet/issues"
   }
 }
