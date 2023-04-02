@@ -75,7 +75,7 @@ internal class JSInterfaceMarshaller
         IEnumerable<Type> allInterfaces =
             new[] { interfaceType }.Concat(GetInterfaces(interfaceType)).Distinct();
 
-        foreach (var property in allInterfaces.SelectMany((i) => i.GetProperties())
+        foreach (PropertyInfo? property in allInterfaces.SelectMany((i) => i.GetProperties())
             .Where((p) => p.GetMethod?.IsStatic != true && p.SetMethod?.IsStatic != true))
         {
             FieldBuilder? getFieldBuilder = null;
@@ -100,7 +100,7 @@ internal class JSInterfaceMarshaller
                 marshaller);
         }
 
-        foreach (var method in allInterfaces.SelectMany((i) => i.GetMethods())
+        foreach (MethodInfo? method in allInterfaces.SelectMany((i) => i.GetMethods())
             .Where((m) => !m.IsStatic && !m.IsSpecialName))
         {
             FieldBuilder fieldBuilder = CreateDelegateField(
