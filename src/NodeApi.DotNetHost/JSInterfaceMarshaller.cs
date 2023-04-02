@@ -368,37 +368,6 @@ internal class JSInterfaceMarshaller
         typeBuilder.DefineMethodOverride(methodBuilder, method);
     }
 
-    private class TestInterface : JSInterface
-    {
-        public TestInterface(JSValue value) : base(value) { }
-
-        private static Delegate? s_delegate;
-
-        public string StringProp
-        {
-            get
-            {
-                return (string)s_delegate!.DynamicInvoke(new object[] { Value })!;
-            }
-            set
-            {
-                s_delegate!.DynamicInvoke(new object[] { Value, value });
-            }
-        }
-
-        public int IntProp
-        {
-            get
-            {
-                return (int)s_delegate!.DynamicInvoke(new object[] { Value })!;
-            }
-            set
-            {
-                s_delegate!.DynamicInvoke(new object[] { Value, value });
-            }
-        }
-    }
-
     private static void BuildMethodParameters(
         MethodBuilder methodBuilder, ParameterInfo[] parameters)
     {
