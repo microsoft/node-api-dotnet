@@ -1,0 +1,43 @@
+# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+# https://github.com/dorny/test-reporter#recommended-setup-for-public-repositories
+
+name: Test Report
+on:
+  workflow_run:
+    workflows: ['PR Verification'] # runs after 'PR Verification' workflow
+    types:
+      - completed
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      # GitHub actions do not support loops.
+      # To report on the same machine we expand the matrix ourselves.
+      #  matrix:
+      #    os: [ windows-latest, macos-latest, ubuntu-latest ]
+      #    node-version: [ 18.x ]
+      #    configuration: [ Release ]
+
+    - name: Publish test results (windows-latest, node18.x, Release)
+      uses: dorny/test-reporter@v1
+      with:
+        artifact: test-logs-windows-latest-node18.x-Release
+        name: test (windows-latest, node18.x, Release)
+        path: test-dotnet*-node18.x-Release/*.trx
+        reporter: dotnet-trx
+
+    - name: Publish test results (macos-latest, node18.x, Release)
+      uses: dorny/test-reporter@v1
+      with:
+        artifact: test-logs-macos-latest-node18.x-Release
+        name: test (macos-latest, node18.x, Release)
+        path: test-dotnet*-node18.x-Release/*.trx
+        reporter: dotnet-trx
+
+    - name: Publish test results (ubuntu-latest, node18.x, Release)
+      uses: dorny/test-reporter@v1
+      with:
+        artifact: test-logs-ubuntu-latest-node18.x-Release
+        name: test (ubuntu-latest, node18.x, Release)
+        path: test-dotnet*-node18.x-Release/*.trx
+        reporter: dotnet-trx
