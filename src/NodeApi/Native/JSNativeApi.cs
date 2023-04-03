@@ -996,7 +996,7 @@ public static partial class JSNativeApi
         JSValueScopeType scopeType,
         Func<TDescriptor, JSCallbackDescriptor> getCallbackDescriptor)
     {
-        using var scope = new JSValueScope(scopeType, env);
+        using var scope = JSValueScope.Create(scopeType, env);
         try
         {
             JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
@@ -1042,7 +1042,7 @@ public static partial class JSNativeApi
         {
             // TODO: [vmoroz] In future we will be not allowed to run JS in finalizers.
             // We must remove creation of the scope.
-            using var scope = new JSValueScope(JSValueScopeType.Callback, env);
+            using var scope = JSValueScope.Create(JSValueScopeType.Callback, env);
             ((Action)gcHandle.Target!)();
         }
         finally

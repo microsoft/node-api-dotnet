@@ -58,25 +58,59 @@ public enum JSValueScopeType
 
 public sealed class JSValueScope : IDisposable
 {
-    private readonly JSValueScope? _parentScope;
-    private readonly napi_env _env;
-    private readonly SynchronizationContext? _previousSyncContext;
-    private readonly nint _scopeHandle;
+    private JSValueScope? _parentScope;
+    private napi_env _env;
+    private SynchronizationContext? _previousSyncContext;
+    private nint _scopeHandle;
 
     [ThreadStatic] private static JSValueScope? s_currentScope;
 
-    public JSValueScopeType ScopeType { get; }
+    public JSValueScopeType ScopeType { get; private set; }
 
     public static JSValueScope? Current => s_currentScope;
 
     public bool IsDisposed { get; private set; }
 
-    public JSContext Context { get; }
+    public JSContext Context { get; private set; } = null!;
 
     public JSModuleContext? ModuleContext { get; internal set; }
 
+    /// <summary>
+    /// A previously-disposed scope that is available for resurrection.
+    /// </summary>
+    private static JSValueScope? _freeScope;
+
     public JSValueScope(
-        JSValueScopeType scopeType = JSValueScopeType.Handle, napi_env env = default)
+        JSValueScopeType scopeType = JSValueScopeType.Handle,
+        napi_env env = default)
+    {
+        Initialize(scopeType, env);
+    }
+
+    private JSValueScope() { }
+
+    internal static JSValueScope Create(
+        JSValueScopeType scopeType = JSValueScopeType.Handle,
+        napi_env env = default)
+    {
+        JSValueScope? scope = Interlocked.CompareExchange(ref _freeScope, null, _freeScope);
+        if (scope is not null)
+        {
+            // Resurrecting a previously-disposed scope.
+            scope.IsDisposed = false;
+        }
+        else
+        {
+            scope = new();
+        }
+
+        scope.Initialize(scopeType, env);
+        return scope;
+    }
+
+    private void Initialize(
+        JSValueScopeType scopeType = JSValueScopeType.Handle,
+        napi_env env = default)
     {
         ScopeType = scopeType;
 
@@ -152,6 +186,18 @@ public sealed class JSValueScope : IDisposable
             }
 
             s_currentScope = _parentScope;
+        }
+
+        if (Interlocked.CompareExchange(ref _freeScope, this, null) is null)
+        {
+            // This object is being saved for possible future resurrection.
+            _parentScope = null;
+            _previousSyncContext = null;
+        }
+        else
+        {
+            // Another instance is already saved. So this one is discarded.
+            GC.SuppressFinalize(this);
         }
     }
 

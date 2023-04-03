@@ -216,7 +216,7 @@ public class JSThreadSafeFunction
 
         try
         {
-            using JSValueScope scope = new(JSValueScopeType.Callback, env);
+            using JSValueScope scope = JSValueScope.Create(JSValueScopeType.Callback, env);
 
             object? callbackData = null;
             if (data != default)
