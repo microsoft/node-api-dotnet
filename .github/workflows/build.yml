@@ -3,16 +3,9 @@
 name: PR Verification
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch: # Enable manually starting a build
-
-permissions:
-  checks: write
-  pull-requests: write
-  statuses: write
 
 jobs:
   build:
@@ -53,6 +46,7 @@ jobs:
       run: dotnet build --configuration ${{ matrix.configuration }}
 
     - name: Build packages
+      id: pack
       run: dotnet pack --configuration ${{ matrix.configuration }}
 
     # Uncomment to enable an SSH session for debugging
@@ -70,40 +64,44 @@ jobs:
           out/pkg/*.tgz
 
     - name: Test .NET 4.7.2
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-latest' && steps.pack.conclusion == 'success' && !cancelled()
       env:
         TRACE_NODE_API_HOST: 1
       run: >
         dotnet test -f net472
         --configuration ${{ matrix.configuration }}
         --logger trx
-        --results-directory "test-netfx47-node${{ matrix.node-version }}-${{ matrix.configuration }}"
+        --results-directory "out/test/netfx47-node${{ matrix.node-version }}-${{ matrix.configuration }}"
 
     - name: Test .NET 6
+      if: steps.pack.conclusion == 'success' && !cancelled()
       env:
         TRACE_NODE_API_HOST: 1
       run: >
         dotnet test -f net6.0
         --configuration ${{ matrix.configuration }}
         --logger trx
-        --results-directory "test-dotnet6-node${{ matrix.node-version }}-${{ matrix.configuration }}"
+        --results-directory "out/test/dotnet6-node${{ matrix.node-version }}-${{ matrix.configuration }}"
 
     - name: Test .NET 7
+      if: steps.pack.conclusion == 'success' && !cancelled()
       env:
         TRACE_NODE_API_HOST: 1
       run: >
         dotnet test -f net7.0
         --configuration ${{ matrix.configuration }}
         --logger trx
-        --results-directory "test-dotnet7-node${{ matrix.node-version }}-${{ matrix.configuration }}"
+        --results-directory "out/test/dotnet7-node${{ matrix.node-version }}-${{ matrix.configuration }}"
 
     - name: Upload test logs
+      if: always() # Update artifacts regardless if code succeeded, failed, or cancelled
       uses: actions/upload-artifact@v3
       with:
         name: test-logs-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.configuration }}
-        path: out/obj/${{ matrix.configuration }}/**/*.log
-      if: ${{ always() }}
+        path: |
+          out/obj/${{ matrix.configuration }}/**/*.log
+          out/test/**/*.trx
 
     - name: Check formatting
+      if: ${{ !cancelled() }} # Run this step even when there are build failures but not when cancelled
       run: dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
-      if: ${{ always() }} # Run this step even when there are build failures

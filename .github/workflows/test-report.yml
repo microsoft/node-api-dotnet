@@ -7,37 +7,28 @@ on:
     workflows: ['PR Verification'] # runs after 'PR Verification' workflow
     types:
       - completed
+
+permissions:
+  checks: write
+  pull-requests: write
+  statuses: write
+
 jobs:
   report:
+    strategy:
+      matrix:
+        os: [ windows-latest, macos-latest, ubuntu-latest ]
+        node-version: [ 18.x ]
+        configuration: [ Release ]
+      fail-fast: false  # Don't cancel other jobs when one job fails
+
     runs-on: ubuntu-latest
+
     steps:
-      # GitHub actions do not support loops.
-      # To report on the same machine we expand the matrix ourselves.
-      #  matrix:
-      #    os: [ windows-latest, macos-latest, ubuntu-latest ]
-      #    node-version: [ 18.x ]
-      #    configuration: [ Release ]
-
-    - name: Publish test results (windows-latest, node18.x, Release)
+    - name: Publish test results (${{ matrix.os }}, node${{ matrix.node-version }}, ${{ matrix.configuration }})
       uses: dorny/test-reporter@v1
       with:
-        artifact: test-logs-windows-latest-node18.x-Release
-        name: test (windows-latest, node18.x, Release)
-        path: test-dotnet*-node18.x-Release/*.trx
-        reporter: dotnet-trx
-
-    - name: Publish test results (macos-latest, node18.x, Release)
-      uses: dorny/test-reporter@v1
-      with:
-        artifact: test-logs-macos-latest-node18.x-Release
-        name: test (macos-latest, node18.x, Release)
-        path: test-dotnet*-node18.x-Release/*.trx
-        reporter: dotnet-trx
-
-    - name: Publish test results (ubuntu-latest, node18.x, Release)
-      uses: dorny/test-reporter@v1
-      with:
-        artifact: test-logs-ubuntu-latest-node18.x-Release
-        name: test (ubuntu-latest, node18.x, Release)
-        path: test-dotnet*-node18.x-Release/*.trx
+        artifact: test-logs-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.configuration }}
+        name: test results (${{ matrix.os }}, node${{ matrix.node-version }}, ${{ matrix.configuration }})
+        path: test/**/*.trx
         reporter: dotnet-trx
