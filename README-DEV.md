@@ -28,8 +28,15 @@ directory.
 
 ## Test
 ```bash
+dotnet pack
 dotnet test
 ```
+
+Some tests reference the source-generator via the local nuget package; hence it is required to run
+`dotnet pack` before the first time running tests, or after any changes to the generator code.
+_This is unavoidable because the source-generator must run with at least .NET 6, so referencing it
+via a `<ProjectReference>` would not work for .NET 4 testing because project references always
+use the same target framework version._
 
 Use `--framework` to specify a target framework, or `--filter` to run a subset of test cases:
 ```bash

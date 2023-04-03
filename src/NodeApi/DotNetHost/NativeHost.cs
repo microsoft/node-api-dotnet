@@ -44,7 +44,7 @@ internal unsafe partial class NativeHost : IDisposable
     {
         Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
 
-        using JSValueScope scope = new(JSValueScopeType.RootNoContext, env);
+        using JSValueScope scope = new(JSValueScopeType.NoContext, env);
         try
         {
             JSNativeApi.Interop.Initialize();

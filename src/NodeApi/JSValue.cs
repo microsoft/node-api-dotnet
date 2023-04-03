@@ -170,7 +170,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         JSValue func = CreateFunction(
             utf8Name,
             new napi_callback(
-                JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
+                JSValueScope.Current?.ScopeType == JSValueScopeType.NoContext ?
                 s_invokeJSCallbackNC : s_invokeJSCallback),
             (nint)descriptorHandle);
         func.AddGCHandleFinalizer((nint)descriptorHandle);
@@ -188,7 +188,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             utf8Name,
             (nuint)utf8NameLength,
             new napi_callback(
-                JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
+                JSValueScope.Current?.ScopeType == JSValueScopeType.NoContext ?
                 s_invokeJSCallbackNC : s_invokeJSCallback),
             (nint)descriptorHandle, out napi_value result)
             .ThrowIfFailed(result);

@@ -294,10 +294,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // The main initialization entrypoint is called by the `ManagedHost`, and by the unmanaged entrypoint.
         s += $"public static napi_value {ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += "{";
-        s += "using var scope = new JSValueScope(JSValueScopeType.Root, env);";
+        s += "using var scope = new JSValueScope(JSValueScopeType.Module, env);";
         s += "try";
         s += "{";
-        s += "JSContext context = scope.ModuleContext;";
+        s += "JSContext context = scope.Context;";
         s += "JSValue exportsValue = new(exports, scope);";
         s++;
 
@@ -491,17 +491,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         if (moduleType != null)
         {
             // Construct an instance of the custom module class when the module is initialized.
-            // The module class constructor may optionally take a JSContext parameter. If an
-            // appropriate constructor is not present then the generated code will not compile.
-            IEnumerable<IMethodSymbol> constructors = moduleType.GetMembers()
-                .OfType<IMethodSymbol>().Where((m) => m.MethodKind == MethodKind.Constructor);
-            IMethodSymbol? constructor = constructors.SingleOrDefault((c) =>
-                c.Parameters.Length == 1 && c.Parameters[0].Type.Name == "JSContext") ??
-                constructors.SingleOrDefault((c) => c.Parameters.Length == 0);
-            string contextParameter = constructor?.Parameters.Length == 1 ?
-                "context" : string.Empty;
+            // IF a no-args constructor is not present then the generated code will not compile.
             string ns = GetNamespace(moduleType);
-            s += $".ExportModule(new {ns}.{moduleType.Name}({contextParameter}), (JSObject)exportsValue);";
+            s += $".ExportModule(new {ns}.{moduleType.Name}(), (JSObject)exportsValue);";
         }
         else
         {

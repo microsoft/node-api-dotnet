@@ -13,6 +13,12 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 public readonly struct JSCallbackDescriptor
 {
     /// <summary>
+    /// Saves the module context under which the callback was defined, so that multiple .NET
+    /// modules in the same process can register callbacks for module-level functions.
+    /// </summary>
+    internal JSModuleContext? ModuleContext { get; }
+
+    /// <summary>
     /// Gets the callback that handles invocations from JavaScript.
     /// </summary>
     public JSCallback Callback { get; }
@@ -25,7 +31,18 @@ public readonly struct JSCallbackDescriptor
 
     public JSCallbackDescriptor(JSCallback callback, object? data = null)
     {
-        Callback = callback;
+        JSValueScope currentScope = JSValueScope.Current ??
+            throw new InvalidOperationException("No current scope.");
+        ModuleContext = currentScope.ModuleContext;
+
+        Callback = callback ?? throw new ArgumentNullException(nameof(callback));
+        Data = data;
+    }
+
+    internal JSCallbackDescriptor(JSCallback callback, object? data, JSModuleContext? moduleContext)
+    {
+        ModuleContext = moduleContext;
+        Callback = callback ?? throw new ArgumentNullException(nameof(callback));
         Data = data;
     }
 

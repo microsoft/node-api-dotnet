@@ -19,7 +19,7 @@ public class JSModuleBuilder<T> : JSPropertyDescriptorList<JSModuleBuilder<T>, T
 
     private static new T? Unwrap(JSCallbackArgs _)
     {
-        return (T?)JSContext.Current.Module;
+        return (T?)JSModuleContext.Current.Module;
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public class JSModuleBuilder<T> : JSPropertyDescriptorList<JSModuleBuilder<T>, T
     /// <returns>The module exports.</returns>
     public JSValue ExportModule(T module, JSObject exports)
     {
-        JSContext.Current.Module = module;
+        JSModuleContext.Current.Module = module;
         exports.DefineProperties(Properties.ToArray());
         return exports;
     }

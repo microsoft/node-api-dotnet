@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using Xunit;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
@@ -343,7 +344,15 @@ internal static class TestBuilder
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        process.WaitForExit();
+        // Process.WaitForExit() may hang when redirecting output because it actually waits for the
+        // stdout/stderr streams to be closed, which may not happen because `dotnet build` passes
+        // the handles to additional child processes, which may be kept running by the build server.
+        // https://github.com/dotnet/runtime/issues/29232
+        while (!process.HasExited)
+        {
+            Thread.Sleep(100);
+        }
+
         logWriter.Close();
         return errorOutput.Length > 0 ? errorOutput.ToString() : null;
     }

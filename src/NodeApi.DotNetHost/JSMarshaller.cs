@@ -43,6 +43,9 @@ public class JSMarshaller
     private static readonly PropertyInfo s_context =
         typeof(JSContext).GetStaticProperty(nameof(JSContext.Current))!;
 
+    private static readonly PropertyInfo s_moduleContext =
+        typeof(JSModuleContext).GetStaticProperty(nameof(JSModuleContext.Current))!;
+
     private static readonly PropertyInfo s_undefinedValue =
         typeof(JSValue).GetStaticProperty(nameof(JSValue.Undefined))!;
 
@@ -1094,7 +1097,7 @@ public class JSMarshaller
 
         if (type.GetCustomAttributes<JSModuleAttribute>().Any())
         {
-            // For a method on a module class, the .NET object is stored in module instance data.
+            // For a method on a module class, the .NET object is stored in the module context.
             // `ThisArg` is ignored for module-level methods.
 
             /*
@@ -1102,12 +1105,13 @@ public class JSMarshaller
              * if (__this == null) return JSValue.Undefined;
              */
 
-            PropertyInfo moduleProperty = typeof(JSContext).GetProperty(nameof(JSContext.Module))!;
+            PropertyInfo moduleProperty = typeof(JSModuleContext).GetProperty(
+                nameof(JSModuleContext.Module))!;
             yield return Expression.Assign(
                 thisVariable,
                 Expression.TypeAs(
                     Expression.Property(
-                        Expression.Property(null, s_context),
+                        Expression.Property(null, s_moduleContext),
                         moduleProperty),
                     type));
             yield return Expression.IfThen(

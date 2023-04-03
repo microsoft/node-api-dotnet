@@ -12,13 +12,14 @@ using napi_env = Microsoft.JavaScript.NodeApi.JSNativeApi.Interop.napi_env;
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
-/// Manages JavaScript interop context for the lifetime of a module.
+/// Manages JavaScript interop context for the lifetime of the .NET Node API host.
 /// </summary>
 /// <remarks>
-/// A <see cref="JSContext"/> instance is constructed when the module is loaded and disposed when
-/// the module is unloaded. The context tracks several kinds of JS references used internally
-/// by this assembly, so that the references can be re-used for the lifetime of the module and
-/// disposed when the module is unloaded.
+/// A <see cref="JSContext"/> instance is constructed when the .NET Node API managed host is
+/// loaded, and disposed when the host is unloaded. (For AOT there is no "host" compnoent, so each
+/// AOT module has a context that matches the module lifetime.) The context tracks several kinds
+/// of JS references used internally by this assembly, so that the references can be re-used for
+/// the lifetime of the module and disposed when the context is disposed.
 /// </remarks>
 public sealed class JSContext : IDisposable
 {
@@ -91,8 +92,6 @@ public sealed class JSContext : IDisposable
 
     private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
 
-    public object? Module { get; set; }
-
     public bool IsDisposed { get; private set; }
 
     public static explicit operator napi_env(JSContext context) => context._env;
@@ -100,7 +99,10 @@ public sealed class JSContext : IDisposable
         => GetInstanceData(env) as JSContext
            ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
 
-    public static JSContext Current => JSValueScope.Current?.ModuleContext
+    /// <summary>
+    /// Gets the current host context.
+    /// </summary>
+    public static JSContext Current => JSValueScope.Current?.Context
         ?? throw new InvalidCastException("No current scope.");
 
     public JSSynchronizationContext SynchronizationContext { get; }
@@ -627,11 +629,6 @@ public sealed class JSContext : IDisposable
         if (IsDisposed) return;
 
         IsDisposed = true;
-
-        if (Module is IDisposable module)
-        {
-            module.Dispose();
-        }
 
         DisposeReferences(_objectMap);
         DisposeReferences(_classMap);
