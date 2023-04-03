@@ -1,29 +1,22 @@
 # https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
 
-name: napi-dotnet build and test
+name: PR Verification
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch: # Enable manually starting a build
 
-permissions:
-  checks: write
-  pull-requests: write
-  statuses: write
-
 jobs:
   build:
-
-    runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         os: [ windows-latest, macos-latest, ubuntu-latest ]
         node-version: [ 18.x ]
+        configuration: [ Release ]
       fail-fast: false  # Don't cancel other jobs when one job fails
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
@@ -49,11 +42,12 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    - name: Build
-      run: dotnet build --configuration Release
+    - name: Build ${{ matrix.configuration }}
+      run: dotnet build --configuration ${{ matrix.configuration }}
 
     - name: Build packages
-      run: dotnet pack --configuration Release
+      id: pack
+      run: dotnet pack --configuration ${{ matrix.configuration }}
 
     # Uncomment to enable an SSH session for debugging
     # - name: Setup tmate session
@@ -64,46 +58,50 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ runner.os }}-packages
+        name: ${{ matrix.os }}-${{ matrix.configuration }}-packages
         path: |
           out/pkg/*.nupkg
           out/pkg/*.tgz
 
     - name: Test .NET 4.7.2
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-latest' && steps.pack.conclusion == 'success' && !cancelled()
       env:
         TRACE_NODE_API_HOST: 1
-      run: dotnet test -f net472 --configuration Release --logger trx --results-directory "test-netfx47-node${{ matrix.node-version }}"
+      run: >
+        dotnet test -f net472
+        --configuration ${{ matrix.configuration }}
+        --logger trx
+        --results-directory "out/test/netfx47-node${{ matrix.node-version }}-${{ matrix.configuration }}"
 
     - name: Test .NET 6
+      if: steps.pack.conclusion == 'success' && !cancelled()
       env:
         TRACE_NODE_API_HOST: 1
-      run: dotnet test -f net6.0 --configuration Release --logger trx --results-directory "test-dotnet6-node${{ matrix.node-version }}"
+      run: >
+        dotnet test -f net6.0
+        --configuration ${{ matrix.configuration }}
+        --logger trx
+        --results-directory "out/test/dotnet6-node${{ matrix.node-version }}-${{ matrix.configuration }}"
 
     - name: Test .NET 7
+      if: steps.pack.conclusion == 'success' && !cancelled()
       env:
         TRACE_NODE_API_HOST: 1
-      run: dotnet test -f net7.0 --configuration Release --logger trx --results-directory "test-dotnet7-node${{ matrix.node-version }}"
+      run: >
+        dotnet test -f net7.0
+        --configuration ${{ matrix.configuration }}
+        --logger trx
+        --results-directory "out/test/dotnet7-node${{ matrix.node-version }}-${{ matrix.configuration }}"
 
     - name: Upload test logs
+      if: always() # Update artifacts regardless if code succeeded, failed, or cancelled
       uses: actions/upload-artifact@v3
       with:
-        name: test-logs-${{ runner.os }}-node${{ matrix.node-version }}
-        path: out/obj/Release/**/*.log
-      if: ${{ always() }}
-
-    - name: Publish test results
-      uses: dorny/test-reporter@v1
-      with:
-        name: test (${{ runner.os }}, node${{ matrix.node-version }})
-        path: test-dotnet*-node${{ matrix.node-version }}/*.trx
-        reporter: dotnet-trx
-      if: ${{ always() }} # Run this step even when there are test failures
+        name: test-logs-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.configuration }}
+        path: |
+          out/obj/${{ matrix.configuration }}/**/*.log
+          out/test/**/*.trx
 
     - name: Check formatting
+      if: ${{ !cancelled() }} # Run this step even when there are build failures but not when cancelled
       run: dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
-      if: ${{ always() }} # Run this step even when there are build failures
-
-    # TODO: Publish packages
-    # - name: Publish packages
-    #   run: dotnet nuget push out/pkg/*.nupkg

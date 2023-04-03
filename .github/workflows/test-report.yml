@@ -1,0 +1,34 @@
+# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+# https://github.com/dorny/test-reporter#recommended-setup-for-public-repositories
+
+name: Test Report
+on:
+  workflow_run:
+    workflows: ['PR Verification'] # runs after 'PR Verification' workflow
+    types:
+      - completed
+
+permissions:
+  checks: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  report:
+    strategy:
+      matrix:
+        os: [ windows-latest, macos-latest, ubuntu-latest ]
+        node-version: [ 18.x ]
+        configuration: [ Release ]
+      fail-fast: false  # Don't cancel other jobs when one job fails
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Publish test results (${{ matrix.os }}, node${{ matrix.node-version }}, ${{ matrix.configuration }})
+      uses: dorny/test-reporter@v1
+      with:
+        artifact: test-logs-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.configuration }}
+        name: test results (${{ matrix.os }}, node${{ matrix.node-version }}, ${{ matrix.configuration }})
+        path: test/**/*.trx
+        reporter: dotnet-trx
