@@ -26,7 +26,6 @@ public class ModuleClass : IDisposable
 
     public void Dispose()
     {
-        GC.SuppressFinalize(this);
     }
 
     public string ModuleProperty { get; set; } = "test";

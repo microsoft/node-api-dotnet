@@ -635,8 +635,6 @@ public sealed class JSContext : IDisposable
         DisposeReferences(_staticClassMap);
         DisposeReferences(_structMap);
         SynchronizationContext.Dispose();
-
-        GC.SuppressFinalize(this);
     }
 
     private static void DisposeReferences<TKey>(

@@ -262,7 +262,6 @@ internal class JSIterableEnumerable<T> : IEnumerable<T>, IEquatable<JSValue>, ID
     {
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
-        GC.SuppressFinalize(this);
     }
 
     protected virtual void Dispose(bool disposing)
@@ -551,7 +550,6 @@ internal class JSMapReadOnlyDictionary<TKey, TValue> :
     {
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
-        GC.SuppressFinalize(this);
     }
 
     protected virtual void Dispose(bool disposing)

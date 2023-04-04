@@ -303,6 +303,5 @@ public sealed class ManagedHost : IDisposable
 
     public void Dispose()
     {
-        GC.SuppressFinalize(this);
     }
 }

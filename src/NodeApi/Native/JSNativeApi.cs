@@ -1130,8 +1130,6 @@ public static partial class JSNativeApi
                 _memoryHandle.Dispose();
                 Owner = null;
             }
-
-            GC.SuppressFinalize(this);
         }
     }
 }

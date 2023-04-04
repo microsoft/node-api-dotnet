@@ -259,8 +259,6 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
                     JSHandlerReference.Value.Dispose();
                 }
             }
-
-            GC.SuppressFinalize(this);
         }
 
         public override string ToString()

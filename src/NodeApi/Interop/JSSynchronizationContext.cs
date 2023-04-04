@@ -29,7 +29,6 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
     public void Dispose()
     {
         Dispose(disposing: true);
-        GC.SuppressFinalize(this);
     }
 
     public override void Post(SendOrPostCallback callback, object? state)

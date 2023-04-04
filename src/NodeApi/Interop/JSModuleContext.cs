@@ -46,7 +46,5 @@ public sealed class JSModuleContext : IDisposable
         {
             module.Dispose();
         }
-
-        GC.SuppressFinalize(this);
     }
 }
