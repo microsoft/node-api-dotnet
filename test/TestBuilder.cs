@@ -328,16 +328,28 @@ internal static class TestBuilder
         {
             if (e.Data != null)
             {
-                logWriter.WriteLine(e.Data);
-                logWriter.Flush();
+                try
+                {
+                    logWriter.WriteLine(e.Data);
+                    logWriter.Flush();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
             }
         };
         process.ErrorDataReceived += (_, e) =>
         {
             if (e.Data != null)
             {
-                logWriter.WriteLine(e.Data);
-                logWriter.Flush();
+                try
+                {
+                    logWriter.WriteLine(e.Data);
+                    logWriter.Flush();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
                 errorOutput.AppendLine(e.Data);
             }
         };
