@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
-public class JSSynchronizationContext : SynchronizationContext, IDisposable
+public sealed class JSSynchronizationContext : SynchronizationContext, IDisposable
 {
     private readonly JSThreadSafeFunction _tsfn;
 

@@ -145,10 +145,7 @@ public sealed class JSRuntimeContext : IDisposable
         }
         set
         {
-            if (_require is not null)
-            {
-                _require.Dispose();
-            }
+            _require?.Dispose();
             _require = new JSReference(value);
         }
     }

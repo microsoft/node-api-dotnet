@@ -14,7 +14,7 @@ namespace Microsoft.JavaScript.NodeApi.TestCases;
 /// automatically exported.
 /// </summary>
 [JSModule]
-public class ModuleClass : IDisposable
+public sealed class ModuleClass : IDisposable
 {
     /// <summary>
     /// The module class must have a public constructor that takes either no parameters
