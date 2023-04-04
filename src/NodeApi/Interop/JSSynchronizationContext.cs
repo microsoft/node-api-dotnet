@@ -28,7 +28,13 @@ public sealed class JSSynchronizationContext : SynchronizationContext, IDisposab
 
     public void Dispose()
     {
-        Dispose(disposing: true);
+        if (IsDisposed) return;
+
+        IsDisposed = true;
+
+        // Destroy TSFN by releasing last thread use count.
+        // TSFN is deleted after this point and must not be used.
+        _tsfn.Release();
     }
 
     public override void Post(SendOrPostCallback callback, object? state)
@@ -73,16 +79,5 @@ public sealed class JSSynchronizationContext : SynchronizationContext, IDisposab
     public void CloseAsyncScope()
     {
         _tsfn.Unref();
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (IsDisposed) return;
-
-        IsDisposed = true;
-
-        // Destroy TSFN by releasing last thread use count.
-        // TSFN is deleted after this point and must not be used.
-        _tsfn.Release();
     }
 }
