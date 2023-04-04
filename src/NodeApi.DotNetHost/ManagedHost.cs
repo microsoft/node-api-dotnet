@@ -110,7 +110,7 @@ public sealed class ManagedHost : IDisposable
             JSValue require = exportsObject["require"];
             if (require.IsFunction())
             {
-                JSContext.Current.Require = require;
+                JSRuntimeContext.Current.Require = require;
             }
 
             ManagedHost host = new(exportsObject);

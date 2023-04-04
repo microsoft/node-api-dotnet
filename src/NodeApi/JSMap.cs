@@ -28,7 +28,7 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
     /// </summary>
     public JSMap()
     {
-        _value = JSContext.Current.Import(null, "Map").CallAsConstructor();
+        _value = JSRuntimeContext.Current.Import(null, "Map").CallAsConstructor();
     }
 
     /// <summary>
@@ -37,7 +37,7 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
     /// </summary>
     public JSMap(JSIterable iterable)
     {
-        _value = JSContext.Current.Import(null, "Map").CallAsConstructor(iterable);
+        _value = JSRuntimeContext.Current.Import(null, "Map").CallAsConstructor(iterable);
     }
 
     public int Count => (int)_value["size"];

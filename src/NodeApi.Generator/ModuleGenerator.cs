@@ -118,7 +118,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         "Module class must have public visibility.");
                 }
 
-                // TODO: Check for a public constructor that takes a single JSContext argument.
+                // TODO: Check for a public constructor that takes a single JSRuntimeContext argument.
 
                 moduleInitializers.Add(type);
             }
@@ -297,7 +297,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "using var scope = new JSValueScope(JSValueScopeType.Module, env);";
         s += "try";
         s += "{";
-        s += "JSContext context = scope.Context;";
+        s += "JSRuntimeContext context = scope.RuntimeContext;";
         s += "JSValue exportsValue = new(exports, scope);";
         s++;
 
@@ -380,7 +380,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         else
         {
-            s += $"exportsValue = new JSModuleBuilder<JSContext>()";
+            s += $"exportsValue = new JSModuleBuilder<JSRuntimeContext>()";
             s.IncreaseIndent();
         }
 

@@ -98,7 +98,7 @@ public class JSStructBuilder<T> where T : struct
         // to converted default values? Otherwise they will be initially undefined.
 
         // Note this does not use Wrap() because structs are passed by value.
-        return JSContext.Current.RegisterStruct<T>(JSNativeApi.DefineClass(
+        return JSRuntimeContext.Current.RegisterStruct<T>(JSNativeApi.DefineClass(
             StructName,
             new JSCallbackDescriptor((args) => args.ThisArg),
             Properties.ToArray()));

@@ -64,7 +64,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             throw new InvalidOperationException("A class constructor is required.");
         }
 
-        JSContext context = JSContext.Current;
+        JSRuntimeContext context = JSRuntimeContext.Current;
         JSValue classObject;
         if (typeof(Stream).IsAssignableFrom(typeof(T)))
         {
@@ -101,7 +101,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
                             instance = _constructorDescriptor.Value.Callback(args);
                         }
 
-                        return JSContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
+                        return JSRuntimeContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
                     },
                     _constructorDescriptor.Value.Data),
                 Properties.ToArray());
@@ -110,7 +110,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
         if (baseClass != null && !baseClass.Value.IsUndefined())
         {
             JSValue setPrototypeFunction =
-                JSContext.Current.Import(null, "Object").GetProperty("setPrototypeOf");
+                JSRuntimeContext.Current.Import(null, "Object").GetProperty("setPrototypeOf");
             setPrototypeFunction.Call(
                 thisArg: JSValue.Undefined,
                 classObject.GetProperty("prototype"),
@@ -142,7 +142,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
 
         JSValue obj = JSValue.CreateObject();
         obj.DefineProperties(Properties.ToArray());
-        JSContext.Current.RegisterStaticClass(ClassName, obj);
+        JSRuntimeContext.Current.RegisterStaticClass(ClassName, obj);
         return obj;
     }
 
@@ -152,7 +152,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
     /// <remarks>
     /// A JS class defined this way may not be constructed directly from JS. An instance of the
     /// class may be constructed when passing a .NET object (that implements the interface) to JS
-    /// via <see cref="JSContext.GetOrCreateObjectWrapper()" />.
+    /// via <see cref="JSRuntimeContext.GetOrCreateObjectWrapper()" />.
     /// </remarks>
     public JSValue DefineInterface()
     {
@@ -169,7 +169,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             }
         }
 
-        return JSContext.Current.RegisterClass<T>(JSNativeApi.DefineClass(
+        return JSRuntimeContext.Current.RegisterClass<T>(JSNativeApi.DefineClass(
             ClassName,
             new JSCallbackDescriptor((args) =>
             {
@@ -180,7 +180,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
 
                 // Constructing a JS instance to wrap a C# instance that implements the interface.
                 JSValue instance = args[0];
-                return JSContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
+                return JSRuntimeContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
             }),
             Properties.ToArray()));
     }

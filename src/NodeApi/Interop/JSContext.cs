@@ -15,13 +15,13 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// Manages JavaScript interop context for the lifetime of the .NET Node API host.
 /// </summary>
 /// <remarks>
-/// A <see cref="JSContext"/> instance is constructed when the .NET Node API managed host is
+/// A <see cref="JSRuntimeContext"/> instance is constructed when the .NET Node API managed host is
 /// loaded, and disposed when the host is unloaded. (For AOT there is no "host" compnoent, so each
 /// AOT module has a context that matches the module lifetime.) The context tracks several kinds
 /// of JS references used internally by this assembly, so that the references can be re-used for
 /// the lifetime of the module and disposed when the context is disposed.
 /// </remarks>
-public sealed class JSContext : IDisposable
+public sealed class JSRuntimeContext : IDisposable
 {
     private readonly napi_env _env;
 
@@ -94,22 +94,22 @@ public sealed class JSContext : IDisposable
 
     public bool IsDisposed { get; private set; }
 
-    public static explicit operator napi_env(JSContext context) => context._env;
-    public static explicit operator JSContext(napi_env env)
-        => GetInstanceData(env) as JSContext
+    public static explicit operator napi_env(JSRuntimeContext context) => context._env;
+    public static explicit operator JSRuntimeContext(napi_env env)
+        => GetInstanceData(env) as JSRuntimeContext
            ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
 
     /// <summary>
     /// Gets the current host context.
     /// </summary>
-    public static JSContext Current => JSValueScope.Current?.Context
+    public static JSRuntimeContext Current => JSValueScope.Current?.RuntimeContext
         ?? throw new InvalidCastException("No current scope.");
 
     public JSSynchronizationContext SynchronizationContext { get; }
 
-    public JSContext(napi_env env)
+    public JSRuntimeContext(napi_env env)
     {
-        // TODO: Move this Initialize call to the creators of JSContext
+        // TODO: Move this Initialize call to the creators of JSRuntimeContext
         JSNativeApi.Interop.Initialize();
 
         _env = env;

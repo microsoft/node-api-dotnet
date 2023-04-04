@@ -41,7 +41,7 @@ public class JSMarshaller
     // Cache some reflected members that are frequently referenced in expressions.
 
     private static readonly PropertyInfo s_context =
-        typeof(JSContext).GetStaticProperty(nameof(JSContext.Current))!;
+        typeof(JSRuntimeContext).GetStaticProperty(nameof(JSRuntimeContext.Current))!;
 
     private static readonly PropertyInfo s_moduleContext =
         typeof(JSModuleContext).GetStaticProperty(nameof(JSModuleContext.Current))!;
@@ -69,7 +69,7 @@ public class JSMarshaller
             nameof(JSNativeApi.TryUnwrap), new[] { typeof(JSValue) })!;
 
     private static readonly MethodInfo s_getOrCreateObjectWrapper =
-        typeof(JSContext).GetInstanceMethod(nameof(JSContext.GetOrCreateObjectWrapper))!;
+        typeof(JSRuntimeContext).GetInstanceMethod(nameof(JSRuntimeContext.GetOrCreateObjectWrapper))!;
 
     private static readonly MethodInfo s_asVoidPromise =
         typeof(TaskExtensions).GetStaticMethod(
@@ -1101,7 +1101,7 @@ public class JSMarshaller
             // `ThisArg` is ignored for module-level methods.
 
             /*
-             * ObjectType? __this = JSContext.Current.Module as ObjectType;
+             * ObjectType? __this = JSRuntimeContext.Current.Module as ObjectType;
              * if (__this == null) return JSValue.Undefined;
              */
 
@@ -1517,7 +1517,7 @@ public class JSMarshaller
             {
                 /*
                  * JSInterface.GetJSValue(value) ??
-                 *     JSContext.Current.GetOrCreateObjectWrapper(value)
+                 *     JSRuntimeContext.Current.GetOrCreateObjectWrapper(value)
                  */
                 Expression.Coalesce(
                     Expression.Call(
@@ -1777,7 +1777,7 @@ public class JSMarshaller
         Expression valueExpression)
     {
         /*
-         * JSValue jsValue = JSContext.Current.CreateStruct<StructName>();
+         * JSValue jsValue = JSRuntimeContext.Current.CreateStruct<StructName>();
          * jsValue["property0"] = (JSValue)value.Property0;
          * ...
          * return jsValue;
@@ -1785,7 +1785,7 @@ public class JSMarshaller
         ParameterExpression jsValueVariable = Expression.Variable(typeof(JSValue), "jsValue");
         variables.Add(jsValueVariable);
 
-        MethodInfo createStructMethod = typeof(JSContext).GetMethod(nameof(JSContext.CreateStruct))
+        MethodInfo createStructMethod = typeof(JSRuntimeContext).GetMethod(nameof(JSRuntimeContext.CreateStruct))
             !.MakeGenericMethod(fromType);
         yield return Expression.Assign(
             jsValueVariable,
@@ -1953,11 +1953,11 @@ public class JSMarshaller
             typeDefinition == typeof(ISet<>))
         {
             /*
-             * JSContext.Current.GetOrCreateCollectionWrapper(
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
              *     value, (value) => (JSValue)value, (value) => (ElementType)value);
              */
-            MethodInfo wrapMethod = typeof(JSContext).GetInstanceMethod(
-                    nameof(JSContext.GetOrCreateCollectionWrapper),
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
                     new[] { typeDefinition, typeof(JSValue.From<>), typeof(JSValue.To<>) },
                     elementType);
             yield return Expression.Call(
@@ -1973,11 +1973,11 @@ public class JSMarshaller
             typeDefinition == typeof(IAsyncEnumerable<>))
         {
             /*
-             * JSContext.Current.GetOrCreateCollectionWrapper(
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
              *     value, (value) => (JSValue)value);
              */
-            MethodInfo wrapMethod = typeof(JSContext).GetInstanceMethod(
-                    nameof(JSContext.GetOrCreateCollectionWrapper),
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
                     new[] { typeDefinition, typeof(JSValue.From<>) },
                     elementType);
             yield return Expression.Call(
@@ -1989,11 +1989,11 @@ public class JSMarshaller
         else if (typeDefinition == typeof(System.Collections.ObjectModel.ReadOnlyCollection<>))
         {
             /*
-             * JSContext.Current.GetOrCreateCollectionWrapper(
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
              *     (IReadOnlyCollection<T>)value, (value) => (JSValue)value);
              */
-            MethodInfo wrapMethod = typeof(JSContext).GetInstanceMethod(
-                    nameof(JSContext.GetOrCreateCollectionWrapper),
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
                     new[] { typeof(IReadOnlyCollection<>), typeof(JSValue.From<>) },
                     elementType);
             yield return Expression.Call(
@@ -2008,15 +2008,15 @@ public class JSMarshaller
             Type valueType = fromType.GenericTypeArguments[1];
 
             /*
-             * JSContext.Current.GetOrCreateCollectionWrapper(
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
              *     value,
              *     (key) => (JSValue)key,
              *     (value) => (JSValue)value,
              *     (key) => (KeyType)key,
              *     (value) => (ValueType)value);
              */
-            MethodInfo wrapMethod = typeof(JSContext).GetInstanceMethod(
-                    nameof(JSContext.GetOrCreateCollectionWrapper),
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
                     new[]
                     {
                         typeDefinition,
@@ -2042,14 +2042,14 @@ public class JSMarshaller
             Type valueType = fromType.GenericTypeArguments[1];
 
             /*
-             * JSContext.Current.GetOrCreateCollectionWrapper(
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
              *     value,
              *     (key) => (JSValue)key,
              *     (value) => (JSValue)value,
              *     (key) => (KeyType)key)
              */
-            MethodInfo wrapMethod = typeof(JSContext).GetInstanceMethod(
-                    nameof(JSContext.GetOrCreateCollectionWrapper),
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
                     new[]
                     {
                         typeDefinition,
