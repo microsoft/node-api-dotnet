@@ -102,8 +102,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// <summary>
     /// Gets the current host context.
     /// </summary>
-    public static JSRuntimeContext Current => JSValueScope.Current?.RuntimeContext
-        ?? throw new InvalidCastException("No current scope.");
+    public static JSRuntimeContext Current => JSValueScope.Current.RuntimeContext;
 
     public JSSynchronizationContext SynchronizationContext { get; }
 

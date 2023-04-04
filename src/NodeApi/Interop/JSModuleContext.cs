@@ -17,16 +17,8 @@ public sealed class JSModuleContext : IDisposable
     /// <summary>
     /// Gets the current module context.
     /// </summary>
-    public static JSModuleContext Current
-    {
-        get
-        {
-            JSValueScope scope = JSValueScope.Current
-                ?? throw new InvalidCastException("No current scope.");
-            return scope.ModuleContext
-                ?? throw new InvalidCastException("No current module context.");
-        }
-    }
+    public static JSModuleContext Current => JSValueScope.Current.ModuleContext
+        ?? throw new InvalidCastException("No current module context.");
 
     /// <summary>
     /// Gets an instance of the class that represents the module, or null if there is no module

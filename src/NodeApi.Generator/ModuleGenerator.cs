@@ -491,7 +491,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         if (moduleType != null)
         {
             // Construct an instance of the custom module class when the module is initialized.
-            // IF a no-args constructor is not present then the generated code will not compile.
+            // If a no-args constructor is not present then the generated code will not compile.
             string ns = GetNamespace(moduleType);
             s += $".ExportModule(new {ns}.{moduleType.Name}(), (JSObject)exportsValue);";
         }

@@ -16,8 +16,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     private readonly napi_value _handle = default;
     private readonly JSValueScope? _scope = null;
 
-    public readonly JSValueScope Scope =>
-        _scope ?? JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
+    public readonly JSValueScope Scope => _scope ?? JSValueScope.Current;
 
     public JSValue() { }
 

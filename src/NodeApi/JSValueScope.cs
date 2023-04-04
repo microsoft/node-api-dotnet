@@ -67,7 +67,8 @@ public sealed class JSValueScope : IDisposable
 
     public JSValueScopeType ScopeType { get; }
 
-    public static JSValueScope? Current => s_currentScope;
+    public static JSValueScope Current => s_currentScope ??
+        throw new InvalidOperationException("No current scope.");
 
     public bool IsDisposed { get; private set; }
 
@@ -172,7 +173,7 @@ public sealed class JSValueScope : IDisposable
         return new JSValue(result, _parentScope);
     }
 
-    public static explicit operator napi_env(JSValueScope? scope)
+    public static explicit operator napi_env(JSValueScope scope)
     {
         if (scope is null) throw new ArgumentNullException(nameof(scope));
         return scope!._env;

@@ -31,9 +31,7 @@ public readonly struct JSPropertyDescriptor
         JSPropertyAttributes attributes = JSPropertyAttributes.Default,
         object? data = null)
     {
-        JSValueScope currentScope = JSValueScope.Current ??
-            throw new InvalidOperationException("No current scope.");
-        ModuleContext = currentScope.ModuleContext;
+        ModuleContext = JSValueScope.Current.ModuleContext;
 
         Name = name;
         Method = method;

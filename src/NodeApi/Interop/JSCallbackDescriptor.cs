@@ -30,13 +30,8 @@ public readonly struct JSCallbackDescriptor
     public object? Data { get; }
 
     public JSCallbackDescriptor(JSCallback callback, object? data = null)
+        : this(callback, data, JSValueScope.Current.ModuleContext)
     {
-        JSValueScope currentScope = JSValueScope.Current ??
-            throw new InvalidOperationException("No current scope.");
-        ModuleContext = currentScope.ModuleContext;
-
-        Callback = callback ?? throw new ArgumentNullException(nameof(callback));
-        Data = data;
     }
 
     internal JSCallbackDescriptor(JSCallback callback, object? data, JSModuleContext? moduleContext)
