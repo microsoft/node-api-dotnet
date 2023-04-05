@@ -23,6 +23,14 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// </remarks>
 public sealed class JSRuntimeContext : IDisposable
 {
+    /// <summary>
+    /// Name of a global object that may hold context specific to Node API .NET.
+    /// </summary>
+    /// <remarks>
+    /// Currently it is only used to pass the require() function to .NET AOT modules.
+    /// </remarks>
+    public const string GlobalObjectName = "node_api_dotnet";
+
     private readonly napi_env _env;
 
     // Track JS constructors and instance JS wrappers for exported classes, enabling
@@ -132,16 +140,20 @@ public sealed class JSRuntimeContext : IDisposable
                 return value.Value;
             }
 
-            JSValue globalRequire = JSValue.Global["require"];
-            if (globalRequire.IsFunction())
+            JSValue globalObject = JSValue.Global[GlobalObjectName];
+            if (globalObject.IsObject())
             {
-                _require = new JSReference(globalRequire);
-                return globalRequire;
+                JSValue globalRequire = globalObject["require"];
+                if (globalRequire.IsFunction())
+                {
+                    _require = new JSReference(globalRequire);
+                    return globalRequire;
+                }
             }
 
             throw new InvalidOperationException(
-                "The global require function was not found. " +
-                "Set `global.require = require` before loading the module.");
+                $"The require function was not found on the global {GlobalObjectName} object. " +
+                $"Set `global.{GlobalObjectName} = {{ require }}` before loading the module.");
         }
         set
         {

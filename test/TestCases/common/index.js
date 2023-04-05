@@ -129,9 +129,9 @@ exports.loadDotnetModule = function () {
         require)
       .require(exports.dotnetModule);
   } else {
-    // The Node API module may need the require() function at initialization time; passing it as a
+    // The Node API module may need the require() function at initialization time; passing it via a
     // global is the only solution for AOT, since it cannot be obtained via any `napi_*` function.
-    global.require = require;
+    global.node_api_dotnet = { require };
 
     dotnetModule = require(exports.dotnetModule);
   }
