@@ -193,6 +193,14 @@ public static partial class JSNativeApi
             public nint napi_add_async_cleanup_hook;
             public nint napi_remove_async_cleanup_hook;
             public nint node_api_get_module_file_name;
+
+            // Embedding APIs
+            public nint napi_create_platform;
+            public nint napi_destroy_platform;
+            public nint napi_create_environment;
+            public nint napi_run_environment;
+            public nint napi_await_promise;
+            public nint napi_destroy_environment;
         }
 
         //===========================================================================
@@ -214,6 +222,7 @@ public static partial class JSNativeApi
         public record struct napi_escapable_handle_scope(nint Handle);
         public record struct napi_callback_info(nint Handle);
         public record struct napi_deferred(nint Handle);
+        public record struct napi_platform(nint Handle);
 
         //===========================================================================
         // Enum types
@@ -324,6 +333,17 @@ public static partial class JSNativeApi
             public napi_finalize(delegate* unmanaged[Cdecl]<napi_env, nint, nint, void> handle)
                 => Handle = (nint)handle;
 #endif
+        }
+
+        public struct napi_error_message_handler
+        {
+            public nint Handle;
+
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            public delegate void Delegate(byte* message);
+
+            public napi_error_message_handler(napi_error_message_handler.Delegate handler)
+                => Handle = Marshal.GetFunctionPointerForDelegate(handler);
         }
 
         public struct napi_property_descriptor
@@ -1342,6 +1362,89 @@ public static partial class JSNativeApi
 
         internal static napi_status napi_object_seal(napi_env env, napi_value js_object)
             => CallInterop(ref s_fields.napi_object_seal, env, js_object.Handle);
+
+        internal static napi_status napi_create_platform(
+            string[]? args,
+            string[]? exec_args,
+            napi_error_message_handler err_handler,
+            out napi_platform result)
+        {
+            // TODO: Handle args, exec_args.
+            nint funcHandle = GetExport(
+                ref s_fields.napi_create_platform, nameof(napi_create_platform));
+            var funcDelegate = (delegate* unmanaged[Cdecl]<
+                int, nint, int, nint, napi_error_message_handler, nint, napi_status>)
+                funcHandle;
+            fixed (napi_platform* result_ptr = &result)
+            {
+                return funcDelegate(0, default, 0, default, err_handler, (nint)result_ptr);
+            }
+        }
+
+        internal static napi_status napi_destroy_platform(napi_platform platform)
+        {
+            nint funcHandle = GetExport(
+                ref s_fields.napi_destroy_platform, nameof(napi_destroy_platform));
+            var funcDelegate = (delegate* unmanaged[Cdecl]<napi_platform, napi_status>)
+                funcHandle;
+            return funcDelegate(platform);
+        }
+
+        internal static napi_status napi_create_environment(
+            napi_platform platform,
+            napi_error_message_handler err_handler,
+            string? main_script,
+            out napi_env result)
+        {
+            nint funcHandle = GetExport(
+                ref s_fields.napi_create_environment, nameof(napi_create_environment));
+            var funcDelegate = (delegate* unmanaged[Cdecl]<
+                napi_platform, napi_error_message_handler, nint, nint, napi_status>)funcHandle;
+            nint main_script_ptr = main_script == null ? default : StringToHGlobalUtf8(main_script);
+            try
+            {
+                fixed (napi_env* result_ptr = &result)
+                {
+                    return funcDelegate(platform, err_handler, main_script_ptr, (nint)result_ptr);
+                }
+            }
+            finally
+            {
+                if (main_script_ptr != default) Marshal.FreeHGlobal(main_script_ptr);
+            }
+        }
+
+        internal static napi_status napi_run_environment(napi_env env)
+        {
+            nint funcHandle = GetExport(
+                ref s_fields.napi_run_environment, nameof(napi_run_environment));
+            var funcDelegate = (delegate* unmanaged[Cdecl]<napi_env, napi_status>)funcHandle;
+            return funcDelegate(env);
+        }
+
+        internal static napi_status napi_await_promise(
+            napi_env env, napi_value promise, out napi_value result)
+        {
+            nint funcHandle = GetExport(
+                ref s_fields.napi_await_promise, nameof(napi_await_promise));
+            var funcDelegate = (delegate* unmanaged[Cdecl]<
+                napi_env, napi_value, napi_value*, napi_status>)funcHandle;
+            fixed (napi_value* resultPointer = &result)
+            {
+                return funcDelegate(env, promise, resultPointer);
+            }
+        }
+
+        internal static napi_status napi_destroy_environment(napi_env env, out int exit_code)
+        {
+            nint funcHandle = GetExport(
+                ref s_fields.napi_destroy_environment, nameof(napi_destroy_environment));
+            var funcDelegate = (delegate* unmanaged[Cdecl]<napi_env, nint, napi_status>)funcHandle;
+            fixed (int* exit_code_ptr = &exit_code)
+            {
+                return funcDelegate(env, (nint)exit_code_ptr);
+            }
+        }
 
         private static nint GetExport(ref nint field, [CallerMemberName] string functionName = "")
         {

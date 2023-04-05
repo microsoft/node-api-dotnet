@@ -118,9 +118,9 @@ public class JSReference : IDisposable
         {
             IsDisposed = true;
             napi_ref handle = _handle; // To capture in lambda
-            _context.RunInMainLoop(
-                (napi_env env) => napi_delete_reference(env, handle).ThrowIfFailed(),
-                allowSyncRun: true);
+            _context.SynchronizationContext.Post(
+                () => napi_delete_reference((napi_env)_context, handle).ThrowIfFailed(),
+                allowSync: true);
         }
     }
 

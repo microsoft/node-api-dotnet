@@ -1292,6 +1292,10 @@ public class JSMarshaller
                 Expression.Convert(valueParameter, toType, castMethod),
             };
         }
+        else if (toType == typeof(JSValue))
+        {
+            statements = new[] { valueParameter };
+        }
         else if (toType.IsEnum)
         {
             // Cast the JSValue to the enum underlying type, then to the enum type.
@@ -1387,10 +1391,6 @@ public class JSMarshaller
                     Expression.New(adapterConstructor, valueParameter)),
             };
         }
-        else if (toType == typeof(JSValue))
-        {
-            statements = new[] { valueParameter };
-        }
         else
         {
             throw new NotImplementedException(
@@ -1449,6 +1449,10 @@ public class JSMarshaller
             {
                 Expression.Convert(valueExpression, typeof(JSValue), castMethod),
             };
+        }
+        else if (fromType == typeof(JSValue))
+        {
+            statements = new[] { valueParameter };
         }
         else if (fromType.IsEnum)
         {
@@ -1542,10 +1546,6 @@ public class JSMarshaller
                         getOrCreateObjectWrapper,
                         valueExpression)),
             };
-        }
-        else if (fromType == typeof(JSValue))
-        {
-            statements = new[] { valueParameter };
         }
         else
         {

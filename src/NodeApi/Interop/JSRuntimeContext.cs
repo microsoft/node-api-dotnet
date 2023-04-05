@@ -578,60 +578,6 @@ public sealed class JSRuntimeContext : IDisposable
         return reference.GetValue() ?? JSValue.Undefined;
     }
 
-    /// <summary>
-    /// Runs callback in the main Node.JS loop for this module environment.
-    /// </summary>
-    /// <param name="callback">The callback to run.</param>
-    /// <param name="allowSyncRun">Pass true to allow synchronous execution if are already
-    /// in the main loop. Default is false.
-    /// </param>
-    /// <remarks>
-    /// By default it runs the callback always asynchronously.
-    /// Set the <c>allowSyncRun</c> parameter to true to allow sync execution if we are
-    /// already in the main loop thread.
-    ///
-    /// This method can be called from any thread.
-    /// </remarks>
-    public void RunInMainLoop(Action callback, bool allowSyncRun = false)
-    {
-        if (IsDisposed) return;
-
-        if (allowSyncRun && JSSynchronizationContext.Current == SynchronizationContext)
-        {
-            callback();
-            return;
-        }
-
-        SynchronizationContext.Post(_ =>
-        {
-            if (IsDisposed) return;
-
-            callback();
-        }, null);
-    }
-
-    /// <summary>
-    /// A helper method to run callbacks that need napi_env parameter
-    /// in the main Node.JS loop for this module environment.
-    /// </summary>
-    /// <param name="callback">The callback to run.</param>
-    /// <param name="allowSyncRun">Pass true to allow synchronous execution if are already
-    /// in the main loop. Default is false.
-    /// </param>
-    /// <remarks>
-    /// By default it runs the callback always asynchronously.
-    /// Set the <c>allowSyncRun</c> parameter to true to allow sync execution if we are
-    /// already in the main loop thread.
-    ///
-    /// This method can be called from any thread.
-    /// </remarks>
-    internal void RunInMainLoop(Action<napi_env> callback, bool allowSyncRun = false)
-    {
-        if (IsDisposed) return;
-
-        RunInMainLoop(() => callback(_env), allowSyncRun);
-    }
-
     public void Dispose()
     {
         if (IsDisposed) return;

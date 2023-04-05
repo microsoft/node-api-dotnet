@@ -1,0 +1,9 @@
+{
+  "name": "node-api-dotnet-examples-winui-fluid",
+  "dependencies": {
+    "@fluidframework/tinylicious-client": "^1.3.6",
+    "fluid-framework": "^1.3.6",
+    "node-api-dotnet": "file:../../out/pkg/node-api-dotnet",
+    "tinylicious": "^0.7.3"
+  }
+}
