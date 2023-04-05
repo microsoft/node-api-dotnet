@@ -118,18 +118,21 @@ exports.dotnetModule = process.env.TEST_DOTNET_MODULE_PATH;
 exports.dotnetVersion = process.env.TEST_DOTNET_VERSION;
 
 exports.loadDotnetModule = function () {
-  // The Node API module may need the require() function at initialization time; passing it as
-  // a global is the best (only?) solution, since it cannot be obtained via any `napi_*` function.
-  global.require = require;
-
   let dotnetModule;
   if (exports.dotnetHost) {
-    // Normally the index.js script in the npm package takes care of locating the correct
+    // Normally the init.js script in the npm package takes care of locating the correct
     // native host and managed host binaries for the current environment.
     dotnetModule = require(exports.dotnetHost)
-      .initialize(exports.dotnetVersion, exports.dotnetHost.replace(/\.node$/, '.DotNetHost.dll'))
+      .initialize(
+        exports.dotnetVersion,
+        exports.dotnetHost.replace(/\.node$/, '.DotNetHost.dll'),
+        require)
       .require(exports.dotnetModule);
   } else {
+    // The Node API module may need the require() function at initialization time; passing it via a
+    // global is the only solution for AOT, since it cannot be obtained via any `napi_*` function.
+    global.node_api_dotnet = { require };
+
     dotnetModule = require(exports.dotnetModule);
   }
 

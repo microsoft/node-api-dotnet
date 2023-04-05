@@ -14,11 +14,11 @@ namespace Microsoft.JavaScript.NodeApi.TestCases;
 /// automatically exported.
 /// </summary>
 [JSModule]
-public class ModuleClass : IDisposable
+public sealed class ModuleClass : IDisposable
 {
     /// <summary>
     /// The module class must have a public constructor that takes either no parameters
-    /// or a single JSContext parameter.
+    /// or a single JSRuntimeContext parameter.
     /// </summary>
     public ModuleClass()
     {
@@ -26,7 +26,6 @@ public class ModuleClass : IDisposable
 
     public void Dispose()
     {
-        GC.SuppressFinalize(this);
     }
 
     public string ModuleProperty { get; set; } = "test";

@@ -22,12 +22,8 @@ function initialize(targetFramework) {
   const nativeHostPath = __dirname + `/${runtimeIdentifier}/${assemblyName}.node`;
   const managedHostPath = __dirname + `/${targetFramework}/${assemblyName}.DotNetHost.dll`
 
-  // The Node API module may need the require() function at initialization time.
-  // TODO: Pass this as a parameter to the native host initialize() method instead of a global.
-  global.require = require;
-
   const nativeHost = require(nativeHostPath);
-  return nativeHost.initialize(targetFramework, managedHostPath);
+  return nativeHost.initialize(targetFramework, managedHostPath, require);
 }
 
 function getRuntimeIdentifier() {

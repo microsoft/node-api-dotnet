@@ -50,7 +50,7 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
             jsTarget.Wrap(target);
         }
 
-        JSValue proxyConstructor = JSContext.Current.Import(null, "Proxy");
+        JSValue proxyConstructor = JSRuntimeContext.Current.Import(null, "Proxy");
 
         if (revocable)
         {
@@ -259,8 +259,6 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
                     JSHandlerReference.Value.Dispose();
                 }
             }
-
-            GC.SuppressFinalize(this);
         }
 
         public override string ToString()

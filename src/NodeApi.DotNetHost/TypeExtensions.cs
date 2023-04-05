@@ -235,7 +235,7 @@ internal static class TypeExtensions
                 else
                 {
                     // This assumption only works if type arguments are alternating as in
-                    // JSContext.GetOrCreateCollectionWrapper!
+                    // JSRuntimeContext.GetOrCreateCollectionWrapper!
                     return t.MakeGenericType(typeArgs[(i + 1) % typeArgs.Length]);
                 }
             })

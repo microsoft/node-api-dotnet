@@ -33,7 +33,7 @@ public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
     /// </summary>
     public JSSet()
     {
-        _value = JSContext.Current.Import(null, "Set").CallAsConstructor();
+        _value = JSRuntimeContext.Current.Import(null, "Set").CallAsConstructor();
     }
 
     /// <summary>
@@ -41,7 +41,7 @@ public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
     /// </summary>
     public JSSet(JSIterable iterable)
     {
-        _value = JSContext.Current.Import(null, "Set").CallAsConstructor(iterable);
+        _value = JSRuntimeContext.Current.Import(null, "Set").CallAsConstructor(iterable);
     }
 
     public int Count => (int)_value["size"];

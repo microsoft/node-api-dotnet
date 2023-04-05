@@ -63,10 +63,10 @@ public partial class NodeStream
                     JSValue options = JSValue.CreateObject();
                     options["readable"] = stream.CanRead;
                     options["writable"] = stream.CanWrite;
-                    JSValue duplexClass = JSContext.Current.Import("node:stream", "Duplex");
+                    JSValue duplexClass = JSRuntimeContext.Current.Import("node:stream", "Duplex");
                     duplexClass.Call(args.ThisArg, options);
 
-                    return JSContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
+                    return JSRuntimeContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
                 },
                 constructorDescriptor.Data),
             properties);
@@ -83,7 +83,7 @@ public partial class NodeStream
     {
         // https://nodejs.org/api/stream.html#api-for-stream-implementers
 
-        JSValue duplexConstructor = JSContext.Current.Import("node:stream", "Duplex");
+        JSValue duplexConstructor = JSRuntimeContext.Current.Import("node:stream", "Duplex");
         JSValue streamAdapter = GetOrCreateAdapter(stream.CanRead, stream.CanWrite);
         JSValue streamValue = duplexConstructor.CallAsConstructor(streamAdapter);
         streamValue.Wrap(stream);

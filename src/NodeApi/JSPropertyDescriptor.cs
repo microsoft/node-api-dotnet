@@ -2,18 +2,25 @@
 // Licensed under the MIT License.
 
 using System;
+using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
 public readonly struct JSPropertyDescriptor
 {
+    /// <summary>
+    /// Saves the module context under which the callback was defined, so that multiple .NET
+    /// modules in the same process can register callbacks for module-level functions.
+    /// </summary>
+    internal JSModuleContext? ModuleContext { get; init; }
+
     public JSValue Name { get; }
-    public JSCallback? Method { get; } = null;
-    public JSCallback? Getter { get; } = null;
-    public JSCallback? Setter { get; } = null;
-    public JSValue? Value { get; } = null;
-    public JSPropertyAttributes Attributes { get; } = JSPropertyAttributes.Default;
-    public object? Data { get; } = null;
+    public JSCallback? Method { get; }
+    public JSCallback? Getter { get; }
+    public JSCallback? Setter { get; }
+    public JSValue? Value { get; }
+    public JSPropertyAttributes Attributes { get; }
+    public object? Data { get; }
 
     public JSPropertyDescriptor(
         JSValue name,
@@ -24,6 +31,8 @@ public readonly struct JSPropertyDescriptor
         JSPropertyAttributes attributes = JSPropertyAttributes.Default,
         object? data = null)
     {
+        ModuleContext = JSValueScope.Current.ModuleContext;
+
         Name = name;
         Method = method;
         Getter = getter;

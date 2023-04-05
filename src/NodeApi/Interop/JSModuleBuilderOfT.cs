@@ -9,8 +9,8 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// <summary>
 /// Builds JS module exports.
 /// </summary>
-/// <typeparam name="T">Either <see cref="JSContext" /> or a custom module class that
-/// wraps a <see cref="JSContext"/> instance.</typeparam>
+/// <typeparam name="T">Either <see cref="JSRuntimeContext" /> or a custom module class that
+/// wraps a <see cref="JSRuntimeContext"/> instance.</typeparam>
 public class JSModuleBuilder<T> : JSPropertyDescriptorList<JSModuleBuilder<T>, T> where T : class
 {
     public JSModuleBuilder() : base(Unwrap)
@@ -19,7 +19,7 @@ public class JSModuleBuilder<T> : JSPropertyDescriptorList<JSModuleBuilder<T>, T
 
     private static new T? Unwrap(JSCallbackArgs _)
     {
-        return (T?)JSContext.Current.Module;
+        return (T?)JSModuleContext.Current.Module;
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public class JSModuleBuilder<T> : JSPropertyDescriptorList<JSModuleBuilder<T>, T
     /// <returns>The module exports.</returns>
     public JSValue ExportModule(T module, JSObject exports)
     {
-        JSContext.Current.Module = module;
+        JSModuleContext.Current.Module = module;
         exports.DefineProperties(Properties.ToArray());
         return exports;
     }

@@ -16,8 +16,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     private readonly napi_value _handle = default;
     private readonly JSValueScope? _scope = null;
 
-    public readonly JSValueScope Scope =>
-        _scope ?? JSValueScope.Current ?? throw new InvalidOperationException("No current scope");
+    public readonly JSValueScope Scope => _scope ?? JSValueScope.Current;
 
     public JSValue() { }
 
@@ -170,7 +169,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         JSValue func = CreateFunction(
             utf8Name,
             new napi_callback(
-                JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
+                JSValueScope.Current?.ScopeType == JSValueScopeType.NoContext ?
                 s_invokeJSCallbackNC : s_invokeJSCallback),
             (nint)descriptorHandle);
         func.AddGCHandleFinalizer((nint)descriptorHandle);
@@ -188,7 +187,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             utf8Name,
             (nuint)utf8NameLength,
             new napi_callback(
-                JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext ?
+                JSValueScope.Current?.ScopeType == JSValueScopeType.NoContext ?
                 s_invokeJSCallbackNC : s_invokeJSCallback),
             (nint)descriptorHandle, out napi_value result)
             .ThrowIfFailed(result);

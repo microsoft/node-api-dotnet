@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
-public class JSSynchronizationContext : SynchronizationContext, IDisposable
+public sealed class JSSynchronizationContext : SynchronizationContext, IDisposable
 {
     private readonly JSThreadSafeFunction _tsfn;
 
@@ -28,8 +28,13 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
 
     public void Dispose()
     {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
+        if (IsDisposed) return;
+
+        IsDisposed = true;
+
+        // Destroy TSFN by releasing last thread use count.
+        // TSFN is deleted after this point and must not be used.
+        _tsfn.Release();
     }
 
     public override void Post(SendOrPostCallback callback, object? state)
@@ -74,16 +79,5 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
     public void CloseAsyncScope()
     {
         _tsfn.Unref();
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (IsDisposed) return;
-
-        IsDisposed = true;
-
-        // Destroy TSFN by releasing last thread use count.
-        // TSFN is deleted after this point and must not be used.
-        _tsfn.Release();
     }
 }

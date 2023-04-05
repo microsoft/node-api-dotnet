@@ -193,7 +193,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// </summary>
     public static JSPromise Resolve()
     {
-        return (JSPromise)JSContext.Current.Import(null, "Promise").CallMethod("resolve");
+        return (JSPromise)JSRuntimeContext.Current.Import(null, "Promise").CallMethod("resolve");
     }
 
     /// <summary>
@@ -201,7 +201,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// </summary>
     public static JSPromise Resolve(JSValue value)
     {
-        return (JSPromise)JSContext.Current.Import(null, "Promise").CallMethod("resolve", value);
+        return (JSPromise)JSRuntimeContext.Current.Import(null, "Promise").CallMethod("resolve", value);
     }
 
     /// <summary>
@@ -209,7 +209,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// </summary>
     public static JSPromise Reject(JSValue reason)
     {
-        return (JSPromise)JSContext.Current.Import(null, "Promise").CallMethod("reject", reason);
+        return (JSPromise)JSRuntimeContext.Current.Import(null, "Promise").CallMethod("reject", reason);
     }
 
     public static JSPromise All(params JSPromise[] promises) => Select("all", promises);
@@ -239,7 +239,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
 
     private static JSPromise Select(string operation, JSArray promiseArray)
     {
-        return (JSPromise)JSContext.Current.Import(null, "Promise")
+        return (JSPromise)JSRuntimeContext.Current.Import(null, "Promise")
             .CallMethod(operation, promiseArray);
     }
 

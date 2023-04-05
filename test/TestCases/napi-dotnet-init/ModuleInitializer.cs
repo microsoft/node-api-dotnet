@@ -9,7 +9,7 @@ namespace Microsoft.JavaScript.NodeApi.TestCases;
 public class ModuleInitializer
 {
     [JSModule]
-    public static JSValue Initialize(JSContext context, JSObject exports)
+    public static JSValue Initialize(JSRuntimeContext context, JSObject exports)
     {
         Console.WriteLine("Module.Initialize()");
 
@@ -21,7 +21,7 @@ public class ModuleInitializer
         }
 
         // Export a module with a JS property that doesn't map to any C# property.
-        JSModuleBuilder<JSContext> moduleBuilder = new();
+        JSModuleBuilder<JSRuntimeContext> moduleBuilder = new();
         moduleBuilder.AddProperty("test", JSValue.GetBoolean(true));
         return moduleBuilder.ExportModule(context, exports);
     }

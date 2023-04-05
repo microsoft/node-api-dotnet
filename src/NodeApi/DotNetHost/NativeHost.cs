@@ -44,7 +44,7 @@ internal unsafe partial class NativeHost : IDisposable
     {
         Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
 
-        using JSValueScope scope = new(JSValueScopeType.RootNoContext, env);
+        using JSValueScope scope = new(JSValueScopeType.NoContext, env);
         try
         {
             JSNativeApi.Interop.Initialize();
@@ -90,6 +90,7 @@ internal unsafe partial class NativeHost : IDisposable
 
         string targetFramework = (string)args[0];
         string managedHostPath = (string)args[1];
+        JSValue require = args[2];
         Trace($"> NativeHost.InitializeManagedHost({targetFramework}, {managedHostPath})");
 
         try
@@ -103,7 +104,7 @@ internal unsafe partial class NativeHost : IDisposable
                     int.Parse(targetFramework.Substring(4, 1)),
                     targetFramework.Length == 5 ? 0 :
                         int.Parse(targetFramework.Substring(5, 1)));
-                return InitializeFrameworkHost(frameworkVersion, managedHostPath);
+                return InitializeFrameworkHost(frameworkVersion, managedHostPath, require);
             }
             else
             {
@@ -113,7 +114,7 @@ internal unsafe partial class NativeHost : IDisposable
 #else
                 Version dotnetVersion = Version.Parse(targetFramework.AsSpan(3));
 #endif
-                return InitializeDotNetHost(dotnetVersion, managedHostPath);
+                return InitializeDotNetHost(dotnetVersion, managedHostPath, require);
             }
         }
         catch (Exception ex)
@@ -132,8 +133,12 @@ internal unsafe partial class NativeHost : IDisposable
     /// </summary>
     /// <param name="minVersion">Minimum requested .NET version.</param>
     /// <param name="managedHostPath">Path to the managed host assembly file.</param>
+    /// <param name="require">Require function passed in by the init script.</param>
     /// <returns>JS exports value from the managed host.</returns>
-    private JSValue InitializeFrameworkHost(Version minVersion, string managedHostPath)
+    private JSValue InitializeFrameworkHost(
+        Version minVersion,
+        string managedHostPath,
+        JSValue require)
     {
         Trace("    Initializing .NET Framework " + minVersion);
 
@@ -158,6 +163,8 @@ internal unsafe partial class NativeHost : IDisposable
 
             // Create an "exports" object for the managed host module initialization.
             JSValue exportsValue = JSValue.CreateObject();
+            exportsValue.SetProperty("require", require);
+
             napi_env env = (napi_env)exportsValue.Scope;
             napi_value exports = (napi_value)exportsValue;
 
@@ -195,8 +202,12 @@ internal unsafe partial class NativeHost : IDisposable
     /// </summary>
     /// <param name="minVersion">Minimum requested .NET version.</param>
     /// <param name="managedHostPath">Path to the managed host assembly file.</param>
+    /// <param name="require">Require function passed in by the init script.</param>
     /// <returns>JS exports value from the managed host.</returns>
-    private JSValue InitializeDotNetHost(Version minVersion, string managedHostPath)
+    private JSValue InitializeDotNetHost(
+        Version minVersion,
+        string managedHostPath,
+        JSValue require)
     {
         Trace("    Initializing .NET " + minVersion);
 
@@ -260,6 +271,7 @@ internal unsafe partial class NativeHost : IDisposable
 
         // Create an "exports" object for the managed host module initialization.
         var exports = JSValue.CreateObject();
+        exports.SetProperty("require", require);
 
         // Define a dispose method implemented by the native host that closes the CLR context.
         // The managed host proxy will pass through dispose calls to this callback.

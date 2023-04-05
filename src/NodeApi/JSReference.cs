@@ -23,7 +23,7 @@ namespace Microsoft.JavaScript.NodeApi;
 /// </remarks>
 public class JSReference : IDisposable
 {
-    private readonly JSContext _context;
+    private readonly JSRuntimeContext _context;
     private readonly napi_ref _handle;
 
     public bool IsWeak { get; private set; }
@@ -40,7 +40,7 @@ public class JSReference : IDisposable
 
     public JSReference(napi_ref handle, bool isWeak = false)
     {
-        _context = JSContext.Current;
+        _context = JSRuntimeContext.Current;
         _handle = handle;
         IsWeak = isWeak;
     }

@@ -439,7 +439,7 @@ public static partial class JSNativeApi
         GCHandle descriptorHandle = GCHandle.Alloc(constructorDescriptor);
         JSValue? func = null;
         napi_callback callback = new(
-            JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext
+            JSValueScope.Current?.ScopeType == JSValueScopeType.NoContext
             ? s_invokeJSCallbackNC : s_invokeJSCallback);
 
         nint[] handles = ToUnmanagedPropertyDescriptors(
@@ -926,24 +926,30 @@ public static partial class JSNativeApi
     private static unsafe napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
-            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) =>
-                new(propertyDescriptor.Method!, propertyDescriptor.Data));
+            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) => new(
+                propertyDescriptor.Method!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
-            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) =>
-                new(propertyDescriptor.Getter!, propertyDescriptor.Data));
+            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) => new(
+                propertyDescriptor.Getter!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static napi_value InvokeJSSetter(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
-            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) =>
-                new(propertyDescriptor.Setter!, propertyDescriptor.Data));
+            env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) => new(
+                propertyDescriptor.Setter!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -951,31 +957,37 @@ public static partial class JSNativeApi
         napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSCallbackDescriptor>(
-            env, callbackInfo, JSValueScopeType.RootNoContext, (descriptor) => descriptor);
+            env, callbackInfo, JSValueScopeType.NoContext, (descriptor) => descriptor);
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSMethodNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
-            env, callbackInfo, JSValueScopeType.RootNoContext, (propertyDescriptor) =>
-                new(propertyDescriptor.Method!, propertyDescriptor.Data));
+            env, callbackInfo, JSValueScopeType.NoContext, (propertyDescriptor) => new(
+                propertyDescriptor.Method!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static unsafe napi_value InvokeJSGetterNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
-            env, callbackInfo, JSValueScopeType.RootNoContext, (propertyDescriptor) =>
-                new(propertyDescriptor.Getter!, propertyDescriptor.Data));
+            env, callbackInfo, JSValueScopeType.NoContext, (propertyDescriptor) => new(
+                propertyDescriptor.Getter!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static napi_value InvokeJSSetterNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
-            env, callbackInfo, JSValueScopeType.RootNoContext, (propertyDescriptor) =>
-                new(propertyDescriptor.Setter!, propertyDescriptor.Data));
+            env, callbackInfo, JSValueScopeType.NoContext, (propertyDescriptor) => new(
+                propertyDescriptor.Setter!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
     }
 
     private static unsafe napi_value InvokeCallback<TDescriptor>(
@@ -990,6 +1002,7 @@ public static partial class JSNativeApi
             JSCallbackArgs.GetDataAndLength(env, callbackInfo, out object? data, out int length);
             Span<napi_value> args = stackalloc napi_value[length];
             JSCallbackDescriptor descriptor = getCallbackDescriptor((TDescriptor)data!);
+            scope.ModuleContext = descriptor.ModuleContext;
             return (napi_value)descriptor.Callback(
                 new JSCallbackArgs(scope, callbackInfo, args, descriptor.Data));
         }
@@ -1046,7 +1059,7 @@ public static partial class JSNativeApi
         napi_callback methodCallback;
         napi_callback getterCallback;
         napi_callback setterCallback;
-        if (JSValueScope.Current?.ScopeType == JSValueScopeType.RootNoContext)
+        if (JSValueScope.Current?.ScopeType == JSValueScopeType.NoContext)
         {
             // The NativeHost and ManagedHost set up callbacks without a current module context.
             methodCallback = new napi_callback(s_invokeJSMethodNC);
@@ -1117,8 +1130,6 @@ public static partial class JSNativeApi
                 _memoryHandle.Dispose();
                 Owner = null;
             }
-
-            GC.SuppressFinalize(this);
         }
     }
 }

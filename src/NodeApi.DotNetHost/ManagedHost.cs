@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Interop;
 
 #if !NETFRAMEWORK
 using System.Runtime.Loader;
@@ -104,6 +105,13 @@ public sealed class ManagedHost : IDisposable
         try
         {
             JSObject exportsObject = (JSObject)new JSValue(exports, scope);
+
+            // Save the require() function that was passed in by the init script.
+            JSValue require = exportsObject["require"];
+            if (require.IsFunction())
+            {
+                JSRuntimeContext.Current.Require = require;
+            }
 
             ManagedHost host = new(exportsObject);
             exports = (napi_value)host._systemAssembly.AssemblyObject;
@@ -295,6 +303,5 @@ public sealed class ManagedHost : IDisposable
 
     public void Dispose()
     {
-        GC.SuppressFinalize(this);
     }
 }

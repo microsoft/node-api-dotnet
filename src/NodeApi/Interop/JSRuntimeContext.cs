@@ -12,16 +12,25 @@ using napi_env = Microsoft.JavaScript.NodeApi.JSNativeApi.Interop.napi_env;
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
-/// Manages JavaScript interop context for the lifetime of a module.
+/// Manages JavaScript interop context for the lifetime of the .NET Node API host.
 /// </summary>
 /// <remarks>
-/// A <see cref="JSContext"/> instance is constructed when the module is loaded and disposed when
-/// the module is unloaded. The context tracks several kinds of JS references used internally
-/// by this assembly, so that the references can be re-used for the lifetime of the module and
-/// disposed when the module is unloaded.
+/// A <see cref="JSRuntimeContext"/> instance is constructed when the .NET Node API managed host is
+/// loaded, and disposed when the host is unloaded. (For AOT there is no "host" compnoent, so each
+/// AOT module has a context that matches the module lifetime.) The context tracks several kinds
+/// of JS references used internally by this assembly, so that the references can be re-used for
+/// the lifetime of the module and disposed when the context is disposed.
 /// </remarks>
-public sealed class JSContext : IDisposable
+public sealed class JSRuntimeContext : IDisposable
 {
+    /// <summary>
+    /// Name of a global object that may hold context specific to Node API .NET.
+    /// </summary>
+    /// <remarks>
+    /// Currently it is only used to pass the require() function to .NET AOT modules.
+    /// </remarks>
+    public const string GlobalObjectName = "node_api_dotnet";
+
     private readonly napi_env _env;
 
     // Track JS constructors and instance JS wrappers for exported classes, enabling
@@ -74,32 +83,6 @@ public sealed class JSContext : IDisposable
     /// </remarks>
     private readonly ConcurrentDictionary<Type, JSReference> _structMap = new();
 
-    private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
-
-    public object? Module { get; set; }
-
-    public bool IsDisposed { get; private set; }
-
-    public static explicit operator napi_env(JSContext context) => context._env;
-    public static explicit operator JSContext(napi_env env)
-        => GetInstanceData(env) as JSContext
-           ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
-
-    public static JSContext Current => JSValueScope.Current?.ModuleContext
-        ?? throw new InvalidCastException("No current scope.");
-
-    public JSSynchronizationContext SynchronizationContext { get; }
-
-    public JSContext(napi_env env)
-    {
-        // TODO: Move this Initialize call to the creators of JSContext
-        JSNativeApi.Interop.Initialize();
-
-        _env = env;
-        SetInstanceData(env, this);
-        SynchronizationContext = new JSSynchronizationContext();
-    }
-
     /// <summary>
     /// Maps from JS class names to (strong references to) JS constructors for classes imported
     /// from JS to C#.
@@ -109,6 +92,75 @@ public sealed class JSContext : IDisposable
     /// the constructors every time.
     /// </remarks>
     private readonly ConcurrentDictionary<(string?, string?), JSReference> _importMap = new();
+
+    /// <summary>
+    /// Holds a reference to the require() function.
+    /// </summary>
+    private JSReference? _require;
+
+    private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
+
+    public bool IsDisposed { get; private set; }
+
+    public static explicit operator napi_env(JSRuntimeContext context) => context._env;
+    public static explicit operator JSRuntimeContext(napi_env env)
+        => GetInstanceData(env) as JSRuntimeContext
+           ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
+
+    /// <summary>
+    /// Gets the current host context.
+    /// </summary>
+    public static JSRuntimeContext Current => JSValueScope.Current.RuntimeContext;
+
+    public JSSynchronizationContext SynchronizationContext { get; }
+
+    public JSRuntimeContext(napi_env env)
+    {
+        // TODO: Move this Initialize call to the creators of JSRuntimeContext
+        JSNativeApi.Interop.Initialize();
+
+        _env = env;
+        SetInstanceData(env, this);
+        SynchronizationContext = new JSSynchronizationContext();
+    }
+
+    /// <summary>
+    /// Gets or sets the require() function.
+    /// </summary>
+    /// <remarks>
+    /// Managed-host initialization will typically pass in the require function.
+    /// </remarks>
+    public JSValue Require
+    {
+        get
+        {
+            JSValue? value = _require?.GetValue();
+            if (value?.IsFunction() == true)
+            {
+                return value.Value;
+            }
+
+            JSValue globalObject = JSValue.Global[GlobalObjectName];
+            if (globalObject.IsObject())
+            {
+                JSValue globalRequire = globalObject["require"];
+                if (globalRequire.IsFunction())
+                {
+                    _require = new JSReference(globalRequire);
+                    return globalRequire;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"The require function was not found on the global {GlobalObjectName} object. " +
+                $"Set `global.{GlobalObjectName} = {{ require }}` before loading the module.");
+        }
+        set
+        {
+            _require?.Dispose();
+            _require = new JSReference(value);
+        }
+    }
 
     /// <summary>
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.
@@ -510,15 +562,7 @@ public sealed class JSContext : IDisposable
             else if (property == null)
             {
                 // Importing from a module via require().
-                JSValue require = JSValue.Global["require"];
-                if (!require.IsFunction())
-                {
-                    throw new InvalidOperationException(
-                        "The global require function was not found. " +
-                        "Set `global.require = require` before loading the module.");
-                }
-
-                JSValue moduleValue = require.Call(thisArg: JSValue.Undefined, module);
+                JSValue moduleValue = Require.Call(thisArg: JSValue.Undefined, module);
                 return new JSReference(moduleValue);
             }
             else
@@ -594,18 +638,11 @@ public sealed class JSContext : IDisposable
 
         IsDisposed = true;
 
-        if (Module is IDisposable module)
-        {
-            module.Dispose();
-        }
-
         DisposeReferences(_objectMap);
         DisposeReferences(_classMap);
         DisposeReferences(_staticClassMap);
         DisposeReferences(_structMap);
         SynchronizationContext.Dispose();
-
-        GC.SuppressFinalize(this);
     }
 
     private static void DisposeReferences<TKey>(
