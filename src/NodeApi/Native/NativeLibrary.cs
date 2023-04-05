@@ -3,6 +3,7 @@
 
 #if !NET7_0_OR_GREATER
 
+using System;
 using System.Runtime.InteropServices;
 #if !NETFRAMEWORK
 using SysNativeLibrary = System.Runtime.InteropServices.NativeLibrary;
@@ -43,14 +44,7 @@ public static class NativeLibrary
     public static nint Load(string libraryName)
     {
 #if NETFRAMEWORK
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            return LoadLibrary(libraryName);
-        }
-        else
-        {
-            return dlopen(default, RTLD_LAZY);
-        }
+        return LoadLibrary(libraryName);
 #else
         return SysNativeLibrary.Load(libraryName);
 #endif
@@ -71,13 +65,13 @@ public static class NativeLibrary
 #endif
     }
 
-    [DllImport("kernel32", CharSet = CharSet.Unicode)]
+    [DllImport("kernel32")]
     private static extern nint GetModuleHandle(string? moduleName);
 
-    [DllImport("kernel32", CharSet = CharSet.Unicode)]
+    [DllImport("kernel32")]
     private static extern nint LoadLibrary(string moduleName);
 
-    [DllImport("kernel32", CharSet = CharSet.Unicode)]
+    [DllImport("kernel32")]
     private static extern nint GetProcAddress(nint hModule, string procName);
 
     [DllImport("libdl")]
