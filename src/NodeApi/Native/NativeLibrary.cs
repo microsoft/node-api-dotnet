@@ -65,6 +65,8 @@ public static class NativeLibrary
 #endif
     }
 
+#pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
+
     [DllImport("kernel32")]
     private static extern nint GetModuleHandle(string? moduleName);
 
@@ -78,6 +80,8 @@ public static class NativeLibrary
     private static extern nint dlopen(nint fileName, int flags);
 
     private const int RTLD_LAZY = 1;
+
+#pragma warning restore CA2101
 }
 
 #endif // !NET7_0_OR_GREATER
