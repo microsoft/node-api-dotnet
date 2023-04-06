@@ -219,11 +219,34 @@ public struct JSError
             return;
         }
 
-        throw new JSException(new JSError());
+        throw new JSException("Failed to throw JS Error. Status: " + status);
     }
 
+    /// <summary>
+    /// Throws a JS error for a .NET exception.
+    /// </summary>
+    /// <remarks>
+    /// Requires a current <see cref="JSValueScope" />, but does NOT require a current
+    /// <see cref="Interop.JSRuntimeContext" />, so it can be safely used from "no-context"
+    /// callbacks.
+    /// </remarks>
     public static void ThrowError(Exception exception)
-        => new JSError(exception).ThrowError();
+    {
+        // Do not construct a JSError object here, because that would require a runtime context.
+
+        // If the exception is a JSException for an error value, throw that error value;
+        // otherwise consturct a new error value from the exception message.
+        JSValue error = (exception as JSException)?.Error?.Value ??
+            JSValue.CreateError(code: null, (JSValue)exception.Message);
+
+        napi_status status = napi_throw((napi_env)JSValueScope.Current, (napi_value)error);
+
+        if (status != napi_status.napi_ok && status != napi_status.napi_pending_exception)
+        {
+            throw new JSException(
+                $"Failed to throw JS Error. Status: {status}\n{exception.Message}");
+        }
+    }
 
     [DoesNotReturn]
     public static void Fatal(string message,
