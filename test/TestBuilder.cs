@@ -371,7 +371,12 @@ internal static class TestBuilder
 
     public static void CopyIfNewer(string sourceFilePath, string targetFilePath)
     {
-        // GetLastWriteTimeUtc returns MinValue if the file doesn't exist.
+        if (!File.Exists(sourceFilePath))
+        {
+            throw new FileNotFoundException("File not found: " + sourceFilePath, sourceFilePath);
+        }
+
+        // GetLastWriteTimeUtc returns MinValue if the target file doesn't exist.
         DateTime sourceTime = File.GetLastWriteTimeUtc(sourceFilePath);
         DateTime targetTime = File.GetLastWriteTimeUtc(targetFilePath);
         if (sourceTime > targetTime)
