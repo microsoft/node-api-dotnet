@@ -368,4 +368,15 @@ internal static class TestBuilder
         logWriter.Close();
         return errorOutput.Length > 0 ? errorOutput.ToString() : null;
     }
+
+    public static void CopyIfNewer(string sourceFilePath, string targetFilePath)
+    {
+        // GetLastWriteTimeUtc returns MinValue if the file doesn't exist.
+        DateTime sourceTime = File.GetLastWriteTimeUtc(sourceFilePath);
+        DateTime targetTime = File.GetLastWriteTimeUtc(targetFilePath);
+        if (sourceTime > targetTime)
+        {
+            File.Copy(sourceFilePath, targetFilePath, overwrite: true);
+        }
+    }
 }

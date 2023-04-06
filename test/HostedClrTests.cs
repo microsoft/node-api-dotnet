@@ -58,15 +58,14 @@ public class HostedClrTests
         // packaging should orchestrate getting these files in the right places.
         string hostFilePath2 = Path.Combine(
             Path.GetDirectoryName(moduleFilePath)!, Path.GetFileName(hostFilePath));
-        File.Copy(hostFilePath, hostFilePath2, overwrite: true);
+        CopyIfNewer(hostFilePath, hostFilePath2);
         if (File.Exists(hostFilePath + ".pdb"))
         {
-            File.Copy(hostFilePath + ".pdb", hostFilePath2 + ".pdb", overwrite: true);
+            CopyIfNewer(hostFilePath + ".pdb", hostFilePath2 + ".pdb");
         }
-        File.Copy(
+        CopyIfNewer(
             hostFilePath.Replace(".node", ".runtimeconfig.json"),
-            hostFilePath2.Replace(".node", ".runtimeconfig.json"),
-            overwrite: true);
+            hostFilePath2.Replace(".node", ".runtimeconfig.json"));
         hostFilePath = hostFilePath2;
 
         // TODO: Support compiling TS files to JS.
