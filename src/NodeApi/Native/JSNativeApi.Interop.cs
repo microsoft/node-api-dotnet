@@ -28,45 +28,11 @@ public static partial class JSNativeApi
 
             if (libraryHandle == default)
             {
-#if NET7_0_OR_GREATER
                 libraryHandle = NativeLibrary.GetMainProgramHandle();
-#else
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    libraryHandle = GetModuleHandleW(default);
-                }
-                else
-                {
-                    libraryHandle = dlopen(default, RTLD_LAZY);
-                }
-#endif
             }
 
             s_libraryHandle = libraryHandle;
         }
-
-#if !NET7_0_OR_GREATER
-        [DllImport("kernel32")]
-        private static extern nint GetModuleHandleW(nint moduleName);
-
-        [DllImport("libdl")]
-        private static extern nint dlopen(nint fileName, int flags);
-
-        private const int RTLD_LAZY = 1;
-#endif // !NET7_0_OR_GREATER
-
-#if NETFRAMEWORK
-        [DllImport("kernel32")]
-        private static extern nint GetProcAddress(nint hModule, string procName);
-
-        private static class NativeLibrary
-        {
-            public static nint GetExport(nint handle, string name)
-            {
-                return GetProcAddress(handle, name);
-            }
-        }
-#endif // NETFRAMEWORK
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate napi_value napi_register_module_v1(napi_env env, napi_value exports);
