@@ -494,6 +494,7 @@ internal class AssemblyExporter
     {
         return !method.IsGenericMethodDefinition &&
             method.CallingConvention != CallingConventions.VarArgs &&
+            method.Name != nameof(System.Collections.IEnumerable.GetEnumerator) &&
             method.GetParameters().All(IsSupportedParameter) &&
             IsSupportedParameter(method.ReturnParameter);
     }

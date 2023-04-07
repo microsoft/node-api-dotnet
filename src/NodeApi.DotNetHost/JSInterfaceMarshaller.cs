@@ -38,9 +38,12 @@ internal class JSInterfaceMarshaller
     /// </summary>
     public Type Implement(Type interfaceType, JSMarshaller marshaller)
     {
-        return _interfaceTypes.GetOrAdd(
-            interfaceType,
-            (t) => BuildInterfaceImplementation(interfaceType, marshaller));
+        if (_interfaceTypes.TryGetValue(interfaceType, out Type? implementationType))
+        {
+            return implementationType;
+        }
+
+        return BuildInterfaceImplementation(interfaceType, marshaller);
     }
 
     private Type BuildInterfaceImplementation(Type interfaceType, JSMarshaller marshaller)
@@ -51,45 +54,56 @@ internal class JSInterfaceMarshaller
             typeof(JSInterface),
             new[] { interfaceType });
 
+        // Add the type builder to the dictionary, in case interface members include a
+        // (possibly indirect) reference the same interface.
+        Type implementationType = _interfaceTypes.GetOrAdd(interfaceType, typeBuilder);
+        if (implementationType != typeBuilder)
+        {
+            return implementationType;
+        }
+
         BuildConstructorImplementation(typeBuilder);
+
+        // A field index ensures each of the delegate fields has a unique name, in case of
+        // method overloads. (The overload parameter types could be used instead, but the
+        // index suffix is simpler.)
+        int fieldIndex = 0;
 
         // Each method or property getter/setter requires a static fields holding the
         // implementation delegate. The fields can't be initialized until the type is fully built.
-        List<KeyValuePair<string, LambdaExpression>> delegateFields = new();
-
-        FieldBuilder CreateDelegateField(LambdaExpression lambda)
+        FieldBuilder CreateDelegateField(MethodInfo method)
         {
-            // The lambda expressions created by JSMarshaller have unique names
-            // build from the method name and parameters.
-            string fieldName = "_" + lambda.Name;
+            string fieldName = $"_{method.Name}_{fieldIndex++}";
             FieldBuilder fieldBuilder = typeBuilder.DefineField(
                 fieldName,
                 typeof(Delegate),
                 requiredCustomModifiers: null,
                 optionalCustomModifiers: null,
                 FieldAttributes.Private | FieldAttributes.Static);
-            delegateFields.Add(new KeyValuePair<string, LambdaExpression>(fieldName, lambda));
             return fieldBuilder;
         }
 
         IEnumerable<Type> allInterfaces =
             new[] { interfaceType }.Concat(GetInterfaces(interfaceType)).Distinct();
+        IEnumerable<PropertyInfo> interfaceProperties =
+            allInterfaces.SelectMany((i) => i.GetProperties())
+            .Where((p) => p.GetMethod?.IsStatic != true && p.SetMethod?.IsStatic != true);
+        IEnumerable<MethodInfo> interfaceMethods =
+            allInterfaces.SelectMany((i) => i.GetMethods())
+            .Where((m) => !m.IsStatic && !m.IsSpecialName);
 
-        foreach (PropertyInfo? property in allInterfaces.SelectMany((i) => i.GetProperties())
-            .Where((p) => p.GetMethod?.IsStatic != true && p.SetMethod?.IsStatic != true))
+        foreach (PropertyInfo? property in interfaceProperties)
         {
             FieldBuilder? getFieldBuilder = null;
             if (property.GetMethod?.IsPublic == true)
             {
-                getFieldBuilder = CreateDelegateField(
-                    marshaller.BuildToJSPropertyGetExpression(property));
+                getFieldBuilder = CreateDelegateField(property.GetMethod!);
             }
 
             FieldBuilder? setFieldBuilder = null;
             if (property.SetMethod?.IsPublic == true)
             {
-                setFieldBuilder = CreateDelegateField(
-                    marshaller.BuildToJSPropertySetExpression(property));
+                setFieldBuilder = CreateDelegateField(property.SetMethod!);
             }
 
             BuildPropertyImplementation(
@@ -100,24 +114,56 @@ internal class JSInterfaceMarshaller
                 marshaller);
         }
 
-        foreach (MethodInfo? method in allInterfaces.SelectMany((i) => i.GetMethods())
-            .Where((m) => !m.IsStatic && !m.IsSpecialName))
+        foreach (MethodInfo? method in interfaceMethods)
         {
-            FieldBuilder fieldBuilder = CreateDelegateField(
-                marshaller.BuildToJSMethodExpression(method));
+            FieldBuilder fieldBuilder = CreateDelegateField(method);
 
             BuildMethodImplementation(typeBuilder, method, fieldBuilder, marshaller);
         }
 
         // TODO: Events
 
-        Type implementationType = typeBuilder.CreateType()!;
+        implementationType = typeBuilder.CreateType()!;
+        _interfaceTypes.TryUpdate(interfaceType, implementationType, typeBuilder);
 
-        foreach (KeyValuePair<string, LambdaExpression> delegateFieldInfo in delegateFields)
+        // Build and assign the implementation delegates after building the type.
+        fieldIndex = 0;
+
+        foreach (PropertyInfo? property in interfaceProperties)
         {
+            if (property.GetMethod?.IsPublic == true)
+            {
+                string fieldName = $"_{property.GetMethod.Name}_{fieldIndex++}";
+                FieldInfo delegateField = implementationType.GetField(
+                    fieldName, BindingFlags.NonPublic | BindingFlags.Static)!;
+                delegateField.SetValue(
+                    null, marshaller.BuildToJSPropertyGetExpression(property).Compile());
+            }
+
+            if (property.SetMethod?.IsPublic == true)
+            {
+                string fieldName = $"_{property.SetMethod.Name}_{fieldIndex++}";
+                FieldInfo delegateField = implementationType.GetField(
+                    fieldName, BindingFlags.NonPublic | BindingFlags.Static)!;
+                delegateField.SetValue(
+                    null, marshaller.BuildToJSPropertySetExpression(property).Compile());
+            }
+        }
+
+        foreach (MethodInfo? method in interfaceMethods)
+        {
+            string fieldName = $"_{method.Name}_{fieldIndex++}";
+
+            if (method.IsGenericMethodDefinition || method.ReturnType.IsGenericTypeDefinition)
+            {
+                // Generic methods are not yet supported.
+                continue;
+            }
+
             FieldInfo delegateField = implementationType.GetField(
-                delegateFieldInfo.Key, BindingFlags.NonPublic | BindingFlags.Static)!;
-            delegateField.SetValue(null, delegateFieldInfo.Value.Compile());
+                fieldName, BindingFlags.NonPublic | BindingFlags.Static)!;
+            delegateField.SetValue(
+                    null, marshaller.BuildToJSMethodExpression(method).Compile());
         }
 
         return implementationType;

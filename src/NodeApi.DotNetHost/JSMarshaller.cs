@@ -467,7 +467,7 @@ public class JSMarshaller
                     methodName,
                     ParameterToJSValue(0));
             }
-            else if (methodParameters.Length == 3)
+            else if (methodParameters.Length == 2)
             {
                 callExpression = Expression.Call(
                      typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
@@ -495,21 +495,35 @@ public class JSMarshaller
                 callExpression = Expression.Call(
                      typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
                          new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue[]) }),
-                    new[] { thisParameter, methodName }.Concat(
-                        methodParameters.Select((_, i) => ParameterToJSValue(i))).ToArray());
+                    new Expression[]
+                    {
+                        thisParameter,
+                        methodName,
+                        Expression.NewArrayInit(
+                            typeof(JSValue),
+                            methodParameters.Select((_, i) => ParameterToJSValue(i))),
+                    });
             }
 
-            Expression callStatement = Expression.Assign(resultVariable, callExpression);
-            Expression returnStatement = InlineOrInvoke(
-                GetFromJSValueExpression(method.ReturnType),
-                resultVariable,
-                nameof(BuildToJSMethodExpression));
+            Expression[] statements;
+            if (method.ReturnType == typeof(void))
+            {
+                statements = new[] { callExpression };
+            }
+            else
+            {
+                statements = new[]
+                {
+                    Expression.Assign(resultVariable, callExpression),
+                    InlineOrInvoke(
+                        GetFromJSValueExpression(method.ReturnType),
+                        resultVariable,
+                        nameof(BuildToJSMethodExpression)),
+                };
+            }
 
             return Expression.Lambda(
-                Expression.Block(
-                    method.ReturnType,
-                    new[] { resultVariable },
-                    new[] { callStatement, returnStatement }),
+                Expression.Block(method.ReturnType, new[] { resultVariable }, statements),
                 name,
                 parameters);
         }

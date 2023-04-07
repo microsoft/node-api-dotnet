@@ -148,7 +148,11 @@ function copyFrameworkSpecificBinaries(targetFrameworks, packageStageDir, ...bin
       const [projectName, binFileName] = binFile.split('/', 2);
 
       // "System." assemblies like System.Memory are only needed for .NET 4.x
-      if (tfm.includes('.') && binFileName.startsWith('System.')) return;
+      if (
+        tfm.includes('.') &&
+        binFileName.startsWith('System.') &&
+        !binFileName.includes('MetadataLoadContext')
+      ) return;
 
       const binPath = path.join(outBinDir, projectName, tfm, rids[0], binFileName);
       copyFile(binPath, path.join(tfmStageDir, binFileName));
