@@ -8,7 +8,7 @@ const kernel = SK.Kernel.Builder.Build();
 // The JS marshaller does not yet support extension methods.
 SK.KernelConfigExtensions.AddAzureOpenAITextCompletion(
   kernel.Config,
-  'davinci-backend',
+  'davinci-azure',
   process.env['OPENAI_DEPLOYMENT'],
   process.env['OPENAI_ENDPOINT'],
   process.env['OPENAI_KEY'],
