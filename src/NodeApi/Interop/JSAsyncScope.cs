@@ -44,7 +44,7 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 ///
 ///     // Tell Node.JS that we finished using its main loop and Node.JS process can exit
 ///     // after completing current callback.
-///     JSSynchronizationContext.Current.OpenAsyncScope();
+///     JSSynchronizationContext.Current.CloseAsyncScope();
 /// }
 /// </code>
 ///

@@ -121,7 +121,7 @@ public sealed class JSRuntimeContext : IDisposable
 
         _env = env;
         SetInstanceData(env, this);
-        SynchronizationContext = new JSSynchronizationContext();
+        SynchronizationContext = JSSynchronizationContext.Create();
     }
 
     /// <summary>

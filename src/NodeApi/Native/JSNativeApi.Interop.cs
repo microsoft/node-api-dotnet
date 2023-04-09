@@ -1355,6 +1355,26 @@ public static partial class JSNativeApi
             return methodPtr;
         }
 
+        internal static bool TryGetExport(ref nint field, [CallerMemberName] string functionName = "")
+        {
+            nint methodPtr = field;
+            if (methodPtr == default)
+            {
+                if (NativeLibrary.TryGetExport(s_libraryHandle, functionName, out methodPtr))
+                {
+                    field = methodPtr;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+
+            }
+
+            return true;
+        }
+
         private static napi_status CallInterop<TResult>(
             ref nint field,
             napi_env env,

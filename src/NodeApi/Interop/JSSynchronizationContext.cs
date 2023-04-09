@@ -3,19 +3,52 @@
 
 using System;
 using System.Threading;
+using Microsoft.NodeApi;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
-public sealed class JSSynchronizationContext : SynchronizationContext, IDisposable
+public abstract class JSSynchronizationContext : SynchronizationContext, IDisposable
 {
-    private readonly JSThreadSafeFunction _tsfn;
-
     public bool IsDisposed { get; private set; }
 
     public static new JSSynchronizationContext? Current
         => SynchronizationContext.Current as JSSynchronizationContext;
 
-    public JSSynchronizationContext()
+    public static JSSynchronizationContext Create()
+    {
+        if (JSThreadSafeFunction.IsAvailable)
+        {
+            return new JSTsfnSynchronizationContext();
+        }
+        else if (JSDispatcherQueue.GetForCurrentThread() is JSDispatcherQueue queue)
+        {
+            return new JSDispatcherSynchronizationContext(queue);
+        }
+        else
+        {
+            throw new JSException("Cannot create synchronization context.");
+        }
+    }
+
+    protected JSSynchronizationContext() { }
+
+    public virtual void Dispose()
+    {
+        if (IsDisposed) return;
+        IsDisposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    public abstract void OpenAsyncScope();
+
+    public abstract void CloseAsyncScope();
+}
+
+public sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
+{
+    private readonly JSThreadSafeFunction _tsfn;
+
+    public JSTsfnSynchronizationContext()
     {
         _tsfn = new JSThreadSafeFunction(
             maxQueueSize: 0,
@@ -26,11 +59,11 @@ public sealed class JSSynchronizationContext : SynchronizationContext, IDisposab
         _tsfn.Unref();
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         if (IsDisposed) return;
 
-        IsDisposed = true;
+        base.Dispose();
 
         // Destroy TSFN by releasing last thread use count.
         // TSFN is deleted after this point and must not be used.
@@ -67,7 +100,7 @@ public sealed class JSSynchronizationContext : SynchronizationContext, IDisposab
     /// Increment reference count for the main loop async resource.
     /// Non-zero count prevents Node.JS process from exiting.
     /// </summary>
-    public void OpenAsyncScope()
+    public override void OpenAsyncScope()
     {
         _tsfn.Ref();
     }
@@ -76,8 +109,52 @@ public sealed class JSSynchronizationContext : SynchronizationContext, IDisposab
     /// Decrement reference count for the main loop async resource.
     /// Non-zero count prevents Node.JS process from exiting.
     /// </summary>
-    public void CloseAsyncScope()
+    public override void CloseAsyncScope()
     {
         _tsfn.Unref();
     }
+}
+
+public sealed class JSDispatcherSynchronizationContext : JSSynchronizationContext
+{
+    private readonly JSDispatcherQueue _queue;
+
+    public JSDispatcherSynchronizationContext(JSDispatcherQueue queue)
+    {
+        _queue = queue;
+    }
+
+    public override void Post(SendOrPostCallback callback, object? state)
+    {
+        if (IsDisposed) return;
+
+        _queue.TryEnqueue(() => callback(state));
+    }
+
+    public override void Send(SendOrPostCallback callback, object? state)
+    {
+        if (this == Current)
+        {
+            callback(state);
+            return;
+        }
+
+        if (IsDisposed) return;
+
+        using var syncEvent = new ManualResetEvent(initialState: false);
+        bool isQueued = _queue.TryEnqueue(() =>
+        {
+            callback(state);
+            syncEvent.Set();
+        });
+
+        if (isQueued)
+        {
+            syncEvent.WaitOne();
+        }
+    }
+
+    public override void OpenAsyncScope() { }
+
+    public override void CloseAsyncScope() { }
 }

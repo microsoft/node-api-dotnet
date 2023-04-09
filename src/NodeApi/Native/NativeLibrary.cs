@@ -65,6 +65,16 @@ public static class NativeLibrary
 #endif
     }
 
+    public static bool TryGetExport(nint handle, string name, out nint procAddress)
+    {
+#if NETFRAMEWORK
+        procAddress = GetProcAddress(handle, name);
+        return procAddress != default;
+#else
+        return SysNativeLibrary.TryGetExport(handle, name, out procAddress);
+#endif
+    }
+
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
 
     [DllImport("kernel32")]
