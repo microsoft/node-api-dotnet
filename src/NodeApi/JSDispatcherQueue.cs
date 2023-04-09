@@ -6,9 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Hermes.Example;
-
-public delegate void JSTypedEventHandler<TSender, TResult>(TSender sender, TResult args);
+namespace Microsoft.NodeApi;
 
 public sealed class DispatcherQueueShutdownStartingEventArgs : EventArgs
 {
@@ -17,14 +15,14 @@ public sealed class DispatcherQueueShutdownStartingEventArgs : EventArgs
     internal DispatcherQueueShutdownStartingEventArgs(Func<JSDispatcherQueueDeferral> getDeferral)
         => _getDeferral = getDeferral;
 
-    public JSDispatcherQueueDeferral GetDeferral() => _getDeferral();
+    public IDisposable GetDeferral() => _getDeferral();
 }
 
 public sealed class JSDispatcherQueue
 {
     private readonly object _queueMutex = new();
-    private List<Action?> _writerQueue = new(); // Queue to add new items
-    private List<Action?> _readerQueue = new(); // Queue to read items from
+    private List<Action> _writerQueue = new(); // Queue to add new items
+    private List<Action> _readerQueue = new(); // Queue to read items from
     private TaskCompletionSource<int>? _onShutdownCompleted;
     private int _threadId;
     private int _deferralCount;
@@ -33,9 +31,8 @@ public sealed class JSDispatcherQueue
     [ThreadStatic]
     private static JSDispatcherQueue? s_currentQueue;
 
-    public event JSTypedEventHandler<JSDispatcherQueue, object?>? ShutdownCompleted;
-    public event JSTypedEventHandler<JSDispatcherQueue, DispatcherQueueShutdownStartingEventArgs>?
-        ShutdownStarting;
+    public event EventHandler? ShutdownCompleted;
+    public event EventHandler<DispatcherQueueShutdownStartingEventArgs>? ShutdownStarting;
 
     public bool HasThreadAccess => _threadId == Environment.CurrentManagedThreadId;
 
@@ -67,10 +64,9 @@ public sealed class JSDispatcherQueue
         {
             // Invoke tasks from reader queue outside of lock.
             // The reader queue is only accessible from this thread.
-            for (int i = 0; i < _readerQueue.Count; i++)
+            foreach (Action task in _readerQueue)
             {
-                _readerQueue[i]?.Invoke();
-                _readerQueue[i] = null;
+                task();
             }
 
             // All tasks are completed. Clear the queue.
@@ -102,7 +98,7 @@ public sealed class JSDispatcherQueue
         }
 
         // Notify about the shutdown completion.
-        ShutdownCompleted?.Invoke(this, null);
+        ShutdownCompleted?.Invoke(this, EventArgs.Empty);
         _onShutdownCompleted.SetResult(0);
     }
 
@@ -117,7 +113,13 @@ public sealed class JSDispatcherQueue
         return new JSDispatcherQueueDeferral(() =>
         {
             // Decrement deferral count upon deferral completion.
-            TryEnqueue(() => _deferralCount--);
+            TryEnqueue(() =>
+            {
+                lock (_queueMutex)
+                {
+                    _deferralCount--;
+                }
+            });
         });
     }
 
@@ -169,7 +171,6 @@ public sealed class JSDispatcherQueue
     }
 }
 
-
 public class JSDispatcherQueueController
 {
     public JSDispatcherQueue DispatcherQueue { get; } = new();
@@ -191,7 +192,7 @@ public class JSDispatcherQueueController
     }
 }
 
-public sealed class JSDispatcherQueueDeferral : IDisposable
+internal sealed class JSDispatcherQueueDeferral : IDisposable
 {
     private bool _isDisposed;
     private readonly Action _completionHandler;
@@ -203,8 +204,6 @@ public sealed class JSDispatcherQueueDeferral : IDisposable
     {
         Dispose(false);
     }
-
-    public void Complete() => Dispose();
 
     public void Dispose()
     {

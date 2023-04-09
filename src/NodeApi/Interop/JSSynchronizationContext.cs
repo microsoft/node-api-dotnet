@@ -3,11 +3,11 @@
 
 using System;
 using System.Threading;
-using Hermes.Example;
+using Microsoft.NodeApi;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
-public class JSSynchronizationContext : SynchronizationContext, IDisposable
+public abstract class JSSynchronizationContext : SynchronizationContext, IDisposable
 {
     public bool IsDisposed { get; private set; }
 
@@ -39,9 +39,9 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public virtual void OpenAsyncScope() { }
+    public abstract void OpenAsyncScope();
 
-    public virtual void CloseAsyncScope() { }
+    public abstract void CloseAsyncScope();
 }
 
 public sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
@@ -141,12 +141,20 @@ public sealed class JSDispatcherSynchronizationContext : JSSynchronizationContex
 
         if (IsDisposed) return;
 
-        using ManualResetEvent syncEvent = new(false);
-        _queue.TryEnqueue(() =>
+        using var syncEvent = new ManualResetEvent(initialState: false);
+        bool isQueued = _queue.TryEnqueue(() =>
         {
             callback(state);
             syncEvent.Set();
         });
-        syncEvent.WaitOne();
+
+        if (isQueued)
+        {
+            syncEvent.WaitOne();
+        }
     }
+
+    public override void OpenAsyncScope() { }
+
+    public override void CloseAsyncScope() { }
 }
