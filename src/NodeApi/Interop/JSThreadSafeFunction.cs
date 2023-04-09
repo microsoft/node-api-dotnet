@@ -22,6 +22,15 @@ public class JSThreadSafeFunction
 
     private JSThreadSafeFunction(napi_threadsafe_function tsfn) => _tsfn = tsfn;
 
+    public static bool IsAvailable
+    {
+        get
+        {
+            nint funcHandle = 0;
+            return TryGetExport(ref funcHandle, "napi_create_threadsafe_function");
+        }
+    }
+
     // This API may only be called from the main thread.
     public unsafe JSThreadSafeFunction(int maxQueueSize,
                                 int initialThreadCount,
