@@ -12,7 +12,7 @@ public delegate void JSTypedEventHandler<TSender, TResult>(TSender sender, TResu
 
 public sealed class DispatcherQueueShutdownStartingEventArgs : EventArgs
 {
-    private Func<JSDispatcherQueueDeferral> _getDeferral;
+    private readonly Func<JSDispatcherQueueDeferral> _getDeferral;
 
     internal DispatcherQueueShutdownStartingEventArgs(Func<JSDispatcherQueueDeferral> getDeferral)
         => _getDeferral = getDeferral;
@@ -146,7 +146,7 @@ public sealed class JSDispatcherQueue
         }
     }
 
-    private struct CurrentQueueHolder : IDisposable
+    private readonly struct CurrentQueueHolder : IDisposable
     {
         private readonly JSDispatcherQueue? _previousCurrentQueue;
 
@@ -194,7 +194,7 @@ public class JSDispatcherQueueController
 public sealed class JSDispatcherQueueDeferral : IDisposable
 {
     private bool _isDisposed;
-    private Action _completionHandler;
+    private readonly Action _completionHandler;
 
     public JSDispatcherQueueDeferral(Action completionHandler)
         => _completionHandler = completionHandler;

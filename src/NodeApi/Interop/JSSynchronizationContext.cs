@@ -36,6 +36,7 @@ public class JSSynchronizationContext : SynchronizationContext, IDisposable
     {
         if (IsDisposed) return;
         IsDisposed = true;
+        GC.SuppressFinalize(this);
     }
 
     public virtual void OpenAsyncScope() { }
