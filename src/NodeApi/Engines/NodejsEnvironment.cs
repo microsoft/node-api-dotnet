@@ -22,7 +22,7 @@ namespace Microsoft.JavaScript.NodeApi.Engines;
 /// </remarks>
 public sealed class NodejsEnvironment : IDisposable
 {
-    private JSValueScope _scope;
+    private readonly JSValueScope _scope;
     private readonly Thread _thread;
     private readonly TaskCompletionSource<bool> _completion = new();
 

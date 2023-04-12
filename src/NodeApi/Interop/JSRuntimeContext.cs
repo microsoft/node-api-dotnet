@@ -584,11 +584,11 @@ public sealed class JSRuntimeContext : IDisposable
 
         IsDisposed = true;
 
+        SynchronizationContext.Dispose();
         DisposeReferences(_objectMap);
         DisposeReferences(_classMap);
         DisposeReferences(_staticClassMap);
         DisposeReferences(_structMap);
-        SynchronizationContext.Dispose();
     }
 
     private static void DisposeReferences<TKey>(

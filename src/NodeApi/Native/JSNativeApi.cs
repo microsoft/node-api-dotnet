@@ -35,8 +35,7 @@ public static partial class JSNativeApi
                 if (message is not null) errorHandler(message);
             });
 
-        napi_platform platform;
-        napi_create_platform(args, execArgs, native_error_handler, out platform)
+        napi_create_platform(args, execArgs, native_error_handler, out napi_platform platform)
             .ThrowIfFailed();
         return platform;
     }
@@ -58,8 +57,7 @@ public static partial class JSNativeApi
                 if (message is not null) errorHandler(message);
             });
 
-        napi_env env;
-        napi_create_environment(platform, native_error_handler, mainScript, out env)
+        napi_create_environment(platform, native_error_handler, mainScript, out napi_env env)
             .ThrowIfFailed();
         return env;
     }
@@ -77,8 +75,7 @@ public static partial class JSNativeApi
 
     public static unsafe int DestroyEnvironment(napi_env env)
     {
-        int exitCode;
-        napi_destroy_environment(env, out exitCode).ThrowIfFailed();
+        napi_destroy_environment(env, out int exitCode).ThrowIfFailed();
         return exitCode;
     }
 
