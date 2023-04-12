@@ -4,7 +4,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using Microsoft.JavaScript.NodeApi.Engines;
+using Microsoft.JavaScript.NodeApi.Runtimes;
 
 namespace Microsoft.JavaScript.NodeApi.Examples;
 
@@ -27,13 +27,13 @@ public partial class App : Application
         string libnodePath = Path.Combine(
             Path.GetDirectoryName(typeof(App).Assembly.Location)!,
             "libnode.dll");
-        NodejsPlatform nodePlatform = new(libnodePath);
+        NodejsPlatform nodejsPlatform = new(libnodePath);
 
-        Node = nodePlatform.CreateEnvironment();
+        Nodejs = nodejsPlatform.CreateEnvironment();
         if (Debugger.IsAttached)
         {
             int pid = Process.GetCurrentProcess().Id;
-            Uri inspectionUri = Node.StartInspector();
+            Uri inspectionUri = Nodejs.StartInspector();
             Debug.WriteLine(
                 $"Node.js ({pid}) inspector listening at {inspectionUri.AbsoluteUri}");
         }
@@ -56,10 +56,10 @@ public partial class App : Application
 
     private void OnMainWindowClosed(object sender, WindowEventArgs args)
     {
-        Node.Dispose();
+        Nodejs.Dispose();
     }
 
     public static new App Current => (App)Application.Current;
 
-    public NodejsEnvironment Node { get; }
+    public NodejsEnvironment Nodejs { get; }
 }

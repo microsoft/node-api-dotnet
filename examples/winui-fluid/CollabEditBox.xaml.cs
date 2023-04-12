@@ -16,6 +16,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using Microsoft.JavaScript.NodeApi.Runtimes;
 
 namespace Microsoft.JavaScript.NodeApi.Examples;
 
@@ -25,7 +26,7 @@ public sealed partial class CollabEditBox : UserControl
     private const string SelectionsSharedMapName = "selections";
 
     private readonly SynchronizationContext uiSyncContext;
-    private readonly JSSynchronizationContext jsSyncContext;
+    private readonly NodejsEnvironment nodejs;
     private readonly JSMarshaller marshaller;
 
     private JSReference fluid = null!;
@@ -46,7 +47,7 @@ public sealed partial class CollabEditBox : UserControl
         this.selections = new Dictionary<string, CollabSelection>();
 
         this.uiSyncContext = SynchronizationContext.Current!;
-        this.jsSyncContext = App.Current.Node.SynchronizationContext;
+        this.nodejs = App.Current.Nodejs;
         this.marshaller = new JSMarshaller { AutoCamelCase = true };
 
         LoadFluid();
@@ -55,7 +56,7 @@ public sealed partial class CollabEditBox : UserControl
 
     private void LoadFluid()
     {
-        this.jsSyncContext.Post(() =>
+        this.nodejs.Post(() =>
         {
             // TODO: Replace with [JSImport]?
             JSValue require = JSValue.Global["require"];
@@ -66,7 +67,7 @@ public sealed partial class CollabEditBox : UserControl
     private void LoadTinylicious()
     {
         // TODO: Replace code in this method with some form of [JSImport] and source-generation.
-        this.jsSyncContext.Post(() =>
+        this.nodejs.Post(() =>
         {
             JSValue logFunction = JSValue.CreateFunction("send", (args) =>
             {
@@ -187,7 +188,7 @@ public sealed partial class CollabEditBox : UserControl
         this.editBox.SelectionHighlightColor = (SolidColorBrush)caret.Fill;
         this.clientId = this.editBox.SelectionHighlightColor.Color.ToString();
 
-        SessionId = await this.jsSyncContext.RunAsync(async () =>
+        SessionId = await this.nodejs.RunAsync(async () =>
         {
             TinyliciousContainerInfo containerInfo =
                 await this.fluidClient.CreateContainer(ContainerSchema);
@@ -220,7 +221,7 @@ public sealed partial class CollabEditBox : UserControl
 
     public async Task ConnectCollabSessionAsync(string id)
     {
-        string text = await this.jsSyncContext.RunAsync(async () =>
+        string text = await this.nodejs.RunAsync(async () =>
         {
             TinyliciousContainerInfo containerInfo =
                 await this.fluidClient.GetContainer(id, ContainerSchema);
@@ -267,7 +268,7 @@ public sealed partial class CollabEditBox : UserControl
 
     public void CloseCollabSession()
     {
-        this.jsSyncContext.Run(async () =>
+        this.nodejs.Run(async () =>
         {
             if (this.clientId != null)
             {
@@ -364,7 +365,7 @@ public sealed partial class CollabEditBox : UserControl
         if (this.clientId != null)
         {
             (int, int) selectionRange = (e.SelectionStart, e.SelectionLength);
-            this.jsSyncContext.Post(() =>
+            this.nodejs.Post(() =>
             {
                 this.sharedSelections![this.clientId] = selectionRange;
             });
@@ -378,7 +379,7 @@ public sealed partial class CollabEditBox : UserControl
     {
         if (this.sharedDocument != null)
         {
-            this.jsSyncContext.Run(() =>
+            this.nodejs.Run(() =>
             {
                 if (length == 0)
                 {

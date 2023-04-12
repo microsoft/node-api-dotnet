@@ -44,6 +44,14 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
 
     public abstract void CloseAsyncScope();
 
+    /// <summary>
+    /// Runs an action on the JS thread, without waiting for completion.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <param name="allowSync">True to allow the action to run immediately if the current
+    /// synchronization context is this one. By default the action will always be secheduled
+    /// for later execution.
+    /// </param>
     public void Post(Action action, bool allowSync = false)
     {
         if (allowSync && Current == this)
@@ -60,6 +68,14 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         }
     }
 
+    /// <summary>
+    /// Runs an asynchronous action on the JS thread, without waiting for completion.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <param name="allowSync">True to allow the action to run immediately if the current
+    /// synchronization context is this one. By default the action will always be secheduled
+    /// for later execution.
+    /// </param>
     public void Post(Func<Task> asyncAction, bool allowSync = false)
     {
         if (allowSync && Current == this)
@@ -76,6 +92,13 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         }
     }
 
+    /// <summary>
+    /// Runs an action on the JS thread, and waits for completion.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <exception cref="JSException">Any exception thrown by the action is wrapped in a
+    /// JS exception. The original exception is available via the
+    /// <see cref="Exception.InnerException" /> property.</exception>
     public void Run(Action action)
     {
         if (Current == this)
@@ -104,6 +127,13 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         }
     }
 
+    /// <summary>
+    /// Runs an action on the JS thread, and waits for the return value.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <exception cref="JSException">Any exception thrown by the action is wrapped in a
+    /// JS exception. The original exception is available via the
+    /// <see cref="Exception.InnerException" /> property.</exception>
     public T Run<T>(Func<T> action)
     {
         if (Current == this)
@@ -134,6 +164,10 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         }
     }
 
+    /// <summary>
+    /// Runs an action on the JS thread, and asynchrnously waits for completion.
+    /// </summary>
+    /// <param name="asyncAction">The action to run.</param>
     public Task RunAsync(Func<Task> asyncAction)
     {
         if (Current == this)
@@ -160,6 +194,10 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         }
     }
 
+    /// <summary>
+    /// Runs an action on the JS thread, and asynchrnously waits for the return value.
+    /// </summary>
+    /// <param name="asyncAction">The action to run.</param>
     public Task<T> RunAsync<T>(Func<Task<T>> asyncAction)
     {
         if (Current == this)

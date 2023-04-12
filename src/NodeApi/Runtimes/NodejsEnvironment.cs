@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace Microsoft.JavaScript.NodeApi.Engines;
+namespace Microsoft.JavaScript.NodeApi.Runtimes;
 
 /// <summary>
 /// A Node.js runtime environment with a dedicated main execution thread.
@@ -50,7 +50,7 @@ public sealed class NodejsEnvironment : IDisposable
 
             loadedEvent.Set();
 
-            // Run the JS engine until disposal completes the completion source.
+            // Run the JS event loop until disposal completes the completion source.
             JSNativeApi.AwaitPromise(_completion.Task.AsPromise());
 
             syncContext.Dispose();
@@ -71,13 +71,15 @@ public sealed class NodejsEnvironment : IDisposable
     /// <remarks>
     /// Except where otherwise documented, all interaction with the environment and JavaScript
     /// values associated with the environment MUST be executed on the environment's thread.
+    /// The "Post" and "Run" methods of this class use the synchronization context to switch to
+    /// the JS thread.
     /// </remarks>
-    /// <seealso cref="JSSynchronizationContext.Post(Action, bool) "/>
-    /// <seealso cref="JSSynchronizationContext.Post(Func{Task}, bool)"/>
-    /// <seealso cref="JSSynchronizationContext.Run(Action)"/>
-    /// <seealso cref="JSSynchronizationContext.Run{T}(Func{T})"/>
-    /// <seealso cref="JSSynchronizationContext.RunAsync(Func{Task})"/>
-    /// <seealso cref="JSSynchronizationContext.RunAsync{T}(Func{Task{T}})"/>
+    /// <seealso cref="Post(Action, bool) "/>
+    /// <seealso cref="Post(Func{Task}, bool)"/>
+    /// <seealso cref="Run(Action)"/>
+    /// <seealso cref="Run{T}(Func{T})"/>
+    /// <seealso cref="RunAsync(Func{Task})"/>
+    /// <seealso cref="RunAsync{T}(Func{Task{T}})"/>
     public JSSynchronizationContext SynchronizationContext { get; }
 
     /// <summary>
@@ -202,4 +204,57 @@ public sealed class NodejsEnvironment : IDisposable
         });
         return JSValue.Undefined;
     }
+
+    /// <summary>
+    /// Runs an action on the JS thread, without waiting for completion.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <param name="allowSync">True to allow the action to run immediately if the current
+    /// synchronization context is this one. By default the action will always be secheduled
+    /// for later execution.
+    /// </param>
+    public void Post(Action action, bool allowSync = false)
+        => SynchronizationContext.Post(action, allowSync);
+
+    /// <summary>
+    /// Runs an asynchronous action on the JS thread, without waiting for completion.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <param name="allowSync">True to allow the action to run immediately if the current
+    /// synchronization context is this one. By default the action will always be secheduled
+    /// for later execution.
+    /// </param>
+    public void Post(Func<Task> asyncAction, bool allowSync = false)
+        => SynchronizationContext.Post(asyncAction, allowSync);
+
+    /// <summary>
+    /// Runs an action on the JS thread, and waits for completion.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <exception cref="JSException">Any exception thrown by the action is wrapped in a
+    /// JS exception. The original exception is available via the
+    /// <see cref="Exception.InnerException" /> property.</exception>
+    public void Run(Action action) => SynchronizationContext.Run(action);
+
+    /// <summary>
+    /// Runs an action on the JS thread, and waits for the return value.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <exception cref="JSException">Any exception thrown by the action is wrapped in a
+    /// JS exception. The original exception is available via the
+    /// <see cref="Exception.InnerException" /> property.</exception>
+    public T Run<T>(Func<T> action) => SynchronizationContext.Run<T>(action);
+
+    /// <summary>
+    /// Runs an action on the JS thread, and asynchrnously waits for completion.
+    /// </summary>
+    /// <param name="asyncAction">The action to run.</param>
+    public Task RunAsync(Func<Task> asyncAction) => SynchronizationContext.RunAsync(asyncAction);
+
+    /// <summary>
+    /// Runs an action on the JS thread, and asynchrnously waits for the return value.
+    /// </summary>
+    /// <param name="asyncAction">The action to run.</param>
+    public Task<T> RunAsync<T>(Func<Task<T>> asyncAction)
+        => SynchronizationContext.RunAsync<T>(asyncAction);
 }

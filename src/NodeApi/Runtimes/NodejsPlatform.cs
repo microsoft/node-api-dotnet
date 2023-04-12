@@ -8,7 +8,7 @@ using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 using NativeLibrary = Microsoft.JavaScript.NodeApi.NativeLibrary;
 #endif
 
-namespace Microsoft.JavaScript.NodeApi.Engines;
+namespace Microsoft.JavaScript.NodeApi.Runtimes;
 
 /// <summary>
 /// Manages a Node.js platform instance, provided by `libnode`.

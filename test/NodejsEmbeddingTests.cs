@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Microsoft.JavaScript.NodeApi.Engines;
+using Microsoft.JavaScript.NodeApi.Runtimes;
 using Xunit;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
