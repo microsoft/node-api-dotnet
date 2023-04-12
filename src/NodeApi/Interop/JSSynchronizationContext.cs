@@ -3,7 +3,6 @@
 
 using System;
 using System.Threading;
-using Microsoft.NodeApi;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
