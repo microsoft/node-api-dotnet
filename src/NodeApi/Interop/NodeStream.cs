@@ -153,6 +153,11 @@ public partial class NodeStream : Stream
 
         if (!result.IsTypedArray())
         {
+            if (result.IsNull())
+            {
+                return 0;
+            }
+
             // The readable stream may be in "object mode", which isn't supported.
             throw new NotSupportedException(
                 "Unsupported stream read result type: " + result.TypeOf());
