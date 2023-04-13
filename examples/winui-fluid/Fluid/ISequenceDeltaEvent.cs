@@ -3,21 +3,24 @@
 
 namespace Microsoft.JavaScript.NodeApi.Examples.Fluid;
 
-public interface ISequenceDeltaEvent
+[JSImport]
+public struct SequenceDeltaEvent
 {
     public bool IsLocal { get; }
 
     public string ClientId { get; }
 
-    public IMergeTreeDeltaOpArgs OpArgs { get; }
+    public MergeTreeDeltaOpArgs OpArgs { get; }
 }
 
-public interface IMergeTreeDeltaOpArgs
+[JSImport]
+public struct MergeTreeDeltaOpArgs
 {
-    public IMergeTreeOp Op { get; }
+    public MergeTreeOp Op { get; }
 }
 
-public interface IMergeTreeOp
+[JSImport]
+public struct MergeTreeOp
 {
     public MergeTreeDeltaType Type { get; }
 

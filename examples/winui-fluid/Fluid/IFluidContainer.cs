@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.JavaScript.NodeApi.Examples.Fluid;
 
+[JSImport]
 public interface IFluidContainer : IDisposable
 {
     public ConnectionState ConnectionState { get; }
@@ -50,6 +51,7 @@ public enum ConnectionState
     Connected = 2,
 }
 
+[JSImport]
 public struct Connection
 {
     public string Id { get; set; }

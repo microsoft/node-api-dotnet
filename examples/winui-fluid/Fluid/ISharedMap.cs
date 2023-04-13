@@ -11,9 +11,10 @@ public interface ISharedMap<T> : IDictionary<string, T>
 {
 }
 
-public interface ISharedMapValueChangedEvent
+[JSImport]
+public struct SharedMapValueChangedEvent
 {
-    public string Key { get; }
+    public string Key { get; set; }
 
-    public JSValue PreviousValue { get; }
+    public JSValue PreviousValue { get; set; }
 }

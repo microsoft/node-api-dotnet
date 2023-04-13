@@ -25,11 +25,12 @@ public sealed partial class CollabEditBox : UserControl
     private const string DocumentSharedStringName = "document";
     private const string SelectionsSharedMapName = "selections";
 
+    private const string FluidServiceUri = "http://localhost:7070/";
+
     private readonly SynchronizationContext uiSyncContext;
     private readonly NodejsEnvironment nodejs;
     private readonly JSMarshaller marshaller;
 
-    private JSReference fluid = null!;
     private ITinyliciousClient fluidClient = null!;
     private string? clientId;
     private IFluidContainer? fluidContainer;
@@ -50,47 +51,46 @@ public sealed partial class CollabEditBox : UserControl
         this.nodejs = App.Current.Nodejs;
         this.marshaller = new JSMarshaller { AutoCamelCase = true };
 
-        LoadFluid();
-        LoadTinylicious();
-    }
-
-    private void LoadFluid()
-    {
-        this.nodejs.Post(() =>
+        try
         {
-            // TODO: Replace with [JSImport]?
-            JSValue require = JSValue.Global["require"];
-            this.fluid = new JSReference(require.Call(default, "fluid-framework"));
-        });
+            LoadFluidClient(FluidServiceUri);
+        }
+        catch (Exception ex)
+        {
+            SetText("Failed to load Fluid Framework. Did you forget to run `npm install`?\r" + ex);
+        }
     }
 
-    private void LoadTinylicious()
+    private void LoadFluidClient(string fluidServiceUri)
     {
         // TODO: Replace code in this method with some form of [JSImport] and source-generation.
-        this.nodejs.Post(() =>
+        this.nodejs.Run(() =>
         {
             JSValue logFunction = JSValue.CreateFunction("send", (args) =>
             {
-                JSValue logEvent = args[0];
-                string category = (string)logEvent.GetProperty("category");
-                string eventName = (string)logEvent.GetProperty("eventName");
-                Debug.WriteLine($"[fluid:{category}] {eventName}");
+                var e = this.marshaller.To<TelemetryBaseEvent>(args[0]);
+                Debug.WriteLine($"[fluid:{e.Category}] {e.EventName}");
                 return JSValue.Undefined;
             });
 
-            JSValue logger = JSValue.CreateObject();
-            logger.SetProperty("send", logFunction);
-            JSValue clientProperties = JSValue.CreateObject();
-            clientProperties.SetProperty("logger", logger);
+            var uri = new Uri(fluidServiceUri);
+            TinyliciousClientProps clientProps = new()
+            {
+                Connection = new()
+                {
+                    Domain = $"{uri.Scheme}://{uri.Host}",
+                    Port = uri.Port,
+                },
+                Logger = new()
+                {
+                    Send = logFunction,
+                },
+            };
 
-            JSValue require = JSValue.Global["require"];
-            JSObject tinylicious = (JSObject)require.Call(
-                default, "@fluidframework/tinylicious-client");
-            JSValue tinyliciousClient = tinylicious["TinyliciousClient"]
-                .CallAsConstructor(clientProperties);
-
-            var interfaceAdapter = this.marshaller.GetFromJSValueDelegate<ITinyliciousClient>();
-            this.fluidClient = interfaceAdapter.Invoke(tinyliciousClient);
+            JSValue tinyliciousClient =
+                this.nodejs.Import("@fluidframework/tinylicious-client", "TinyliciousClient")
+                .CallAsConstructor(this.marshaller.From(clientProps));
+            this.fluidClient = this.marshaller.To<ITinyliciousClient>(tinyliciousClient);
         });
     }
 
@@ -101,9 +101,9 @@ public sealed partial class CollabEditBox : UserControl
         get
         {
             // TODO: Improve marsahlling of this object.
-            JSValue sharedStringClass = this.fluid!.GetValue()!.Value.GetProperty("SharedString");
-            JSValue sharedMapClass = this.fluid!.GetValue()!.Value.GetProperty("SharedMap");
-            Debug.Assert(sharedStringClass.IsFunction());
+            JSValue sharedStringClass = this.nodejs.Import("fluid-framework", "SharedString");
+            JSValue sharedMapClass = this.nodejs.Import("fluid-framework", "SharedMap");
+            Debug.Assert(sharedStringClass.IsFunction() && sharedMapClass.IsFunction());
             JSValue initialObjects = JSValue.CreateObject();
             initialObjects.SetProperty(DocumentSharedStringName, sharedStringClass);
             initialObjects.SetProperty(SelectionsSharedMapName, sharedMapClass);
@@ -124,8 +124,7 @@ public sealed partial class CollabEditBox : UserControl
             "sequenceDelta",
             JSValue.CreateFunction("sequenceDelta", OnSharedStringDelta));
 
-        var interfaceAdapter = this.marshaller.GetFromJSValueDelegate<ISharedString>();
-        return interfaceAdapter(sharedString);
+        return this.marshaller.To<ISharedString>(sharedString);
     }
 
     private IDictionary<string, (int, int)> GetSharedSelections()
@@ -172,11 +171,6 @@ public sealed partial class CollabEditBox : UserControl
     {
         text = text.Replace("\r\n", "\r").Replace("\n", "\r");
 
-        this.lastDocumentText = text + "\r"; // Edit box always adds another \r ?
-        this.editBox.Document.SetText(TextSetOptions.None, text);
-        this.editBox.Document.Selection.SetRange(0, 0);
-        this.editBox.Focus(FocusState.Programmatic);
-
         // Reset all selections and carets when starting a new session.
         this.selections.Clear();
         foreach (var child in this.editCanvas.Children.OfType<Path>())
@@ -209,10 +203,27 @@ public sealed partial class CollabEditBox : UserControl
             this.sharedSelections = GetSharedSelections();
             this.sharedSelections.Add(this.clientId, (0, 0));
 
-            string sessionId = await this.fluidContainer.Attach();
-            await connectedCompletion.Task;
-            return sessionId;
+            var timeoutToken = new CancellationTokenSource(5000).Token;
+            try
+            {
+                string sessionId = await this.fluidContainer.Attach().WaitAsync(timeoutToken);
+                await connectedCompletion.Task.WaitAsync(timeoutToken);
+                return sessionId;
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
         });
+
+        if (SessionId == null)
+        {
+            SetText($"Failed to connect to the Fluid service at {FluidServiceUri}");
+            return;
+        }
+
+        SetText(text);
+        this.editBox.Focus(FocusState.Programmatic);
 
         CollabSelection selection = new(caret);
         this.selections.Add(this.clientId, selection);
@@ -221,7 +232,8 @@ public sealed partial class CollabEditBox : UserControl
 
     public async Task ConnectCollabSessionAsync(string id)
     {
-        string text = await this.nodejs.RunAsync(async () =>
+        KeyValuePair<string, (int, int)>[]? remoteSelections = null;
+        string? text = await this.nodejs.RunAsync(async () =>
         {
             TinyliciousContainerInfo containerInfo =
                 await this.fluidClient.GetContainer(id, ContainerSchema);
@@ -236,27 +248,40 @@ public sealed partial class CollabEditBox : UserControl
             JSInterface.GetJSValue(this.fluidContainer)!.Value.CallMethod(
                 "once", "connected", JSValue.CreateFunction("connected", OnConnected));
 
+            var timeoutToken = new CancellationTokenSource(5000).Token;
+            try
+            {
+                await connectedCompletion.Task.WaitAsync(timeoutToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+
             this.sharedDocument = GetSharedDocument();
             string text = this.sharedDocument.GetText();
 
+            // Assign caret colors for each of the remote participants' selections.
             this.sharedSelections = GetSharedSelections();
-            foreach (var (remoteClient, remoteSelection) in this.sharedSelections!)
-            {
-                this.uiSyncContext.Post((_) =>
-                {
-                    this.OnRemoteSelectionChanged(remoteClient, remoteSelection);
-                }, null);
-            }
+            remoteSelections = this.sharedSelections.ToArray();
 
             return text;
         });
 
-        this.lastDocumentText = text + "\r"; // Edit box always adds another \r ?
-        this.editBox.Document.SetText(TextSetOptions.None, text);
+        if (text == null)
+        {
+            SetText($"Failed to connect to the Fluid service at {FluidServiceUri}");
+            return;
+        }
+
+        SetText(text);
         this.editBox.Focus(FocusState.Programmatic);
 
-        // Allow some time for other participants' carets to be assigned.
-        await Task.Delay(10);
+        // Assign and update carets for each of the remote selections.
+        foreach (var (remoteClientId, remoteSelection) in remoteSelections!)
+        {
+            this.OnRemoteSelectionChanged(remoteClientId, remoteSelection);
+        }
 
         Path caret = AssignCaret()!;
         this.editBox.SelectionHighlightColor = (SolidColorBrush)caret.Fill;
@@ -285,6 +310,13 @@ public sealed partial class CollabEditBox : UserControl
 
             this.fluidContainer?.Dispose();
         });
+    }
+
+    private void SetText(string text)
+    {
+        this.lastDocumentText = text + "\r"; // Edit box always adds another \r ?
+        this.editBox.Document.SetText(TextSetOptions.None, text);
+        this.editBox.Document.Selection.SetRange(0, 0);
     }
 
     private void OnEditBoxSelectionChanging(
@@ -399,99 +431,92 @@ public sealed partial class CollabEditBox : UserControl
 
     private JSValue OnSharedStringDelta(JSCallbackArgs args)
     {
-        var interfaceAdapter = this.marshaller.GetFromJSValueDelegate<ISequenceDeltaEvent>();
-        var deltaEvent = interfaceAdapter(args[0]);
+        var deltaEvent = this.marshaller.To<SequenceDeltaEvent>(args[0]);
 
         Debug.WriteLine(
             $"SequenceDelta(IsLocal={deltaEvent.IsLocal}, ClientId={deltaEvent.ClientId})");
 
         if (!deltaEvent.IsLocal)
         {
-            // Do not pass the op to the UI thread because it is a JS object. Just pass its props.
-            IMergeTreeOp op = deltaEvent.OpArgs.Op;
-            MergeTreeDeltaType deltaType = op.Type;
-            int? pos1 = op.Pos1;
-            int? pos2 = op.Pos2;
-            string? seg = op.Seg;
-            this.uiSyncContext.Post((_) => OnRemoteEdit(deltaType, pos1, pos2, seg), null);
+            this.uiSyncContext.Post((_) => OnRemoteEdit(deltaEvent.OpArgs.Op), null);
         }
 
         return JSValue.Undefined;
     }
 
-    private void OnRemoteEdit(MergeTreeDeltaType deltaType, int? pos1, int? pos2, string? seg)
+    private void OnRemoteEdit(MergeTreeOp op)
     {
         var (selectionStart, selectionLength) = this.lastSelection;
-        if (deltaType == MergeTreeDeltaType.Insert && pos1.HasValue && seg is not null)
+        if (op.Type == MergeTreeDeltaType.Insert && op.Pos1.HasValue && op.Seg is not null)
         {
-            Debug.WriteLine($"    insert ({pos1}) [{seg}]");
+            Debug.WriteLine($"    insert ({op.Pos1}) [{op.Seg}]");
 
-            if (pos1 <= selectionStart)
+            if (op.Pos1 <= selectionStart)
             {
-                selectionStart += seg.Length;
+                selectionStart += op.Seg.Length;
             }
-            else if (pos1 < selectionStart + selectionLength)
+            else if (op.Pos1 < selectionStart + selectionLength)
             {
-                selectionLength += seg.Length;
+                selectionLength += op.Seg.Length;
             }
 
-            string newText = this.lastDocumentText.Substring(0, pos1.Value) +
-                seg + this.lastDocumentText.Substring(pos1.Value);
+            string newText = this.lastDocumentText.Substring(0, op.Pos1.Value) +
+                op.Seg + this.lastDocumentText.Substring(op.Pos1.Value);
             this.lastDocumentText = newText;
             this.editBox.Document.SetText(
                 TextSetOptions.None, newText.Substring(0, newText.Length - 1));
         }
-        else if (deltaType == MergeTreeDeltaType.Remove && pos1.HasValue && pos2.HasValue)
+        else if (op.Type == MergeTreeDeltaType.Remove && op.Pos1.HasValue && op.Pos2.HasValue)
         {
-            Debug.WriteLine($"    remove ({pos1},{pos2})");
+            Debug.WriteLine($"    remove ({op.Pos1},{op.Pos2})");
 
-            if (pos1 <= selectionStart)
+            if (op.Pos1 <= selectionStart)
             {
                 // Deletion range sarts before the selection.
 
-                if (pos2 <= selectionStart)
+                if (op.Pos2 <= selectionStart)
                 {
                     // Deletion range ends before the selection.
-                    selectionStart -= (pos2.Value - pos1.Value);
+                    selectionStart -= (op.Pos2.Value - op.Pos1.Value);
                 }
-                else if (pos2 < selectionStart + selectionLength)
+                else if (op.Pos2 < selectionStart + selectionLength)
                 {
                     // Deletion range ends within the selection.
-                    selectionLength = selectionStart + selectionLength - pos2.Value;
-                    selectionStart = pos1.Value;
+                    selectionLength = selectionStart + selectionLength - op.Pos2.Value;
+                    selectionStart = op.Pos1.Value;
                 }
                 else
                 {
                     // Deletion range fully includes the selection.
-                    selectionStart = pos1.Value;
+                    selectionStart = op.Pos1.Value;
                     selectionLength = 0;
                 }
             }
-            else if (pos1 < selectionStart + selectionLength)
+            else if (op.Pos1 < selectionStart + selectionLength)
             {
                 // Deletion range starts within the selection.
 
-                if (pos2 < selectionStart + selectionLength)
+                if (op.Pos2 < selectionStart + selectionLength)
                 {
                     // Deletion range is fully included by the selection.
-                    selectionLength -= (pos2.Value - pos1.Value);
+                    selectionLength -= (op.Pos2.Value - op.Pos1.Value);
                 }
                 else
                 {
                     // Deletion range ends beyond the selection.
-                    selectionLength -= (selectionStart + selectionLength - pos1.Value);
+                    selectionLength -= (selectionStart + selectionLength - op.Pos1.Value);
                 }
             }
 
-            string newText = this.lastDocumentText.Substring(0, pos1.Value) +
-                this.lastDocumentText.Substring(pos2.Value);
+            string newText = this.lastDocumentText.Substring(0, op.Pos1.Value) +
+                this.lastDocumentText.Substring(op.Pos2.Value);
             this.lastDocumentText = newText;
             this.editBox.Document.SetText(
                 TextSetOptions.None, newText.Substring(0, newText.Length - 1));
         }
         else
         {
-            Debug.WriteLine("    op type: " + deltaType);
+            Debug.WriteLine("    op type: " + op.Type);
             return;
         }
 
@@ -502,9 +527,7 @@ public sealed partial class CollabEditBox : UserControl
 
     private JSValue OnSharedMapValueChanged(JSCallbackArgs args)
     {
-        var interfaceAdapter =
-            this.marshaller.GetFromJSValueDelegate<ISharedMapValueChangedEvent>();
-        var changedEvent = interfaceAdapter(args[0]);
+        var changedEvent = this.marshaller.To<SharedMapValueChangedEvent>(args[0]);
         bool isLocal = (bool)args[1];
 
         if (!isLocal)

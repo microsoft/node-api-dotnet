@@ -44,9 +44,10 @@ public sealed class NodejsEnvironment : IDisposable
 
             // The new scope instance saves itself as the thread-local JSValueScope.Current.
             scope = new JSValueScope(JSValueScopeType.Root, env);
+            syncContext = scope.RuntimeContext.SynchronizationContext;
 
-            syncContext = JSSynchronizationContext.Create();
-            System.Threading.SynchronizationContext.SetSynchronizationContext(syncContext);
+            // The require() function is available as a global in this context.
+            scope.RuntimeContext.Require = JSValue.Global["require"];
 
             loadedEvent.Set();
 
@@ -257,4 +258,20 @@ public sealed class NodejsEnvironment : IDisposable
     /// <param name="asyncAction">The action to run.</param>
     public Task<T> RunAsync<T>(Func<Task<T>> asyncAction)
         => SynchronizationContext.RunAsync<T>(asyncAction);
+
+    /// <summary>
+    /// Imports a module or module property from JavaScript.
+    /// </summary>
+    /// <param name="module">Name of the module being imported, or null to import a
+    /// global property. This is equivalent to the value provided to <c>import</c> or
+    /// <c>require()</c> in JavaScript. Required if <paramref name="property"/> is null.</param>
+    /// <param name="property">Name of a property on the module (or global), or null to import
+    /// the module object. Required if <paramref name="module"/> is null.</param>
+    /// <returns>The imported value.</returns>
+    /// <exception cref="ArgumentNullException">Both <paramref cref="module" /> and
+    /// <paramref cref="property" /> are null.</exception>
+    /// <exception cref="InvalidOperationException">The <see cref="Require"/> function was
+    /// not initialized.</exception>
+    public JSValue Import(string? module, string? property = null)
+        => _scope.RuntimeContext.Import(module, property);
 }

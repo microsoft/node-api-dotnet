@@ -25,12 +25,11 @@ Console.WriteLine('Hello from .NET!');
 ### Minimal example - .NET calling JS
 ```C#
 // C#
-[JSImport("global", "console")]
 interface IConsole { void Log(string message); }
 
 var nodejs = new NodejsPlatform(libnodePath).CreateEnvironment();
 nodejs.Run(() => {
-    var console = nodejs.Import<IConsole>();
+    var console = nodejs.Import<IConsole>("global", "console");
     console.Log("Hello from JS!");
 });
 ```
@@ -70,15 +69,13 @@ const MyType = ExampleAssembly['Namespace.Qualified.MyType'];
 
 ### Load and call JavaScript packages from .NET
 Calling JavaScript from .NET requires hosting a JS runtime such as Node.js in the .NET app.
-Then JS packages can be loaded either by directly invoking the JS `require()` function and
-working with low-level JS values, or by declaring C# interfaces for the JS types and using
-automatic marshalling.
+Then JS packages can be imported either directly as JS values or by declaring C# interfaces for
+the JS types and using automatic marshalling.
 
 All interaction with a JavaScript environment must be from its thread, via the
 `Run()`, `RunAsync()`, or `Post()` methods on the JS environment object.
 ```C#
 // C#
-[JSImport("example-npm-package", "ExampleClass")]
 interface IExample
 {
     void ExampleMethod();
@@ -88,19 +85,15 @@ var nodejsPlatform = new NodejsPlatform(libnodePath);
 var nodejs = nodejsPlatform.CreateEnvironment();
 
 nodejs.Run(() => {
-    // Use require() to load a module, then call a function on it.
-    JSValue require = JSValue.Global["require"];
-    var example1 = require.Call(default, "example-npm-package").GetProperty("ExampleClass");
+    // Import a module property, then call a function on it.
+    var example1 = nodejs.Import("example-npm-package", "ExampleObject");
     example1.CallMethod("exampleMethod");
 
-    // Call the same function using the imported interface.
-    var example2 = nodejs.Import<IExample>();
+    // Import the module property using an interface, and call the same function.
+    var example2 = nodejs.Import<IExample>("example-npm-package", "ExampleObject");
     example2.ExampleMethod();
 });
 ```
-
-> Note: The `[JSImport]` attribute is in development. Until it is available, it is possible
-to create an interface adapter for a JS value with a little more code.
 
 In the future, it may be possible to automatically generate .NET API definitions from TypeScript
 type definitions.
