@@ -116,7 +116,6 @@ public sealed class JSRuntimeContext : IDisposable
 
     public JSRuntimeContext(napi_env env)
     {
-        // TODO: Move this Initialize call to the creators of JSRuntimeContext
         JSNativeApi.Interop.Initialize();
 
         _env = env;
@@ -546,14 +545,14 @@ public sealed class JSRuntimeContext : IDisposable
     /// not initialized.</exception>
     public JSValue Import(string? module, string? property = null)
     {
-        if (module == null && property == null)
+        if ((module == null || module == "global") && property == null)
         {
             throw new ArgumentNullException(nameof(property));
         }
 
         JSReference reference = _importMap.GetOrAdd((module, property), (_) =>
         {
-            if (module == null)
+            if (module == null || module == "global")
             {
                 // Importing a built-in object from `global`.
                 JSValue value = JSValue.Global[property!];

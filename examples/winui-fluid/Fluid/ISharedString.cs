@@ -3,6 +3,7 @@
 
 namespace Microsoft.JavaScript.NodeApi.Examples.Fluid;
 
+[JSImport]
 public interface ISharedString
 {
     public int GetLength();

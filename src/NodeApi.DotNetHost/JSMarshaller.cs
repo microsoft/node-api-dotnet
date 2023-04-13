@@ -91,9 +91,27 @@ public class JSMarshaller
     }
 
     /// <summary>
+    /// Converts a value to a JS value.
+    /// </summary>
+    public JSValue From<T>(T value)
+    {
+        JSValue.From<T> converter = GetToJSValueDelegate<T>();
+        return converter(value);
+    }
+
+    /// <summary>
+    /// Converts a JS value to a requested type.
+    /// </summary>
+    public T To<T>(JSValue value)
+    {
+        JSValue.To<T> converter = GetFromJSValueDelegate<T>();
+        return converter(value);
+    }
+
+    /// <summary>
     /// Checks whether a type is converted to a JavaScript built-in type.
     /// </summary>
-    public static bool IsConvertedType(Type type)
+    internal static bool IsConvertedType(Type type)
     {
         if (type.IsPrimitive ||
             type == typeof(string) ||
@@ -1799,11 +1817,23 @@ public class JSMarshaller
         ParameterExpression jsValueVariable = Expression.Variable(typeof(JSValue), "jsValue");
         variables.Add(jsValueVariable);
 
-        MethodInfo createStructMethod = typeof(JSRuntimeContext).GetMethod(nameof(JSRuntimeContext.CreateStruct))
-            !.MakeGenericMethod(fromType);
-        yield return Expression.Assign(
-            jsValueVariable,
-            Expression.Call(Expression.Property(null, s_context), createStructMethod));
+        if (fromType.GetCustomAttribute(typeof(JSImportAttribute)) != null)
+        {
+            // Imported structs are assumed to be plain JS objects (not JS classes).
+            MethodInfo createObjectMethod = typeof(JSValue)
+                .GetStaticMethod(nameof(JSValue.CreateObject));
+            yield return Expression.Assign(
+                jsValueVariable, Expression.Call(createObjectMethod));
+        }
+        else
+        {
+            MethodInfo createStructMethod = typeof(JSRuntimeContext)
+                .GetInstanceMethod(nameof(JSRuntimeContext.CreateStruct))
+                !.MakeGenericMethod(fromType);
+            yield return Expression.Assign(
+                jsValueVariable,
+                Expression.Call(Expression.Property(null, s_context), createStructMethod));
+        }
 
         foreach (PropertyInfo property in fromType.GetProperties(
             BindingFlags.Public | BindingFlags.Instance))
