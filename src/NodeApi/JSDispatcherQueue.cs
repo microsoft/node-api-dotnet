@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.NodeApi;
+namespace Microsoft.JavaScript.NodeApi;
 
 public sealed class DispatcherQueueShutdownStartingEventArgs : EventArgs
 {
