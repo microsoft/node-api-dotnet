@@ -15,6 +15,70 @@ namespace Microsoft.JavaScript.NodeApi;
 // Node API managed wrappers
 public static partial class JSNativeApi
 {
+    private static unsafe string? PtrToStringUTF8(byte* ptr)
+    {
+        if (ptr == null) return null;
+        int length = 0;
+        while (ptr[length] != 0) length++;
+        return Encoding.UTF8.GetString(ptr, length);
+    }
+
+    public static unsafe napi_platform CreatePlatform(
+        string[]? args,
+        string[]? execArgs,
+        Action<string>? errorHandler)
+    {
+        napi_error_message_handler native_error_handler = errorHandler == null ? default :
+            new((byte* error) =>
+            {
+                string? message = PtrToStringUTF8(error);
+                if (message is not null) errorHandler(message);
+            });
+
+        napi_create_platform(args, execArgs, native_error_handler, out napi_platform platform)
+            .ThrowIfFailed();
+        return platform;
+    }
+
+    public static unsafe void DestroyPlatform(napi_platform platform)
+    {
+        napi_destroy_platform(platform).ThrowIfFailed();
+    }
+
+    public static unsafe napi_env CreateEnvironment(
+        napi_platform platform,
+        Action<string>? errorHandler,
+        string? mainScript)
+    {
+        napi_error_message_handler native_error_handler = errorHandler == null ? default :
+            new((byte* error) =>
+            {
+                string? message = PtrToStringUTF8(error);
+                if (message is not null) errorHandler(message);
+            });
+
+        napi_create_environment(platform, native_error_handler, mainScript, out napi_env env)
+            .ThrowIfFailed();
+        return env;
+    }
+
+    public static unsafe void RunEnvironment()
+    {
+        napi_run_environment(Env).ThrowIfFailed();
+    }
+
+    public static unsafe JSValue AwaitPromise(JSValue promise)
+    {
+        napi_await_promise(Env, (napi_value)promise, out napi_value result).ThrowIfFailed();
+        return result;
+    }
+
+    public static unsafe int DestroyEnvironment(napi_env env)
+    {
+        napi_destroy_environment(env, out int exitCode).ThrowIfFailed();
+        return exitCode;
+    }
+
     /// <summary>
     /// Hint to a finalizer callback that indicates the object referenced by the handle should be
     /// disposed when finalizing.
