@@ -1,4 +1,4 @@
-# Node API for .NET -
+# Node API for .NET: JavaScript + .NET Interop
 
 This project enables advanced interoperability between .NET and JavaScript in the same process.
 
@@ -38,6 +38,17 @@ nodejs.Run(() => {
 For more examples, see the [examples](./examples/) directory.
 
 ## Feature Highlights
+ - [Load and call .NET assemblies from JS](#load-and-call-net-assemblies-from-js)
+ - [Load and call JavaScript packages from .NET](#load-and-call-javascript-packages-from-net)
+ - [Generate TS type definitions for .NET APIs](#generate-ts-type-definitions-for-net-apis)
+ - [Full async support](#full-async-support)
+ - [Error propagation](#error-propagation)
+ - [Develop Node.js addons with C#](#develop-nodejs-addons-with-c)
+ - [Optionally work directly with JS types in C#](#optionally-work-directly-with-js-types-in-c)
+ - [Automatic efficient marshaling](#automatic-efficient-marshaling)
+ - [Stream across .NET and JS](#stream-across-net-and-js)
+ - [Optional .NET native AOT compilation](#optional-net-native-aot-compilation)
+ - [High performance](#high-performance)
 
 ### Load and call .NET assemblies from JS
 The `node-api-dotnet` package manages hosting the .NET runtime in the JS process
