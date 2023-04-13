@@ -1,27 +1,61 @@
-# Call .NET APIs from JavaScript
+# Node API for .NET: JavaScript + .NET Interop
 
-Call nearly any .NET APIs in-proc from JavaScript code, with high performance and TypeScript
-type-checking. The interop uses [Node API](https://nodejs.org/api/n-api.html) so it is compatible
-with any Node.js version (without rebuilding) or other JavaScript engine that supports Node API.
+This project enables advanced interoperability between .NET and JavaScript in the same process.
+
+ - Load .NET assemblies and call .NET APIs in-proc from a JavaScript application.
+ - Load JavaScript packages call JS APIs in-proc from a .NET application.
+
+Interop is high-performance and supports TypeScript type-definitions generation, async
+(tasks/promises), streams, and more. It uses [Node API](https://nodejs.org/api/n-api.html) so
+it is compatible with any Node.js version (without recompiling) or other JavaScript runtime that
+supports Node API.
 
 :warning: _**Status: In Development** - Core functionality works, but many things are incomplete,
 and it isn't yet all packaged up nicely in a way that can be easily consumed._
 
 [Instructions for getting started are below.](#getting-started)
 
-### Minimal example
+### Minimal example - JS calling .NET
 ```JavaScript
+// JavaScript
 const Console = require('node-api-dotnet').Console;
 Console.WriteLine('Hello from .NET!');
 ```
+
+### Minimal example - .NET calling JS
+```C#
+// C#
+[JSImport("global", "console")]
+interface IConsole { void Log(string message); }
+
+var nodejs = new NodejsPlatform(libnodePath).CreateEnvironment();
+nodejs.Run(() => {
+    var console = nodejs.Import<IConsole>();
+    console.Log("Hello from JS!");
+});
+```
+
 For more examples, see the [examples](./examples/) directory.
 
 ## Feature Highlights
+ - [Load and call .NET assemblies from JS](#load-and-call-net-assemblies-from-js)
+ - [Load and call JavaScript packages from .NET](#load-and-call-javascript-packages-from-net)
+ - [Generate TS type definitions for .NET APIs](#generate-ts-type-definitions-for-net-apis)
+ - [Full async support](#full-async-support)
+ - [Error propagation](#error-propagation)
+ - [Develop Node.js addons with C#](#develop-nodejs-addons-with-c)
+ - [Optionally work directly with JS types in C#](#optionally-work-directly-with-js-types-in-c)
+ - [Automatic efficient marshaling](#automatic-efficient-marshaling)
+ - [Stream across .NET and JS](#stream-across-net-and-js)
+ - [Optional .NET native AOT compilation](#optional-net-native-aot-compilation)
+ - [High performance](#high-performance)
 
-### Dynamically load .NET assemblies
-.NET core library types are available directly on the main module. Additional .NET assemblies can
-be loaded by file path:
+### Load and call .NET assemblies from JS
+The `node-api-dotnet` package manages hosting the .NET runtime in the JS process
+(if not using AOT - see below). The .NET core library types are available directly on the
+`node-api-dotnet` module, and additional .NET assemblies can be loaded by file path:
 ```JavaScript
+// JavaScript
 const dotnet = require('node-api-dotnet');
 const ExampleAssembly = dotnet.load('path/to/ExampleAssembly.dll');
 const exampleObj = new ExampleAssembly.ExampleClass(...args);
@@ -30,10 +64,48 @@ const exampleObj = new ExampleAssembly.ExampleClass(...args);
 .NET namespaces are stripped for convenience, but in case of ambiguity it's possible to get a type
 by full name:
 ```JavaScript
+// JavaScript
 const MyType = ExampleAssembly['Namespace.Qualified.MyType'];
 ```
 
-### Generate type definitions for .NET APIs
+### Load and call JavaScript packages from .NET
+Calling JavaScript from .NET requires hosting a JS runtime such as Node.js in the .NET app.
+Then JS packages can be loaded either by directly invoking the JS `require()` function and
+working with low-level JS values, or by declaring C# interfaces for the JS types and using
+automatic marshalling.
+
+All interaction with a JavaScript environment must be from its thread, via the
+`Run()`, `RunAsync()`, or `Post()` methods on the JS environment object.
+```C#
+// C#
+[JSImport("example-npm-package", "ExampleClass")]
+interface IExample
+{
+    void ExampleMethod();
+}
+
+var nodejsPlatform = new NodejsPlatform(libnodePath);
+var nodejs = nodejsPlatform.CreateEnvironment();
+
+nodejs.Run(() => {
+    // Use require() to load a module, then call a function on it.
+    JSValue require = JSValue.Global["require"];
+    var example1 = require.Call(default, "example-npm-package").GetProperty("ExampleClass");
+    example1.CallMethod("exampleMethod");
+
+    // Call the same function using the imported interface.
+    var example2 = nodejs.Import<IExample>();
+    example2.ExampleMethod();
+});
+```
+
+> Note: The `[JSImport]` attribute is in development. Until it is available, it is possible
+to create an interface adapter for a JS value with a little more code.
+
+In the future, it may be possible to automatically generate .NET API definitions from TypeScript
+type definitions.
+
+### Generate TS type definitions for .NET APIs
 If writing TypeScript, or type-checked JavaScript, there is a tool to generate type `.d.ts` type
 definitions for .NET APIs. Soon, it should also generate a small `.js` file that exports the
 assembly in a more natural way as a JS module.
@@ -41,6 +113,7 @@ assembly in a more natural way as a JS module.
 $ npm exec node-api-dotnet-generator --assembly ExampleAssembly.dll --typedefs ExampleAssembly.d.ts
 ```
 ```TypeScript
+// TypeScript
 import { ExampleClass } from './ExampleAssembly';
 ExampleClass.ExampleMethod(...args); // This call is type-checked!
 ```
@@ -52,6 +125,7 @@ JavaScript code can `await` a call to a .NET method that returns a `Task`. The m
 automatically sets up a `SynchronizationContext` so that the .NET result is returned back to the
 JS thread.
 ```TypeScript
+// TypeScript
 import { ExampleClass } from './ExampleAssembly';
 const asyncResult = await ExampleClass.GetSomethingAsync(...args);
 ```
@@ -72,6 +146,7 @@ part of the compilation and generates code to export the tagged APIs and marshal
 JavaScript and C#.
 
 ```C#
+// C#
 [JSExport] // Export class and all public members to JS.
 public class ExampleClass { ... }
 
@@ -95,6 +170,7 @@ value of any type, and there are more types like `JSObject`, `JSArray`, `JSMap`,
 C# code can work directly with those types if desired:
 
 ```C#
+// C#
 [JSExport]
 public static JSPromise JSAsyncExample(JSValue input)
 {
@@ -148,10 +224,10 @@ transferred using shared memory (without any additional sockets or pipes), so me
 and copying is minimized.
 
 ### Optional .NET native AOT compilation
-This library supports hosting the .NET Runtime in the same process as the JavaScript engine.
+This library supports hosting the .NET Runtime in the same process as the JavaScript runtime.
 Alternatively, it also supports building [native ahead-of-time (AOT) compiled C#](
-    https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/) libraries that are
-    loadable as a JavaScript module _without depending on the .NET Runtime_.
+https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/) libraries that are
+loadable as a JavaScript module _without depending on the .NET Runtime_.
 
 There are advantages and disadvantages to either approach:
 |                     | .NET Runtime | .NET Native AOT |
@@ -187,25 +263,26 @@ Thanks to these design choices, JS to .NET calls are [more than twice as fast](
     - .NET Framework 4.7.2 or later is supported at runtime,
       but .NET 6 SDK is still required for building.
  - Node.js v16 or later
-    - Other JS engines may be supported in the future.
+    - Other JS runtimes may be supported in the future.
  - OS: Windows, Mac, or Linux
     - It should work on any platform where .NET 6 is supported.
 
 #### Instructions
-Choose between one of the following scenarios:
- - [Dynamically invoke .NET APIs from JavaScript](./Docs/dynamic-invoke.md)
- - [Develop a Node module in C#](./Docs/node-module.md)
+For calling .NET from JS, choose between one of the following scenarios:
+ - [Dynamically invoke .NET APIs from JavaScript](./Docs/dynamic-invoke.md)<br/>
+   Dynamic invocation is simpler to set up: all you need is the `node-api-dotnet` npm package and
+   the path to a .NET assembly you want to call. But it has some limitations (not all kinds of APIs
+   are supported), and is not quite as fast as a C# module, because marshalling code must be
+   generated at runtime.
+ - [Develop a Node module in C#](./Docs/node-module.md)<br/>
+   A C# Node module is appropriate for an application that has more advanced interop needs. It can
+   be faster because marshalling code can be generated at compile time, and the shape of the APIs
+   exposed to JavaScript can be adapted with JS interop in mind.
 
-Dynamic invocation is simpler to set up: all you need is the `node-api-dotnet` npm package and
-the path to a .NET assembly you want to call. But it has some limitations (not all kinds of APIs
-are supported), and is not quite as fast as a C# module, because marshalling code must be generated
-at runtime.
+For calling JS from .NET, more documentation will be added soon. For now, see the
+[`winui-fluid` example code](./examples/winui-fluid/).
 
-Alternatively, a C# Node module is appropriate for an application that has more advanced interop
-needs. It is faster because marshalling code can be generated at compile time, and the shape of
-the APIs exposed to JavaScript can be adapted with JS interop in mind.
-
-TypeScript type definitions can be generated with either aproach.
+Generated TypeScript type definitions can be utilized with any of these aproaches.
 
 ## Development
 For information about building, testing, and contributing changes to this project, see

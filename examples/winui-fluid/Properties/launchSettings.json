@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "winui-fluid (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "winui-fluid (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

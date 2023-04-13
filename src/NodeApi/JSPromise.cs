@@ -291,7 +291,7 @@ public readonly struct JSPromise : IEquatable<JSValue>
         public void Reject(JSError rejection)
         {
             // _handle becomes invalid after this call
-            napi_resolve_deferred(
+            napi_reject_deferred(
                 (napi_env)JSValueScope.Current, _handle, (napi_value)rejection.Value)
                 .ThrowIfFailed();
         }
