@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-const dotnet = require('node-api-dotnet');
+const dotnet = require('@microsoft/node-api-dotnet');
 
 /** @type {import('./bin/dotnet-module').Example} */
 const Example = dotnet.require('./bin/dotnet-module').Example;
