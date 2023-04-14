@@ -136,6 +136,9 @@ internal unsafe partial class NativeHost : IDisposable
                 exports = InitializeDotNetHost(dotnetVersion, managedHostPath, require);
             }
 
+            // Save init parameters and result in case of re-init.
+            _targetFramework = targetFramework;
+            _managedHostPath = managedHostPath;
             _exports = new JSReference(exports);
             return exports;
         }
