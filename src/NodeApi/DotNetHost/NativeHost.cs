@@ -22,8 +22,11 @@ internal unsafe partial class NativeHost : IDisposable
     private static readonly string s_managedHostTypeName =
         typeof(NativeHost).Namespace + ".ManagedHost";
 
+    private string? _targetFramework;
+    private string? _managedHostPath;
     private ICLRRuntimeHost* _runtimeHost;
     private hostfxr_handle _hostContextHandle;
+    private JSReference? _exports;
 
     public static bool IsTracingEnabled { get; } =
         Environment.GetEnvironmentVariable("TRACE_NODE_API_HOST") == "1";
@@ -81,20 +84,36 @@ internal unsafe partial class NativeHost : IDisposable
     /// <returns>JS exports value from the managed host.</returns>
     private JSValue InitializeManagedHost(JSCallbackArgs args)
     {
-        if (_hostContextHandle != default || _runtimeHost is not null)
-        {
-            throw new NotSupportedException(
-                ".NET is already initialized in the current process. " +
-                "Initializing multiple .NET versions is not supported.");
-        }
-
         string targetFramework = (string)args[0];
         string managedHostPath = (string)args[1];
+
+        if (_hostContextHandle != default || _runtimeHost is not null)
+        {
+            // .NET is already loaded for this host.
+            if (targetFramework == _targetFramework && managedHostPath == _managedHostPath &&
+                _exports is not null)
+            {
+                // The same version of .NET and same managed host were requested again.
+                // Just return the same exports object that was initialized the first time.
+                // Normally this shouldn't happen because the host package initialization
+                // script would only be loaded once by require(). But certain situations like
+                // drive letter or path casing inconsistencies can cause it to be loaded twice.
+                return _exports.GetValue()!.Value;
+            }
+            else
+            {
+                throw new NotSupportedException(
+                    $".NET ({_targetFramework}) is already initialized in the current process. " +
+                    "Initializing multiple .NET versions is not supported.");
+            }
+        }
+
         JSValue require = args[2];
         Trace($"> NativeHost.InitializeManagedHost({targetFramework}, {managedHostPath})");
 
         try
         {
+            JSValue exports;
             if (!targetFramework.Contains('.') && targetFramework.StartsWith("net") &&
                 targetFramework.Length >= 5)
             {
@@ -104,7 +123,7 @@ internal unsafe partial class NativeHost : IDisposable
                     int.Parse(targetFramework.Substring(4, 1)),
                     targetFramework.Length == 5 ? 0 :
                         int.Parse(targetFramework.Substring(5, 1)));
-                return InitializeFrameworkHost(frameworkVersion, managedHostPath, require);
+                exports = InitializeFrameworkHost(frameworkVersion, managedHostPath, require);
             }
             else
             {
@@ -114,8 +133,11 @@ internal unsafe partial class NativeHost : IDisposable
 #else
                 Version dotnetVersion = Version.Parse(targetFramework.AsSpan(3));
 #endif
-                return InitializeDotNetHost(dotnetVersion, managedHostPath, require);
+                exports = InitializeDotNetHost(dotnetVersion, managedHostPath, require);
             }
+
+            _exports = new JSReference(exports);
+            return exports;
         }
         catch (Exception ex)
         {
