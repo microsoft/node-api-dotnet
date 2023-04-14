@@ -23,7 +23,7 @@ namespace Microsoft.JavaScript.NodeApi;
 /// </remarks>
 public class JSReference : IDisposable
 {
-    private readonly JSRuntimeContext _context;
+    private readonly JSRuntimeContext? _context;
     private readonly napi_ref _handle;
 
     public bool IsWeak { get; private set; }
@@ -68,7 +68,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (!IsWeak)
         {
-            napi_reference_unref((napi_env)_context, _handle, default).ThrowIfFailed();
+            napi_reference_unref((napi_env)JSValueScope.Current, _handle, default).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -77,7 +77,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (IsWeak)
         {
-            napi_reference_ref((napi_env)_context, _handle, default).ThrowIfFailed();
+            napi_reference_ref((napi_env)JSValueScope.Current, _handle, default).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -86,7 +86,7 @@ public class JSReference : IDisposable
     {
         ThrowIfDisposed();
         napi_get_reference_value(
-            (napi_env)_context, _handle, out napi_value result).ThrowIfFailed();
+            (napi_env)JSValueScope.Current, _handle, out napi_value result).ThrowIfFailed();
         return result;
     }
 
@@ -118,9 +118,19 @@ public class JSReference : IDisposable
         {
             IsDisposed = true;
             napi_ref handle = _handle; // To capture in lambda
-            _context.SynchronizationContext.Post(
-                () => napi_delete_reference((napi_env)_context, handle).ThrowIfFailed(),
-                allowSync: true);
+
+            // The context may be null if the reference was creatd from a "no-context" scope such
+            // as the native host. In that case the reference must be disposed from the JS thread.
+            if (_context == null)
+            {
+                napi_delete_reference((napi_env)JSValueScope.Current, handle).ThrowIfFailed();
+            }
+            else
+            {
+                _context?.SynchronizationContext.Post(
+                    () => napi_delete_reference((napi_env)_context, handle).ThrowIfFailed(),
+                    allowSync: true);
+            }
         }
     }
 

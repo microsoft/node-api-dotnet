@@ -19,7 +19,7 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// loaded, and disposed when the host is unloaded. (For AOT there is no "host" compnoent, so each
 /// AOT module has a context that matches the module lifetime.) The context tracks several kinds
 /// of JS references used internally by this assembly, so that the references can be re-used for
-/// the lifetime of the module and disposed when the context is disposed.
+/// the lifetime of the host and disposed when the context is disposed.
 /// </remarks>
 public sealed class JSRuntimeContext : IDisposable
 {
@@ -102,13 +102,14 @@ public sealed class JSRuntimeContext : IDisposable
 
     public bool IsDisposed { get; private set; }
 
-    public static explicit operator napi_env(JSRuntimeContext context) => context._env;
+    public static explicit operator napi_env(JSRuntimeContext context) => context?._env ??
+        throw new ArgumentNullException(nameof(context));
     public static explicit operator JSRuntimeContext(napi_env env)
         => GetInstanceData(env) as JSRuntimeContext
            ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
 
     /// <summary>
-    /// Gets the current host context.
+    /// Gets the current runtime context.
     /// </summary>
     public static JSRuntimeContext Current => JSValueScope.Current.RuntimeContext;
 
