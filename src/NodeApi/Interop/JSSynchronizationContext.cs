@@ -176,7 +176,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         else
         {
             TaskCompletionSource<bool> completion = new();
-            Send(async (_) =>
+            Post(async (_) =>
             {
                 if (IsDisposed) return;
                 try
@@ -206,7 +206,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         else
         {
             TaskCompletionSource<T> completion = new();
-            Send(async (_) =>
+            Post(async (_) =>
             {
                 if (IsDisposed) return;
                 try
