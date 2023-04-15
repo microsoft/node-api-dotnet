@@ -6,29 +6,29 @@ namespace Microsoft.JavaScript.NodeApi.Examples.Fluid;
 [JSImport]
 public struct SequenceDeltaEvent
 {
-    public bool IsLocal { get; }
+    public bool IsLocal { get; set; }
 
-    public string ClientId { get; }
+    public string ClientId { get; set; }
 
-    public MergeTreeDeltaOpArgs OpArgs { get; }
+    public MergeTreeDeltaOpArgs OpArgs { get; set; }
 }
 
 [JSImport]
 public struct MergeTreeDeltaOpArgs
 {
-    public MergeTreeOp Op { get; }
+    public MergeTreeOp Op { get; set; }
 }
 
 [JSImport]
 public struct MergeTreeOp
 {
-    public MergeTreeDeltaType Type { get; }
+    public MergeTreeDeltaType Type { get; set; }
 
-    public int? Pos1 { get; }
+    public int? Pos1 { get; set; }
 
-    public int? Pos2 { get; }
+    public int? Pos2 { get; set; }
 
-    public string? Seg { get; }
+    public string? Seg { get; set; }
 }
 
 public enum MergeTreeDeltaType
