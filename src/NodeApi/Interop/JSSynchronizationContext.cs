@@ -48,7 +48,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <param name="allowSync">True to allow the action to run immediately if the current
-    /// synchronization context is this one. By default the action will always be secheduled
+    /// synchronization context is this one. By default the action will always be scheduled
     /// for later execution.
     /// </param>
     public void Post(Action action, bool allowSync = false)
@@ -72,7 +72,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <param name="allowSync">True to allow the action to run immediately if the current
-    /// synchronization context is this one. By default the action will always be secheduled
+    /// synchronization context is this one. By default the action will always be scheduled
     /// for later execution.
     /// </param>
     public void Post(Func<Task> asyncAction, bool allowSync = false)
@@ -164,7 +164,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
     }
 
     /// <summary>
-    /// Runs an action on the JS thread, and asynchrnously waits for completion.
+    /// Runs an action on the JS thread, and asynchronously waits for completion.
     /// </summary>
     /// <param name="asyncAction">The action to run.</param>
     public Task RunAsync(Func<Task> asyncAction)
@@ -194,7 +194,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
     }
 
     /// <summary>
-    /// Runs an action on the JS thread, and asynchrnously waits for the return value.
+    /// Runs an action on the JS thread, and asynchronously waits for the return value.
     /// </summary>
     /// <param name="asyncAction">The action to run.</param>
     public Task<T> RunAsync<T>(Func<Task<T>> asyncAction)
