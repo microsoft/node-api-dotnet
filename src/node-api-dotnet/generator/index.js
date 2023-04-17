@@ -6,7 +6,7 @@
 const path = require('path');
 const assemblyDir = path.join(__dirname, 'net6.0');
 
-const dotnet = require('@microsoft/node-api-dotnet');
+const dotnet = require('node-api-dotnet');
 
 // The generator depends on these assemblies; for now they have to be loaded explicitly.
 dotnet.load(path.join(assemblyDir, 'System.Reflection.MetadataLoadContext.dll'));

@@ -14,6 +14,6 @@ doc-comments for the module's APIs via the auto-generated `.d.ts` file.
 ### .NET Framework
 To use .NET Framework, apply the follwing change to `example.js`:
 ```diff
--const dotnet = require('@microsoft/node-api-dotnet');
-+const dotnet = require('@microsoft/node-api-dotnet/net472');
+-const dotnet = require('node-api-dotnet');
++const dotnet = require('node-api-dotnet/net472');
 ```

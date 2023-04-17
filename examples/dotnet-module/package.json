@@ -1,6 +1,6 @@
 {
   "name": "node-api-dotnet-examples-dotnet-module",
   "dependencies": {
-    "@microsoft/node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
+    "node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
   }
 }
