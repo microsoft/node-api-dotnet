@@ -55,7 +55,7 @@ The `node-api-dotnet` package manages hosting the .NET runtime in the JS process
 `node-api-dotnet` module, and additional .NET assemblies can be loaded by file path:
 ```JavaScript
 // JavaScript
-const dotnet = require('@microsoft/node-api-dotnet');
+const dotnet = require('node-api-dotnet');
 const ExampleAssembly = dotnet.load('path/to/ExampleAssembly.dll');
 const exampleObj = new ExampleAssembly.ExampleClass(...args);
 ```
