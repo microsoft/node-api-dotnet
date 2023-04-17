@@ -49,7 +49,7 @@ Requirements:
 ---
 ## Dynamically invoke .NET APIs from JS
 ```js
-const dotnet =require('@microsoft/node-api-dotnet');
+const dotnet =require('node-api-dotnet');
 dotnet.Console.WriteLine('Hello from .NET!');
 
 const MyAssembly = dotnet.load('path/to/MyAssembly.dll');

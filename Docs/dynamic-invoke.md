@@ -3,21 +3,21 @@
 For a minimal example of this scenario, see
 [../examples/dynamic-invoke/](../examples/dynamic-invoke/).
 
-1. Add a dependency on the `@microsoft/node-api-dotnet` npm package to your JavaScript project:
+1. Add a dependency on the `node-api-dotnet` npm package to your JavaScript project:
     ```
-    npm install @microsoft/node-api-dotnet
+    npm install node-api-dotnet
     ```
     > :warning: Until this package is published, you'll need to
     [build it from source](../README-DEV.md).<br>Then get the package from
     `out/pkg/node-api-dotnet-{version}.tgz`.
 
-2. Import the `@microsoft/node-api-dotnet` package in your JavaScript code:
+2. Import the `node-api-dotnet` package in your JavaScript code:
     ```JavaScript
-    const dotnet = require('@microsoft/node-api-dotnet');
+    const dotnet = require('node-api-dotnet');
     ```
     Or if using ES modules:
     ```JavaScript
-    import dotnet from '@microsoft/node-api-dotnet';
+    import dotnet from 'node-api-dotnet';
     ```
 
 3. Load a .NET assembly from its path:
@@ -41,9 +41,9 @@ For a minimal example of this scenario, see
     > :warning: Generic types and methods are not yet supported very well -- with the exception of
     generic collections which work great.
 
-5. **Optional**: Use the `@microsoft/node-api-dotnet-generator` tool to generate type definitions for the assembly:
+5. **Optional**: Use the `node-api-dotnet-generator` tool to generate type definitions for the assembly:
     ```
-    npm exec @microsoft/node-api-dotnet-generator -- -typedefs ExampleAssembly.d.ts --assembly path/to/ExampleAssembly.dll --reference path/to/DependencyAssembly.dll
+    npm exec node-api-dotnet-generator -- -typedefs ExampleAssembly.d.ts --assembly path/to/ExampleAssembly.dll --reference path/to/DependencyAssembly.dll
     ```
     > :warning: Any dependencies need to be explicitly referenced with the `--reference` option.
 

@@ -16,12 +16,12 @@ Then run the following commands in sequence:
 |----------------------------------|--------------------------------------------------
 | `dotnet pack ../..`              | Build Node API .NET packages.
 | `dotnet restore`                 | Install `SemanticKernel` nuget package into the project.
-| `npm install`                    | Install npm packages into the project.
+| `npm install`                    | Install `node-api-dotnet` npm package into the project.
 | `node example.js`                | Run example JS code that uses the above packages to call the Azure OpenAI service.
 
 #### Type Definitions (Optional)
 To generate type definitions for the example JavaScript code, run the following command:
 ```
-npm exec @microsoft/node-api-dotnet-generator -- -t Microsoft.SemanticKernel.d.ts -a pkg/microsoft.semantickernel/0.9.61.1-preview/lib/netstandard2.1/Microsoft.SemanticKernel.dll -r pkg/microsoft.extensions.logging.abstractions/7.0.0/lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.dll
+npm exec node-api-dotnet-generator -- -t Microsoft.SemanticKernel.d.ts -a pkg/microsoft.semantickernel/0.9.61.1-preview/lib/netstandard2.1/Microsoft.SemanticKernel.dll -r pkg/microsoft.extensions.logging.abstractions/7.0.0/lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.dll
 ```
 (Ignore the warnings about unsupported types. Those will be addressed in the future.)
