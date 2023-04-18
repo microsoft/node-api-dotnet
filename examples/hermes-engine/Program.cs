@@ -3,20 +3,37 @@
 
 using Hermes.Example;
 using Microsoft.JavaScript.NodeApi;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
 JSDispatcherQueueController controller = JSDispatcherQueueController.CreateOnDedicatedThread();
-controller.DispatcherQueue.TryEnqueue(() =>
-{
-    HermesApi.Load("hermes.dll");
-    using var runtime = new HermesRuntime();
-    using var scope = new JSValueScope(JSValueScopeType.Root, (napi_env)runtime);
 
+HermesRuntime runtime = await HermesRuntime.Create(controller.DispatcherQueue);
+
+await runtime.RunAsync(() =>
+{
     JSNativeApi.RunScript("x = 2");
     Console.WriteLine($"Result: {(int)JSValue.Global["x"]}");
+    Console.Out.Flush();
+
+    JSNativeApi.RunScript("""
+        setTimeout(function() {
+            console.log('This is printed after 1 second delay');
+        }, 1000);
+        """);
+
+    JSNativeApi.RunScript("""
+        function createPromise(delay, value) {
+          return new Promise(function(resolve) {
+            setTimeout(function() {
+              resolve(value);
+            }, delay);
+          });
+        }
+
+        var myPromise = createPromise(100, "myPromise");
+        myPromise.then(msg => { console.log(msg + " completed"); })
+                 .catch(() => { console.log("myPromise canceled"); });
+        """);
 });
 
-controller.DispatcherQueue.TryEnqueue(() =>
-{
-    controller.ShutdownQueueAsync();
-});
+await runtime.CloseAsync();
+await controller.ShutdownQueueAsync();
