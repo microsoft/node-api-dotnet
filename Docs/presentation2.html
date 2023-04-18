@@ -17,7 +17,7 @@ Vladimir Morozov <a href="https://github.com/vmoroz">@vmoroz</a></p>
 </section>
 </foreignObject><foreignObject width="1280" height="720" data-marpit-advanced-background="pseudo"><section data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="" data-marpit-advanced-background="pseudo" data-marpit-advanced-background-split="left"></section></foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="2" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="project-vision">Project Vision</h2>
-<p>First-class in-proc interopability between .NET and JavaScript<br />
+<p>First-class in-proc interoperability between .NET and JavaScript<br />
 <br /></p>
 <h3 id="motivation">Motivation</h3>
 <p>.NET and JavaScript are widely used, and often complementary, but there is not a great interop story between them.</p>
@@ -27,10 +27,10 @@ Vladimir Morozov <a href="https://github.com/vmoroz">@vmoroz</a></p>
 <h2 id="primary-net--js-interop-scenarios">Primary .NET / JS Interop scenarios</h2>
 <ol>
 <li>Dynamically invoke .NET APIs (system or app assemblies) from JS.</li>
-<li>Develop a Node.js addon module in C#.</li>
+<li>Develop Node.js addon modules in C#.</li>
 <li>Host a JS runtime within a .NET app and call JS APIs from .NET.</li>
+<li>Develop React Native applications and extensions in C# with direct JS / C# interop.</li>
 </ol>
-<br />
 <p>Requirements:</p>
 <ul>
 <li>.NET 6 or later / .NET Framework 4.7.2 or later</li>
@@ -39,7 +39,7 @@ Vladimir Morozov <a href="https://github.com/vmoroz">@vmoroz</a></p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="4" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="dynamically-invoke-net-apis-from-js">Dynamically invoke .NET APIs from JS</h2>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-js"><span class="hljs-keyword">const</span> dotnet =<span class="hljs-built_in">require</span>(<span class="hljs-string">&#x27;node-api-dotnet&#x27;</span>);
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-js"><span class="hljs-keyword">const</span> dotnet = <span class="hljs-built_in">require</span>(<span class="hljs-string">&#x27;node-api-dotnet&#x27;</span>);
 dotnet.<span class="hljs-property">Console</span>.<span class="hljs-title class_">WriteLine</span>(<span class="hljs-string">&#x27;Hello from .NET!&#x27;</span>);
 
 <span class="hljs-keyword">const</span> <span class="hljs-title class_">MyAssembly</span> = dotnet.<span class="hljs-title function_">load</span>(<span class="hljs-string">&#x27;path/to/MyAssembly.dll&#x27;</span>);
@@ -88,18 +88,45 @@ example.ExampleMethod(arg);
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="9" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="about-node-api">About Node API</h2>
 <ul>
-<li>C-style API - callable from C# or other languages</li>
-<li>ABI stable - works across Node.js versions without recompiling</li>
-<li>JS engine agnostic - implemented by several JS engines, not just V8</li>
+<li>C-style ABI stable API.</li>
+<li>Initial goals:
+<ul>
+<li>support Chakra JS engine along with V8 for Node.js;</li>
+<li>write addons across Node.js versions without recompiling.</li>
 </ul>
-<p> <br />
-Developers of the Node API for .NET project are current/former members of the Node.js <a href="https://github.com/nodejs/abi-stable-node/">Node API working group</a>.</p>
+</li>
+</ul>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="10" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+<h2 id="about-node-api-cont">About Node API (cont.)</h2>
+<ul>
+<li>Evolved to a de-facto standard for JavaScript interoperability with other languages:
+<ul>
+<li>implemented by several JS runtimes: Node.js, Electron, Deno, Bun, WASM, etc;</li>
+<li>implemented on top of several JS engines: V8, Chakra, JSC, Hermes, JerryScript, etc;</li>
+<li>has bindings for different languages: C++, Rust, Go, Zig, and now C# (!)</li>
+</ul>
+</li>
+</ul>
+</section>
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="11" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+<h2 id="about-node-api-cont-1">About Node API (cont.)</h2>
+<ul>
+<li>The same addon can be reused with minimal changes across multiple JS runtimes.</li>
+<li>node-api-dotnet project allows C# code to be part of the Node-API universe:
+<ul>
+<li>write C# addons for popular JS runtimes;</li>
+<li>interop between JS and popular C# frameworks.</li>
+</ul>
+</li>
+</ul>
+<p><em>Developers of the Node API for .NET project are current/former members of the Node.js <a href="https://github.com/nodejs/abi-stable-node/">Node API working group</a>.</em></p>
+</section>
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="12" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="demo-2">Demo</h2>
 <p>Hosting the <a href="https://github.com/facebook/hermes">Hermes JavaScript engine</a> in a .NET app</p>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="11" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="13" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="net--js-interop-features">.NET / JS Interop features</h2>
 <ul>
 <li>Automatic marshalling for:
@@ -118,7 +145,7 @@ Developers of the Node API for .NET project are current/former members of the No
 </li>
 </ul>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="12" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="14" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="more-interop-features">More interop features</h2>
 <ul>
 <li>Error/exception propagation</li>
@@ -133,15 +160,15 @@ Developers of the Node API for .NET project are current/former members of the No
 </li>
 </ul>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="13" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="15" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="typescript-type-definitions">TypeScript type definitions</h2>
-<p>JavaScript or TypeScript code can reference type defintions for .NET APIs.</p>
+<p>JavaScript or TypeScript code can reference type definitions for .NET APIs.</p>
 <ul>
 <li>A tool generates typedef files (<code>.d.ts</code>) from .NET assemblies.</li>
 <li>Nuget package MSBuild scripts automatically do this for C# Node addon projects.</li>
 </ul>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="14" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="16" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="net-native-aot">.NET Native AOT</h2>
 <ul>
 <li>AOT C# code uses .NET hosting APIs to load .NET in-proc.
@@ -158,7 +185,7 @@ Developers of the Node API for .NET project are current/former members of the No
 </li>
 </ul>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="15" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="17" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="net-code-generation">.NET Code Generation</h2>
 <p>Expression trees + source generators enable both runtime and compile-time generation of JS marshalling code.</p>
 <ol>
@@ -167,7 +194,7 @@ Developers of the Node API for .NET project are current/former members of the No
 <li>At run time, compile directly to delegates. (Does not support AOT.)</li>
 </ol>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="16" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="18" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="interop-performance">Interop performance</h2>
 <p>.NET / JS interop is fast because:</p>
 <ul>
@@ -177,7 +204,7 @@ Developers of the Node API for .NET project are current/former members of the No
 <li><code>struct</code>, <code>Span&lt;T&gt;</code>, <code>stackalloc</code> minimize heap allocation &amp; copying.</li>
 </ul>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="17" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="19" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="performance-comparison">Performance comparison</h2>
 <p>Warm JS to .NET calls are nearly twice as fast when compared to <code>edge-js</code> using <a href="https://github.com/tjanczuk/edge/wiki/Performance">that project's benchmark</a>.</p>
 <table>
@@ -212,7 +239,7 @@ Developers of the Node API for .NET project are current/former members of the No
 </table>
 <p>Numbers are <em>microseconds</em>. &quot;Warm&quot; is an average of 10000 .NET -&gt; JS calls (passing a medium-size object).</p>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="18" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="20" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="project-status">Project status</h2>
 <ul>
 <li>Available for early experimentation
@@ -226,7 +253,7 @@ Developers of the Node API for .NET project are current/former members of the No
 <li>NOT production ready</li>
 </ul>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="19" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="21" data-background-color="#fff" data-background-image="url('https://marp.app/assets/hero-background.svg')" data-theme="gaia" style="--background-color:#fff;--background-image:url('https://marp.app/assets/hero-background.svg');--theme:gaia;background-color:#fff;background-image:url('https://marp.app/assets/hero-background.svg');background-position:center;background-repeat:no-repeat;background-size:cover;">
 <h2 id="roadmap">Roadmap</h2>
 <p>Major development areas:</p>
 <ul>

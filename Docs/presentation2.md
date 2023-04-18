@@ -26,7 +26,7 @@ Vladimir Morozov [@vmoroz](https://github.com/vmoroz)
 ---
 ## Project Vision
 
-First-class in-proc interopability between .NET and JavaScript
+First-class in-proc interoperability between .NET and JavaScript
 <br/>
 
 ### Motivation
@@ -37,10 +37,9 @@ While some limited solutions exist, there are opportunities to do better in many
 ---
 ## Primary .NET / JS Interop scenarios
 1. Dynamically invoke .NET APIs (system or app assemblies) from JS.
-2. Develop a Node.js addon module in C#.
+2. Develop Node.js addon modules in C#.
 3. Host a JS runtime within a .NET app and call JS APIs from .NET.
-
-<br/>
+4. Develop React Native applications and extensions in C# with direct JS / C# interop.
 
 Requirements:
  - .NET 6 or later / .NET Framework 4.7.2 or later
@@ -49,7 +48,7 @@ Requirements:
 ---
 ## Dynamically invoke .NET APIs from JS
 ```js
-const dotnet =require('node-api-dotnet');
+const dotnet = require('node-api-dotnet');
 dotnet.Console.WriteLine('Hello from .NET!');
 
 const MyAssembly = dotnet.load('path/to/MyAssembly.dll');
@@ -101,12 +100,25 @@ C# WinUI collaborative text editing using JS [Fluid Framework](https://fluidfram
 
 ---
 ## About Node API
- - C-style API - callable from C# or other languages
- - ABI stable - works across Node.js versions without recompiling
- - JS engine agnostic - implemented by several JS engines, not just V8
+- C-style ABI stable API.
+- Initial goals:
+  - support Chakra JS engine along with V8 for Node.js;
+  - write addons across Node.js versions without recompiling.
+---
+## About Node API (cont.)
+- Evolved to a de-facto standard for JavaScript interoperability with other languages: 
+  - implemented by several JS runtimes: Node.js, Electron, Deno, Bun, WASM, etc;
+  - implemented on top of several JS engines: V8, Chakra, JSC, Hermes, JerryScript, etc;
+  - has bindings for different languages: C++, Rust, Go, Zig, and now C# (!)
 
-&nbsp;
-Developers of the Node API for .NET project are current/former members of the Node.js [Node API working group](https://github.com/nodejs/abi-stable-node/).
+---
+## About Node API (cont.)
+- The same addon can be reused with minimal changes across multiple JS runtimes.
+- node-api-dotnet project allows C# code to be part of the Node-API universe:
+  - write C# addons for popular JS runtimes;
+  - interop between JS and popular C# frameworks.
+
+_Developers of the Node API for .NET project are current/former members of the Node.js [Node API working group](https://github.com/nodejs/abi-stable-node/)._
 
 ---
 ## Demo
@@ -135,7 +147,7 @@ Hosting the [Hermes JavaScript engine](https://github.com/facebook/hermes) in a 
 
 ---
 ## TypeScript type definitions
-JavaScript or TypeScript code can reference type defintions for .NET APIs.
+JavaScript or TypeScript code can reference type definitions for .NET APIs.
  - A tool generates typedef files (`.d.ts`) from .NET assemblies.
  - Nuget package MSBuild scripts automatically do this for C# Node addon projects.
 
