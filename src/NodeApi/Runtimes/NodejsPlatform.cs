@@ -14,7 +14,7 @@ namespace Microsoft.JavaScript.NodeApi.Runtimes;
 /// Manages a Node.js platform instance, provided by `libnode`.
 /// </summary>
 /// <remarks>
-/// Only one Node.js platform instance can be created per process. Once the platform isdisposed,
+/// Only one Node.js platform instance can be created per process. Once the platform is disposed,
 /// another platform instance cannot be re-initialized. One or more <see cref="NodejsEnvironment" />
 /// instances may be created using the platform.
 /// </remarks>

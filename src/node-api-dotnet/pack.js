@@ -39,7 +39,7 @@ packGeneratorPackage();
 
 function packMainPackage() {
   const packageJson = require('./package.json');
-  const packageName = packageJson.name.split('/').pop();
+  const packageName = packageJson.name;
 
   // Create/clean the package staging directory under out/pkg/package-name.
   const packageStageDir = path.join(outPkgDir, packageName);
@@ -84,7 +84,7 @@ function packMainPackage() {
 
 function packGeneratorPackage() {
   const packageJson = require('./generator/package.json');
-  const packageName = packageJson.name.split('/').pop();
+  const packageName = packageJson.name;
 
   // Create/clean the package staging directory under out/pkg/package-name.
   const packageStageDir = path.join(outPkgDir, packageName);
@@ -92,8 +92,7 @@ function packGeneratorPackage() {
 
   // Create a node_modules link so the dependency can be resolved when linked for development.
   const dependencyPath = path.join(outPkgDir, 'node-api-dotnet');
-  const linkPath = path.join(packageStageDir, 'node_modules', '@microsoft', 'node-api-dotnet');
-  if (!fs.existsSync(path.dirname(path.dirname(linkPath)))) fs.mkdirSync(path.dirname(path.dirname(linkPath)));
+  const linkPath = path.join(packageStageDir, 'node_modules', 'node-api-dotnet');
   if (!fs.existsSync(path.dirname(linkPath))) fs.mkdirSync(path.dirname(linkPath));
   fs.symlinkSync(dependencyPath, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
 
@@ -119,14 +118,14 @@ function packGeneratorPackage() {
 
 function mkdirClean(dir) {
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir);
 }
 
 function writePackageJson(packageStageDir, packageJson) {
   const buildVersion = getAssemblyFileVersion(assemblyName, aotTargetFramework, rids[0]);
   packageJson.version = buildVersion;
-  if (packageJson.dependencies && packageJson.dependencies['@microsoft/node-api-dotnet']) {
-    packageJson.dependencies['@microsoft/node-api-dotnet'] = buildVersion;
+  if (packageJson.dependencies && packageJson.dependencies['node-api-dotnet']) {
+    packageJson.dependencies['node-api-dotnet'] = buildVersion;
   }
   delete packageJson.scripts;
   const stagedPackageJsonPath = path.join(packageStageDir, 'package.json');

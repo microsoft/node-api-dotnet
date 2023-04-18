@@ -53,21 +53,21 @@ For a minimal example of this scenario, see
     `obj\{Configuration}\{TargetFramerwork}\{RuntimeIdentifier}\generated\
     Microsoft.JavaScript.NodeApi.Generator\Microsoft.JavaScript.NodeApi.Generator.ModuleGenerator`
 
-5. Switching over to the JavaScript project, add a dependency on the `@microsoft/node-api-dotnet` npm package:
+5. Switching over to the JavaScript project, add a dependency on the `node-api-dotnet` npm package:
     ```
-    npm install @microsoft/node-api-dotnet
+    npm install node-api-dotnet
     ```
     > :warning: Until this package is published, you'll need to
     [build it from source](../README-DEV.md).<br>Then get the package from
     `out/pkg/node-api-dotnet-{version}.tgz`.
 
-6. Import the `@microsoft/node-api-dotnet` package in your JavaScript code:
+6. Import the `node-api-dotnet` package in your JavaScript code:
     ```JavaScript
-    const dotnet = require('@microsoft/node-api-dotnet');
+    const dotnet = require('node-api-dotnet');
     ```
     Or if using ES modules:
     ```JavaScript
-    import dotnet from '@microsoft/node-api-dotnet';
+    import dotnet from 'node-api-dotnet';
     ```
 
 7. Load your .NET module assembly from its path using the `dotnet.require()` function. Also provide
@@ -114,7 +114,7 @@ For a minimal example of this scenario, see
     dotnet publish
     ```
 
-    A native module does not depend on the `@microsoft/node-api-dotnet` package, so it can be removed from the
+    A native module does not depend on the `node-api-dotnet` package, so it can be removed from the
     JavaScript project's `package.json`. Then update the JavaScript code to `require()` the .NET
     AOT module directly. Be sure to reference the published `.node` file location, which might be
     different from the built `.dll` location.

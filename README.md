@@ -18,7 +18,7 @@ and it isn't yet all packaged up nicely in a way that can be easily consumed._
 ### Minimal example - JS calling .NET
 ```JavaScript
 // JavaScript
-const Console = require('@microsoft/node-api-dotnet').Console;
+const Console = require('node-api-dotnet').Console;
 Console.WriteLine('Hello from .NET!');
 ```
 
@@ -55,7 +55,7 @@ The `node-api-dotnet` package manages hosting the .NET runtime in the JS process
 `node-api-dotnet` module, and additional .NET assemblies can be loaded by file path:
 ```JavaScript
 // JavaScript
-const dotnet = require('@microsoft/node-api-dotnet');
+const dotnet = require('node-api-dotnet');
 const ExampleAssembly = dotnet.load('path/to/ExampleAssembly.dll');
 const exampleObj = new ExampleAssembly.ExampleClass(...args);
 ```
@@ -103,7 +103,7 @@ If writing TypeScript, or type-checked JavaScript, there is a tool to generate t
 definitions for .NET APIs. Soon, it should also generate a small `.js` file that exports the
 assembly in a more natural way as a JS module.
 ```bash
-$ npm exec @microsoft/node-api-dotnet-generator --assembly ExampleAssembly.dll --typedefs ExampleAssembly.d.ts
+$ npm exec node-api-dotnet-generator --assembly ExampleAssembly.dll --typedefs ExampleAssembly.d.ts
 ```
 ```TypeScript
 // TypeScript
@@ -263,7 +263,7 @@ Thanks to these design choices, JS to .NET calls are [more than twice as fast](
 #### Instructions
 For calling .NET from JS, choose between one of the following scenarios:
  - [Dynamically invoke .NET APIs from JavaScript](./Docs/dynamic-invoke.md)<br/>
-   Dynamic invocation is simpler to set up: all you need is the `@microsoft/node-api-dotnet` npm package and
+   Dynamic invocation is simpler to set up: all you need is the `node-api-dotnet` npm package and
    the path to a .NET assembly you want to call. But it has some limitations (not all kinds of APIs
    are supported), and is not quite as fast as a C# module, because marshalling code must be
    generated at runtime.
