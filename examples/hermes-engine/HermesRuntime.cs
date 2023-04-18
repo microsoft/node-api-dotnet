@@ -49,6 +49,11 @@ public sealed class HermesRuntime : IDisposable
         lock (_runtimeMutex)
         {
             VerifyElseThrow(_onRunFinish == null, "Previous run is not finished");
+            if (IsDisposed)
+            {
+                return Task.CompletedTask;
+            }
+
             _onRunFinish = new TaskCompletionSource();
             result = _onRunFinish.Task;
         }
@@ -89,7 +94,7 @@ public sealed class HermesRuntime : IDisposable
         return hermes_get_node_api_env((hermes_runtime)value, out napi_env env).ThrowIfFailed(env);
     }
 
-    public void CreatePolyfills()
+    private void CreatePolyfills()
     {
         VerifyElseThrow(JSDispatcherQueue.GetForCurrentThread() == _dispatcherQueue);
         using var scope = new JSValueScope();
@@ -100,43 +105,63 @@ public sealed class HermesRuntime : IDisposable
 
         global["setImmediate"] = (JSCallback)(args =>
         {
-            JSValue immediateCallback = args[0];
-            VerifyElseThrow(immediateCallback.TypeOf() == JSValueType.Function,
-                "Wrong type of args[0]. Expects a function.");
-
+            JSValue immediateCallback = AsFunction(args, 0);
             int taskId = AddImmediateTask(immediateCallback);
             return taskId;
         });
 
         global["clearImmediate"] = (JSCallback)(args =>
         {
-            RemoveImmediateTask((int)args[0]);
+            int taskId = AsInt32(args, 0);
+            RemoveImmediateTask(taskId);
             return default;
         });
 
         global["setTimeout"] = (JSCallback)(args =>
         {
-            JSValue timeoutCallback = args[0];
-            VerifyElseThrow(timeoutCallback.TypeOf() == JSValueType.Function,
-                "Wrong type of args[0]. Expects a function.");
-
-            int taskId = AddTimerTask(timeoutCallback, (int)args[1]);
+            JSValue timeoutCallback = AsFunction(args, 0);
+            int delayInMs = AsInt32(args, 1);
+            int taskId = AddTimerTask(timeoutCallback, delayInMs);
             return taskId;
         });
 
         global["clearTimeout"] = (JSCallback)(args =>
         {
-            RemoveTimerTask((int)args[0]);
+            int taskId = AsInt32(args, 0);
+            RemoveTimerTask(taskId);
             return default;
         });
 
         var console = new JSObject();
         console["log"] = (JSCallback)(args =>
         {
-            Console.WriteLine((string)args[0]);
+            Console.WriteLine((string)args[0].CoerceToString());
             return default;
         });
         global["console"] = console;
+    }
+
+    private static JSValue AsFunction(JSCallbackArgs args, int argIndex)
+    {
+        if (!args[argIndex].IsFunction()) {
+            throw new JSException(new JSError(
+                $"Wrong type of args[{argIndex}]. Expects a function.",
+                JSErrorType.TypeError));
+        }
+
+        return args[argIndex];
+    }
+
+    private static int AsInt32(JSCallbackArgs args, int argIndex)
+    {
+        if (!args[argIndex].IsNumber())
+        {
+            throw new JSException(new JSError(
+                $"Wrong type of args[{argIndex}]. Expects a number.",
+                JSErrorType.TypeError));
+        }
+
+        return (int)args[argIndex];
     }
 
     private int AddImmediateTask(JSValue callback)

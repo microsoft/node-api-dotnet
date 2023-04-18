@@ -16,12 +16,12 @@ await runtime.RunAsync(() =>
 
     JSNativeApi.RunScript("""
         setTimeout(function() {
-            console.log('This printed after about 1 second');
+            console.log('This is printed after 1 second delay');
         }, 1000);
         """);
 
     JSNativeApi.RunScript("""
-        function later(delay, value) {
+        function createPromise(delay, value) {
           return new Promise(function(resolve) {
             setTimeout(function() {
               resolve(value);
@@ -29,9 +29,9 @@ await runtime.RunAsync(() =>
           });
         }
 
-        var l1 = later(100, "l1");
-        l1.then(msg => { console.log("Print:" + msg); })
-          .catch(() => { console.log("l1 canceled"); });
+        var myPromise = createPromise(100, "myPromise");
+        myPromise.then(msg => { console.log(msg + " completed"); })
+                 .catch(() => { console.log("myPromise canceled"); });
         """);
 });
 
