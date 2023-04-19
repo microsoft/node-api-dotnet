@@ -136,7 +136,14 @@ _Developers of the Node API for .NET project are current/former members of the N
 
 ---
 ## Demo
-Hosting the [Hermes JavaScript engine](https://github.com/facebook/hermes) in a .NET app
+Hosting the [Hermes JavaScript engine](https://github.com/facebook/hermes) in a .NET app.
+- JavaScript engine created by Meta.
+- Optimized for React Native applications.
+  - Interpreter only.  
+  - Small size and fast startup time.
+  - JS byte code distribution with apps to save on JS parsing.
+  - Not all ES6 constructs are supported yet.
+- Node-API is implemented in the [Hermes-Windows](https://github.com/microsoft/hermes-windows) fork.
 
 ---
 ## Low-level JS interop
