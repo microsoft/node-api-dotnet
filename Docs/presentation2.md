@@ -20,8 +20,8 @@ backgroundImage: url('https://marp.app/assets/hero-background.svg')
 High-performance in-proc interop<br/> between .NET and JavaScript
 
 [github.com/microsoft/node-api-dotnet](https://github.com/microsoft/node-api-dotnet)
-Jason Ginchereau [@jasongin](https://github.com/jasongin)
-Vladimir Morozov [@vmoroz](https://github.com/vmoroz)
+Jason Ginchereau jasongin@microsoft.com
+Vladimir Morozov vmorozov@microsoft.com
 
 ---
 ## Project Vision
@@ -36,10 +36,10 @@ While some limited solutions exist, there are opportunities to do better in many
 
 ---
 ## Primary .NET / JS Interop scenarios
-1. Dynamically invoke .NET APIs (system or app assemblies) from JS.
-2. Develop Node.js addon modules in C#.
-3. Host a JS runtime within a .NET app and call JS APIs from .NET.
-4. Develop React Native applications and extensions in C# with direct JS / C# interop.
+- Dynamically invoke .NET APIs from JS.
+- Develop Node.js addon modules in C#.
+- Host a JS runtime within a .NET app and call JS APIs from .NET.
+- Develop React Native apps and extensions in C# with JS interop.
 
 Requirements:
  - .NET 6 or later / .NET Framework 4.7.2 or later
@@ -59,11 +59,6 @@ const myObj = new MyAssembly.MyClass(...args);
 _Dynamic invocation has some limitations, e.g. some forms of generics, ref/out params. These can be reduced or eliminated with further development._
 
 ---
-## Demo
-Calling Azure OpenAI from JavaScript using the .NET
-[Semantic Kernel](https://github.com/microsoft/semantic-kernel) client library
-
----
 ## Develop Node addon modules in C#
 ```C#
 // C#
@@ -79,6 +74,17 @@ const myObj = new MyClass(...args);
 ```
 
 Option: Use .NET Native AOT to avoid .NET Runtime dependency.
+
+---
+## TypeScript type definitions
+JavaScript or TypeScript code can reference type definitions for .NET APIs.
+ - A tool generates typedef files (`.d.ts`) from .NET assemblies.
+ - Nuget package MSBuild scripts automatically do this for C# Node addon projects.
+
+---
+## Demo
+Calling Azure OpenAI from JavaScript using the .NET
+[Semantic Kernel](https://github.com/microsoft/semantic-kernel) client library
 
 ---
 ## Host a JS runtime in a .NET app
@@ -102,14 +108,18 @@ C# WinUI collaborative text editing using JS [Fluid Framework](https://fluidfram
 ## About Node API
 - C-style ABI stable API.
 - Initial goals:
-  - support Chakra JS engine along with V8 for Node.js;
-  - write addons across Node.js versions without recompiling.
+  - Support Chakra JS engine along with V8 for Node.js.
+  - Write addons across Node.js versions without recompiling.
+
+&nbsp;
+https://nodejs.org/api/n-api.html
+
 ---
 ## About Node API (cont.)
-- Evolved to a de-facto standard for JavaScript interoperability with other languages: 
-  - implemented by several JS runtimes: Node.js, Electron, Deno, Bun, WASM, etc;
-  - implemented on top of several JS engines: V8, Chakra, JSC, Hermes, JerryScript, etc;
-  - has bindings for different languages: C++, Rust, Go, Zig, and now C# (!)
+- Evolved to a de-facto standard for JavaScript interoperability with other languages:
+  - Implemented by several JS runtimes: Node.js, Electron, Deno, Bun, WASM, etc.
+  - Implemented on top of several JS engines: V8, Chakra, JSC, Hermes, JerryScript, etc.
+  - Has bindings for different languages: C++, Rust, Go, Zig, and now C# (!)
 
 ---
 ## About Node API (cont.)
@@ -125,7 +135,26 @@ _Developers of the Node API for .NET project are current/former members of the N
 Hosting the [Hermes JavaScript engine](https://github.com/facebook/hermes) in a .NET app
 
 ---
-## .NET / JS Interop features
+## Low-level JS interop
+Node API is a set of C functions, for example:
+```C
+napi_status napi_create_function(
+    napi_env env, const char* utf8name, size_t length,
+    napi_callback cb, void* data, napi_value* result);
+```
+
+They are wrapped in a layer of .NET types for JS primitives:
+    `JSValue`, `JSObject`, `JSArray`, `JSMap`, `JSPromise`, etc.
+
+```C#
+JSValue.CreateFunction("greeter", (JSCallbackArgs args) =>
+{
+    return (JSValue)$"Hello {(string)args[0]}!";
+});
+```
+
+---
+## High-level .NET / JS interop
  - Automatic marshalling for:
    - Classes & interfaces - passed by reference
    - Structs & enums - passed by value
@@ -141,15 +170,7 @@ Hosting the [Hermes JavaScript engine](https://github.com/facebook/hermes) in a 
  - .NET delegates / JS callbacks
  - .NET Streams / Node Readable, Writable, Duplex streams
  - JS class can extend a .NET class, TS can implement a .NET interface
- - .NET class can extend a JS class, implement a TS interface
- - Option to work directly with JS types
-   - `JSValue`, `JSObject`, `JSArray`, `JSMap`, `JSPromise`, etc.
-
----
-## TypeScript type definitions
-JavaScript or TypeScript code can reference type definitions for .NET APIs.
- - A tool generates typedef files (`.d.ts`) from .NET assemblies.
- - Nuget package MSBuild scripts automatically do this for C# Node addon projects.
+ - .NET class can implement a TS interface
 
 ---
 ## .NET Native AOT
@@ -199,7 +220,6 @@ Numbers are _microseconds_. "Warm" is an average of 10000 .NET -> JS calls (pass
 ## Roadmap
 Major development areas:
  - More marshalling: events, ref/out params, generics, ...
- - Build/packaging/publishing pipelines
  - API review / refinement
  - More test coverage
 
