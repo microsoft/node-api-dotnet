@@ -86,6 +86,8 @@ JavaScript or TypeScript code can reference type definitions for .NET APIs.
 Calling Azure OpenAI from JavaScript using the .NET
 [Semantic Kernel](https://github.com/microsoft/semantic-kernel) client library
 
+![width:1000 height:340](./JStoDotnet.drawio.svg)
+
 ---
 ## Host a JS runtime in a .NET app
 ```C#
@@ -103,6 +105,8 @@ example.ExampleMethod(arg);
 ---
 ## Demo
 C# WinUI collaborative text editing using JS [Fluid Framework](https://fluidframework.com/)
+
+![width:1000 height:340](./DotnetToJS.drawio.svg)
 
 ---
 ## About Node API
