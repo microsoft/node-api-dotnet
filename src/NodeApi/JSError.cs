@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -239,6 +240,29 @@ public struct JSError
         JSValue error = (exception as JSException)?.Error?.Value ??
             JSValue.CreateError(code: null, (JSValue)exception.Message);
 
+        // When running on V8, the `Error.catpureStackTrace()` function and `Error.stack` property
+        // can be used to add the .NET stack info to the JS error stack.
+        JSValue captureStackTrace = JSValue.Global["Error"]["captureStackTrace"];
+        if (captureStackTrace.IsFunction())
+        {
+            // Capture the stack trace of the .NET exception, which will be combined with
+            // the JS stack trace when requested.
+            JSValue dotnetStack = exception.StackTrace ?? string.Empty;
+
+            // Capture the current JS stack trace as an object.
+            // Defer formatting the stack as a string until requested.
+            JSObject jsStack = new JSObject();
+            captureStackTrace.Call(default, jsStack);
+
+            // Override the `stack` property of the JS Error object, and add private
+            // properties that the overridden property getter uses to construct the stack.
+            error.DefineProperties(
+                JSPropertyDescriptor.Accessor(
+                    "stack", GetErrorStack, setter: null, JSPropertyAttributes.DefaultProperty),
+                JSPropertyDescriptor.ForValue("__dotnetStack", dotnetStack),
+                JSPropertyDescriptor.ForValue("__jsStack", jsStack));
+        }
+
         napi_status status = napi_throw((napi_env)JSValueScope.Current, (napi_value)error);
 
         if (status != napi_status.napi_ok && status != napi_status.napi_pending_exception)
@@ -246,6 +270,36 @@ public struct JSError
             throw new JSException(
                 $"Failed to throw JS Error. Status: {status}\n{exception.Message}");
         }
+    }
+
+    /// <summary>
+    /// Gets a JS error stack trace that also includes a .NET stack trace,
+    /// when the error was thrown via <see cref="ThrowError(Exception)"/>
+    /// </summary>
+    private static JSValue GetErrorStack(JSCallbackArgs args)
+    {
+        // Get the error type name and message from the current object.
+        string name = (string)args.ThisArg["constructor"]["name"];
+        string message = (string)args.ThisArg["message"];
+
+        // Get the separate .NET and JS stacks that were stashed by `ThrowError()`.
+        string dotnetStack = (string)args.ThisArg["__dotnetStack"];
+        string jsStack = (string)args.ThisArg["__jsStack"]["stack"];
+
+        // The first line is the error type name which was not captured on the private stack object.
+        int firstLineEnd = jsStack.IndexOf('\n');
+        if (firstLineEnd >= 0)
+        {
+            jsStack = jsStack.Substring(firstLineEnd + 1);
+        }
+
+        // Normalize indentation to 4 spaces, as used by JS. (.NET traces indent with 3 spaces.)
+        if (jsStack.StartsWith("    at "))
+        {
+            dotnetStack = dotnetStack.Replace("   at ", "    at ");
+        }
+
+        return $"{name}: {message}\n{dotnetStack}\n{jsStack}";
     }
 
     [DoesNotReturn]
