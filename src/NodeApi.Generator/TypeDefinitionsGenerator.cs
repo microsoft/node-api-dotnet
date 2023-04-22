@@ -664,7 +664,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
 
     private string GetTSParameters(ParameterInfo[] parameters)
     {
-        string GetOptionalToken(ParameterInfo parameter, ref string parameterType)
+        static string GetOptionalToken(ParameterInfo parameter, ref string parameterType)
         {
             if (parameter.IsOptional && parameterType.EndsWith(UndefinedTypeSuffix))
             {
