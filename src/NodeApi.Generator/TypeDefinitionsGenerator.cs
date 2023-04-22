@@ -37,6 +37,8 @@ namespace Microsoft.JavaScript.NodeApi.Generator;
 /// </remarks>
 public class TypeDefinitionsGenerator : SourceGenerator
 {
+    private const string UndefinedTypeSuffix = " | undefined";
+
     private static readonly Regex s_newlineRegex = new("\n *");
 
     private readonly NullabilityInfoContext _nullabilityContext = new();
@@ -380,8 +382,16 @@ public class TypeDefinitionsGenerator : SourceGenerator
                 {
                     bool isStatic = property.GetMethod?.IsStatic ??
                         property.SetMethod?.IsStatic ?? false;
-                    string readonlyModifier = property.SetMethod == null ? "readonly " : "";
-                    s += $"{(isStatic ? "static " : "")}{readonlyModifier}{propertyName}: " +
+                    string modifiers = (isStatic ? "static " : "") +
+                        (property.SetMethod == null ? "readonly " : "");
+                    string optionalToken = string.Empty;
+                    if (propertyType.EndsWith(UndefinedTypeSuffix))
+                    {
+                        propertyType = propertyType.Substring(
+                            0, propertyType.Length - UndefinedTypeSuffix.Length);
+                        optionalToken = "?";
+                    }
+                    s += $"{modifiers}{propertyName}{optionalToken}: " +
                         $"{propertyType};";
                 }
             }
@@ -527,7 +537,8 @@ public class TypeDefinitionsGenerator : SourceGenerator
             NullabilityInfo[]? typeArgumentsNullability = nullability?.GenericTypeArguments;
             if (typeDefinitionName == typeof(Nullable<>).FullName)
             {
-                tsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]) + " | null";
+                tsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]) +
+                    UndefinedTypeSuffix;
             }
             else if (typeDefinitionName == typeof(Task<>).FullName ||
                 typeDefinitionName == typeof(ValueTask<>).FullName)
@@ -643,9 +654,9 @@ public class TypeDefinitionsGenerator : SourceGenerator
         }
 
         if (nullability?.ReadState == NullabilityState.Nullable &&
-            tsType != "any" && !tsType.EndsWith(" | null"))
+            !tsType.EndsWith(UndefinedTypeSuffix))
         {
-            tsType += " | null";
+            tsType += UndefinedTypeSuffix;
         }
 
         return tsType;
@@ -653,6 +664,17 @@ public class TypeDefinitionsGenerator : SourceGenerator
 
     private string GetTSParameters(ParameterInfo[] parameters)
     {
+        string GetOptionalToken(ParameterInfo parameter, ref string parameterType)
+        {
+            if (parameter.IsOptional && parameterType.EndsWith(UndefinedTypeSuffix))
+            {
+                parameterType = parameterType.Substring(
+                    0, parameterType.Length - UndefinedTypeSuffix.Length);
+                return "?";
+            }
+            return string.Empty;
+        }
+
         if (parameters.Length == 0)
         {
             return string.Empty;
@@ -666,7 +688,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
             }
             else
             {
-                string optionalToken = parameters[0].IsOptional ? "?" : "";
+                string optionalToken = GetOptionalToken(parameters[0], ref parameterType);
                 return $"{TSIdentifier(parameters[0].Name)}{optionalToken}: {parameterType}";
             }
         }
@@ -677,7 +699,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
         foreach (ParameterInfo p in parameters)
         {
             string parameterType = GetTSType(p);
-            string optionalToken = p.IsOptional ? "?" : "";
+            string optionalToken = GetOptionalToken(p, ref parameterType);
             s.AppendLine($"{TSIdentifier(p.Name)}{optionalToken}: {parameterType},");
         }
 
