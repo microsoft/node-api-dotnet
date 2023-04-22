@@ -251,7 +251,7 @@ public struct JSError
 
             // Capture the current JS stack trace as an object.
             // Defer formatting the stack as a string until requested.
-            JSObject jsStack = new JSObject();
+            JSObject jsStack = new();
             captureStackTrace.Call(default, jsStack);
 
             // Override the `stack` property of the JS Error object, and add private
