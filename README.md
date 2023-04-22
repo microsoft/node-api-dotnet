@@ -128,8 +128,18 @@ a `Promise` returned from a .NET async method, and a JS `Promise` passed to .NET
 
 ### Error propagation
 Exceptions/errors thrown in .NET or JS are propagated across the boundary with stack traces.
-
-_Under development. More to be written..._
+An unhandled .NET exception is thrown back to a JS caller as an `Error` with a stack trace that
+includes both .NET and JS frames, and source line numbers if symbols are available. For example:
+```
+Error: Test error thrown by JS.
+    at Microsoft.JavaScript.NodeApi.TestCases.Errors.ThrowDotnetError(String message) in D:\node-api-dotnet\test\TestCases\Errors.cs:line 13
+    at Microsoft.JavaScript.NodeApi.Generated.Module.Errors_ThrowDotnetError(JSCallbackArgs __args) in napi-dotnet.NodeApi.g.cs:line 357
+    at Microsoft.JavaScript.NodeApi.JSNativeApi.InvokeCallback[TDescriptor](napi_env env, napi_callback_info callbackInfo, JSValueScopeType scopeType, Func`2 getCallbackDescriptor) in JSNativeApi.cs:line 1070
+    at catchDotnetError (D:\node-api-dotnet\test\TestCases\errors.js:14:12)
+    at Object.<anonymous> (D:\node-api-dotnet\test\TestCases\errors.js:41:1)
+```
+Similarly, an unhandled JS `Error` is thrown back to a .NET caller as a `JSException` with a
+combined stack trace.
 
 ### Develop Node.js addons with C#
 A C# class library project can use the `[JSExport]` attribute to tag (and rename) APIs that are
