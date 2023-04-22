@@ -23,9 +23,9 @@ For a minimal example of this scenario, see
     **Important**: Edit the project file so that both package reference elements include `PrivateAssets="all"`, and the generator reference includes `OutputItemType="Analyzer" ReferenceOutputAssembly="false"`:
     ```xml
     <ItemGroup>
-      <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.1.*-*"
+      <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.2.*-*"
         PrivateAssets="all" />
-      <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.1.*-*"
+      <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.2.*-*"
         PrivateAssets="all" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
     ```

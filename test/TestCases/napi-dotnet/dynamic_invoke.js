@@ -29,7 +29,7 @@ assert.strictEqual(greeting, 'Hello assembly!');
 const ClassObject = assembly.ClassObject;
 assert.strictEqual(typeof ClassObject, 'function');
 const instance = new ClassObject(); // Construct an instance of a class
-assert.strictEqual(instance.Value, null);
+assert.strictEqual(instance.Value, undefined);
 instance.Value = 'test';
 assert.strictEqual(instance.Value, 'test');
 

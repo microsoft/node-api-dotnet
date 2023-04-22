@@ -9,23 +9,23 @@ const binding = require('../common').binding;
 const ComplexTypes = binding.ComplexTypes;
 assert.strictEqual(typeof ComplexTypes, 'object');
 
-assert.strictEqual(ComplexTypes.nullableInt, null);
+assert.strictEqual(ComplexTypes.nullableInt, undefined);
 ComplexTypes.nullableInt = 1;
 assert.strictEqual(ComplexTypes.nullableInt, 1);
 ComplexTypes.nullableInt = null;
-assert.strictEqual(ComplexTypes.nullableInt, null);
+assert.strictEqual(ComplexTypes.nullableInt, undefined);
 
-assert.strictEqual(ComplexTypes.nullableString, null);
+assert.strictEqual(ComplexTypes.nullableString, undefined);
 ComplexTypes.nullableString = 'test';
 assert.strictEqual(ComplexTypes.nullableString, 'test');
 ComplexTypes.nullableString = null;
-assert.strictEqual(ComplexTypes.nullableString, null);
+assert.strictEqual(ComplexTypes.nullableString, undefined);
 
 // Test an exported class.
 const ClassObject = binding.ClassObject;
 assert.strictEqual(typeof ClassObject, 'function');
 const classInstance = new ClassObject();
-assert.strictEqual(classInstance.value, null);
+assert.strictEqual(classInstance.value, undefined);
 classInstance.value = 'test';
 assert.strictEqual(classInstance.value, 'test');
 

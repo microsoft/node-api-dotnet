@@ -46,12 +46,6 @@ public class JSMarshaller
     private static readonly PropertyInfo s_moduleContext =
         typeof(JSModuleContext).GetStaticProperty(nameof(JSModuleContext.Current))!;
 
-    private static readonly PropertyInfo s_undefinedValue =
-        typeof(JSValue).GetStaticProperty(nameof(JSValue.Undefined))!;
-
-    private static readonly PropertyInfo s_nullValue =
-        typeof(JSValue).GetStaticProperty(nameof(JSValue.Null))!;
-
     private static readonly PropertyInfo s_valueItem =
         typeof(JSValue).GetIndexer(typeof(string))!;
 
@@ -895,7 +889,7 @@ public class JSMarshaller
         {
             variables = argVariables;
             statements.Add(Expression.Call(method, argVariables));
-            statements.Add(Expression.Property(null, s_undefinedValue));
+            statements.Add(Expression.Default(typeof(JSValue)));
         }
         else
         {
@@ -947,8 +941,7 @@ public class JSMarshaller
         if (method.ReturnType == typeof(void))
         {
             statements.Add(Expression.Call(thisVariable, method, argVariables));
-            statements.Add(Expression.Label(returnTarget,
-                Expression.Property(null, s_undefinedValue)));
+            statements.Add(Expression.Label(returnTarget, Expression.Default(typeof(JSValue))));
         }
         else
         {
@@ -1058,7 +1051,7 @@ public class JSMarshaller
             Expression.Assign(valueVariable,
                     BuildArgumentExpression(0, property.PropertyType)),
             Expression.Call(property.SetMethod!, valueVariable),
-            Expression.Property(null, s_undefinedValue),
+            Expression.Default(typeof(JSValue)),
         };
         return (Expression<JSCallback>)Expression.Lambda(
             delegateType: typeof(JSCallback),
@@ -1108,7 +1101,7 @@ public class JSMarshaller
         statements.Add(Expression.Assign(valueVariable,
                     BuildArgumentExpression(0, property.PropertyType)));
         statements.Add(setExpression);
-        statements.Add(Expression.Label(returnTarget, Expression.Property(null, s_undefinedValue)));
+        statements.Add(Expression.Label(returnTarget, Expression.Default(typeof(JSValue))));
 
         return (Expression<JSCallback>)Expression.Lambda(
             delegateType: typeof(JSCallback),
@@ -1148,7 +1141,7 @@ public class JSMarshaller
                     type));
             yield return Expression.IfThen(
                 Expression.Equal(thisVariable, Expression.Constant(null)),
-                Expression.Return(returnTarget, Expression.Property(null, s_undefinedValue)));
+                Expression.Return(returnTarget, Expression.Default(typeof(JSValue))));
         }
         else if (type.IsClass || type.IsInterface)
         {
@@ -1171,7 +1164,7 @@ public class JSMarshaller
                     type));
             yield return Expression.IfThen(
                 Expression.Equal(thisVariable, Expression.Constant(null)),
-                Expression.Return(returnTarget, Expression.Property(null, s_undefinedValue)));
+                Expression.Return(returnTarget, Expression.Default(typeof(JSValue))));
         }
         else if (type.IsValueType)
         {
@@ -1277,7 +1270,7 @@ public class JSMarshaller
             resultExpression = Expression.Condition(
                 Expression.Property(resultVariable, nullableType.GetProperty("HasValue")!),
                 resultExpression,
-                Expression.Property(null, s_nullValue));
+                Expression.Default(typeof(JSValue)));
         }
 
         return resultExpression;
@@ -1578,7 +1571,7 @@ public class JSMarshaller
                 Expression.Condition(
                     Expression.Property(valueParameter, nullableType.GetProperty("HasValue")!),
                     Expression.Block(typeof(JSValue), variables, statements),
-                    Expression.Property(null, s_undefinedValue)),
+                    Expression.Default(typeof(JSValue))),
             };
         }
 
