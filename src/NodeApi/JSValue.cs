@@ -216,19 +216,19 @@ public readonly struct JSValue : IEquatable<JSValue>
     }
 
     public static JSValue CreateError(JSValue? code, JSValue message)
-        => napi_create_error(Env, code.AsNapiValueOrNull(), (napi_value)message,
+        => napi_create_error(Env, (napi_value)code, (napi_value)message,
             out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateTypeError(JSValue? code, JSValue message)
-        => napi_create_type_error(Env, code.AsNapiValueOrNull(), (napi_value)message,
+        => napi_create_type_error(Env, (napi_value)code, (napi_value)message,
             out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateRangeError(JSValue? code, JSValue message)
-        => napi_create_range_error(Env, code.AsNapiValueOrNull(), (napi_value)message,
+        => napi_create_range_error(Env, (napi_value)code, (napi_value)message,
             out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateSyntaxError(JSValue? code, JSValue message)
-        => node_api_create_syntax_error(Env, code.AsNapiValueOrNull(), (napi_value)message,
+        => node_api_create_syntax_error(Env, (napi_value)code, (napi_value)message,
             out napi_value result).ThrowIfFailed(result);
 
     public static unsafe JSValue CreateExternal(object value)
@@ -327,25 +327,25 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static implicit operator JSValue(ulong value) => CreateNumber(value);
     public static implicit operator JSValue(float value) => CreateNumber(value);
     public static implicit operator JSValue(double value) => CreateNumber(value);
-    public static implicit operator JSValue(bool? value) => ValueOrNull(value, value => GetBoolean(value));
-    public static implicit operator JSValue(sbyte? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(byte? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(short? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(ushort? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(int? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(uint? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(long? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(ulong? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(float? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(double? value) => ValueOrNull(value, value => CreateNumber(value));
-    public static implicit operator JSValue(string value) => value == null ? JSValue.Null : CreateStringUtf16(value);
-    public static implicit operator JSValue(char[] value) => value == null ? JSValue.Null : CreateStringUtf16(value);
+    public static implicit operator JSValue(bool? value) => ValueOrDefault(value, value => GetBoolean(value));
+    public static implicit operator JSValue(sbyte? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(byte? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(short? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(ushort? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(int? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(uint? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(long? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(ulong? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(float? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(double? value) => ValueOrDefault(value, value => CreateNumber(value));
+    public static implicit operator JSValue(string value) => value == null ? default : CreateStringUtf16(value);
+    public static implicit operator JSValue(char[] value) => value == null ? default : CreateStringUtf16(value);
     public static implicit operator JSValue(Span<char> value) => CreateStringUtf16(value);
     public static implicit operator JSValue(ReadOnlySpan<char> value) => CreateStringUtf16(value);
-    public static implicit operator JSValue(byte[] value) => value == null ? JSValue.Null : CreateStringUtf8(value);
+    public static implicit operator JSValue(byte[] value) => value == null ? default : CreateStringUtf8(value);
     public static implicit operator JSValue(Span<byte> value) => CreateStringUtf8(value);
     public static implicit operator JSValue(ReadOnlySpan<byte> value) => CreateStringUtf8(value);
-    public static implicit operator JSValue(JSCallback callback) => CreateFunction("Unknown", callback);
+    public static implicit operator JSValue(JSCallback callback) => callback == null ? default : CreateFunction("Unknown", callback);
 
     public static explicit operator bool(JSValue value) => value.GetValueBool();
     public static explicit operator sbyte(JSValue value) => (sbyte)value.GetValueInt32();
@@ -361,29 +361,28 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static explicit operator string(JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf16();
     public static explicit operator char[](JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf16AsCharArray();
     public static explicit operator byte[](JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf8();
-    public static explicit operator bool?(JSValue value) => ValueOrNull(value, value => value.GetValueBool());
-    public static explicit operator sbyte?(JSValue value) => ValueOrNull(value, value => (sbyte)value.GetValueInt32());
-    public static explicit operator byte?(JSValue value) => ValueOrNull(value, value => (byte)value.GetValueUInt32());
-    public static explicit operator short?(JSValue value) => ValueOrNull(value, value => (short)value.GetValueInt32());
-    public static explicit operator ushort?(JSValue value) => ValueOrNull(value, value => (ushort)value.GetValueUInt32());
-    public static explicit operator int?(JSValue value) => ValueOrNull(value, value => value.GetValueInt32());
-    public static explicit operator uint?(JSValue value) => ValueOrNull(value, value => value.GetValueUInt32());
-    public static explicit operator long?(JSValue value) => ValueOrNull(value, value => value.GetValueInt64());
-    public static explicit operator ulong?(JSValue value) => ValueOrNull(value, value => (ulong)value.GetValueInt64());
-    public static explicit operator float?(JSValue value) => ValueOrNull(value, value => (float)value.GetValueDouble());
-    public static explicit operator double?(JSValue value) => ValueOrNull(value, value => value.GetValueDouble());
+    public static explicit operator bool?(JSValue value) => ValueOrDefault(value, value => value.GetValueBool());
+    public static explicit operator sbyte?(JSValue value) => ValueOrDefault(value, value => (sbyte)value.GetValueInt32());
+    public static explicit operator byte?(JSValue value) => ValueOrDefault(value, value => (byte)value.GetValueUInt32());
+    public static explicit operator short?(JSValue value) => ValueOrDefault(value, value => (short)value.GetValueInt32());
+    public static explicit operator ushort?(JSValue value) => ValueOrDefault(value, value => (ushort)value.GetValueUInt32());
+    public static explicit operator int?(JSValue value) => ValueOrDefault(value, value => value.GetValueInt32());
+    public static explicit operator uint?(JSValue value) => ValueOrDefault(value, value => value.GetValueUInt32());
+    public static explicit operator long?(JSValue value) => ValueOrDefault(value, value => value.GetValueInt64());
+    public static explicit operator ulong?(JSValue value) => ValueOrDefault(value, value => (ulong)value.GetValueInt64());
+    public static explicit operator float?(JSValue value) => ValueOrDefault(value, value => (float)value.GetValueDouble());
+    public static explicit operator double?(JSValue value) => ValueOrDefault(value, value => value.GetValueDouble());
 
-    public static explicit operator napi_value(JSValue value) => value.GetCheckedHandle();
     public static implicit operator JSValue(napi_value handle) => new(handle);
+    public static implicit operator JSValue?(napi_value handle) => handle.Handle != default ? new JSValue(handle) : default;
+    public static explicit operator napi_value(JSValue value) => value.GetCheckedHandle();
+    public static explicit operator napi_value(JSValue? value) => value?.GetCheckedHandle() ?? default;
 
-    public static explicit operator napi_value(JSValue? value) => value?.Handle ?? new napi_value(default);
-    public static implicit operator JSValue?(napi_value handle) => handle.Handle != default ? new JSValue(handle) : (JSValue?)null;
+    private static JSValue ValueOrDefault<T>(T? value, Func<T, JSValue> convert) where T : struct
+        => value.HasValue ? convert(value.Value) : default;
 
-    private static JSValue ValueOrNull<T>(T? value, Func<T, JSValue> convert) where T : struct
-        => value.HasValue ? convert(value.Value) : JSValue.Null;
-
-    private static T? ValueOrNull<T>(JSValue value, Func<JSValue, T> convert) where T : struct
-        => value.IsNullOrUndefined() ? null : convert(value);
+    private static T? ValueOrDefault<T>(JSValue value, Func<JSValue, T> convert) where T : struct
+        => value.IsNullOrUndefined() ? default : convert(value);
 
     /// <summary>
     /// Delegate that provides a conversion from some type to a JS value.
@@ -420,10 +419,4 @@ public readonly struct JSValue : IEquatable<JSValue>
         throw new NotSupportedException(
             "Hashing JS values is not supported. Use JSSet or JSMap instead.");
     }
-}
-
-internal static class JSValueExtensions
-{
-    public static napi_value AsNapiValueOrNull(this JSValue? value)
-        => value is not null ? (napi_value)value.Value : napi_value.Null;
 }
