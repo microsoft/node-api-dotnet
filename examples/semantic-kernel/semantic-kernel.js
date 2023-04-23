@@ -15,7 +15,7 @@ const skOpenAIAssemblyName = 'Microsoft.SemanticKernel.Connectors.AI.OpenAI';
 const skVersion = fs.readdirSync(path.join(pkgDir, skAssemblyName.toLowerCase())).reverse()[0];
 
 function resolveAssembly(name, version) {
-  if (/\d+\.\d+\.\d+\.0/.test(version)) version = version.substr(0, version.length - 2);
+  if (/\d+\.\d+\.\d+\.0/.test(version)) version = version.substring(0, version.length - 2);
   const versions = fs.readdirSync(path.join(pkgDir, name.toLowerCase()));
   version = versions.find((v) => v.startsWith(version)) ?? version;
   const filePath = path.join(
@@ -23,9 +23,14 @@ function resolveAssembly(name, version) {
   return filePath;
 }
 
+dotnet.addListener('resolving', (name, version) => {
+  const filePath = resolveAssembly(name, version);
+  if (fs.existsSync(filePath)) dotnet.load(filePath);
+});
+
 /** @type import('./Microsoft.SemanticKernel.Core') */
-const SK = dotnet.load(resolveAssembly(skAssemblyName, skVersion), resolveAssembly);
+const SK = dotnet.load(resolveAssembly(skAssemblyName, skVersion));
 /** @type import('./Microsoft.SemanticKernel.Connectors.AI.OpenAI') */
-const SKOpenAI = dotnet.load(resolveAssembly(skOpenAIAssemblyName, skVersion), resolveAssembly);
+const SKOpenAI = dotnet.load(resolveAssembly(skOpenAIAssemblyName, skVersion));
 
 export { SK, SKOpenAI };

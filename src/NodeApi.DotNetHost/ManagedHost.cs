@@ -21,8 +21,10 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// <summary>
 /// Supports loading and invoking managed .NET assemblies in a JavaScript process.
 /// </summary>
-public sealed class ManagedHost : IDisposable
+public sealed class ManagedHost : JSEventEmitter, IDisposable
 {
+    private const string ResolvingEventName = "resolving";
+
 #if !NETFRAMEWORK
     /// <summary>
     /// Each instance of a managed host uses a separate assembly load context.
@@ -51,13 +53,28 @@ public sealed class ManagedHost : IDisposable
 #if !NETFRAMEWORK
         _loadContext.Resolving += OnResolvingAssembly;
 #endif
+
+        JSValue addListener = JSValue.CreateFunction("addListener", (JSCallbackArgs args) =>
+        {
+            AddListener(eventName: (string)args[0], listener: args[1]);
+            return args.ThisArg;
+        });
+        JSValue removeListener = JSValue.CreateFunction("removeListener", (JSCallbackArgs args) =>
+        {
+            RemoveListener(eventName: (string)args[0], listener: args[1]);
+            return args.ThisArg;
+        });
+
         exports.DefineProperties(
             // The require() method loads a .NET assembly that was built to be a Node API module.
             // It uses static binding to the APIs the module specifically exports to JS.
             JSPropertyDescriptor.ForValue("require", JSValue.CreateFunction("require", LoadModule)),
 
             // The load() method loads any .NET assembly and enables dynamic invocation of any APIs.
-            JSPropertyDescriptor.ForValue("load", JSValue.CreateFunction("load", LoadAssembly)));
+            JSPropertyDescriptor.ForValue("load", JSValue.CreateFunction("load", LoadAssembly)),
+
+            JSPropertyDescriptor.ForValue("addListener", addListener),
+            JSPropertyDescriptor.ForValue("removeListener", removeListener));
 
         // Export the .NET core library assembly by default, along with additional methods above.
         _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _marshaller, exports);
@@ -134,13 +151,17 @@ public sealed class ManagedHost : IDisposable
 
 #if !NETFRAMEWORK
     /// <summary>
-    /// Ensure references to Node API assemblies can be resolved when loading other
-    /// assemblies.
+    /// Resolve references to Node API and other assemblies that loaded assemblies depend on.
     /// </summary>
     private Assembly? OnResolvingAssembly(
         AssemblyLoadContext loadContext,
         AssemblyName assemblyName)
     {
+        if (string.IsNullOrEmpty(assemblyName.Name))
+        {
+            return null;
+        }
+
         if (assemblyName.Name == typeof(JSValue).Assembly.GetName().Name)
         {
             return typeof(JSValue).Assembly;
@@ -150,7 +171,27 @@ public sealed class ManagedHost : IDisposable
             return typeof(ManagedHost).Assembly;
         }
 
-        return null;
+        Trace($"    Resolving dependency {assemblyName.Name} {assemblyName.Version}");
+        Emit(
+            ResolvingEventName,
+            assemblyName.Name,
+            assemblyName.Version?.ToString() ?? string.Empty);
+
+        // Resolve listeners may call load(assemblyFilePath) to load the requested assembly.
+        // The version of the loaded assembly might not match the requested version.
+        // TODO: Consider keeping a dictionary indexed by assembly name to avoid the linear search.
+        AssemblyExporter? assemblyExporter = _loadedAssemblies.Values.FirstOrDefault(
+            (assemblyExporter) => assemblyExporter.Assembly.GetName().Name == assemblyName.Name);
+        if (assemblyExporter != null)
+        {
+            Trace($"      => {assemblyExporter.Assembly.Location}");
+        }
+        else
+        {
+            Trace($"      => (not found)");
+        }
+
+        return assemblyExporter?.Assembly;
     }
 #endif
 
@@ -291,60 +332,7 @@ public sealed class ManagedHost : IDisposable
         // TODO: Load assemblies in a separate appdomain.
         Assembly assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
-        Func<AssemblyLoadContext, AssemblyName, Assembly?>? resolveHandler = null;
-        if (args.Length >= 2 && args[1].IsFunction())
-        {
-            JSReference resolveCallback = new JSReference(args[1]);
-            resolveHandler = (_, assemblyName) =>
-            {
-                Trace($"    Resolving dependency {assemblyName.Name} {assemblyName.Version}");
-                string resolvedFilePath;
-                try
-                {
-                    resolvedFilePath = (string)resolveCallback.GetValue()!.Value.Call(
-                        thisArg: default,
-                        assemblyName.Name ?? string.Empty,
-                        assemblyName.Version?.ToString() ?? string.Empty);
-                    if (string.IsNullOrEmpty(resolvedFilePath))
-                    {
-                        Trace($"      => null");
-                        return null;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Trace($"      {ex}");
-                    return null;
-                }
-
-                Trace($"      => {resolvedFilePath}");
-                try
-                {
-                    return _loadContext.LoadFromAssemblyPath(resolvedFilePath);
-                }
-                catch (Exception ex)
-                {
-                    Trace($"      {ex}");
-                    return null;
-                }
-            };
-
-            _loadContext.Resolving += resolveHandler;
-        }
-
-        Assembly assembly;
-        try
-        {
-            assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
-        }
-        finally
-        {
-            if (resolveHandler != null)
-            {
-                // TODO: Change the API so this set up separately from the load() call?
-                ////_loadContext.Resolving -= resolveHandler;
-            }
-        }
+        Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
         assemblyExporter = new(assembly, _marshaller, target: new JSObject());
         _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);
@@ -354,7 +342,8 @@ public sealed class ManagedHost : IDisposable
         return assemblyValue;
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
+        base.Dispose();
     }
 }

@@ -34,6 +34,7 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
     {
     }
 
+    /// <inheritdoc/>
     public int Length => _value.GetArrayLength();
 
     int ICollection<JSValue>.Count => _value.GetArrayLength();
@@ -46,8 +47,10 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
         set => _value.SetElement(index, value);
     }
 
+    /// <inheritdoc/>
     public void Add(JSValue item) => _value["push"].Call(_value, item);
 
+    /// <inheritdoc/>
     public void CopyTo(JSValue[] array, int arrayIndex)
     {
         int i = arrayIndex;
@@ -89,23 +92,36 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
         }
     }
 
+    /// <inheritdoc/>
     public Enumerator GetEnumerator() => new(_value);
 
     IEnumerator<JSValue> IEnumerable<JSValue>.GetEnumerator() => GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    int IList<JSValue>.IndexOf(JSValue item) => throw new System.NotImplementedException();
+    /// <inheritdoc/>
+    public int IndexOf(JSValue item) => (int)_value.CallMethod("indexOf", item);
 
-    void IList<JSValue>.Insert(int index, JSValue item) => throw new System.NotImplementedException();
+    /// <inheritdoc/>
+    public void Insert(int index, JSValue item) => _value.CallMethod("splice", index, 0, item);
 
-    void IList<JSValue>.RemoveAt(int index) => throw new System.NotImplementedException();
+    /// <inheritdoc/>
+    public void RemoveAt(int index) => _value.CallMethod("splice", index, 1);
 
-    void ICollection<JSValue>.Clear() => throw new System.NotImplementedException();
+    /// <inheritdoc/>
+    public void Clear() => _value.CallMethod("splice", 0, Length);
 
-    bool ICollection<JSValue>.Contains(JSValue item) => throw new System.NotImplementedException();
+    /// <inheritdoc/>
+    public bool Contains(JSValue item) => IndexOf(item) >= 0;
 
-    bool ICollection<JSValue>.Remove(JSValue item) => throw new System.NotImplementedException();
+    /// <inheritdoc/>
+    public bool Remove(JSValue item)
+    {
+        int index = IndexOf(item);
+        if (index < 0) return false;
+        RemoveAt(index);
+        return true;
+    }
 
     /// <summary>
     /// Compares two JS values using JS "strict" equality.
@@ -122,11 +138,13 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
     /// </summary>
     public bool Equals(JSValue other) => _value.StrictEquals(other);
 
+    /// <inheritdoc/>
     public override bool Equals([NotNullWhen(true)] object? obj)
     {
         return obj is JSValue other && Equals(other);
     }
 
+    /// <inheritdoc/>
     public override int GetHashCode()
     {
         throw new NotSupportedException(

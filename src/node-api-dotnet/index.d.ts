@@ -28,12 +28,25 @@ export declare function require(dotnetAssemblyFilePath: string): any;
  * Loads an arbitrary .NET assembly that isn't necessarily designed as a JS module,
  * enabling dynamic invocation of any APIs in the assembly.
  * @param dotnetAssemblyFilePath Path to the .NET assembly DLL file to load.
- * @param resolveCallback Optional callback that returns the path to a dependent assembly DLL
- * when called with an assembly name and version.
  * @returns A JS object that represents the loaded assembly; each property of the object
  * is a public type in the assembly.
  */
-export declare function load(
-  dotnetAssemblyFilePath: string,
-  resolveCallback?: (assemblyName: string, assemblyVersion: string) => string,
-): Assembly | undefined;
+export declare function load(dotnetAssemblyFilePath: string): Assembly | undefined;
+
+/**
+ * Adds a listener for the `resolving` event, which is raised when a .NET assembly requires
+ * an additional dependent assembly to be resolved and loaded. The listener must call `load()`
+ * to load the requested assembly file.
+ */
+export declare function addListener(
+  event: 'resolving',
+  listener: (assemblyName: string, assemblyVersion: string) => void,
+): this;
+
+/**
+ * Removes a listener for the `resolving` event.
+ */
+export declare function removeListener(
+  event: 'resolving',
+  listener: (assemblyName: string, assemblyVersion: string) => void,
+): this;
