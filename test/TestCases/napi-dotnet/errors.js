@@ -32,8 +32,9 @@ function catchDotnetError() {
   assert(stack[0].startsWith(`at ${dotnetNamespacePrefix}`));
   assert(stack[0].includes('Errors.ThrowDotnetError('));
 
-  // Skip over initial .NET lines in the stack trace.
-  while (stack[0].startsWith(`at ${dotnetNamespacePrefix}`)) stack.shift();
+  // Skip over initial .NET lines in the stack trace. (Native delegates may include !<BaseAddress>)
+  while (stack[0].startsWith(`at ${dotnetNamespacePrefix}`) ||
+    stack[0].includes('!<')) stack.shift();
 
   // The first JS line of the stack trace should refer to this JS function.
   assert(stack[0].startsWith(`at ${catchDotnetError.name} `));
@@ -72,8 +73,9 @@ function catchJSError() {
   while (!stack[0].includes('Errors.ThrowJSError(')) stack.shift();
   assert(stack.length > 0);
 
-  // Skip over .NET lines in the stack trace.
-  while (stack[0].startsWith(`at ${dotnetNamespacePrefix}`)) stack.shift();
+  // Skip over .NET lines in the stack trace. (Native delegates may include !<BaseAddress>)
+  while (stack[0].startsWith(`at ${dotnetNamespacePrefix}`) ||
+    stack[0].includes('!<')) stack.shift();
 
   // The following JS line of the stack trace should refer to this JS method.
   assert(stack[0].startsWith(`at ${catchJSError.name} `));
