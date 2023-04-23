@@ -18,9 +18,12 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// </summary>
 internal class AssemblyExporter
 {
+    // The loaded types dictionary is static because types from different loaded
+    // assemblies may reference each other, and should not be loaded more than once.
+    private static readonly Dictionary<Type, JSReference> s_typeObjects = new();
+
     private readonly JSMarshaller _marshaller;
     private readonly JSReference _assemblyObject;
-    private readonly Dictionary<Type, JSReference> _typeObjects = new();
 
     /// <summary>
     /// Creates a new instance of the <see cref="AssemblyExporter" /> class.
@@ -167,7 +170,7 @@ internal class AssemblyExporter
 
     private JSValue ExportClass(Type type)
     {
-        if (_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
+        if (s_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
         {
             return typeObjectReference!.GetValue()!.Value;
         }
@@ -226,7 +229,7 @@ internal class AssemblyExporter
             classBuilder,
             defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
 
-        _typeObjects.Add(type, new JSReference(classObject));
+        s_typeObjects.Add(type, new JSReference(classObject));
 
         // Also export any types returned by properties or methods of this type, because
         // they might otherwise not be referenced by JS before they are used.
@@ -242,7 +245,7 @@ internal class AssemblyExporter
             (BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
         {
             if (member is PropertyInfo property &&
-                property.PropertyType.Assembly == type.Assembly &&
+                property.PropertyType.Assembly.GetName().Name?.StartsWith("System.") == false &&
                 IsSupportedType(property.PropertyType) &&
                 !JSMarshaller.IsConvertedType(property.PropertyType))
             {
@@ -250,7 +253,7 @@ internal class AssemblyExporter
             }
             else if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
-                method.ReturnType.Assembly == type.Assembly &&
+                method.ReturnType.Assembly.GetName().Name?.StartsWith("System.") == false &&
                 IsSupportedType(method.ReturnType) &&
                 !JSMarshaller.IsConvertedType(method.ReturnType))
             {
@@ -431,7 +434,7 @@ internal class AssemblyExporter
     {
         Trace($"> AssemblyExporter.ExportEnum({type.FullName})");
 
-        if (_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
+        if (s_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
         {
             return typeObjectReference!.GetValue()!.Value;
         }
@@ -447,7 +450,7 @@ internal class AssemblyExporter
         }
 
         JSValue enumObject = enumBuilder.DefineEnum();
-        _typeObjects.Add(type, new JSReference(enumObject));
+        s_typeObjects.Add(type, new JSReference(enumObject));
 
         Trace($"< AssemblyExporter.ExportEnum()");
         return enumObject;

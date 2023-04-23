@@ -291,7 +291,60 @@ public sealed class ManagedHost : IDisposable
         // TODO: Load assemblies in a separate appdomain.
         Assembly assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
-        Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+        Func<AssemblyLoadContext, AssemblyName, Assembly?>? resolveHandler = null;
+        if (args.Length >= 2 && args[1].IsFunction())
+        {
+            JSReference resolveCallback = new JSReference(args[1]);
+            resolveHandler = (_, assemblyName) =>
+            {
+                Trace($"    Resolving dependency {assemblyName.Name} {assemblyName.Version}");
+                string resolvedFilePath;
+                try
+                {
+                    resolvedFilePath = (string)resolveCallback.GetValue()!.Value.Call(
+                        thisArg: default,
+                        assemblyName.Name ?? string.Empty,
+                        assemblyName.Version?.ToString() ?? string.Empty);
+                    if (string.IsNullOrEmpty(resolvedFilePath))
+                    {
+                        Trace($"      => null");
+                        return null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace($"      {ex}");
+                    return null;
+                }
+
+                Trace($"      => {resolvedFilePath}");
+                try
+                {
+                    return _loadContext.LoadFromAssemblyPath(resolvedFilePath);
+                }
+                catch (Exception ex)
+                {
+                    Trace($"      {ex}");
+                    return null;
+                }
+            };
+
+            _loadContext.Resolving += resolveHandler;
+        }
+
+        Assembly assembly;
+        try
+        {
+            assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+        }
+        finally
+        {
+            if (resolveHandler != null)
+            {
+                // TODO: Change the API so this set up separately from the load() call?
+                ////_loadContext.Resolving -= resolveHandler;
+            }
+        }
 #endif
         assemblyExporter = new(assembly, _marshaller, target: new JSObject());
         _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);

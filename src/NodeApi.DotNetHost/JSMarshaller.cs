@@ -1197,7 +1197,11 @@ public class JSMarshaller
             s_argsParameter, s_callbackArg, Expression.Constant(index));
 
         Type? nullableType = null;
-        if (parameterType.IsGenericType &&
+        if (!parameterType.IsValueType)
+        {
+            nullableType = parameterType;
+        }
+        else if (parameterType.IsGenericType &&
             parameterType.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
             nullableType = parameterType;
@@ -1213,7 +1217,7 @@ public class JSMarshaller
         {
             convertExpression = Expression.Condition(
                 Expression.Call(s_isNullOrUndefined, argExpression),
-                Expression.Convert(Expression.Constant(null), nullableType),
+                Expression.Constant(null, nullableType),
                 Expression.Convert(convertExpression, nullableType));
         }
 
@@ -1970,7 +1974,10 @@ public class JSMarshaller
         }
         else
         {
-            throw new NotImplementedException();
+            // Marshal the unknown collection type as undefined.
+            // Throwing an exception here might be helpful in some cases, but in other
+            // cases it may block use of the rest of the (supported) members of the type.
+            yield return Expression.Default(toType);
         }
     }
 
@@ -2106,7 +2113,10 @@ public class JSMarshaller
         }
         else
         {
-            throw new NotImplementedException();
+            // Marshal the unknown collection type as null.
+            // Throwing an exception here might be helpful in some cases, but in other
+            // cases it may block use of the rest of the (supported) members of the type.
+            yield return Expression.Default(typeof(JSValue));
         }
     }
 

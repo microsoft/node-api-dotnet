@@ -10,25 +10,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const pkgDir = path.join(__dirname, 'pkg');
 
-const dependencies = [
-  'Microsoft.Extensions.Logging.Abstractions',
-  'System.Text.Json',
-  'Microsoft.Bcl.AsyncInterfaces',
-  'System.Text.Encodings.Web',
-  'System.Runtime.CompilerServices.Unsafe',
-];
+const skAssemblyName = 'Microsoft.SemanticKernel.Core';
+const skOpenAIAssemblyName = 'Microsoft.SemanticKernel.Connectors.AI.OpenAI';
+const skVersion = fs.readdirSync(path.join(pkgDir, skAssemblyName.toLowerCase())).reverse()[0];
 
-dependencies.forEach((assembly) => {
-  // Find the latest installed version of the packages. (That might not be the correct version if
-  // the dotnet project packages have not been restored. )
-  const version = fs.readdirSync(path.join(pkgDir, assembly)).reverse()[0];
-  dotnet.load(path.join(pkgDir, `${assembly}/${version}/lib/netstandard2.0/${assembly}.dll`));
-});
+function resolveAssembly(name, version) {
+  if (/\d+\.\d+\.\d+\.0/.test(version)) version = version.substr(0, version.length - 2);
+  const versions = fs.readdirSync(path.join(pkgDir, name.toLowerCase()));
+  version = versions.find((v) => v.startsWith(version)) ?? version;
+  const filePath = path.join(
+    pkgDir, name.toLowerCase(), version, 'lib', 'netstandard2.0', name + '.dll');
+  return filePath;
+}
 
-const skVersion = fs.readdirSync(path.join(pkgDir, 'microsoft.semantickernel')).reverse()[0];
+/** @type import('./Microsoft.SemanticKernel.Core') */
+const SK = dotnet.load(resolveAssembly(skAssemblyName, skVersion), resolveAssembly);
+/** @type import('./Microsoft.SemanticKernel.Connectors.AI.OpenAI') */
+const SKOpenAI = dotnet.load(resolveAssembly(skOpenAIAssemblyName, skVersion), resolveAssembly);
 
-/** @type import('./Microsoft.SemanticKernel') */
-const SK = dotnet.load(path.join(pkgDir,
-  `microsoft.semantickernel/${skVersion}/lib/netstandard2.1/Microsoft.SemanticKernel.dll`));
-
-export default SK;
+export { SK, SKOpenAI };

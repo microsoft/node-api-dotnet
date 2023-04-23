@@ -230,15 +230,15 @@ public readonly struct JSCallbackOverload
     {
         if (defaultValue == null)
         {
-            if (parameterType.IsValueType)
+            if (!parameterType.IsValueType ||
+                (parameterType.IsGenericType &&
+                    parameterType.GetGenericTypeDefinition() == typeof(Nullable<>)))
             {
-                throw new InvalidOperationException(
-                    "Null default value is not valid for parameter type: " + parameterType);
+                return default;
             }
-            else
-            {
-                return JSValue.Null;
-            }
+
+            throw new InvalidOperationException(
+                "Null default value is not valid for parameter type: " + parameterType);
         }
         else if (parameterType == typeof(string))
         {
