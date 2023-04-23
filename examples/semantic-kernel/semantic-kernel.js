@@ -16,11 +16,16 @@ const skVersion = fs.readdirSync(path.join(pkgDir, skAssemblyName.toLowerCase())
 
 function resolveAssembly(name, version) {
   if (/\d+\.\d+\.\d+\.0/.test(version)) version = version.substring(0, version.length - 2);
-  const versions = fs.readdirSync(path.join(pkgDir, name.toLowerCase()));
-  version = versions.find((v) => v.startsWith(version)) ?? version;
-  const filePath = path.join(
-    pkgDir, name.toLowerCase(), version, 'lib', 'netstandard2.0', name + '.dll');
-  return filePath;
+  try {
+    const versions = fs.readdirSync(path.join(pkgDir, name.toLowerCase()));
+    version = versions.find((v) => v.startsWith(version)) ?? versions[versions.length - 1];
+    const filePath = path.join(
+      pkgDir, name.toLowerCase(), version, 'lib', 'netstandard2.0', name + '.dll');
+    return filePath;
+  } catch (e) {
+    console.error(e.message);
+    return null;
+  }
 }
 
 dotnet.addListener('resolving', (name, version) => {

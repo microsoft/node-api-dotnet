@@ -50,7 +50,9 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
     private ManagedHost(JSObject exports)
     {
-#if !NETFRAMEWORK
+#if NETFRAMEWORK
+        AppDomain.CurrentDomain.AssemblyResolve += OnResolvingAssembly;
+#else
         _loadContext.Resolving += OnResolvingAssembly;
 #endif
 
@@ -149,51 +151,56 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 #endif
     }
 
-#if !NETFRAMEWORK
     /// <summary>
     /// Resolve references to Node API and other assemblies that loaded assemblies depend on.
     /// </summary>
     private Assembly? OnResolvingAssembly(
-        AssemblyLoadContext loadContext,
-        AssemblyName assemblyName)
+#if NETFRAMEWORK
+        object sender,
+        ResolveEventArgs args)
     {
-        if (string.IsNullOrEmpty(assemblyName.Name))
+        AssemblyName assemblyInfo = new AssemblyName(args.Name);
+#else
+        AssemblyLoadContext loadContext,
+        AssemblyName assemblyInfo)
+    {
+#endif
+        string assemblyName = assemblyInfo.Name!;
+        string assemblyVersion = assemblyInfo.Version?.ToString() ?? string.Empty;
+
+        if (string.IsNullOrEmpty(assemblyName))
         {
             return null;
         }
 
-        if (assemblyName.Name == typeof(JSValue).Assembly.GetName().Name)
+        if (assemblyName == typeof(JSValue).Assembly.GetName().Name)
         {
             return typeof(JSValue).Assembly;
         }
-        else if (assemblyName.Name == typeof(ManagedHost).Assembly.GetName().Name)
+        else if (assemblyName == typeof(ManagedHost).Assembly.GetName().Name)
         {
             return typeof(ManagedHost).Assembly;
         }
 
-        Trace($"    Resolving dependency {assemblyName.Name} {assemblyName.Version}");
-        Emit(
-            ResolvingEventName,
-            assemblyName.Name,
-            assemblyName.Version?.ToString() ?? string.Empty);
+        Trace($"    Resolving assembly: {assemblyName} {assemblyVersion}");
+        Emit(ResolvingEventName, assemblyName, assemblyVersion!);
 
         // Resolve listeners may call load(assemblyFilePath) to load the requested assembly.
         // The version of the loaded assembly might not match the requested version.
         // TODO: Consider keeping a dictionary indexed by assembly name to avoid the linear search.
         AssemblyExporter? assemblyExporter = _loadedAssemblies.Values.FirstOrDefault(
-            (assemblyExporter) => assemblyExporter.Assembly.GetName().Name == assemblyName.Name);
+            (assemblyExporter) => assemblyExporter.Assembly.GetName().Name == assemblyName);
         if (assemblyExporter != null)
         {
-            Trace($"      => {assemblyExporter.Assembly.Location}");
+            Trace($"    Resolved: {assemblyExporter.Assembly.Location}");
         }
         else
         {
-            Trace($"      => (not found)");
+            Trace($"    Resolve failed: {assemblyName}");
         }
 
         return assemblyExporter?.Assembly;
     }
-#endif
 
     /// <summary>
     /// Loads a .NET assembly that was built to be a Node API module, using static binding to

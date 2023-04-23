@@ -246,6 +246,9 @@ internal class AssemblyExporter
         {
             if (member is PropertyInfo property &&
                 property.PropertyType.Assembly.GetName().Name?.StartsWith("System.") == false &&
+#if NETFRAMEWORK
+                property.PropertyType.Assembly.GetName().Name != "mscorlib" &&
+#endif
                 IsSupportedType(property.PropertyType) &&
                 !JSMarshaller.IsConvertedType(property.PropertyType))
             {
@@ -254,6 +257,9 @@ internal class AssemblyExporter
             else if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
                 method.ReturnType.Assembly.GetName().Name?.StartsWith("System.") == false &&
+#if NETFRAMEWORK
+                method.ReturnType.Assembly.GetName().Name != "mscorlib" &&
+#endif
                 IsSupportedType(method.ReturnType) &&
                 !JSMarshaller.IsConvertedType(method.ReturnType))
             {
