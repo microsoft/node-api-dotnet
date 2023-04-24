@@ -161,7 +161,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         object sender,
         ResolveEventArgs args)
     {
-        AssemblyName assemblyInfo = new AssemblyName(args.Name);
+        AssemblyName assemblyInfo = new(args.Name);
 #else
         AssemblyLoadContext loadContext,
         AssemblyName assemblyInfo)
