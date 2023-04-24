@@ -179,6 +179,10 @@ public abstract class SourceGenerator
                 if (i == 0)
                 {
                     i = comment.IndexOf(' ');
+                    if (i < 0)
+                    {
+                        break;
+                    }
                 }
 
                 yield return comment.Substring(0, i).TrimEnd();
