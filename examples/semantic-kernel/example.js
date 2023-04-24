@@ -1,12 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import SK from './semantic-kernel.js';
+import { SK, SKOpenAI } from './semantic-kernel.js';
 
 const kernel = SK.Kernel.Builder.Build();
 
 // The JS marshaller does not yet support extension methods.
-SK.KernelConfigExtensions.AddAzureOpenAITextCompletion(
+SKOpenAI.KernelConfigOpenAIExtensions.AddAzureTextCompletionService(
   kernel.Config,
   'davinci-azure',
   process.env['OPENAI_DEPLOYMENT'],
@@ -35,5 +35,5 @@ does not conflict with the First or Second Law.
 const tldrFunction = SK.InlineFunctionsDefinitionExtension
   .CreateSemanticFunction(kernel, skPrompt);
 
-const summary = await kernel.RunAsync(textToSummarize, [tldrFunction]);
+const summary = await tldrFunction.InvokeAsync(textToSummarize);
 console.log(summary.toString());

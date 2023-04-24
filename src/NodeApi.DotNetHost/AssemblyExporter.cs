@@ -19,23 +19,27 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 internal class AssemblyExporter
 {
     private readonly JSMarshaller _marshaller;
+    private readonly IDictionary<Type, JSReference> _exportedTypes;
     private readonly JSReference _assemblyObject;
-    private readonly Dictionary<Type, JSReference> _typeObjects = new();
 
     /// <summary>
     /// Creates a new instance of the <see cref="AssemblyExporter" /> class.
     /// </summary>
     /// <param name="assembly">The assembly to be exported.</param>
     /// <param name="marshaller">Marshaller that supports dynamic binding to .NET APIs.</param>
+    /// <param name="exportedTypes">Mapping from .NET types to exported JS types
+    /// (shared by multiple assembly exporters within the same host).</param>
     /// <param name="target">Proxy target object; any properties/methods on this object
     /// will be exposed on the exported assembly object in addition to assembly types.</param>
     public AssemblyExporter(
         Assembly assembly,
         JSMarshaller marshaller,
+        IDictionary<Type, JSReference> exportedTypes,
         JSObject target)
     {
         Assembly = assembly;
         _marshaller = marshaller;
+        _exportedTypes = exportedTypes;
 
         JSProxy proxy = new(target, CreateProxyHandler());
         _assemblyObject = new JSReference(proxy);
@@ -167,7 +171,7 @@ internal class AssemblyExporter
 
     private JSValue ExportClass(Type type)
     {
-        if (_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
+        if (_exportedTypes.TryGetValue(type, out JSReference? typeObjectReference))
         {
             return typeObjectReference!.GetValue()!.Value;
         }
@@ -226,7 +230,7 @@ internal class AssemblyExporter
             classBuilder,
             defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
 
-        _typeObjects.Add(type, new JSReference(classObject));
+        _exportedTypes.Add(type, new JSReference(classObject));
 
         // Also export any types returned by properties or methods of this type, because
         // they might otherwise not be referenced by JS before they are used.
@@ -242,7 +246,10 @@ internal class AssemblyExporter
             (BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
         {
             if (member is PropertyInfo property &&
-                property.PropertyType.Assembly == type.Assembly &&
+                property.PropertyType.Assembly.GetName().Name?.StartsWith("System.") == false &&
+#if NETFRAMEWORK
+                property.PropertyType.Assembly.GetName().Name != "mscorlib" &&
+#endif
                 IsSupportedType(property.PropertyType) &&
                 !JSMarshaller.IsConvertedType(property.PropertyType))
             {
@@ -250,7 +257,10 @@ internal class AssemblyExporter
             }
             else if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
-                method.ReturnType.Assembly == type.Assembly &&
+                method.ReturnType.Assembly.GetName().Name?.StartsWith("System.") == false &&
+#if NETFRAMEWORK
+                method.ReturnType.Assembly.GetName().Name != "mscorlib" &&
+#endif
                 IsSupportedType(method.ReturnType) &&
                 !JSMarshaller.IsConvertedType(method.ReturnType))
             {
@@ -431,7 +441,7 @@ internal class AssemblyExporter
     {
         Trace($"> AssemblyExporter.ExportEnum({type.FullName})");
 
-        if (_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
+        if (_exportedTypes.TryGetValue(type, out JSReference? typeObjectReference))
         {
             return typeObjectReference!.GetValue()!.Value;
         }
@@ -447,7 +457,7 @@ internal class AssemblyExporter
         }
 
         JSValue enumObject = enumBuilder.DefineEnum();
-        _typeObjects.Add(type, new JSReference(enumObject));
+        _exportedTypes.Add(type, new JSReference(enumObject));
 
         Trace($"< AssemblyExporter.ExportEnum()");
         return enumObject;
