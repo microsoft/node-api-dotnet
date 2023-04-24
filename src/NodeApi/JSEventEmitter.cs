@@ -192,7 +192,13 @@ public class JSEventEmitter : IDisposable
         }
     }
 
-    public virtual void Dispose()
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
     {
         if (_nodeEmitter != null)
         {

@@ -350,9 +350,4 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         Trace("< ManagedHost.LoadAssembly() => newly loaded");
         return assemblyValue;
     }
-
-    public override void Dispose()
-    {
-        base.Dispose();
-    }
 }
