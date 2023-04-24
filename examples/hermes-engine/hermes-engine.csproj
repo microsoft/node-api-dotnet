@@ -12,11 +12,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.2.*-*" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.JavaScript.Hermes" Version="0.1.4" IncludeAssets="none" PrivateAssets="build;native;runtime" />
+    <PackageReference Include="Microsoft.JavaScript.Hermes" Version="0.1.6" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="$(PkgMicrosoft_JavaScript_Hermes)\lib\native\win32\x64\hermes.dll" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(PkgMicrosoft_JavaScript_Hermes)\build\native\win32\x64\hermes.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
