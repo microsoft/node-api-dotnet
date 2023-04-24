@@ -18,11 +18,8 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// </summary>
 internal class AssemblyExporter
 {
-    // The loaded types dictionary is static because types from different loaded
-    // assemblies may reference each other, and should not be loaded more than once.
-    private static readonly Dictionary<Type, JSReference> s_typeObjects = new();
-
     private readonly JSMarshaller _marshaller;
+    private readonly IDictionary<Type, JSReference> _exportedTypes;
     private readonly JSReference _assemblyObject;
 
     /// <summary>
@@ -30,15 +27,19 @@ internal class AssemblyExporter
     /// </summary>
     /// <param name="assembly">The assembly to be exported.</param>
     /// <param name="marshaller">Marshaller that supports dynamic binding to .NET APIs.</param>
+    /// <param name="exportedTypes">Mapping from .NET types to exported JS types
+    /// (shared by multiple assembly exporters within the same host).</param>
     /// <param name="target">Proxy target object; any properties/methods on this object
     /// will be exposed on the exported assembly object in addition to assembly types.</param>
     public AssemblyExporter(
         Assembly assembly,
         JSMarshaller marshaller,
+        IDictionary<Type, JSReference> exportedTypes,
         JSObject target)
     {
         Assembly = assembly;
         _marshaller = marshaller;
+        _exportedTypes = exportedTypes;
 
         JSProxy proxy = new(target, CreateProxyHandler());
         _assemblyObject = new JSReference(proxy);
@@ -170,7 +171,7 @@ internal class AssemblyExporter
 
     private JSValue ExportClass(Type type)
     {
-        if (s_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
+        if (_exportedTypes.TryGetValue(type, out JSReference? typeObjectReference))
         {
             return typeObjectReference!.GetValue()!.Value;
         }
@@ -229,7 +230,7 @@ internal class AssemblyExporter
             classBuilder,
             defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
 
-        s_typeObjects.Add(type, new JSReference(classObject));
+        _exportedTypes.Add(type, new JSReference(classObject));
 
         // Also export any types returned by properties or methods of this type, because
         // they might otherwise not be referenced by JS before they are used.
@@ -440,7 +441,7 @@ internal class AssemblyExporter
     {
         Trace($"> AssemblyExporter.ExportEnum({type.FullName})");
 
-        if (s_typeObjects.TryGetValue(type, out JSReference? typeObjectReference))
+        if (_exportedTypes.TryGetValue(type, out JSReference? typeObjectReference))
         {
             return typeObjectReference!.GetValue()!.Value;
         }
@@ -456,7 +457,7 @@ internal class AssemblyExporter
         }
 
         JSValue enumObject = enumBuilder.DefineEnum();
-        s_typeObjects.Add(type, new JSReference(enumObject));
+        _exportedTypes.Add(type, new JSReference(enumObject));
 
         Trace($"< AssemblyExporter.ExportEnum()");
         return enumObject;

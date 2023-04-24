@@ -44,6 +44,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         AutoCamelCase = false,
     };
 
+    private readonly Dictionary<Type, JSReference> _exportedTypes = new();
     private readonly Dictionary<string, JSReference> _loadedModules = new();
     private readonly Dictionary<string, AssemblyExporter> _loadedAssemblies = new();
     private readonly AssemblyExporter _systemAssembly;
@@ -79,7 +80,8 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             JSPropertyDescriptor.ForValue("removeListener", removeListener));
 
         // Export the .NET core library assembly by default, along with additional methods above.
-        _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _marshaller, exports);
+        _systemAssembly = new AssemblyExporter(
+            typeof(object).Assembly, _marshaller, _exportedTypes, exports);
     }
 
     public static bool IsTracingEnabled { get; } =
@@ -341,7 +343,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 #else
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
-        assemblyExporter = new(assembly, _marshaller, target: new JSObject());
+        assemblyExporter = new(assembly, _marshaller, _exportedTypes, target: new JSObject());
         _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);
         JSValue assemblyValue = assemblyExporter.AssemblyObject;
 
