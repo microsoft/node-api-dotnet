@@ -64,7 +64,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             ISymbol? moduleInitializer = GetModuleInitializer();
             List<ISymbol> exportItems = GetModuleExportItems().ToList();
 
-            if (exportItems.Count == 0)
+            if (exportItems.Count == 0 &&
+                !GetCompilationTypes().Any((t) => t.DeclaredAccessibility == Accessibility.Public))
             {
                 ReportDiagnostic(
                     DiagnosticSeverity.Info,
