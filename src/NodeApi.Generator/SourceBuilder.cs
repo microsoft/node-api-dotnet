@@ -50,6 +50,11 @@ internal class SourceBuilder : SourceText
         _currentIndent = _currentIndent.Substring(0, _currentIndent.Length - Indent.Length);
     }
 
+    public void Insert(int index, string text)
+    {
+        _text.Insert(index, text);
+    }
+
     private void AppendLine(string line)
     {
 #if NETFRAMEWORK

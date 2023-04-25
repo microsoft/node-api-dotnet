@@ -10,8 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.2.*-*" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.2.*-*"
-      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.2.*-*" />
   </ItemGroup>
 
 </Project>

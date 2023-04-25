@@ -62,7 +62,12 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         try
         {
             ISymbol? moduleInitializer = GetModuleInitializer();
-            IEnumerable<ISymbol> exportItems = GetModuleExportItems();
+            List<ISymbol> exportItems = GetModuleExportItems().ToList();
+
+            if (exportItems.Count == 0)
+            {
+                return;
+            }
 
             SourceText initializerSource = GenerateModuleInitializer(
                 moduleInitializer, exportItems);
