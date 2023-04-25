@@ -7,20 +7,40 @@
     <NodeApiGeneratorAssemblyPath>$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/$(NodeApiGeneratorAssemblyName).dll</NodeApiGeneratorAssemblyPath>
   </PropertyGroup>
 
+  <Target Name="ConfigureNodeApiTypeDefinitions"
+    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' "
+    BeforeTargets="BeforeBuild"
+  >
+    <!-- When the project does not have any source files, copy all reference assemblies to output and generate typedefs for them. -->
+    <PropertyGroup Condition=" '@(Compile)' == '' ">
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
+        <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
+        <GenerateNodeApiTypeDefinitionsForReferences Condition=" '$(GenerateNodeApiTypeDefinitionsForReferences)' == '' ">true</GenerateNodeApiTypeDefinitionsForReferences>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    Generates TS type definitions for a Node API module project.
+   -->
   <Target Name="GenerateNodeApiTypeDefinitions"
     AfterTargets="Build"
     Inputs="$(TargetPath)"
     Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
-    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' "
+    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetPath)') "
   >
     <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
+
+  <!--
+   Publishes TS type definitions for a Node API module project.
+   -->
   <Target Name="PublishNodeApiTypeDefinitions"
     AfterTargets="Publish"
     Inputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
     Outputs="$(PublishDir)$(NodeApiTypeDefinitionsFileName)"
-    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' "
+    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetDir)$(NodeApiTypeDefinitionsFileName)') "
   >
     <Copy SourceFiles="$(TargetDir)$(NodeApiTypeDefinitionsFileName)" DestinationFolder="$(PublishDir)" />
   </Target>
@@ -29,4 +49,41 @@
     <Delete Files="$(TargetDir)$(NodeApiTypeDefinitionsFileName)" />
     <Delete Files="$(PublishDir)$(NodeApiTypeDefinitionsFileName)" />
   </Target>
+
+  <!--
+    Supports building a project that does not compile any code, but only collects and outputs
+    a set of package references in the output directory for use by a JavaScript project.
+   -->
+  <Target Name="OutputReferenceAssembliesOnly"
+      Condition=" '$(GenerateNodeApiTypeDefinitionsForReferences)' == 'true' "
+      AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <ResourceCopyLocalItems Remove="@(ResourceCopyLocalItems)" />
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)"
+        Condition=" '%(Filename)' == 'Microsoft.JavaScript.NodeApi.Generator' " />
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)"
+        Condition=" '%(Filename)' == 'Microsoft.CodeAnalysis' " />
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)"
+        Condition=" '%(Filename)' == 'Microsoft.CodeAnalysis.CSharp' " />
+      <TypeDefinitionsReferenceItems Include="@(RuntimeCopyLocalItems)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    Generates TS type definitions for all referenced assemblies in the output directory.
+   -->
+  <Target Name="GenerateNodeApiReferenceTypeDefinitions"
+    AfterTargets="OutputReferenceAssembliesOnly"
+    Inputs="@(TypeDefinitionsReferenceItems)"
+    Outputs="@(TypeDefinitionsReferenceItems->'$(TargetDir)%(Filename).d.ts')"
+    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND '$(Compile)' == '' "
+  >
+    <PropertyGroup Condition=" '$(EnableTSGenerationWarnings)' != 'true' ">
+      <_SuppressTSGenerationWarnings>--nowarn</_SuppressTSGenerationWarnings>
+    </PropertyGroup>
+    <!-- This does not use @(TypeDefinitionsReferenceItems) to avoid excluding items that are up-to-date. -->
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; $(_SuppressTSGenerationWarnings) --assemblies &quot;@(RuntimeCopyLocalItems)&quot; --typedefs &quot;@(RuntimeCopyLocalItems->'$(TargetDir)%(Filename).d.ts')&quot;"
+      ConsoleToMSBuild="true" />
+  </Target>
+
 </Project>

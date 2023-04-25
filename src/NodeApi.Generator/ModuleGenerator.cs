@@ -62,7 +62,18 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         try
         {
             ISymbol? moduleInitializer = GetModuleInitializer();
-            IEnumerable<ISymbol> exportItems = GetModuleExportItems();
+            List<ISymbol> exportItems = GetModuleExportItems().ToList();
+
+            if (exportItems.Count == 0 &&
+                !GetCompilationTypes().Any((t) => t.DeclaredAccessibility == Accessibility.Public))
+            {
+                ReportDiagnostic(
+                    DiagnosticSeverity.Info,
+                    DiagnosticId.NoExports,
+                    location: null,
+                    "Skipping module code generation because no APIs are exported to JavaScript.");
+                return;
+            }
 
             SourceText initializerSource = GenerateModuleInitializer(
                 moduleInitializer, exportItems);

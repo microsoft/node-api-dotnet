@@ -16,6 +16,8 @@ namespace Microsoft.JavaScript.NodeApi.Generator;
 /// </remarks>
 public static class Program
 {
+    private const char PathSeparator = ';';
+
     public static int Main(string[] args)
     {
 
@@ -30,9 +32,10 @@ public static class Program
 
         if (!ParseArgs(
             args,
-            out string assemblyPath,
-            out IList<string> referenceAssemblyPaths,
-            out string typeDefinitionsPath))
+            out List<string> assemblyPaths,
+            out List<string> referenceAssemblyPaths,
+            out List<string> typeDefinitionsPaths,
+            out bool suppressWarnings))
         {
             Console.WriteLine("Usage: node-api-dotnet-generator [options...]");
             Console.WriteLine();
@@ -40,28 +43,40 @@ public static class Program
             Console.WriteLine("  -r --reference   Path to assembly reference by input " +
                 "(optional, multiple)");
             Console.WriteLine("  -t --typedefs    Path to output type definitions file (required)");
+            Console.WriteLine("  --nowarn         Suppress warnings");
             return 1;
         }
 
-        TypeDefinitionsGenerator.GenerateTypeDefinitions(
-            assemblyPath, referenceAssemblyPaths, typeDefinitionsPath);
+        for (int i = 0; i < assemblyPaths.Count; i++)
+        {
+            // Reference other supplied assemblies, but not the current one.
+            List<string> allReferencePaths = referenceAssemblyPaths
+                .Concat(assemblyPaths.Where((_, j) => j != i)).ToList();
+
+            Console.WriteLine($"{assemblyPaths[i]} -> {typeDefinitionsPaths[i]}");
+
+            TypeDefinitionsGenerator.GenerateTypeDefinitions(
+                assemblyPaths[i], allReferencePaths, typeDefinitionsPaths[i], suppressWarnings);
+        }
 
         return 0;
     }
 
     private static bool ParseArgs(
         string[] args,
-        out string assemblyPath,
-        out IList<string> referenceAssemblyPaths,
-        out string typeDefinitionsPath)
+        out List<string> assemblyPaths,
+        out List<string> referenceAssemblyPaths,
+        out List<string> typeDefinitionsPaths,
+        out bool suppressWarnings)
     {
-        assemblyPath = string.Empty;
+        assemblyPaths = new List<string>();
         referenceAssemblyPaths = new List<string>();
-        typeDefinitionsPath = string.Empty;
+        typeDefinitionsPaths = new List<string>();
+        suppressWarnings = false;
 
         for (int i = 0; i < args.Length; i++)
         {
-            if (i == args.Length - 1)
+            if (i == args.Length - 1 && args[i] != "--nowarn")
             {
                 return false;
             }
@@ -70,17 +85,24 @@ public static class Program
             {
                 case "-a":
                 case "--assembly":
-                    assemblyPath = args[++i];
+                case "--assemblies":
+                    assemblyPaths.AddRange(args[++i].Split(PathSeparator));
                     break;
 
                 case "-r":
                 case "--reference":
-                    referenceAssemblyPaths.Add(args[++i]);
+                case "--references":
+                    referenceAssemblyPaths.AddRange(args[++i].Split(PathSeparator));
                     break;
 
                 case "-t":
+                case "--typedef":
                 case "--typedefs":
-                    typeDefinitionsPath = args[++i];
+                    typeDefinitionsPaths.AddRange(args[++i].Split(PathSeparator));
+                    break;
+
+                case "--nowarn":
+                    suppressWarnings = true;
                     break;
 
                 default:
@@ -89,11 +111,29 @@ public static class Program
             }
         }
 
-        if (!assemblyPath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
+        if (assemblyPaths.Any(
+                (a) => !a.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) ||
             referenceAssemblyPaths.Any(
                 (r) => !r.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) ||
-            !typeDefinitionsPath.EndsWith(".d.ts", StringComparison.OrdinalIgnoreCase))
+            typeDefinitionsPaths.Any(
+                (t) => !t.EndsWith(".d.ts", StringComparison.OrdinalIgnoreCase)))
         {
+            Console.WriteLine("Incorrect file extension.");
+            return false;
+        }
+        else if (assemblyPaths.Count == 0)
+        {
+            Console.WriteLine("Specify an assembly file path.");
+            return false;
+        }
+        else if (typeDefinitionsPaths.Count == 0)
+        {
+            Console.WriteLine("Specify a type definitions file path.");
+            return false;
+        }
+        else if (typeDefinitionsPaths.Count != assemblyPaths.Count)
+        {
+            Console.WriteLine("Specify a type definitions file path for every assembly.");
             return false;
         }
 

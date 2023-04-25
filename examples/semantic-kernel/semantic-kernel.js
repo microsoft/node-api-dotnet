@@ -8,24 +8,13 @@ import dotnet from 'node-api-dotnet';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const pkgDir = path.join(__dirname, 'pkg');
 
 const skAssemblyName = 'Microsoft.SemanticKernel.Core';
 const skOpenAIAssemblyName = 'Microsoft.SemanticKernel.Connectors.AI.OpenAI';
-const skVersion = fs.readdirSync(path.join(pkgDir, skAssemblyName.toLowerCase())).reverse()[0];
 
-function resolveAssembly(name, version) {
-  if (/\d+\.\d+\.\d+\.0/.test(version)) version = version.substring(0, version.length - 2);
-  try {
-    const versions = fs.readdirSync(path.join(pkgDir, name.toLowerCase()));
-    version = versions.find((v) => v.startsWith(version)) ?? versions[versions.length - 1];
-    const filePath = path.join(
-      pkgDir, name.toLowerCase(), version, 'lib', 'netstandard2.0', name + '.dll');
-    return filePath;
-  } catch (e) {
-    console.error(e.message);
-    return null;
-  }
+/** All assemblies are resolved from the bin directory, where they were copied by MSBuild. */
+function resolveAssembly(name) {
+  return path.join(__dirname, 'bin', name + '.dll');
 }
 
 dotnet.addListener('resolving', (name, version) => {
@@ -33,9 +22,9 @@ dotnet.addListener('resolving', (name, version) => {
   if (fs.existsSync(filePath)) dotnet.load(filePath);
 });
 
-/** @type import('./Microsoft.SemanticKernel.Core') */
-const SK = dotnet.load(resolveAssembly(skAssemblyName, skVersion));
-/** @type import('./Microsoft.SemanticKernel.Connectors.AI.OpenAI') */
-const SKOpenAI = dotnet.load(resolveAssembly(skOpenAIAssemblyName, skVersion));
+/** @type import('./bin/Microsoft.SemanticKernel.Core') */
+const SK = dotnet.load(resolveAssembly(skAssemblyName));
+/** @type import('./bin/Microsoft.SemanticKernel.Connectors.AI.OpenAI') */
+const SKOpenAI = dotnet.load(resolveAssembly(skOpenAIAssemblyName));
 
 export { SK, SKOpenAI };

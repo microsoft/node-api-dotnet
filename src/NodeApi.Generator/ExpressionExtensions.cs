@@ -263,15 +263,31 @@ internal static class ExpressionExtensions
 
     internal static string FormatType(Type type)
     {
-        if (type.IsGenericType)
+        if (string.IsNullOrEmpty(type.Name))
+        {
+            return "(anonymous)";
+        }
+        else if (type.IsGenericType)
         {
             if (type.GetGenericTypeDefinition() == typeof(Nullable<>))
             {
                 return FormatType(type.GetGenericArguments()[0]) + "?";
             }
 
-            string typeArgs = string.Join(", ", type.GenericTypeArguments.Select(FormatType));
-            return $"{type.Namespace}.{type.Name.Substring(0, type.Name.IndexOf('`'))}<{typeArgs}>";
+            if (type.IsNested && type.DeclaringType!.IsGenericType)
+            {
+                string typeArgs = string.Join(
+                    ", ", type.DeclaringType.GenericTypeArguments.Select(FormatType));
+                string declaringName = type.DeclaringType.Name;
+                return $"{type.Namespace}." +
+                    $"{declaringName.Substring(0, declaringName.IndexOf('`'))}<{typeArgs}>" +
+                    $".{type.Name}";
+            }
+            else
+            {
+                string typeArgs = string.Join(", ", type.GenericTypeArguments.Select(FormatType));
+                return $"{type.Namespace}.{type.Name.Substring(0, type.Name.IndexOf('`'))}<{typeArgs}>";
+            }
         }
         else if (type.IsArray)
         {
@@ -306,7 +322,7 @@ internal static class ExpressionExtensions
             return "void";
         }
 
-        return type.FullName ?? "(anonymous)";
+        return type.FullName!;
     }
 
     private static string FormatArgs(

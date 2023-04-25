@@ -55,6 +55,11 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         AppDomain.CurrentDomain.AssemblyResolve += OnResolvingAssembly;
 #else
         _loadContext.Resolving += OnResolvingAssembly;
+
+        // It shouldn't be necessary to handle resolve events in the default load context.
+        // But TypeBuilder (used by JSInterfaceMarshaller) seems to require it when a nuget
+        // package referenced type is replaced with a system type, as with IAsyncEnumerable.
+        AssemblyLoadContext.Default.Resolving += OnResolvingAssembly;
 #endif
 
         JSValue addListener = JSValue.CreateFunction("addListener", (JSCallbackArgs args) =>
@@ -349,5 +354,21 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         Trace("< ManagedHost.LoadAssembly() => newly loaded");
         return assemblyValue;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+#if NETFRAMEWORK
+            AppDomain.CurrentDomain.AssemblyResolve -= OnResolvingAssembly;
+#else
+            AssemblyLoadContext.Default.Resolving -= OnResolvingAssembly;
+            _loadContext.Resolving -= OnResolvingAssembly;
+            _loadContext.Unload();
+#endif
+        }
+
+        base.Dispose(disposing);
     }
 }
