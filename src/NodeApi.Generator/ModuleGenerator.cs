@@ -66,6 +66,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
             if (exportItems.Count == 0)
             {
+                ReportDiagnostic(
+                    DiagnosticSeverity.Info,
+                    DiagnosticId.NoExports,
+                    location: null,
+                    "Skipping module code generation because no APIs are exported to JavaScript.");
                 return;
             }
 

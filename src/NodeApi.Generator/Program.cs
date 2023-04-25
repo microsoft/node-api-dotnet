@@ -53,10 +53,7 @@ public static class Program
             List<string> allReferencePaths = referenceAssemblyPaths
                 .Concat(assemblyPaths.Where((_, j) => j != i)).ToList();
 
-            if (assemblyPaths.Count > 0)
-            {
-                Console.WriteLine($"{assemblyPaths[i]} -> {typeDefinitionsPaths[i]}");
-            }
+            Console.WriteLine($"{assemblyPaths[i]} -> {typeDefinitionsPaths[i]}");
 
             TypeDefinitionsGenerator.GenerateTypeDefinitions(
                 assemblyPaths[i], allReferencePaths, typeDefinitionsPaths[i], suppressWarnings);

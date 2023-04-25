@@ -26,7 +26,8 @@ public abstract class SourceGenerator
 
     public enum DiagnosticId
     {
-        GeneratorError = 1000,
+        NoExports = 1000,
+        GeneratorError = 1001,
         MultipleModuleAttributes,
         InvalidModuleInitializer,
         ModuleInitializerIsNotPublic,
@@ -130,7 +131,7 @@ public abstract class SourceGenerator
             description);
     }
 
-    private void ReportDiagnostic(
+    protected void ReportDiagnostic(
         DiagnosticSeverity severity,
         DiagnosticId id,
         Location? location,
