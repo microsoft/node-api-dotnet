@@ -7,15 +7,22 @@
     <NodeApiGeneratorAssemblyPath>$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/$(NodeApiGeneratorAssemblyName).dll</NodeApiGeneratorAssemblyPath>
   </PropertyGroup>
 
+  <!--
+    Generates TS type definitions for a Node API module project.
+   -->
   <Target Name="GenerateNodeApiTypeDefinitions"
     AfterTargets="Build"
     Inputs="$(TargetPath)"
     Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
-    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetPath)') "
+    Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' "
   >
     <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
+
+  <!--
+   Publishes TS type definitions for a Node API module project.
+   -->
   <Target Name="PublishNodeApiTypeDefinitions"
     AfterTargets="Publish"
     Inputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"

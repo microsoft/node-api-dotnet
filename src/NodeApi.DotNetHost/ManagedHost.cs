@@ -361,7 +361,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         if (disposing)
         {
 #if NETFRAMEWORK
-            AppDomain.CurrentDomain.AssemblyResolve += OnResolvingAssembly;
+            AppDomain.CurrentDomain.AssemblyResolve -= OnResolvingAssembly;
 #else
             AssemblyLoadContext.Default.Resolving -= OnResolvingAssembly;
             _loadContext.Resolving -= OnResolvingAssembly;

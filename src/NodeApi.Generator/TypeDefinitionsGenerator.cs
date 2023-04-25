@@ -52,7 +52,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
     private bool _emitDisposable;
     private bool _emitCancellation;
     private bool _emitDuplex;
-    private bool _suppressWarnings;
+    private readonly bool _suppressWarnings;
 
     public static void GenerateTypeDefinitions(
         string assemblyPath,
