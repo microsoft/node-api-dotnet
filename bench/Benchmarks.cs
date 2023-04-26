@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 using Microsoft.JavaScript.NodeApi.Runtimes;
@@ -18,7 +19,8 @@ public abstract class Benchmarks
     {
         // Example: dotnet run -c Release --filter aot
         // If no filter is specified, the switcher will prompt.
-        BenchmarkSwitcher.FromAssembly(typeof(Benchmarks).Assembly).Run(args);
+        BenchmarkSwitcher.FromAssembly(typeof(Benchmarks).Assembly).Run(args,
+            ManualConfig.Create(DefaultConfig.Instance).WithOptions(ConfigOptions.JoinSummary));
     }
 
     public class NonAot : Benchmarks
@@ -41,6 +43,7 @@ public abstract class Benchmarks
     private napi_env _env;
     private JSValue _function;
     private JSValue _callback;
+    private JSReference _reference = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -56,8 +59,11 @@ public abstract class Benchmarks
         JSValueScope scope = new(JSValueScopeType.Root, _env);
 
         // Create some JS values that will be used by the benchmarks.
+
         _function = JSNativeApi.RunScript("function callMeBack(cb) { cb(); }; callMeBack");
         _callback = JSValue.CreateFunction("callback", (args) => JSValue.Undefined);
+
+        _reference = new JSReference(_function);
     }
 
     [Benchmark]
@@ -65,5 +71,16 @@ public abstract class Benchmarks
     {
         _function.Call(thisArg: default, _callback);
     }
-}
 
+    [Benchmark]
+    public void GetReference()
+    {
+        _ = _reference.GetValue()!.Value;
+    }
+
+    [Benchmark]
+    public void CreateAndDiposeReference()
+    {
+        using JSReference reference = new(_function);
+    }
+}
