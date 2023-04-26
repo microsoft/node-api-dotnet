@@ -11,20 +11,11 @@ using Xunit;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
 
+using static TestUtils;
+
 public class NodejsEmbeddingTests
 {
-    private static string LibnodePath { get; } = Path.Combine(
-        TestBuilder.RepoRootDirectory,
-        "bin",
-        TestBuilder.GetCurrentPlatformRuntimeIdentifier(),
-        "libnode" + GetSharedLibraryExtension());
-
-    private static string GetSharedLibraryExtension()
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return ".dll";
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return ".dylib";
-        else return ".so";
-    }
+    private static string LibnodePath { get; } = GetLibnodePath();
 
     // The Node.js platform may only be initialized once per process.
     private static NodejsPlatform? NodejsPlatform { get; } =

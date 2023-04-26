@@ -13,6 +13,8 @@ using static Microsoft.JavaScript.NodeApi.Test.TestBuilder;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
 
+using static TestUtils;
+
 public class NativeAotTests
 {
     private static readonly Dictionary<string, string?> s_builtTestModules = new();

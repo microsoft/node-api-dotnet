@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net472;net7.0</TargetFrameworks>
+    <OutputType>exe</OutputType>
+    <RootNamespace>Microsoft.JavaScript.NodeApi.Bench</RootNamespace>
+    <IsPublishable>false</IsPublishable>
+    <NoWarn>MSB3270</NoWarn><!-- Processor architecture mismatch bewteen "MSIL" and ... -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../test/TestUtils.cs" Link="TestUtils.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\NodeApi\NodeApi.csproj" />
+    <ProjectReference Include="..\src\NodeApi.DotNetHost\NodeApi.DotNetHost.csproj" />
+  </ItemGroup>
+
+</Project>
