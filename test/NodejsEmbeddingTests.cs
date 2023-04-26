@@ -8,23 +8,13 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.JavaScript.NodeApi.Runtimes;
 using Xunit;
+using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
 
 public class NodejsEmbeddingTests
 {
-    private static string LibnodePath { get; } = Path.Combine(
-        TestBuilder.RepoRootDirectory,
-        "bin",
-        TestBuilder.GetCurrentPlatformRuntimeIdentifier(),
-        "libnode" + GetSharedLibraryExtension());
-
-    private static string GetSharedLibraryExtension()
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return ".dll";
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return ".dylib";
-        else return ".so";
-    }
+    private static string LibnodePath { get; } = GetLibnodePath();
 
     // The Node.js platform may only be initialized once per process.
     private static NodejsPlatform? NodejsPlatform { get; } =

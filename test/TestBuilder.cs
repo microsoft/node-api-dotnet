@@ -6,10 +6,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Xunit;
+using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
 
@@ -30,39 +30,14 @@ internal static class TestBuilder
     "Release";
 #endif
 
-    public static string RepoRootDirectory { get; } = GetRootDirectory();
+    public static string RepoRootDirectory { get; } = GetRepoRootDirectory();
 
     public static string TestCasesDirectory { get; } = GetTestCasesDirectory();
-
-    private static string GetRootDirectory()
-    {
-        string? solutionDir = Path.GetDirectoryName(
-#if NETFRAMEWORK
-            new Uri(typeof(TestBuilder).Assembly.CodeBase).LocalPath)!;
-#else
-#pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
-            typeof(TestBuilder).Assembly.Location)!;
-#pragma warning restore IL3000
-#endif
-
-        // This assumes there is only a .SLN file at the root of the repo.
-        while (Directory.GetFiles(solutionDir, "*.sln").Length == 0)
-        {
-            solutionDir = Path.GetDirectoryName(solutionDir);
-
-            if (string.IsNullOrEmpty(solutionDir))
-            {
-                throw new DirectoryNotFoundException("Solution directory not found.");
-            }
-        }
-
-        return solutionDir;
-    }
 
     private static string GetTestCasesDirectory()
     {
         // This assumes tests are organized in this test/TestCases directory structure.
-        string testCasesDir = Path.Combine(GetRootDirectory(), "test", "TestCases");
+        string testCasesDir = Path.Combine(GetRepoRootDirectory(), "test", "TestCases");
 
         if (!Directory.Exists(testCasesDir))
         {
@@ -139,33 +114,6 @@ internal static class TestBuilder
     {
         string logDir = GetModuleIntermediateOutputPath(moduleName);
         return Path.Combine(logDir, $"{prefix}-{Path.GetFileName(testCasePath)}.log");
-    }
-
-    public static string GetCurrentPlatformRuntimeIdentifier()
-    {
-        string os = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "win" :
-          RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "osx" :
-          RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux" :
-          throw new PlatformNotSupportedException(
-            "Platform not supported: " + Environment.OSVersion.Platform);
-
-        string arch = RuntimeInformation.ProcessArchitecture switch
-        {
-            Architecture.X86 => "x86",
-            Architecture.X64 => "x64",
-            Architecture.Arm64 => "arm64",
-            _ => throw new PlatformNotSupportedException(
-              "CPU architecture not supported: " + RuntimeInformation.ProcessArchitecture),
-        };
-
-        return $"{os}-{arch}";
-    }
-
-    public static string GetCurrentFrameworkTarget()
-    {
-        Version frameworkVersion = Environment.Version;
-        return frameworkVersion.Major == 4 ? "net472" :
-            $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
     }
 
     public static string CreateProjectFile(string moduleName)

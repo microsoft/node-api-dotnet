@@ -36,6 +36,25 @@
                 "reveal": "always"
             },
             "problemMatcher": "$msCompile"
+          },
+          {
+            "label": "bench",
+            "command": "dotnet",
+            "type": "shell",
+            "args": [
+                "run",
+                "-c",
+                "Release",
+                "-f",
+                "net7.0"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/bench"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": "$msCompile"
         }
     ]
 }

@@ -7,6 +7,7 @@ using System.IO;
 using Xunit;
 
 using static Microsoft.JavaScript.NodeApi.Test.TestBuilder;
+using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
 // Avoid running MSBuild on the same project concurrently.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

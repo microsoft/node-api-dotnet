@@ -3,6 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="BenchmarkDotNet" Version="0.13.5" />
     <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="7.0.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.5.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
