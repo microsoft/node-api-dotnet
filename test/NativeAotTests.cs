@@ -10,10 +10,9 @@ using System.IO;
 using Xunit;
 
 using static Microsoft.JavaScript.NodeApi.Test.TestBuilder;
+using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
-
-using static TestUtils;
 
 public class NativeAotTests
 {

@@ -9,10 +9,9 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using Xunit;
+using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
-
-using static TestUtils;
 
 /// <summary>
 /// Utility methods that assist with building and running test cases.

@@ -8,10 +8,9 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.JavaScript.NodeApi.Runtimes;
 using Xunit;
+using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
-
-using static TestUtils;
 
 public class NodejsEmbeddingTests
 {
