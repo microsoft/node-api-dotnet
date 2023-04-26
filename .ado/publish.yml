@@ -15,7 +15,6 @@ trigger: none
 parameters:
   # Matrix with target platforms.
   # x86 versions are not supported by Native AOT.
-  # win-arm64 is not supported by Node.JS as of 3/29/2023.
   # linux-arm64 must be added after we learn how to set up the cross-compilation environment.
   # Use net7.0 as the latest stable version except for osx-arm64 which is only supported in net8.0.
 - name: buildMatrix
@@ -24,6 +23,12 @@ parameters:
     - Name: win_x64
       VMImage: windows-latest
       TargetRuntime: win-x64
+      DotNetVersion: 7.0.x
+      DotNetMoniker: net7.0
+      UseGlobalJson: true
+    - Name: win_arm64
+      VMImage: windows-latest
+      TargetRuntime: win-arm64
       DotNetVersion: 7.0.x
       DotNetMoniker: net7.0
       UseGlobalJson: true
