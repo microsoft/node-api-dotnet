@@ -159,6 +159,10 @@ internal static class SymbolExtensions
         {
             attributes |= TypeAttributes.Interface;
         }
+        else if (typeSymbol.TypeKind == TypeKind.Delegate)
+        {
+            attributes |= TypeAttributes.Sealed;
+        }
 
         TypeBuilder typeBuilder = ModuleBuilder.DefineType(
             name: typeFullName,
@@ -182,7 +186,8 @@ internal static class SymbolExtensions
                 BuildSymbolicConstructor(typeBuilder, constructorSymbol);
             }
             else if (memberSymbol is IMethodSymbol methodSymbol &&
-                methodSymbol.MethodKind == MethodKind.Ordinary)
+                (methodSymbol.MethodKind == MethodKind.Ordinary ||
+                methodSymbol.MethodKind == MethodKind.DelegateInvoke))
             {
                 BuildSymbolicMethod(typeBuilder, methodSymbol);
             }
@@ -231,8 +236,10 @@ internal static class SymbolExtensions
     private static ConstructorBuilder BuildSymbolicConstructor(
         TypeBuilder typeBuilder, IMethodSymbol constructorSymbol)
     {
+        bool isDelegateConstructor = typeBuilder.BaseType == typeof(MulticastDelegate);
         ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
-            MethodAttributes.Public,
+            MethodAttributes.Public | (isDelegateConstructor ?
+                MethodAttributes.RTSpecialName | MethodAttributes.HideBySig : default),
             CallingConventions.HasThis,
             constructorSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
 
@@ -242,8 +249,17 @@ internal static class SymbolExtensions
             constructorBuilder.DefineParameter(i, ParameterAttributes.None, parameters[i].Name);
         }
 
-        // Constructors cannot be abstract; emit a minimal body.
-        constructorBuilder.GetILGenerator().Emit(OpCodes.Ret);
+        if (isDelegateConstructor)
+        {
+            // Delegate constructors are implemented by the runtime.
+            constructorBuilder.SetImplementationFlags(
+                MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+        }
+        else
+        {
+            // Constructors cannot be abstract; emit a minimal body.
+            constructorBuilder.GetILGenerator().Emit(OpCodes.Ret);
+        }
 
         return constructorBuilder;
     }
@@ -251,8 +267,10 @@ internal static class SymbolExtensions
     private static void BuildSymbolicMethod(
         TypeBuilder typeBuilder, IMethodSymbol methodSymbol)
     {
+        bool isDelegateMethod = typeBuilder.BaseType == typeof(MulticastDelegate);
         MethodAttributes attributes = MethodAttributes.Public | (methodSymbol.IsStatic ?
-            MethodAttributes.Static : MethodAttributes.Abstract | MethodAttributes.Virtual);
+            MethodAttributes.Static : MethodAttributes.Virtual | (isDelegateMethod ?
+            MethodAttributes.HideBySig : MethodAttributes.Abstract));
         MethodBuilder methodBuilder = typeBuilder.DefineMethod(
             methodSymbol.Name,
             attributes,
@@ -261,7 +279,13 @@ internal static class SymbolExtensions
             methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
         BuildSymbolicParameters(methodBuilder, methodSymbol.Parameters);
 
-        if (methodSymbol.IsStatic)
+        if (isDelegateMethod)
+        {
+            // Delegate invoke methods are implemented by the runtime.
+            methodBuilder.SetImplementationFlags(
+                MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+        }
+        else if (methodSymbol.IsStatic)
         {
             // Static methods cannot be abstract; emit a minimal body.
             methodBuilder.GetILGenerator().Emit(OpCodes.Ret);

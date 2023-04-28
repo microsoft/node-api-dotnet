@@ -155,7 +155,16 @@ internal class AssemblyExporter
             }
             if (type.IsClass || type.IsInterface || type.IsValueType)
             {
-                return ExportClass(type);
+                if (type.IsClass && type.BaseType?.FullName == typeof(MulticastDelegate).FullName)
+                {
+                    // Delegate types are not exported as type objects, but the JS marshaller can
+                    // still dynamically convert delegate instances to/from JS functions.
+                    return JSValue.Undefined;
+                }
+                else
+                {
+                    return ExportClass(type);
+                }
             }
             else
             {

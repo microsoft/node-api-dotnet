@@ -5,6 +5,7 @@
     <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and $([MSBuild]::IsOsPlatform('Windows')) ">net7.0;net472</TargetFrameworks>
     <OutputType>exe</OutputType>
     <RootNamespace>Microsoft.JavaScript.NodeApi.Bench</RootNamespace>
+    <IsPackable>false</IsPackable>
     <IsPublishable>false</IsPublishable>
     <NoWarn>MSB3270</NoWarn><!-- Processor architecture mismatch bewteen "MSIL" and ... -->
   </PropertyGroup>
