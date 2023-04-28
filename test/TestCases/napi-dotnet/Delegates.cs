@@ -4,6 +4,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi.TestCases;
 
@@ -25,11 +26,9 @@ public static class Delegates
 
     public static async Task WaitUntilCancelled(CancellationToken cancellation)
     {
+        JSSynchronizationContext syncContext = JSSynchronizationContext.Current!;
         TaskCompletionSource<bool> completion = new();
-        cancellation.Register(() =>
-        {
-            completion.SetResult(true);
-        });
+        cancellation.Register(() => syncContext.Post(() => completion.SetResult(true)));
         await completion.Task;
     }
 
