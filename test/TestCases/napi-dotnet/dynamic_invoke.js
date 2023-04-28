@@ -44,7 +44,13 @@ const TestEnum = assembly.TestEnum;
 assert.strictEqual(TestEnum.Two, 2);
 assert.strictEqual(TestEnum[2], 'Two');
 
-test();
+const Delegates = assembly.Delegates;
+assert.strictEqual(typeof Delegates, 'object');
+const funcValue = Delegates.CallFunc((value) => value + 1, 1);
+assert.strictEqual(funcValue, 2);
+const delegateValue = Delegates.CallDelegate((value) => value + '!', 'test');
+assert.strictEqual(delegateValue, 'test!');
+
 async function test() {
   const interfaceObj = assembly.AsyncMethods.InterfaceTest;
   assert.strictEqual(typeof interfaceObj, 'object');
@@ -60,3 +66,4 @@ async function test() {
     await assembly.AsyncMethods.ReverseInterfaceTest(asyncInterfaceImpl, 'buddy');
   assert.strictEqual(reverseInterfaceResult, 'Hello, buddy!');
 }
+test().catch(assert.fail);

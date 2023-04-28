@@ -202,16 +202,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         {
             if (type.GetAttributes().Any((a) => a.AttributeClass?.Name == "JSExportAttribute"))
             {
-                if (type.TypeKind == TypeKind.Delegate)
-                {
-                    ReportError(
-                        DiagnosticId.UnsupportedTypeKind,
-                        type,
-                        "Exporting delegates is not currently supported.");
-                }
-                else if (type.TypeKind != TypeKind.Class &&
+                if (type.TypeKind != TypeKind.Class &&
                     type.TypeKind != TypeKind.Struct &&
                     type.TypeKind != TypeKind.Interface &&
+                    type.TypeKind != TypeKind.Delegate &&
                     type.TypeKind != TypeKind.Enum)
                 {
                     ReportError(
@@ -497,6 +491,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 // Export tagged static methods as top-level functions on the module.
                 ExportMethod(ref s, exportMethod, exportName);
             }
+            else if (exportItem is ITypeSymbol exportDelegate &&
+                exportDelegate.TypeKind == TypeKind.Delegate)
+            {
+                ExportDelegate(exportDelegate);
+            }
         }
 
         if (moduleType != null)
@@ -652,6 +651,17 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += $"{attributes})";
 
         s.DecreaseIndent();
+    }
+
+    private void ExportDelegate(ITypeSymbol delegateType)
+    {
+        MethodInfo delegateInvokeMethod = delegateType.AsType().GetMethod("Invoke")!;
+        Expression<JSCallback> fromAdapter = _marshaller.BuildFromJSMethodExpression(
+            delegateInvokeMethod);
+        _callbackAdapters.Add(fromAdapter.Name!, fromAdapter);
+        LambdaExpression toAapter = _marshaller.BuildToJSMethodExpression(
+            delegateInvokeMethod);
+        _callbackAdapters.Add(toAapter.Name!, toAapter);
     }
 
     /// <summary>

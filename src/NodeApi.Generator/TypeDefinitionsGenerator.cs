@@ -50,7 +50,6 @@ public class TypeDefinitionsGenerator : SourceGenerator
     private bool _exportAll;
     private bool _autoCamelCase;
     private bool _emitDisposable;
-    private bool _emitCancellation;
     private bool _emitDuplex;
     private readonly bool _suppressWarnings;
 
@@ -267,7 +266,11 @@ public class TypeDefinitionsGenerator : SourceGenerator
 
     private void ExportType(ref SourceBuilder s, Type type)
     {
-        if (type.IsClass || type.IsInterface ||
+        if (type.IsClass && type.BaseType?.FullName == typeof(MulticastDelegate).FullName)
+        {
+            GenerateDelegateDefinition(ref s, type);
+        }
+        else if (type.IsClass || type.IsInterface ||
             (type.IsValueType && !type.IsEnum))
         {
             GenerateClassDefinition(ref s, type);
@@ -309,16 +312,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
 
     private void GenerateSupportingInterfaces(ref SourceBuilder s)
     {
-        if (_emitCancellation)
-        {
-            s++;
-            s += "export interface CancellationToken {";
-            s += "readonly isCancellationRequested: boolean;";
-            s += "readonly onCancellationRequested: (listener: (e: any) => any) => IDisposable;";
-            s += "}";
-        }
-
-        if (_emitDisposable || _emitCancellation)
+        if (_emitDisposable)
         {
             s++;
             s += "export interface IDisposable {";
@@ -331,6 +325,18 @@ public class TypeDefinitionsGenerator : SourceGenerator
             s++;
             s += "import { Duplex } from 'stream';";
         }
+    }
+
+    private void GenerateDelegateDefinition(ref SourceBuilder s, Type type)
+    {
+        s++;
+        GenerateDocComments(ref s, type);
+
+        MethodInfo invokeMethod = type.GetMethod(nameof(Action.Invoke))!;
+
+        s += $"declare function {GetExportName(type)}(" +
+            $"{GetTSParameters(invokeMethod.GetParameters())}): " +
+            $"{GetTSType(invokeMethod.ReturnParameter)};";
     }
 
     private void GenerateClassDefinition(ref SourceBuilder s, Type type)
@@ -562,6 +568,32 @@ public class TypeDefinitionsGenerator : SourceGenerator
             Type elementType = type.GetElementType()!;
             tsType = GetTSType(elementType, nullability?.ElementType) + "[]";
         }
+        else if (type.BaseType?.FullName == typeof(MulticastDelegate).FullName)
+        {
+            if (type.FullName == typeof(Action).FullName)
+            {
+                tsType = "() => void";
+            }
+            else if (type.IsGenericType &&
+                type.Name.Substring(0, type.Name.IndexOf('`')) == nameof(Action))
+            {
+                string[] parameterTypes = type.GetGenericArguments().Select(
+                    (t, i) => GetTSType(t, nullability?.GenericTypeArguments[i])).ToArray();
+                tsType = $"({string.Join(", ", parameterTypes)}) => void";
+            }
+            else if (type.IsGenericType && type.Name.Substring(0, type.Name.IndexOf('`')) == "Func")
+            {
+                string[] typeArgs = type.GetGenericArguments().Select(
+                    (t, i) => GetTSType(t, nullability?.GenericTypeArguments[i])).ToArray();
+                string returnType = typeArgs[typeArgs.Length - 1];
+                string[] parameterTypes = typeArgs.Take(typeArgs.Length - 1).ToArray();
+                tsType = $"({string.Join(", ", parameterTypes)}) => {returnType}";
+            }
+            else if (IsTypeExported(type))
+            {
+                tsType = type.Name;
+            }
+        }
         else if (type.IsGenericType)
         {
             string typeDefinitionName = type.GetGenericTypeDefinition().FullName!;
@@ -654,8 +686,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
         }
         else if (type.FullName == typeof(CancellationToken).FullName)
         {
-            tsType = type.Name;
-            _emitCancellation = true;
+            tsType = "AbortSignal";
         }
         else if (type.FullName == typeof(IDisposable).FullName)
         {

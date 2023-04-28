@@ -9,6 +9,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
 
@@ -420,6 +421,12 @@ public class JSMarshaller
     {
         if (method is null) throw new ArgumentNullException(nameof(method));
 
+        if (method.DeclaringType!.BaseType == typeof(MulticastDelegate) &&
+            method.Name == nameof(Action.Invoke))
+        {
+            return BuildToJSDelegateMethodExpression(method);
+        }
+
         try
         {
             string name = method.Name;
@@ -473,7 +480,7 @@ public class JSMarshaller
             else if (methodParameters.Length == 1)
             {
                 callExpression = Expression.Call(
-                     typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
                          new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
                     methodName,
@@ -482,7 +489,7 @@ public class JSMarshaller
             else if (methodParameters.Length == 2)
             {
                 callExpression = Expression.Call(
-                     typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
                          new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
                              typeof(JSValue) }),
                     thisParameter,
@@ -493,7 +500,7 @@ public class JSMarshaller
             else if (methodParameters.Length == 3)
             {
                 callExpression = Expression.Call(
-                     typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
                          new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
                              typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
@@ -505,7 +512,7 @@ public class JSMarshaller
             else
             {
                 callExpression = Expression.Call(
-                     typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
                          new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue[]) }),
                     new Expression[]
                     {
@@ -544,6 +551,182 @@ public class JSMarshaller
             throw new JSMarshallerException(
                 "Failed to build .NET adapter for JS method.", method, ex);
         }
+    }
+
+    /// <summary>
+    /// Builds a lambda expression for a .NET adapter to a JS function that is represented
+    /// as a .NET delegate. When invoked, the delegate will marshal the arguments to JS, invoke
+    /// the JS function, then marshal the return value (or exception) back to .NET.
+    /// </summary>
+    /// <remarks>
+    /// The expression has an extra initial argument of type <see cref="JSValue"/> that is
+    /// the JS function that will be invoked. The lambda expression may be converted to a
+    /// delegate with <see cref="LambdaExpression.Compile()"/>.
+    /// </remarks>
+    private LambdaExpression BuildToJSDelegateMethodExpression(MethodInfo method)
+    {
+        try
+        {
+            string name = FullTypeName(method.DeclaringType!);
+
+            ParameterExpression resultVariable = Expression.Parameter(typeof(JSValue), "__result");
+
+            ParameterInfo[] methodParameters = method.GetParameters();
+            ParameterExpression[] parameters = new ParameterExpression[methodParameters.Length + 1];
+            ParameterExpression thisParameter = Expression.Parameter(typeof(JSValue), "__this");
+            parameters[0] = thisParameter;
+            for (int i = 0; i < methodParameters.Length; i++)
+            {
+                parameters[i + 1] = Expression.Parameter(
+                    methodParameters[i].ParameterType, methodParameters[i].Name);
+            }
+
+            /*
+             * ReturnType DelegateName(JSValue __this, Arg0Type arg0, ...)
+             * {
+             *     JSValue __result = __this.Call(thisArg: default(JSValue), (JSValue)arg0, ...);
+             *     return (ReturnType)__result;
+             * }
+             */
+
+            Expression ParameterToJSValue(int index) => InlineOrInvoke(
+                GetToJSValueExpression(methodParameters[index].ParameterType),
+                parameters[index + 1],
+                nameof(BuildToJSMethodExpression));
+
+            // Switch on parameter count to avoid allocating an array if < 4 parameters.
+            // (Expression trees don't support stackallock.)
+            Expression callExpression;
+            if (methodParameters.Length == 0)
+            {
+                callExpression = Expression.Call(
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
+                        new[] { typeof(JSValue), typeof(JSValue) }),
+                    thisParameter,
+                    Expression.Default(typeof(JSValue)));
+            }
+            else if (methodParameters.Length == 1)
+            {
+                callExpression = Expression.Call(
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
+                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue) }),
+                    thisParameter,
+                    Expression.Default(typeof(JSValue)),
+                    ParameterToJSValue(0));
+            }
+            else if (methodParameters.Length == 2)
+            {
+                callExpression = Expression.Call(
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
+                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
+                             typeof(JSValue) }),
+                    thisParameter,
+                    Expression.Default(typeof(JSValue)),
+                    ParameterToJSValue(0),
+                    ParameterToJSValue(1));
+            }
+            else if (methodParameters.Length == 3)
+            {
+                callExpression = Expression.Call(
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
+                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
+                             typeof(JSValue), typeof(JSValue) }),
+                    thisParameter,
+                    Expression.Default(typeof(JSValue)),
+                    ParameterToJSValue(0),
+                    ParameterToJSValue(1),
+                    ParameterToJSValue(2));
+            }
+            else
+            {
+                callExpression = Expression.Call(
+                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
+                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue[]) }),
+                    new Expression[]
+                    {
+                        thisParameter,
+                        Expression.Default(typeof(JSValue)),
+                        Expression.NewArrayInit(
+                            typeof(JSValue),
+                            methodParameters.Select((_, i) => ParameterToJSValue(i))),
+                    });
+            }
+
+            Expression[] statements;
+            if (method.ReturnType == typeof(void))
+            {
+                statements = new[] { callExpression };
+            }
+            else
+            {
+                statements = new[]
+                {
+                    Expression.Assign(resultVariable, callExpression),
+                    InlineOrInvoke(
+                        GetFromJSValueExpression(method.ReturnType),
+                        resultVariable,
+                        nameof(BuildToJSMethodExpression)),
+                };
+            }
+
+            return Expression.Lambda(
+                Expression.Block(method.ReturnType, new[] { resultVariable }, statements),
+                name,
+                parameters);
+        }
+        catch (Exception ex)
+        {
+            throw new JSMarshallerException(
+                "Failed to build .NET adapter for JS delegate.", method, ex);
+        }
+    }
+
+    private LambdaExpression BuildToJSDelegateExpression(Type delegateType)
+    {
+        MethodInfo invokeMethod = delegateType.GetMethod(nameof(Action.Invoke))!;
+        LambdaExpression methodExpression = BuildToJSDelegateMethodExpression(invokeMethod);
+
+        /*
+         * var __valueRef = new JSReference(value);
+         * return (...args) => valueRef.GetValue().Value.Call(...args);
+         */
+        ParameterExpression valueParameter = Expression.Parameter(typeof(JSValue), "__value");
+        ParameterExpression valueRefVariable = Expression.Parameter(
+            typeof(JSReference), "__valueRef");
+
+        Expression assignRefExpression = Expression.Assign(
+            valueRefVariable,
+            Expression.New(
+                typeof(JSReference).GetInstanceConstructor(
+                    new[] { typeof(JSValue), typeof(bool) })!,
+                valueParameter,
+                Expression.Constant(false)));
+        Expression getValueExpression = Expression.Property(
+            Expression.Call(
+                valueRefVariable,
+                typeof(JSReference).GetInstanceMethod(nameof(JSReference.GetValue))),
+            "Value");
+
+        ParameterExpression[] parameters = invokeMethod.GetParameters().Select(
+            (p) => Expression.Parameter(p.ParameterType, p.Name)).ToArray();
+        Expression lambdaExpression = Expression.Lambda(
+            delegateType,
+            Expression.Invoke( // TODO: Call on JS thread!
+                methodExpression,
+                new[] { getValueExpression }.Concat(parameters)),
+            parameters);
+
+        return Expression.Lambda(
+            Expression.Block(
+                delegateType,
+                new[] { valueRefVariable },
+                new[]
+                {
+                    assignRefExpression,
+                    lambdaExpression,
+                }),
+            $"to_{methodExpression.Name}",
+            new[] { valueParameter });
     }
 
     /// <summary>
@@ -1361,6 +1544,20 @@ public class JSMarshaller
                     Expression.Call(Expression.Call(asJSDate, valueParameter), toDateTime),
                 };
             }
+            else if (toType == typeof(CancellationToken))
+            {
+                MethodInfo toAbortSignal = typeof(JSAbortSignal).GetExplicitConversion(
+                    typeof(JSValue), typeof(JSAbortSignal));
+                MethodInfo toCancellationToken = typeof(JSAbortSignal).GetExplicitConversion(
+                    typeof(JSAbortSignal), typeof(CancellationToken));
+
+                statements = new[]
+                {
+                    Expression.Call(
+                        toCancellationToken,
+                        Expression.Call(toAbortSignal, valueParameter)),
+                };
+            }
             else
             {
                 statements = BuildFromJSToStructExpressions(toType, variables, valueParameter);
@@ -1377,6 +1574,15 @@ public class JSMarshaller
                     Expression.Coalesce(
                         Expression.TypeAs(Expression.Call(s_tryUnwrap, valueParameter), toType),
                         Expression.Convert(valueParameter, typeof(NodeStream), adapterConversion)),
+                };
+            }
+            else if (toType.BaseType == typeof(MulticastDelegate))
+            {
+                statements = new[]
+                {
+                    Expression.Invoke(
+                        BuildToJSDelegateExpression(toType),
+                        valueParameter),
                 };
             }
             else
@@ -1519,6 +1725,18 @@ public class JSMarshaller
                     Expression.Call(asJSValue, Expression.Call(fromDateTime, valueParameter)),
                 };
             }
+            else if (fromType == typeof(CancellationToken))
+            {
+                MethodInfo toAbortSignal = typeof(JSAbortSignal).GetExplicitConversion(
+                    typeof(CancellationToken), typeof(JSAbortSignal));
+                MethodInfo asJSValue = typeof(JSAbortSignal).GetImplicitConversion(
+                    typeof(JSAbortSignal), typeof(JSValue));
+
+                statements = new[]
+                {
+                    Expression.Call(asJSValue, Expression.Call(toAbortSignal, valueParameter)),
+                };
+            }
             else
             {
                 statements = BuildToJSFromStructExpressions(fromType, variables, valueExpression);
@@ -1526,15 +1744,26 @@ public class JSMarshaller
         }
         else if (fromType.IsClass)
         {
-            MethodInfo getOrCreateObjectWrapper =
-                s_getOrCreateObjectWrapper.MakeGenericMethod(fromType);
-            statements = new[]
+            if (fromType.BaseType == typeof(MulticastDelegate))
             {
-                Expression.Call(
-                    Expression.Property(null, s_context),
-                    getOrCreateObjectWrapper,
-                    valueExpression),
-            };
+                // TODO: Marshal .NET delegate to JS function.
+                statements = new[]
+                {
+                    Expression.Default(typeof(JSValue)),
+                };
+            }
+            else
+            {
+                MethodInfo getOrCreateObjectWrapper =
+                    s_getOrCreateObjectWrapper.MakeGenericMethod(fromType);
+                statements = new[]
+                {
+                    Expression.Call(
+                        Expression.Property(null, s_context),
+                        getOrCreateObjectWrapper,
+                        valueExpression),
+                };
+            }
         }
         else if (fromType.IsInterface && fromType.Namespace == typeof(ICollection<>).Namespace)
         {

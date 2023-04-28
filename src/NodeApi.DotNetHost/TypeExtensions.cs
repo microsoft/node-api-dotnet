@@ -94,7 +94,7 @@ internal static class TypeExtensions
             .Where((m) => m.Name == "op_Implicit" && m.ReturnType == toType &&
                 m.GetParameters()[0].ParameterType == fromType).SingleOrDefault() ??
             throw new MissingMemberException(
-                $"Explicit conversion method for {fromType.Name}->{toType.Name} " +
+                $"Implicit conversion method for {fromType.Name}->{toType.Name} " +
                 $"not found on type {declaringType.Name}.");
 
 #if NETFRAMEWORK

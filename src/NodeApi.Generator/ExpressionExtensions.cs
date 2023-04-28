@@ -65,7 +65,9 @@ internal static class ExpressionExtensions
             BlockExpression block => FormatBlock(block, path, variables),
 
             ConstantExpression constant => constant.Type == typeof(Type) ?
-                $"typeof({FormatType((Type)constant.Value!)})" : constant.ToString(),
+                $"typeof({FormatType((Type)constant.Value!)})" :
+                constant.Type == typeof(bool) ? constant.ToString().ToLowerInvariant() :
+                constant.ToString(),
 
             DefaultExpression defaultExpression => "default",
 
@@ -73,7 +75,7 @@ internal static class ExpressionExtensions
                 ToCS(cast.Operand, path, variables) + " as " + FormatType(cast.Type),
 
             UnaryExpression { NodeType: ExpressionType.Convert } cast =>
-                "(" + FormatType(cast.Type) + ")" + ToCS(cast.Operand, path, variables),
+                "(" + FormatType(cast.Type) + ")" + WithParentheses(cast.Operand, path, variables),
 
             BinaryExpression binary =>
                 ToCS(binary.Left, path, variables) +
@@ -201,7 +203,8 @@ internal static class ExpressionExtensions
             (expression.NodeType == ExpressionType.TypeAs ||
             expression.NodeType == ExpressionType.Convert ||
             expression.NodeType == ExpressionType.Call ||
-            expression.NodeType == ExpressionType.MemberAccess))
+            expression.NodeType == ExpressionType.MemberAccess ||
+            expression.NodeType == ExpressionType.Lambda))
         {
             // Wrap extra parentheses around casts when needed.
             cs = $"({cs})";
