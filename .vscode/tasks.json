@@ -46,7 +46,10 @@
                 "-c",
                 "Release",
                 "-f",
-                "net7.0"
+                "net7.0",
+                "--",
+                "--filter",
+                "*.NonAot.*"
             ],
             "options": {
                 "cwd": "${workspaceFolder}/bench"
@@ -55,6 +58,28 @@
                 "reveal": "always"
             },
             "problemMatcher": "$msCompile"
-        }
-    ]
+        },
+        {
+          "label": "bench AOT",
+          "command": "dotnet",
+          "type": "shell",
+          "args": [
+              "run",
+              "-c",
+              "Release",
+              "-f",
+              "net7.0",
+              "--",
+              "--filter",
+              "*.Aot.*"
+          ],
+          "options": {
+              "cwd": "${workspaceFolder}/bench"
+          },
+          "presentation": {
+              "reveal": "always"
+          },
+          "problemMatcher": "$msCompile"
+      }
+  ]
 }

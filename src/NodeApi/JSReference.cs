@@ -23,8 +23,9 @@ namespace Microsoft.JavaScript.NodeApi;
 /// </remarks>
 public class JSReference : IDisposable
 {
-    private readonly JSRuntimeContext? _context;
     private readonly napi_ref _handle;
+    private readonly napi_env _env;
+    private readonly JSRuntimeContext? _context;
 
     public bool IsWeak { get; private set; }
 
@@ -40,8 +41,9 @@ public class JSReference : IDisposable
 
     public JSReference(napi_ref handle, bool isWeak = false)
     {
-        _context = JSRuntimeContext.Current;
         _handle = handle;
+        _env = (napi_env)JSValueScope.Current;
+        _context = JSRuntimeContext.Current;
         IsWeak = isWeak;
     }
 
@@ -68,7 +70,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (!IsWeak)
         {
-            napi_reference_unref((napi_env)JSValueScope.Current, _handle, default).ThrowIfFailed();
+            napi_reference_unref(_env, _handle, default).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -77,7 +79,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (IsWeak)
         {
-            napi_reference_ref((napi_env)JSValueScope.Current, _handle, default).ThrowIfFailed();
+            napi_reference_ref(_env, _handle, default).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -85,8 +87,7 @@ public class JSReference : IDisposable
     public JSValue? GetValue()
     {
         ThrowIfDisposed();
-        napi_get_reference_value(
-            (napi_env)JSValueScope.Current, _handle, out napi_value result).ThrowIfFailed();
+        napi_get_reference_value(_env, _handle, out napi_value result).ThrowIfFailed();
         return result;
     }
 
@@ -123,13 +124,12 @@ public class JSReference : IDisposable
             // as the native host. In that case the reference must be disposed from the JS thread.
             if (_context == null)
             {
-                napi_delete_reference((napi_env)JSValueScope.Current, handle).ThrowIfFailed();
+                napi_delete_reference(_env, handle).ThrowIfFailed();
             }
             else
             {
-                _context?.SynchronizationContext.Post(
-                    () => napi_delete_reference((napi_env)_context, handle).ThrowIfFailed(),
-                    allowSync: true);
+                _context.SynchronizationContext.Post(
+                    () => napi_delete_reference(_env, handle).ThrowIfFailed(), allowSync: true);
             }
         }
     }
