@@ -50,6 +50,8 @@ const funcValue = Delegates.CallFunc((value) => value + 1, 1);
 assert.strictEqual(funcValue, 2);
 const delegateValue = Delegates.CallDelegate((value) => value + '!', 'test');
 assert.strictEqual(delegateValue, 'test!');
+const delegateValue2 = Delegates.CallDotnetDelegate((dotnetAction) => dotnetAction('test'));
+assert.strictEqual(delegateValue2, '#test');
 
 async function test() {
   const interfaceObj = assembly.AsyncMethods.InterfaceTest;
