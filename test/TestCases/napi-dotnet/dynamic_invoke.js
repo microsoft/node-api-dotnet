@@ -15,6 +15,10 @@ const version = new dotnet.Version(1, 2, 3); // Invoke overloaded constructor wi
 assert.strictEqual(version.ToString(), '1.2.3');
 assert.strictEqual(version + '.4', '1.2.3.4'); // Implicit call to .NET ToString()
 
+const parsedVersion = dotnet.Version.TryParse('1.2.3'); // Try* pattern returns result or undefined.
+assert.strictEqual(version, parsedVersion);
+assert.strictEqual(undefined, dotnet.Version.TryParse('invalid'));
+
 // Load the test module using dynamic binding `load()` instead of static binding `require()`.
 const assemblyPath = process.env.TEST_DOTNET_MODULE_PATH;
 const assembly = dotnet.load(assemblyPath);
@@ -32,6 +36,12 @@ const instance = new ClassObject(); // Construct an instance of a class
 assert.strictEqual(instance.Value, undefined);
 instance.Value = 'test';
 assert.strictEqual(instance.Value, 'test');
+
+const results = instance.AppendAndGetPreviousValue('2');
+console.dir(Object.getOwnPropertyNames(results));
+assert.strictEqual('object', typeof results);
+assert.strictEqual('test2', results.value);
+assert.strictEqual('test', results.previousValue);
 
 const StructObject = assembly.StructObject;
 assert.strictEqual(typeof StructObject, 'function');

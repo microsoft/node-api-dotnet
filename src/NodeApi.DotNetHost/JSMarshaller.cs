@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +28,20 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// </remarks>
 public class JSMarshaller
 {
+    /// <summary>
+    /// Prefix applied to the the name of out parameters when building expressions. Expressions
+    /// do not distinguish between ref and out parameters, but the source generator needs to use
+    /// the correct keyword.
+    /// </summary>
+    public const string OutParameterPrefix = "__out_";
+
+    /// <summary>
+    /// When a method has `ref` and/or `out` parameters, the results are returned as an object
+    /// with properties for each of the `ref`/`out` parameters along with a `result` property
+    /// for the actual return value (if not void).
+    /// </summary>
+    public const string ResultPropertyName = "result";
+
     private readonly Lazy<JSInterfaceMarshaller> _interfaceMarshaller = new();
 
     private readonly ConcurrentDictionary<Type, Delegate> _fromJSDelegates = new();
@@ -293,7 +308,7 @@ public class JSMarshaller
         {
             argVariables[i] = Expression.Variable(parameters[i].ParameterType, parameters[i].Name);
             statements.Add(Expression.Assign(argVariables[i],
-                BuildArgumentExpression(i, parameters[i].ParameterType)));
+                BuildArgumentExpression(i, parameters[i])));
         }
 
         ParameterExpression resultVariable = Expression.Variable(
@@ -431,16 +446,17 @@ public class JSMarshaller
                     method.DeclaringType.Name + '.' + name;
             }
 
-            ParameterExpression resultVariable = Expression.Parameter(typeof(JSValue), "__result");
+            ParameterInfo[] allMethodParameters = method.GetParameters();
+            ParameterInfo[] methodParameters = allMethodParameters
+                .Where((p) => !(p.IsOut && !p.IsIn)).ToArray(); // Exclude out-only parameters
 
-            ParameterInfo[] methodParameters = method.GetParameters();
-            ParameterExpression[] parameters = new ParameterExpression[methodParameters.Length + 1];
+            ParameterExpression[] parameters =
+                new ParameterExpression[allMethodParameters.Length + 1];
             ParameterExpression thisParameter = Expression.Parameter(typeof(JSValue), "__this");
             parameters[0] = thisParameter;
-            for (int i = 0; i < methodParameters.Length; i++)
+            for (int i = 0; i < allMethodParameters.Length; i++)
             {
-                parameters[i + 1] = Expression.Parameter(
-                    methodParameters[i].ParameterType, methodParameters[i].Name);
+                parameters[i + 1] = Parameter(allMethodParameters[i]);
             }
 
             /*
@@ -519,21 +535,51 @@ public class JSMarshaller
                     });
             }
 
-            Expression[] statements;
-            if (method.ReturnType == typeof(void))
+
+            ParameterExpression resultVariable = Expression.Parameter(typeof(JSValue), "__result");
+            List<Expression> statements = new();
+
+            if (allMethodParameters.Any((p) => p.IsOut))
             {
-                statements = new[] { callExpression };
+                statements.Add(Expression.Assign(resultVariable, callExpression));
+
+                foreach (ParameterInfo outParameter in allMethodParameters.Where((p) => p.IsOut))
+                {
+                    // Convert and assign values to out parameters.
+                    string? outParameterName = Parameter(outParameter).Name;
+                    statements.Add(Expression.Assign(
+                        parameters.Single((p) => p.Name == outParameterName),
+                        InlineOrInvoke(
+                            GetFromJSValueExpression(outParameter.ParameterType),
+                            Expression.Property(
+                                resultVariable,
+                                s_valueItem,
+                                Expression.Constant(outParameter.Name)),
+                            nameof(BuildToJSMethodExpression))));
+                }
+
+                if (method.ReturnType != typeof(void))
+                {
+                    // Get the return value from the results object.
+                    statements.Add(Expression.Assign(resultVariable, Expression.Property(
+                        resultVariable, s_valueItem, Expression.Constant(ResultPropertyName))));
+                    statements.Add(InlineOrInvoke(
+                        GetFromJSValueExpression(method.ReturnType),
+                        resultVariable,
+                        nameof(BuildToJSMethodExpression)));
+                }
+            }
+            else if (method.ReturnType == typeof(void))
+            {
+                statements.Add(callExpression);
             }
             else
             {
-                statements = new[]
-                {
-                    Expression.Assign(resultVariable, callExpression),
-                    InlineOrInvoke(
-                        GetFromJSValueExpression(method.ReturnType),
-                        resultVariable,
-                        nameof(BuildToJSMethodExpression)),
-                };
+                statements.Add(Expression.Assign(resultVariable, callExpression));
+                statements.Add(InlineOrInvoke(
+                    GetFromJSValueExpression(method.ReturnType),
+                    resultVariable,
+                    nameof(BuildToJSMethodExpression)));
             }
 
             return Expression.Lambda(
@@ -568,8 +614,7 @@ public class JSMarshaller
             parameters[0] = thisParameter;
             for (int i = 0; i < methodParameters.Length; i++)
             {
-                parameters[i + 1] = Expression.Parameter(
-                    methodParameters[i].ParameterType, methodParameters[i].Name);
+                parameters[i + 1] = Parameter(methodParameters[i]);
             }
 
             ParameterExpression resultVariable = Expression.Parameter(typeof(JSValue), "__result");
@@ -711,7 +756,7 @@ public class JSMarshaller
                 argVariables.Add(Expression.Variable(
                     parameters[i].ParameterType, parameters[i].Name));
                 statements.Add(Expression.Assign(argVariables[i],
-                    BuildArgumentExpression(i, parameters[i].ParameterType)));
+                    BuildArgumentExpression(i, parameters[i])));
             }
 
             if (method.ReturnType == typeof(void))
@@ -781,8 +826,8 @@ public class JSMarshaller
                 typeof(JSReference).GetInstanceMethod(nameof(JSReference.GetValue))),
             "Value");
 
-        ParameterExpression[] parameters = invokeMethod.GetParameters().Select(
-            (p) => Expression.Parameter(p.ParameterType, p.Name)).ToArray();
+        ParameterExpression[] parameters = invokeMethod.GetParameters()
+            .Select(Parameter).ToArray();
 
         // Select either the Action or Func<> overload of JSSynchronizationContext.Run,
         // depending on whether the delegate returns a value.
@@ -1179,35 +1224,50 @@ public class JSMarshaller
          */
 
         List<ParameterExpression> argVariables = new();
-        IEnumerable<ParameterExpression> variables;
+        List<ParameterExpression> variables = new();
         ParameterInfo[] parameters = method.GetParameters();
         List<Expression> statements = new(parameters.Length + 2);
 
         for (int i = 0; i < parameters.Length; i++)
         {
-            argVariables.Add(Expression.Variable(parameters[i].ParameterType, parameters[i].Name));
+            argVariables.Add(Variable(parameters[i]));
             statements.Add(Expression.Assign(argVariables[i],
-                BuildArgumentExpression(i, parameters[i].ParameterType)));
+                BuildArgumentExpression(i, parameters[i])));
         }
 
+        ParameterExpression? resultVariable = null;
         if (method.ReturnType == typeof(void))
         {
-            variables = argVariables;
             statements.Add(Expression.Call(method, argVariables));
-            statements.Add(Expression.Default(typeof(JSValue)));
         }
         else
         {
-            ParameterExpression resultVariable = Expression.Variable(method.ReturnType, "__result");
-            variables = argVariables.Append(resultVariable);
+            resultVariable = Expression.Variable(method.ReturnType, "__result");
+            variables.Add(resultVariable);
             statements.Add(Expression.Assign(resultVariable,
                 Expression.Call(method, argVariables)));
-            statements.Add(BuildResultExpression(resultVariable, method.ReturnType));
+        }
+
+        if (parameters.Any((p) => p.IsOut))
+        {
+            ParameterExpression resultsVariable = Expression.Variable(typeof(JSValue), "__results");
+            variables.Add(resultsVariable);
+            statements.AddRange(BuildOutParamsObject(
+                method, parameters, argVariables, resultVariable, resultsVariable));
+            statements.Add(resultsVariable);
+        }
+        else if (method.ReturnType != typeof(void))
+        {
+            statements.Add(BuildResultExpression(resultVariable!, method.ReturnType));
+        }
+        else
+        {
+            statements.Add(Expression.Default(typeof(JSValue)));
         }
 
         return (Expression<JSCallback>)Expression.Lambda(
             delegateType: typeof(JSCallback),
-            body: Expression.Block(typeof(JSValue), variables, statements),
+            body: Expression.Block(typeof(JSValue), variables.Concat(argVariables), statements),
             name: FullMethodName(method),
             parameters: s_argsArray);
     }
@@ -1238,24 +1298,40 @@ public class JSMarshaller
 
         for (int i = 0; i < parameters.Length; i++)
         {
-            argVariables.Add(Expression.Variable(parameters[i].ParameterType, parameters[i].Name));
+            argVariables.Add(Variable(parameters[i]));
             statements.Add(Expression.Assign(argVariables[i],
-                BuildArgumentExpression(i, parameters[i].ParameterType)));
+                BuildArgumentExpression(i, parameters[i])));
         }
 
+        ParameterExpression? resultVariable = null;
         if (method.ReturnType == typeof(void))
         {
             statements.Add(Expression.Call(thisVariable, method, argVariables));
-            statements.Add(Expression.Label(returnTarget, Expression.Default(typeof(JSValue))));
         }
         else
         {
-            ParameterExpression resultVariable = Expression.Variable(method.ReturnType, "__result");
+            resultVariable = Expression.Variable(method.ReturnType, "__result");
             variables.Add(resultVariable);
             statements.Add(Expression.Assign(resultVariable,
                 Expression.Call(thisVariable, method, argVariables)));
+        }
+
+        if (parameters.Any((p) => p.IsOut))
+        {
+            ParameterExpression resultsVariable = Expression.Variable(typeof(JSValue), "__results");
+            variables.Add(resultsVariable);
+            statements.AddRange(BuildOutParamsObject(
+                method, parameters, argVariables, resultVariable, resultsVariable));
+            statements.Add(Expression.Label(returnTarget, resultsVariable));
+        }
+        else if (method.ReturnType != typeof(void))
+        {
             statements.Add(Expression.Label(returnTarget,
-                BuildResultExpression(resultVariable, method.ReturnType)));
+                BuildResultExpression(resultVariable!, method.ReturnType)));
+        }
+        else
+        {
+            statements.Add(Expression.Label(returnTarget, Expression.Default(typeof(JSValue))));
         }
 
         return (Expression<JSCallback>)Expression.Lambda(
@@ -1263,6 +1339,57 @@ public class JSMarshaller
             body: Expression.Block(typeof(JSValue), variables.Concat(argVariables), statements),
             name: FullMethodName(method),
             parameters: s_argsArray);
+    }
+
+    private IEnumerable<Expression> BuildOutParamsObject(
+        MethodInfo method,
+        ParameterInfo[] parameters,
+        List<ParameterExpression> argVariables,
+        ParameterExpression? resultVariable,
+        ParameterExpression resultsVariable)
+    {
+        IEnumerable<ParameterInfo> outParameters = parameters
+            .Where((p) => p.IsOut || p.ParameterType.IsByRef);
+
+        if (method.ReturnType == typeof(bool) &&
+            method.Name.StartsWith("Try", StringComparison.Ordinal) &&
+            outParameters.Count() == 1)
+        {
+            // A method with Try* pattern simply returns the out-value or undefined
+            // instead of an object with the bool and out-value properties.
+            yield return Expression.Assign(
+                resultsVariable,
+                Expression.Condition(resultVariable!,
+                    BuildResultExpression(
+                        argVariables.Last(), outParameters.Single().ParameterType),
+                    Expression.Default(typeof(JSValue))));
+            yield break;
+        }
+
+        // Create an object to hold the ref/out parameters and return value.
+        yield return Expression.Assign(resultsVariable, Expression.Call(
+            null, typeof(JSValue).GetStaticMethod(nameof(JSValue.CreateObject))));
+
+        foreach (ParameterInfo outParameter in outParameters)
+        {
+            // Convert and assign the ref/out parameters to properties on the results object.
+            yield return Expression.Assign(
+                Expression.Property(
+                    resultsVariable, s_valueItem,
+                    Expression.Constant(outParameter.Name)),
+                BuildResultExpression(
+                    argVariables.Single((a) => a.Name == outParameter.Name),
+                    outParameter.ParameterType));
+        }
+
+        if (method.ReturnType != typeof(void))
+        {
+            // Convert and assign the return value to a property on the results object.
+            yield return Expression.Assign(
+                Expression.Property(
+                    resultsVariable, s_valueItem, Expression.Constant(ResultPropertyName)),
+                BuildResultExpression(resultVariable!, method.ReturnType));
+        }
     }
 
     private Expression<JSCallback> BuildFromJSStaticPropertyGetExpression(PropertyInfo property)
@@ -1320,9 +1447,9 @@ public class JSMarshaller
         }
         else
         {
-            Type indexType = property.GetMethod.GetParameters()[0].ParameterType;
+            ParameterInfo indexParameter = property.GetMethod.GetParameters()[0];
             propertyExpression = Expression.Property(
-                thisVariable, property, BuildArgumentExpression(0, indexType));
+                thisVariable, property, BuildArgumentExpression(0, indexParameter));
         }
 
         statements.AddRange(BuildThisArgumentExpressions(
@@ -1393,11 +1520,11 @@ public class JSMarshaller
         }
         else
         {
-            Type indexType = property.SetMethod.GetParameters()[0].ParameterType;
+            ParameterInfo indexParameter = property.SetMethod.GetParameters()[0];
             setExpression = Expression.Call(
                 thisVariable,
                 property.SetMethod,
-                BuildArgumentExpression(0, indexType),
+                BuildArgumentExpression(0, indexParameter),
                 valueVariable);
         }
 
@@ -1494,10 +1621,24 @@ public class JSMarshaller
         }
     }
 
-    private Expression BuildArgumentExpression(
-        int index,
-        Type parameterType)
+    private Expression BuildArgumentExpression(int index, ParameterInfo parameter)
     {
+        if (parameter.IsOut && !parameter.IsIn)
+        {
+            return Expression.Default(parameter.ParameterType.IsByRef ?
+                parameter.ParameterType.GetElementType()! : parameter.ParameterType);
+        }
+
+        return BuildArgumentExpression(index, parameter.ParameterType);
+    }
+
+    private Expression BuildArgumentExpression(int index, Type parameterType)
+    {
+        if (parameterType.IsByRef)
+        {
+            parameterType = parameterType.GetElementType()!;
+        }
+
         Expression argExpression = Expression.Property(
             s_argsParameter, s_callbackArg, Expression.Constant(index));
 
@@ -1530,7 +1671,7 @@ public class JSMarshaller
     }
 
     private Expression BuildResultExpression(
-        ParameterExpression resultVariable,
+        Expression resultVariable,
         Type resultType)
     {
         if (resultType == typeof(Task))
@@ -1587,6 +1728,11 @@ public class JSMarshaller
 
     private LambdaExpression BuildConvertFromJSValueExpression(Type toType)
     {
+        if (toType.IsByRef)
+        {
+            toType = toType.GetElementType()!;
+        }
+
         Type delegateType = typeof(JSValue.To<>).MakeGenericType(toType);
         string delegateName = "to_" + FullTypeName(toType);
 
@@ -1765,6 +1911,11 @@ public class JSMarshaller
 
     private LambdaExpression BuildConvertToJSValueExpression(Type fromType)
     {
+        if (fromType.IsByRef)
+        {
+            fromType = fromType.GetElementType()!;
+        }
+
         Type delegateType = typeof(JSValue.From<>).MakeGenericType(fromType);
         string delegateName = "from_" + FullTypeName(fromType);
 
@@ -2541,6 +2692,49 @@ public class JSMarshaller
         return name;
     }
 
+    /// <summary>
+    /// Creates a parameter expression for a method parameter.
+    /// </summary>
+    private static ParameterExpression Parameter(ParameterInfo parameter)
+    {
+        Type parameterType = parameter.ParameterType;
+        string parameterName = parameter.Name!;
+
+        if (parameter.GetCustomAttribute<OutAttribute>() is not null)
+        {
+            parameterType = parameterType.MakeByRefType();
+            if (parameter.GetCustomAttribute<InAttribute>() is null)
+            {
+                // ParameterExpression doesn't distinguish between ref and out parameters,
+                // but source generators need to use the correct keyword.
+                parameterName = OutParameterPrefix + parameterName;
+            }
+        }
+
+        return Expression.Parameter(parameterType, parameterName);
+    }
+
+    /// <summary>
+    /// Creates a variable expression for a method parameter (for converting arguments before
+    /// calling the method).
+    /// </summary>
+    private static ParameterExpression Variable(ParameterInfo parameter)
+    {
+        if (parameter.ParameterType.IsByRef)
+        {
+            return Expression.Parameter(parameter.ParameterType.GetElementType()!, parameter.Name);
+        }
+        else
+        {
+            return Expression.Parameter(parameter.ParameterType, parameter.Name);
+        }
+    }
+
+    /// <summary>
+    /// If the lambda expresion consists of a single statement, the statement expression is returned
+    /// directly, with the "value" parameter replaced with the target expression. Otherwise,
+    /// an invocation expression for the lambda is returned.
+    /// </summary>
     private static Expression InlineOrInvoke(
         LambdaExpression lambda,
         Expression targetExpression,

@@ -723,22 +723,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             (method.Parameters.Length == 0 ||
             (method.Parameters.Length == 1 &&
             method.Parameters[0].Type.AsType() == typeof(JSCallbackArgs))) &&
+            method.Parameters.All((p) => p.RefKind == RefKind.None) &&
             (method.ReturnsVoid ||
             method.ReturnType.AsType() == typeof(JSValue)))
         {
             return false;
-        }
-
-        foreach (IParameterSymbol parameter in method.Parameters)
-        {
-            if (parameter.RefKind != RefKind.None)
-            {
-                ReportError(
-                    DiagnosticId.UnsupportedMethodParameterType,
-                    parameter,
-                    "Parameters with 'ref' or 'out' modifiers are not supported " +
-                        "in exported methods.");
-            }
         }
 
         return true;

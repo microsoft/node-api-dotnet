@@ -17,6 +17,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.JavaScript.NodeApi.Interop;
 using NullabilityInfo = System.Reflection.NullabilityInfo;
+using static Microsoft.JavaScript.NodeApi.DotNetHost.JSMarshaller;
 
 namespace Microsoft.JavaScript.NodeApi.Generator;
 
@@ -24,7 +25,7 @@ namespace Microsoft.JavaScript.NodeApi.Generator;
 #pragma warning disable RS1035 // Do not do file IO in alayzers
 
 /// <summary>
-/// Generats TypeScript type definitions for .NET APIs exported to JavaScript.
+/// Generates TypeScript type definitions for .NET APIs exported to JavaScript.
 /// </summary>
 /// <remarks>
 /// If some specific types or static methods in the assembly are tagged with
@@ -496,14 +497,68 @@ public class TypeDefinitionsGenerator : SourceGenerator
 
     private string GetTSType(ParameterInfo parameter)
     {
-        string tsType = GetTSType(parameter.ParameterType, _nullabilityContext.Create(parameter));
+        string tsType;
+        MethodInfo? method = parameter.Member as MethodInfo;
 
+        if (parameter.Position < 0 && method != null)
+        {
+            if (parameter.ParameterType.FullName == typeof(bool).FullName &&
+                parameter.Member.Name.StartsWith("Try") &&
+                method.GetParameters().Count((p) => p.IsOut) == 1)
+            {
+                // A method with Try* pattern simply returns the out-value or undefined
+                // instead of an object with the bool and out-value properties.
+                tsType = GetTSType(method.GetParameters().Last());
+                if (!tsType.EndsWith(UndefinedTypeSuffix))
+                {
+                    tsType += UndefinedTypeSuffix;
+                }
+                return tsType;
+            }
+            else if (method.GetParameters().Any((p) => p.IsOut))
+            {
+                // A method with ref/out parameters returns an object with properties for those,
+                // along with a result property for the return value (if not void).
+                string outProperties = string.Join(", ", method.GetParameters()
+                    .Where((p) => p.IsOut || p.ParameterType.IsByRef)
+                    .Select((p) =>
+                    {
+                        string propertyType = GetTSType(p);
+                        string optionalToken = string.Empty;
+                        if (propertyType.EndsWith(UndefinedTypeSuffix))
+                        {
+                            propertyType = propertyType.Substring(
+                                0, propertyType.Length - UndefinedTypeSuffix.Length);
+                            optionalToken = "?";
+                        }
+                        return $"{p.Name}{optionalToken}: {propertyType}";
+                    }));
+
+                if (method.ReturnType.FullName == typeof(void).FullName)
+                {
+                    return $"{{ {outProperties} }}";
+                }
+                else
+                {
+                    tsType = GetTSType(
+                        parameter.ParameterType, _nullabilityContext.Create(parameter));
+                    return $"{{ {ResultPropertyName}: {tsType}, {outProperties} }}";
+                }
+            }
+        }
+
+        Type parameterType = parameter.ParameterType;
+        if (parameterType.IsByRef)
+        {
+            parameterType = parameterType.GetElementType()!;
+        }
+
+        tsType = GetTSType(parameterType, _nullabilityContext.Create(parameter));
         if (tsType == "unknown" || tsType.Contains("unknown"))
         {
             string className = parameter.Member.DeclaringType!.Name;
-            string typeName = ExpressionExtensions.FormatType(parameter.ParameterType);
+            string typeName = ExpressionExtensions.FormatType(parameterType);
 
-            MethodInfo? method = parameter.Member as MethodInfo;
             if (parameter.Position < 0 && method != null)
             {
                 ReportWarning(
@@ -741,6 +796,9 @@ public class TypeDefinitionsGenerator : SourceGenerator
             }
             return string.Empty;
         }
+
+        // Exclude out-only parameters.
+        parameters = parameters.Where((p) => !(p.IsOut && !p.IsIn)).ToArray();
 
         if (parameters.Length == 0)
         {
