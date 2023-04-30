@@ -124,6 +124,7 @@ public class JSMarshaller
 
         if (type.IsGenericTypeDefinition &&
             (type == typeof(Task<>) ||
+            type == typeof(CancellationToken) ||
             type == typeof(IEnumerable<>) ||
             type == typeof(IAsyncEnumerable<>) ||
             type == typeof(ICollection<>) ||
@@ -421,12 +422,6 @@ public class JSMarshaller
     {
         if (method is null) throw new ArgumentNullException(nameof(method));
 
-        if (method.DeclaringType!.BaseType == typeof(MulticastDelegate) &&
-            method.Name == nameof(Action.Invoke))
-        {
-            return BuildToJSDelegateMethodExpression(method);
-        }
-
         try
         {
             string name = method.Name;
@@ -467,7 +462,7 @@ public class JSMarshaller
                 nameof(BuildToJSMethodExpression));
 
             // Switch on parameter count to avoid allocating an array if < 4 parameters.
-            // (Expression trees don't support stackallock.)
+            // (Expression trees don't support stackalloc.)
             Expression callExpression;
             if (methodParameters.Length == 0)
             {
@@ -554,8 +549,8 @@ public class JSMarshaller
     }
 
     /// <summary>
-    /// Builds a lambda expression for a .NET adapter to a JS function that is represented
-    /// as a .NET delegate. When invoked, the delegate will marshal the arguments to JS, invoke
+    /// Builds a lambda expression for a .NET adapter to a JS function that is callable
+    /// as a .NET delegate. When invoked, the adapter will marshal the arguments to JS, invoke
     /// the JS function, then marshal the return value (or exception) back to .NET.
     /// </summary>
     /// <remarks>
@@ -563,14 +558,10 @@ public class JSMarshaller
     /// the JS function that will be invoked. The lambda expression may be converted to a
     /// delegate with <see cref="LambdaExpression.Compile()"/>.
     /// </remarks>
-    private LambdaExpression BuildToJSDelegateMethodExpression(MethodInfo method)
+    public LambdaExpression BuildToJSDelegateMethodExpression(MethodInfo method)
     {
         try
         {
-            string name = FullTypeName(method.DeclaringType!);
-
-            ParameterExpression resultVariable = Expression.Parameter(typeof(JSValue), "__result");
-
             ParameterInfo[] methodParameters = method.GetParameters();
             ParameterExpression[] parameters = new ParameterExpression[methodParameters.Length + 1];
             ParameterExpression thisParameter = Expression.Parameter(typeof(JSValue), "__this");
@@ -580,6 +571,8 @@ public class JSMarshaller
                 parameters[i + 1] = Expression.Parameter(
                     methodParameters[i].ParameterType, methodParameters[i].Name);
             }
+
+            ParameterExpression resultVariable = Expression.Parameter(typeof(JSValue), "__result");
 
             /*
              * ReturnType DelegateName(JSValue __this, Arg0Type arg0, ...)
@@ -595,7 +588,7 @@ public class JSMarshaller
                 nameof(BuildToJSMethodExpression));
 
             // Switch on parameter count to avoid allocating an array if < 4 parameters.
-            // (Expression trees don't support stackallock.)
+            // (Expression trees don't support stackalloc.)
             Expression callExpression;
             if (methodParameters.Length == 0)
             {
@@ -671,13 +664,81 @@ public class JSMarshaller
 
             return Expression.Lambda(
                 Expression.Block(method.ReturnType, new[] { resultVariable }, statements),
-                name,
+                $"to_{FullMethodName(method)}",
                 parameters);
         }
         catch (Exception ex)
         {
             throw new JSMarshallerException(
-                "Failed to build .NET adapter for JS delegate.", method, ex);
+                "Failed to build .NET adapter to JS delegate.", method.DeclaringType!, ex);
+        }
+    }
+
+    /// <summary>
+    /// Builds a lambda expression for a .NET adapter from a JS function that calls a
+    /// .NET delegate. When invoked, the adapter will marshal the arguments from JS, invoke
+    /// the .NET delegate, then marshal the return value (or exception) back to JS.
+    /// </summary>
+    /// <remarks>
+    /// The expression has an extra initial argument of the .NET delegate type that is
+    /// the delegate that will be invoked. The lambda expression may be converted to a
+    /// delegate with <see cref="LambdaExpression.Compile()"/>.
+    /// </remarks>
+    public LambdaExpression BuildFromJSDelegateMethodExpression(MethodInfo method)
+    {
+        try
+        {
+            ParameterExpression thisParameter = Expression.Parameter(
+                method.DeclaringType!, "__this");
+
+            List<ParameterExpression> argVariables = new();
+            IEnumerable<ParameterExpression> variables;
+            ParameterInfo[] parameters = method.GetParameters();
+            List<Expression> statements = new(parameters.Length + 2);
+
+            /*
+             * JSValue DelegateName(DelegateType __this, JSCallbackArgs __args)
+             * {
+             *     var param0Name = (Param0Type)__args[0];
+             *     ...
+             *     var __result = __this.Invoke(param0, ...);
+             *     return (JSValue)__result;
+             * }
+             */
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                argVariables.Add(Expression.Variable(
+                    parameters[i].ParameterType, parameters[i].Name));
+                statements.Add(Expression.Assign(argVariables[i],
+                    BuildArgumentExpression(i, parameters[i].ParameterType)));
+            }
+
+            if (method.ReturnType == typeof(void))
+            {
+                variables = argVariables;
+                statements.Add(Expression.Call(thisParameter, method, argVariables));
+                statements.Add(Expression.Default(typeof(JSValue)));
+            }
+            else
+            {
+                ParameterExpression resultVariable = Expression.Variable(
+                    method.ReturnType, "__result");
+                variables = argVariables.Append(resultVariable);
+                statements.Add(Expression.Assign(resultVariable,
+                    Expression.Call(thisParameter, method, argVariables)));
+                statements.Add(BuildResultExpression(resultVariable, method.ReturnType));
+            }
+
+            return Expression.Lambda(
+                body: Expression.Block(typeof(JSValue), variables, statements),
+                $"from_{FullMethodName(method)}",
+                parameters: new[] { thisParameter, s_argsParameter });
+        }
+        catch (Exception ex)
+        {
+            throw new JSMarshallerException(
+                "Failed to build .NET adapter from JS delegate.", method.DeclaringType!, ex);
         }
     }
 
@@ -686,13 +747,22 @@ public class JSMarshaller
         MethodInfo invokeMethod = delegateType.GetMethod(nameof(Action.Invoke))!;
         LambdaExpression methodExpression = BuildToJSDelegateMethodExpression(invokeMethod);
 
+        // When invoking a JS function via a .NET delegate, use the synchronization context
+        // to ensure the call is made on the JS thread. Ordinary method calls from .NET to
+        // JS do not do this, but callback delegates are more likely to be invoked asynchronously
+        // from a background thread.
+
         /*
-         * var __valueRef = new JSReference(value);
-         * return (...args) => valueRef.GetValue().Value.Call(...args);
+         * var __valueRef = new JSReference(__value);
+         * var __syncContext = JSSynchronizationContext.Current;
+         * return (...args) => __syncContext.Run(() =>
+         *     __valueRef.GetValue().Value.Call(...args));
          */
         ParameterExpression valueParameter = Expression.Parameter(typeof(JSValue), "__value");
-        ParameterExpression valueRefVariable = Expression.Parameter(
+        ParameterExpression valueRefVariable = Expression.Variable(
             typeof(JSReference), "__valueRef");
+        ParameterExpression syncContextVariable = Expression.Variable(
+            typeof(JSSynchronizationContext), "__syncContext");
 
         Expression assignRefExpression = Expression.Assign(
             valueRefVariable,
@@ -701,6 +771,10 @@ public class JSMarshaller
                     new[] { typeof(JSValue), typeof(bool) })!,
                 valueParameter,
                 Expression.Constant(false)));
+        Expression assignSyncContextExpression = Expression.Assign(
+            syncContextVariable,
+            Expression.Property(null, typeof(JSSynchronizationContext).GetStaticProperty(
+                nameof(JSSynchronizationContext.Current))));
         Expression getValueExpression = Expression.Property(
             Expression.Call(
                 valueRefVariable,
@@ -709,23 +783,71 @@ public class JSMarshaller
 
         ParameterExpression[] parameters = invokeMethod.GetParameters().Select(
             (p) => Expression.Parameter(p.ParameterType, p.Name)).ToArray();
+
+        // Select either the Action or Func<> overload of JSSynchronizationContext.Run,
+        // depending on whether the delegate returns a value.
+        MethodInfo runMethod = invokeMethod.ReturnType == typeof(void)
+            ? typeof(JSSynchronizationContext).GetInstanceMethod(
+                nameof(JSSynchronizationContext.Run), new[] { typeof(Action) })
+            : typeof(JSSynchronizationContext).GetInstanceMethod(
+                nameof(JSSynchronizationContext.Run),
+                new[] { typeof(Func<>) },
+                genericArg: invokeMethod.ReturnType);
+
+        LambdaExpression innerLambdaExpression = Expression.Lambda(
+            Expression.Invoke(
+                methodExpression,
+                new[] { getValueExpression }.Concat(parameters)));
         Expression lambdaExpression = Expression.Lambda(
             delegateType,
-            Expression.Invoke( // TODO: Call on JS thread!
-                methodExpression,
-                new[] { getValueExpression }.Concat(parameters)),
+            Expression.Call(syncContextVariable, runMethod, innerLambdaExpression),
             parameters);
 
         return Expression.Lambda(
             Expression.Block(
                 delegateType,
-                new[] { valueRefVariable },
+                new[] { valueRefVariable, syncContextVariable },
                 new[]
                 {
                     assignRefExpression,
+                    assignSyncContextExpression,
                     lambdaExpression,
                 }),
-            $"to_{methodExpression.Name}",
+            $"to_{FullTypeName(delegateType)}",
+            new[] { valueParameter });
+    }
+
+    private LambdaExpression BuildFromJSDelegateExpression(Type delegateType)
+    {
+        MethodInfo invokeMethod = delegateType.GetMethod(nameof(Action.Invoke))!;
+        LambdaExpression methodExpression = BuildFromJSDelegateMethodExpression(invokeMethod);
+
+        /*
+         * JSValue.CreateFunction(name, (__args) => __value.Invoke(...args));
+         */
+
+        ParameterExpression valueParameter = Expression.Parameter(delegateType, "__value");
+        MethodInfo createFunctionMethod = typeof(JSValue).GetStaticMethod(
+            nameof(JSValue.CreateFunction),
+            new[] { typeof(string), typeof(JSCallback), typeof(object) });
+
+        Expression lambdaExpression = Expression.Lambda(
+            typeof(JSCallback),
+            Expression.Invoke(methodExpression, valueParameter, s_argsParameter),
+            s_argsArray);
+
+        return Expression.Lambda(
+            Expression.Block(
+                typeof(JSValue),
+                new Expression[]
+                {
+                    Expression.Call(
+                        createFunctionMethod,
+                        Expression.Constant(methodExpression.Name),
+                        lambdaExpression,
+                        Expression.Default(typeof(object))),
+                }),
+            $"from_{FullTypeName(delegateType)}",
             new[] { valueParameter });
     }
 
@@ -1331,7 +1453,7 @@ public class JSMarshaller
             // For normal instance methods, the .NET object is wrapped by the JS object.
 
             /*
-             * ObjecType? __this = __args.ThisArg.Unwrap() as ObjectType;
+             * ObjectType? __this = __args.ThisArg.Unwrap() as ObjectType;
              * if (__this == null) return JSValue.Undefined;
              */
 
@@ -1746,10 +1868,11 @@ public class JSMarshaller
         {
             if (fromType.BaseType == typeof(MulticastDelegate))
             {
-                // TODO: Marshal .NET delegate to JS function.
                 statements = new[]
                 {
-                    Expression.Default(typeof(JSValue)),
+                    Expression.Invoke(
+                        BuildFromJSDelegateExpression(fromType),
+                        valueParameter),
                 };
             }
             else

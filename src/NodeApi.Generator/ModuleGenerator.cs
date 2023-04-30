@@ -656,10 +656,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private void ExportDelegate(ITypeSymbol delegateType)
     {
         MethodInfo delegateInvokeMethod = delegateType.AsType().GetMethod("Invoke")!;
-        Expression<JSCallback> fromAdapter = _marshaller.BuildFromJSMethodExpression(
+        LambdaExpression fromAdapter = _marshaller.BuildFromJSDelegateMethodExpression(
             delegateInvokeMethod);
         _callbackAdapters.Add(fromAdapter.Name!, fromAdapter);
-        LambdaExpression toAapter = _marshaller.BuildToJSMethodExpression(
+        LambdaExpression toAapter = _marshaller.BuildToJSDelegateMethodExpression(
             delegateInvokeMethod);
         _callbackAdapters.Add(toAapter.Name!, toAapter);
     }

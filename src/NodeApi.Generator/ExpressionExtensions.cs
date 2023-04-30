@@ -29,7 +29,7 @@ internal static class ExpressionExtensions
         => ToCS(
             expression,
             path: expression.Name ?? string.Empty,
-            variables: new HashSet<string>());
+            variables: null);
 
     /// <summary>
     /// Recursively traverses an expression tree and builds C# code from the expressions.
@@ -43,7 +43,7 @@ internal static class ExpressionExtensions
     private static string ToCS(
         Expression expression,
         string path,
-        HashSet<string> variables)
+        HashSet<string>? variables)
     {
         path += "/" + expression?.NodeType.ToString() ?? string.Empty;
 
@@ -55,7 +55,7 @@ internal static class ExpressionExtensions
             LambdaExpression lambda =>
                 // Format as either a method or a lambda depending on whether this node
                 // is inside a block (where variables have been defined).
-                (variables.Count == 0 ? FormatType(lambda.ReturnType) + " " + lambda.Name + "(" +
+                (variables is null ? FormatType(lambda.ReturnType) + " " + lambda.Name + "(" +
                   string.Join(", ", lambda.Parameters.Select((p) => p.ToCS())) + ")\n" :
                 "(" + string.Join(", ", lambda.Parameters.Select((p) => p.ToCS())) + ") =>\n") +
                 ToCS(lambda.Body, path, variables),
@@ -195,7 +195,7 @@ internal static class ExpressionExtensions
     private static string WithParentheses(
         Expression expression,
         string path,
-        HashSet<string> variables)
+        HashSet<string>? variables)
     {
         string cs = ToCS(expression, path, variables);
 
@@ -216,10 +216,12 @@ internal static class ExpressionExtensions
     private static string FormatBlock(
         BlockExpression block,
         string path,
-        HashSet<string> variables)
+        HashSet<string>? variables)
     {
         StringBuilder s = new();
         s.Append("{\n");
+
+        variables ??= new HashSet<string>();
 
         for (int i = 0; i < block.Expressions.Count; i++)
         {
@@ -332,7 +334,7 @@ internal static class ExpressionExtensions
         MethodInfo method,
         IReadOnlyCollection<Expression> arguments,
         string path,
-        HashSet<string> variables)
+        HashSet<string>? variables)
         => (method.IsGenericMethod
             ? "<" + string.Join(", ", method.GetGenericArguments().Select(FormatType)) + ">"
             : string.Empty) + FormatArgs(arguments, path, variables);
@@ -340,6 +342,6 @@ internal static class ExpressionExtensions
     private static string FormatArgs(
         IEnumerable<Expression> arguments,
         string path,
-        HashSet<string> variables)
+        HashSet<string>? variables)
         => "(" + string.Join(", ", arguments.Select((a) => ToCS(a, path, variables))) + ")";
 }

@@ -19,9 +19,13 @@ assert.strictEqual(funcValue, 2);
 const delegateValue = Delegates.callDelegate((value) => value + '!', 'test');
 assert.strictEqual(delegateValue, 'test!');
 
-// Marshalling .NET delegates to JS is not yet implemented.
-////const delegateValue2 = Delegates.callDotnetDelegate((dotnetAction) => dotnetAction('test'));
-////assert.strictEqual(delegateValue2, '#test');
+// Pass a function to a .NET method. The function is marshalled to .NET as a delegate.
+// The .NET method calls that delegate, passing another delegate as an argument.
+// The call with delegate argument is marshalled to JS, with delegate marshalled as a function.
+// That function is then called with "test" argument. .NET prepends "#", and the
+// return value is marshalled all the way back.
+const delegateValue2 = Delegates.callDotnetDelegate((dotnetAction) => dotnetAction('test'));
+assert.strictEqual(delegateValue2, '#test');
 
 async function testCancellation() {
   let timeoutHandle;
