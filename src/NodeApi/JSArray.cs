@@ -34,6 +34,15 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
     {
     }
 
+    public JSArray(JSValue[] array)
+    {
+        _value = JSValue.CreateArray(array.Length);
+        for (int i = 0; i < array.Length; i++)
+        {
+            _value.SetElement(i, array[i]);
+        }
+    }
+
     /// <inheritdoc/>
     public int Length => _value.GetArrayLength();
 
