@@ -49,7 +49,8 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// Creates a new unnamed JS function takes two arguments and returns void.
     /// </summary>
     public JSFunction(Action<JSValue, JSValue> callback)
-        : this(JSValue.CreateFunction(name: null, (args) => {
+        : this(JSValue.CreateFunction(name: null, (args) =>
+        {
             callback(args[0], args[1]);
             return default;
         }))
@@ -60,7 +61,8 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// Creates a new unnamed JS function takes three arguments and returns void.
     /// </summary>
     public JSFunction(Action<JSValue, JSValue, JSValue> callback)
-        : this(JSValue.CreateFunction(name: null, (args) => {
+        : this(JSValue.CreateFunction(name: null, (args) =>
+        {
             callback(args[0], args[1], args[2]);
             return default;
         }))
@@ -71,7 +73,8 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// Creates a new unnamed JS function takes four arguments and returns void.
     /// </summary>
     public JSFunction(Action<JSValue, JSValue, JSValue, JSValue> callback)
-        : this(JSValue.CreateFunction(name: null, (args) => {
+        : this(JSValue.CreateFunction(name: null, (args) =>
+        {
             callback(args[0], args[1], args[2], args[3]);
             return default;
         }))
@@ -83,7 +86,8 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// </summary>
     /// <param name="callback"></param>
     public JSFunction(Action<JSValue, JSValue, JSValue, JSValue, JSValue> callback)
-        : this(JSValue.CreateFunction(name: null, (args) => {
+        : this(JSValue.CreateFunction(name: null, (args) =>
+        {
             callback(args[0], args[1], args[2], args[3], args[4]);
             return default;
         }))
@@ -169,7 +173,8 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// Creates a new named JS function takes two arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue, JSValue> callback)
-        : this(JSValue.CreateFunction(name, (args) => {
+        : this(JSValue.CreateFunction(name, (args) =>
+        {
             callback(args[0], args[1]);
             return default;
         }))
@@ -180,7 +185,8 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// Creates a new named JS function takes three arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue, JSValue, JSValue> callback)
-        : this(JSValue.CreateFunction(name, (args) => {
+        : this(JSValue.CreateFunction(name, (args) =>
+        {
             callback(args[0], args[1], args[2]);
             return default;
         }))
@@ -191,7 +197,8 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// Creates a new named JS function takes four arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue, JSValue, JSValue, JSValue> callback)
-        : this(JSValue.CreateFunction(name, (args) => {
+        : this(JSValue.CreateFunction(name, (args) =>
+        {
             callback(args[0], args[1], args[2], args[3]);
             return default;
         }))
@@ -202,7 +209,8 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// Creates a new named JS function takes five arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue, JSValue, JSValue, JSValue, JSValue> callback)
-        : this(JSValue.CreateFunction(name, (args) => {
+        : this(JSValue.CreateFunction(name, (args) =>
+        {
             callback(args[0], args[1], args[2], args[3], args[4]);
             return default;
         }))
