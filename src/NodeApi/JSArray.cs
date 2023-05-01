@@ -36,7 +36,9 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
 
     public JSArray(JSValue[] array)
     {
-        _value = JSValue.CreateArray(array.Length);
+        // Do not specify the length because it will create a sparse array
+        // that prevents some V8 optimizations.
+        _value = JSValue.CreateArray();
         for (int i = 0; i < array.Length; i++)
         {
             _value.SetElement(i, array[i]);

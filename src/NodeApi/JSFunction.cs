@@ -25,7 +25,7 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// Creates a new unnamed JS function with a callback and optional callback data.
     /// </summary>
     public JSFunction(JSCallback callback, object? callbackData)
-    : this(JSValue.CreateFunction(name: null, callback, callbackData))
+        : this(JSValue.CreateFunction(name: null, callback, callbackData))
     {
     }
 
@@ -316,18 +316,31 @@ public readonly struct JSFunction : IEquatable<JSValue>
         }
     }
 
-    public JSValue Call() => _value.Call(thisArg: default);
+    public JSValue Call(JSValue thisArg) => _value.Call(thisArg);
 
-    public JSValue Call(JSValue arg0) => _value.Call(thisArg: default, arg0);
+    public JSValue Call(JSValue thisArg, JSValue arg0) => _value.Call(thisArg, arg0);
 
-    public JSValue Call(JSValue arg0, JSValue arg1) => _value.Call(thisArg: default, arg0, arg1);
+    public JSValue Call(JSValue thisArg, JSValue arg0, JSValue arg1)
+        => _value.Call(thisArg, arg0, arg1);
 
-    public JSValue Call(JSValue arg0, JSValue arg1, JSValue arg2)
-        => _value.Call(thisArg: default, arg0, arg1, arg2);
+    public JSValue Call(JSValue thisArg, JSValue arg0, JSValue arg1, JSValue arg2)
+        => _value.Call(thisArg, arg0, arg1, arg2);
 
-    public JSValue Call(params JSValue[] args) => _value.Call(thisArg: default, args);
+    public JSValue Call(JSValue thisArg, params JSValue[] args) => _value.Call(thisArg, args);
 
     public JSValue CallAsConstructor(params JSValue[] args) => _value.CallAsConstructor(args);
+
+    public JSValue CallAsStatic() => _value.Call(thisArg: default);
+
+    public JSValue CallAsStatic(JSValue arg0) => _value.Call(thisArg: default, arg0);
+
+    public JSValue CallAsStatic(JSValue arg0, JSValue arg1)
+        => _value.Call(thisArg: default, arg0, arg1);
+
+    public JSValue CallAsStatic(JSValue arg0, JSValue arg1, JSValue arg2)
+        => _value.Call(thisArg: default, arg0, arg1, arg2);
+
+    public JSValue CallAsStatic(params JSValue[] args) => _value.Call(thisArg: default, args);
 
     /// <summary>
     /// Compares two JS values using JS "strict" equality.
