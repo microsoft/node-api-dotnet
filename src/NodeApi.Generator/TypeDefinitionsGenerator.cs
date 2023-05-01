@@ -16,8 +16,8 @@ using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.JavaScript.NodeApi.Interop;
-using NullabilityInfo = System.Reflection.NullabilityInfo;
 using static Microsoft.JavaScript.NodeApi.DotNetHost.JSMarshaller;
+using NullabilityInfo = System.Reflection.NullabilityInfo;
 
 namespace Microsoft.JavaScript.NodeApi.Generator;
 
