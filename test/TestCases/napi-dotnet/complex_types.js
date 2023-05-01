@@ -172,3 +172,9 @@ assert(dateValue instanceof Date);
 assert.deepStrictEqual(dateValue, new Date("2023-02-01"));
 ComplexTypes.date = new Date("2024-03-02T11:00");
 assert.deepStrictEqual(ComplexTypes.date, new Date("2024-03-02T11:00"));
+
+// Ref / out parameters
+const results = classInstance.appendAndGetPreviousValue('!');
+assert.strictEqual('object', typeof results);
+assert.strictEqual('test2!', results.value);
+assert.strictEqual('test2', results.previousValue);

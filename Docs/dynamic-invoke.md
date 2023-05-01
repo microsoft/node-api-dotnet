@@ -1,15 +1,13 @@
 ## Dynamically invoke .NET APIs from JavaScript
 
-For a minimal example of this scenario, see
-[../examples/dynamic-invoke/](../examples/dynamic-invoke/).
+For examples of this scenario, see
+[../examples/dynamic-invoke/](../examples/dynamic-invoke/) or
+[../examples/semantic-kernel/](../examples//semantic-kernel/).
 
 1. Add a dependency on the `node-api-dotnet` npm package to your JavaScript project:
     ```
     npm install node-api-dotnet
     ```
-    > :warning: Until this package is published, you'll need to
-    [build it from source](../README-DEV.md).<br>Then get the package from
-    `out/pkg/node-api-dotnet-{version}.tgz`.
 
 2. Import the `node-api-dotnet` package in your JavaScript code:
     ```JavaScript
@@ -24,9 +22,14 @@ For a minimal example of this scenario, see
     ```JavaScript
     const ExampleAssembly = dotnet.load('path/to/ExampleAssembly.dll');
     ```
-    > :warning: If the assembly depends on other non-framework assemblies, the dependencies must be
-    explicitly loaded first, in order. In the future that should be automatic, assuming the
-    dependencies can be found in the same directory as the target assembly.
+    If the assembly depends on other non-framework assemblies, set up a `resolving` event handler
+    _before_ loading the target assembly:
+    ```JavaScript
+    dotnet.addListener('resolving', (name, version) => {
+        const filePath = path.join(__dirname, 'bin', name + '.dll');
+        if (fs.existsSync(filePath)) dotnet.load(filePath);
+    });
+    ```
 
 4. Types in the assembly are projected as properties on the loaded assembly object. So then you can
    use those to call static methods, construct instances of classes, etc:

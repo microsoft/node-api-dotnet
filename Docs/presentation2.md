@@ -139,7 +139,7 @@ _Developers of the Node API for .NET project are current/former members of the N
 Hosting the [Hermes JavaScript engine](https://github.com/facebook/hermes) in a .NET app.
 - JavaScript engine created by Meta.
 - Optimized for React Native applications.
-  - Interpreter only.  
+  - Interpreter only.
   - Small size and fast startup time.
   - JS byte code distribution with apps to save on JS parsing.
   - Not all ES6 constructs are supported yet.
@@ -230,7 +230,7 @@ Numbers are _microseconds_. "Warm" is an average of 10000 .NET -> JS calls (pass
 ---
 ## Roadmap
 Major development areas:
- - More marshalling: events, ref/out params, generics, ...
+ - More marshalling: events, generics, ...
  - API review / refinement
  - More test coverage
 

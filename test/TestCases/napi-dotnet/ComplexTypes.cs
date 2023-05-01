@@ -80,6 +80,8 @@ public interface ITestInterface
     string? Value { get; set; }
 
     string? AppendValue(string append);
+
+    void AppendAndGetPreviousValue(ref string value, out string? previousValue);
 }
 
 /// <summary>
@@ -94,6 +96,19 @@ public class ClassObject : ITestInterface
     {
         Value = (Value ?? "") + append;
         return Value;
+    }
+
+    public void AppendAndGetPreviousValue(ref string value, out string? previousValue)
+    {
+        previousValue = Value;
+        Value = (Value ?? "") + value;
+        value = Value;
+    }
+
+    public bool TryGetValue(out string? value)
+    {
+        value = Value;
+        return value != null;
     }
 
     public static string? StaticValue { get; set; }

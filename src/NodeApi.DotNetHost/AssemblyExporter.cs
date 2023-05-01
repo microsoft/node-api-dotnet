@@ -484,16 +484,13 @@ internal class AssemblyExporter
             return false;
         }
 
-#if NETFRAMEWORK
-        if (type.IsByRef)
-#else
-        if (type.IsByRef || type.IsByRefLike)
-#endif
+#if !NETFRAMEWORK
+        if (type.IsByRefLike)
         {
-            // ref parameters aren't yet supported.
             // ref structs like Span<T> aren't yet supported.
             return false;
         }
+#endif
 
         if (typeof(Stream).IsAssignableFrom(type))
         {
@@ -520,12 +517,6 @@ internal class AssemblyExporter
 
     private static bool IsSupportedParameter(ParameterInfo parameter)
     {
-        if (parameter.IsOut)
-        {
-            // out parameters aren't yet supported.
-            return false;
-        }
-
         Type parameterType = parameter.ParameterType;
         return IsSupportedType(parameterType);
     }

@@ -8,6 +8,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using static Microsoft.JavaScript.NodeApi.DotNetHost.JSMarshaller;
 
 namespace Microsoft.JavaScript.NodeApi.Generator;
 
@@ -58,9 +59,12 @@ internal static class ExpressionExtensions
                 (variables is null ? FormatType(lambda.ReturnType) + " " + lambda.Name + "(" +
                   string.Join(", ", lambda.Parameters.Select((p) => p.ToCS())) + ")\n" :
                 "(" + string.Join(", ", lambda.Parameters.Select((p) => p.ToCS())) + ") =>\n") +
-                ToCS(lambda.Body, path, variables),
+                ToCS(lambda.Body, path, (variables ?? Enumerable.Empty<string>())
+                    .Union(lambda.Parameters.Select((p) => p.Name!)).ToHashSet()),
 
-            ParameterExpression parameter => parameter.Name ?? "_",
+            ParameterExpression parameter =>
+                (parameter.IsByRef && parameter.Name?.StartsWith(OutParameterPrefix) == true) ?
+                    parameter.Name.Substring(OutParameterPrefix.Length) : parameter.Name ?? "_",
 
             BlockExpression block => FormatBlock(block, path, variables),
 
@@ -149,7 +153,7 @@ internal static class ExpressionExtensions
                 call.Method.IsStatic && call.Method.IsDefined(typeof(ExtensionAttribute), false)
                     ? WithParentheses(call.Arguments.First(), path, variables) +
                         "." + call.Method.Name +
-                        FormatArgs(call.Arguments.Skip(1), path, variables) :
+                        FormatArgs(call.Method, call.Arguments.Skip(1), path, variables) :
                 call.Method.IsStatic
                     ? FormatType(call.Method.DeclaringType!) + "." + call.Method.Name +
                         FormatArgs(call.Method, call.Arguments, path, variables)
@@ -190,7 +194,26 @@ internal static class ExpressionExtensions
     }
 
     private static string ToCS(this ParameterExpression parameter)
-        => $"{FormatType(parameter.Type)} {parameter.Name ?? "_"}";
+    {
+        string prefix = string.Empty;
+        string type = FormatType(parameter.Type);
+        string name = parameter.Name ?? "_";
+
+        if (parameter.IsByRef)
+        {
+            if (name.StartsWith(OutParameterPrefix))
+            {
+                prefix = "out ";
+                name = name.Substring(OutParameterPrefix.Length);
+            }
+            else
+            {
+                prefix = "ref ";
+            }
+        }
+
+        return $"{prefix}{type} {name}";
+    }
 
     private static string WithParentheses(
         Expression expression,
@@ -332,12 +355,24 @@ internal static class ExpressionExtensions
 
     private static string FormatArgs(
         MethodInfo method,
-        IReadOnlyCollection<Expression> arguments,
+        IEnumerable<Expression> arguments,
         string path,
         HashSet<string>? variables)
-        => (method.IsGenericMethod
+    {
+        string genericPrefix = (method.IsGenericMethod
             ? "<" + string.Join(", ", method.GetGenericArguments().Select(FormatType)) + ">"
-            : string.Empty) + FormatArgs(arguments, path, variables);
+            : string.Empty);
+
+        ParameterInfo[] parameters = method.GetParameters();
+        if (method.IsStatic && method.IsDefined(typeof(ExtensionAttribute), false))
+        {
+            parameters = parameters.Skip(1).ToArray();
+        }
+
+        string args = string.Join(", ", arguments.Zip(parameters, (a, p) =>
+            (p.IsOut ? (p.IsIn ? "ref " : "out ") : string.Empty) + ToCS(a, path, variables)));
+        return $"{genericPrefix}({args})";
+    }
 
     private static string FormatArgs(
         IEnumerable<Expression> arguments,
