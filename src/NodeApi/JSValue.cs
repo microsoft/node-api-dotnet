@@ -176,7 +176,6 @@ public readonly struct JSValue : IEquatable<JSValue>
         return func;
     }
 
-#if NETFRAMEWORK
     private static unsafe JSValue CreateFunction(
         byte* utf8Name, int utf8NameLength, JSCallback callback, object? callbackData = null)
     {
@@ -194,11 +193,15 @@ public readonly struct JSValue : IEquatable<JSValue>
         func.AddGCHandleFinalizer((nint)descriptorHandle);
         return func;
     }
-#endif
 
     public static unsafe JSValue CreateFunction(
-        string name, JSCallback callback, object? callbackData = null)
+        string? name, JSCallback callback, object? callbackData = null)
     {
+        if (name is null)
+        {
+            return CreateFunction((byte*)null, 0, callback, callbackData);
+        }
+
 #if NETFRAMEWORK
         int byteCount = Encoding.UTF8.GetByteCount(name);
         byte* utf8Name = stackalloc byte[byteCount];

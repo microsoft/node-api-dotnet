@@ -158,9 +158,9 @@ They are wrapped in a layer of .NET types for JS primitives:
     `JSValue`, `JSObject`, `JSArray`, `JSMap`, `JSPromise`, etc.
 
 ```C#
-JSValue.CreateFunction("greeter", (JSCallbackArgs args) =>
+new JSFunction("greeter", (JSValue person) =>
 {
-    return (JSValue)$"Hello {(string)args[0]}!";
+    return (JSValue)$"Hello {(string)person}!";
 });
 ```
 
