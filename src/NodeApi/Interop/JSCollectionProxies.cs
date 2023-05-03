@@ -299,7 +299,7 @@ internal static class JSCollectionProxies
             },
             Set = (JSObject target, JSValue property, JSValue value, JSObject receiver) =>
             {
-                var list = (IList<T>)((JSValue)target).Unwrap();
+                var list = (IList<T>)((JSValue)target).Unwrap(typeof(IList<T>).Name);
 
                 if (property.IsNumber())
                 {

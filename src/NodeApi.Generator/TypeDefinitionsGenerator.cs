@@ -632,17 +632,21 @@ public class TypeDefinitionsGenerator : SourceGenerator
             else if (type.IsGenericType &&
                 type.Name.Substring(0, type.Name.IndexOf('`')) == nameof(Action))
             {
-                string[] parameterTypes = type.GetGenericArguments().Select(
-                    (t, i) => GetTSType(t, nullability?.GenericTypeArguments[i])).ToArray();
-                tsType = $"({string.Join(", ", parameterTypes)}) => void";
+                string[] parameters = type.GetGenericArguments().Select((t, i) =>
+                        $"arg{i + 1}: {GetTSType(t, nullability?.GenericTypeArguments[i])}")
+                    .ToArray();
+                tsType = $"({string.Join(", ", parameters)}) => void";
             }
             else if (type.IsGenericType && type.Name.Substring(0, type.Name.IndexOf('`')) == "Func")
             {
-                string[] typeArgs = type.GetGenericArguments().Select(
-                    (t, i) => GetTSType(t, nullability?.GenericTypeArguments[i])).ToArray();
-                string returnType = typeArgs[typeArgs.Length - 1];
-                string[] parameterTypes = typeArgs.Take(typeArgs.Length - 1).ToArray();
-                tsType = $"({string.Join(", ", parameterTypes)}) => {returnType}";
+                Type[] typeArgs = type.GetGenericArguments();
+                string[] parameters = typeArgs.Take(typeArgs.Length - 1).Select((t, i) =>
+                        $"arg{i + 1}: {GetTSType(t, nullability?.GenericTypeArguments[i])}")
+                    .ToArray();
+                string returnType = GetTSType(
+                    typeArgs[typeArgs.Length - 1],
+                    nullability?.GenericTypeArguments[typeArgs.Length - 1]);
+                tsType = $"({string.Join(", ", parameters)}) => {returnType}";
             }
             else if (IsTypeExported(type))
             {
@@ -654,6 +658,12 @@ public class TypeDefinitionsGenerator : SourceGenerator
             string typeDefinitionName = type.GetGenericTypeDefinition().FullName!;
             Type[] typeArguments = type.GetGenericArguments();
             NullabilityInfo[]? typeArgumentsNullability = nullability?.GenericTypeArguments;
+            if (typeArgumentsNullability?.Length < typeArguments.Length)
+            {
+                // NullabilityContext doesn't handle generic type arguments of by-ref parameters.
+                typeArgumentsNullability = null;
+            }
+
             if (typeDefinitionName == typeof(Nullable<>).FullName)
             {
                 tsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]) +

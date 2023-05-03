@@ -616,9 +616,16 @@ public static partial class JSNativeApi
     /// Gets the object that was previously attached to a JS wrapper.
     /// (Throws an exception if unwrapping failed.)
     /// </summary>
-    public static object Unwrap(this JSValue thisValue)
+    public static object Unwrap(this JSValue thisValue, string? unwrapType = null)
     {
-        napi_unwrap(Env, (napi_value)thisValue, out nint result).ThrowIfFailed();
+        napi_status status = napi_unwrap(Env, (napi_value)thisValue, out nint result);
+
+        if (status == napi_status.napi_invalid_arg && unwrapType != null)
+        {
+            throw new JSException(new JSError($"Failed to unwrap object of type '{unwrapType}'"));
+        }
+
+        status.ThrowIfFailed();
         return GCHandle.FromIntPtr(result).Target!;
     }
 

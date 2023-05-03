@@ -47,7 +47,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
 
     private static new T? Unwrap(JSCallbackArgs args)
     {
-        return (T?)args.ThisArg.Unwrap();
+        return (T?)args.ThisArg.Unwrap(typeof(T).Name);
     }
 
     /// <summary>

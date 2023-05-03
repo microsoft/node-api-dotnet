@@ -35,6 +35,8 @@ public readonly struct JSAbortSignal : IEquatable<JSValue>
 
     public static explicit operator JSAbortSignal(CancellationToken cancellation)
         => FromCancellationToken(cancellation);
+    public static explicit operator JSAbortSignal(CancellationToken? cancellation)
+        => cancellation.HasValue ? FromCancellationToken(cancellation.Value) : default;
 
     private CancellationToken ToCancellationToken()
     {

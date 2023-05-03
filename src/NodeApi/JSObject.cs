@@ -59,7 +59,7 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
 
     public T Unwrap<T>() where T : class
     {
-        return (T)JSNativeApi.Unwrap(_value);
+        return (T)JSNativeApi.Unwrap(_value, typeof(T).Name);
     }
 
     public JSValue this[JSValue name]

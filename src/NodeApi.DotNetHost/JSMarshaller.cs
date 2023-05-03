@@ -1586,13 +1586,13 @@ public class JSMarshaller
 
             PropertyInfo thisArgProperty = typeof(JSCallbackArgs).GetProperty(
                 nameof(JSCallbackArgs.ThisArg))!;
-            MethodInfo unwrapMethod = typeof(JSNativeApi).GetMethod(nameof(JSNativeApi.Unwrap))!;
             yield return Expression.Assign(
                 thisVariable,
                 Expression.TypeAs(
                     Expression.Call(
-                        unwrapMethod,
-                        Expression.Property(s_argsParameter, thisArgProperty)),
+                        s_unwrap,
+                        Expression.Property(s_argsParameter, thisArgProperty),
+                        Expression.Constant(type.Name)),
                     type));
             yield return Expression.IfThen(
                 Expression.Equal(thisVariable, Expression.Constant(null)),
@@ -1857,7 +1857,9 @@ public class JSMarshaller
             {
                 statements = new[]
                 {
-                    Expression.Convert(Expression.Call(s_unwrap, valueParameter), toType),
+                    Expression.Convert(
+                        Expression.Call(s_unwrap, valueParameter, Expression.Constant(toType.Name)),
+                        toType),
                 };
             }
         }
@@ -2001,7 +2003,7 @@ public class JSMarshaller
             else if (fromType == typeof(CancellationToken))
             {
                 MethodInfo toAbortSignal = typeof(JSAbortSignal).GetExplicitConversion(
-                    typeof(CancellationToken), typeof(JSAbortSignal));
+                    nullableType ?? fromType, typeof(JSAbortSignal));
                 MethodInfo asJSValue = typeof(JSAbortSignal).GetImplicitConversion(
                     typeof(JSAbortSignal), typeof(JSValue));
 
