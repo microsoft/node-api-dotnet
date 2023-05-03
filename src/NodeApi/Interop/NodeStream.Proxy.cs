@@ -155,7 +155,7 @@ public partial class NodeStream
     {
         // The count (argument 0) is intentionally ignored.
         JSValue nodeStream = args.ThisArg;
-        var stream = (Stream)nodeStream.Unwrap();
+        var stream = (Stream)nodeStream.Unwrap(typeof(Stream).Name);
 
         ReadAsync(stream, nodeStream);
 
@@ -216,7 +216,7 @@ public partial class NodeStream
     {
         // The encoding (argument 1) is currently ignored.
         JSValue nodeStream = args.ThisArg;
-        var stream = (Stream)nodeStream.Unwrap();
+        var stream = (Stream)nodeStream.Unwrap(typeof(Stream).Name);
         JSValue chunk = args[0];
         JSValue callback = args[2];
 
@@ -273,7 +273,7 @@ public partial class NodeStream
     private static JSValue Final(JSCallbackArgs args)
     {
         JSValue nodeStream = args.ThisArg;
-        var stream = (Stream)nodeStream.Unwrap();
+        var stream = (Stream)nodeStream.Unwrap(typeof(Stream).Name);
         JSValue callback = args[0];
 
         FinalAsync(stream, callback);
@@ -312,7 +312,7 @@ public partial class NodeStream
     {
         // The error (argument 0) is currently ignored.
         JSValue nodeStream = args.ThisArg;
-        var stream = (Stream)nodeStream.Unwrap();
+        var stream = (Stream)nodeStream.Unwrap(typeof(Stream).Name);
         JSValue callback = args[1];
 
         stream.Close();
