@@ -2017,6 +2017,10 @@ public class JSMarshaller
                 statements = BuildToJSFromStructExpressions(fromType, variables, valueExpression);
             }
         }
+        else if (IsGettableCollectionType(fromType))
+        {
+            statements = BuildToJSFromCollectionExpressions(fromType, variables, valueExpression);
+        }
         else if (fromType.IsClass)
         {
             if (fromType.BaseType == typeof(MulticastDelegate))
@@ -2040,10 +2044,6 @@ public class JSMarshaller
                         valueExpression),
                 };
             }
-        }
-        else if (fromType.IsInterface && fromType.Namespace == typeof(ICollection<>).Namespace)
-        {
-            statements = BuildToJSFromCollectionExpressions(fromType, variables, valueExpression);
         }
         else if (fromType.IsInterface)
         {
@@ -2089,6 +2089,24 @@ public class JSMarshaller
             body: Expression.Block(typeof(JSValue), variables, statements),
             name: delegateName,
             parameters: new[] { valueParameter });
+    }
+
+    private static bool IsGettableCollectionType(Type fromType) {
+        var isCollectionInterface = (
+            fromType.IsInterface &&
+            fromType.Namespace == typeof(ICollection<>).Namespace
+        );
+        Type[] exportedGenericClassCollections = {
+           typeof(System.Collections.Generic.List<>),
+           typeof(System.Collections.ObjectModel.ReadOnlyCollection<>),
+        };
+        var isExportedCollectionType = false;
+        if (fromType.IsGenericType) {
+            isExportedCollectionType = exportedGenericClassCollections.Contains(
+                fromType.GetGenericTypeDefinition()
+            );
+        }
+        return isCollectionInterface || isExportedCollectionType;
     }
 
     private LambdaExpression BuildConvertFromJSPromiseExpression(Type toType)
@@ -2550,6 +2568,23 @@ public class JSMarshaller
                 wrapMethod,
                 valueExpression,
                 GetToJSValueExpression(elementType));
+        }
+        else  if (typeDefinition == typeof(List<>))
+        {
+            /*
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+             *     value, (value) => (JSValue)value, (value) => (ElementType)value);
+             */
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
+                    new[] { typeof(IList<>), typeof(JSValue.From<>), typeof(JSValue.To<>) },
+                    elementType);
+            yield return Expression.Call(
+                Expression.Property(null, s_context),
+                wrapMethod,
+                valueExpression,
+                GetToJSValueExpression(elementType),
+                GetFromJSValueExpression(elementType));
         }
         else if (typeDefinition == typeof(IDictionary<,>))
         {
