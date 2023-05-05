@@ -393,6 +393,21 @@ public sealed class JSRuntimeContext : IDisposable
             });
     }
 
+    public JSValue GetOrCreateCollectionWrapper<T>(
+        List<T> collection,
+        JSValue.From<T> toJS,
+        JSValue.To<T> fromJS)
+    {
+        return collection is JSArrayListClass<T> adapter ? adapter.Value :
+            GetOrCreateCollectionProxy(collection, () =>
+            {
+                JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
+                    typeof(IList<T>),
+                    (_) => CreateArrayProxyHandlerForList(toJS, fromJS));
+                return new JSProxy(new JSArray(), proxyHandler, collection);
+            });
+    }
+
 #if !NETFRAMEWORK
     public JSValue GetOrCreateCollectionWrapper<T>(
         IReadOnlySet<T> collection,

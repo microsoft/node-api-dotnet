@@ -64,6 +64,13 @@ public static class JSCollectionExtensions
             new JSArrayList<T>((JSValue)array, fromJS, toJS);
 
     /// <summary>
+    /// Creates a list adapter for a JS Array object, without copying.
+    /// </summary>
+    public static List<T> AsListClass<T>(this JSArray array, JSValue.To<T> fromJS, JSValue.From<T> toJS)
+        => ((JSValue)array).IsNullOrUndefined() ? null! :
+            new JSArrayListClass<T>((JSValue)array, fromJS, toJS);
+
+    /// <summary>
     /// Creates an enumerable adapter for a JS Set object, without copying.
     /// </summary>
     public static IEnumerable<T> AsEnumerable<T>(this JSSet set, JSValue.To<T> fromJS)
@@ -385,6 +392,44 @@ internal class JSArrayList<T> : JSArrayCollection<T>, IList<T>
     public void Insert(int index, T item) => Value.CallMethod("splice", index, 0, ToJS(item));
 
     public void RemoveAt(int index) => Value.CallMethod("splice", index, 1);
+}
+
+internal class JSArrayListClass<T> : List<T>, IEnumerable<T>, IEquatable<JSValue>
+{
+    protected JSValue.To<T> FromJS { get; }
+    protected JSValue.From<T> ToJS { get; }
+    private readonly JSReference _iterableReference;
+    internal JSArrayListClass(JSValue array, JSValue.To<T> fromJS, JSValue.From<T> toJS)
+    {
+        ToJS = toJS;
+        _iterableReference = new JSReference(array);
+        FromJS = fromJS;
+    }
+
+    public JSValue Value => _iterableReference.GetValue()!.Value;
+    public new int Count => Value.GetArrayLength();
+
+    bool IEquatable<JSValue>.Equals(JSValue other) => Value.Equals(other);
+
+    public new IEnumerator<T> GetEnumerator() => new JSIterableEnumerator<T>(Value, FromJS);
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        => GetEnumerator();
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _iterableReference.Dispose();
+        }
+    }
+
 }
 
 internal class JSSetReadOnlyCollection<T> : JSIterableEnumerable<T>, IReadOnlyCollection<T>
