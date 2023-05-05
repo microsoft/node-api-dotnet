@@ -1831,6 +1831,10 @@ public class JSMarshaller
                 statements = BuildFromJSToStructExpressions(toType, variables, valueParameter);
             }
         }
+        else if (IsSettableCollectionType(toType))
+        {
+            statements = BuildFromJSToCollectionExpressions(toType, variables, valueParameter);
+        }
         else if (toType.IsClass)
         {
             if (toType == typeof(Stream))
@@ -1862,10 +1866,6 @@ public class JSMarshaller
                         toType),
                 };
             }
-        }
-        else if (toType.IsInterface && toType.Namespace == typeof(ICollection<>).Namespace)
-        {
-            statements = BuildFromJSToCollectionExpressions(toType, variables, valueParameter);
         }
         else if (toType.IsInterface)
         {
@@ -2089,6 +2089,23 @@ public class JSMarshaller
             body: Expression.Block(typeof(JSValue), variables, statements),
             name: delegateName,
             parameters: new[] { valueParameter });
+    }
+
+    private static bool IsSettableCollectionType(Type toType) {
+        var isCollectionInterface = (
+            toType.IsInterface &&
+            toType.Namespace == typeof(ICollection<>).Namespace
+        );
+        Type[] exportedGenericClassCollections = {
+           typeof(System.Collections.Generic.List<>),
+        };
+        var isExportedCollectionType = false;
+        if (toType.IsGenericType) {
+            isExportedCollectionType = exportedGenericClassCollections.Contains(
+                toType.GetGenericTypeDefinition()
+            );
+        }
+        return isCollectionInterface || isExportedCollectionType;
     }
 
     private static bool IsGettableCollectionType(Type fromType) {
@@ -2442,6 +2459,28 @@ public class JSMarshaller
                     Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
                     GetFromJSValueExpression(elementType)));
         }
+        else if (typeDefinition == typeof(List<>))
+        {
+            Type jsCollectionType = typeof(JSArray);
+            MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                nameof(JSCollectionExtensions.AsListClass),
+                new[] { jsCollectionType, typeof(JSValue.To<>), typeof(JSValue.From<>) },
+                elementType
+            );
+            MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
+                typeof(JSValue),
+                jsCollectionType
+            );
+            yield return Expression.Coalesce(
+                Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
+                Expression.Call(
+                    asCollectionMethod,
+                    Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
+                    GetFromJSValueExpression(elementType),
+                    GetToJSValueExpression(elementType)
+                )
+            );
+        }
         else if (typeDefinition == typeof(IDictionary<,>))
         {
             Type keyType = elementType;
@@ -2577,7 +2616,7 @@ public class JSMarshaller
              */
             MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
                     nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
-                    new[] { typeof(IList<>), typeof(JSValue.From<>), typeof(JSValue.To<>) },
+                    new[] { typeDefinition, typeof(JSValue.From<>), typeof(JSValue.To<>) },
                     elementType);
             yield return Expression.Call(
                 Expression.Property(null, s_context),
