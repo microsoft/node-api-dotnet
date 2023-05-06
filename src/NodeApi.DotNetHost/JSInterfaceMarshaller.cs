@@ -5,10 +5,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi.DotNetHost;
@@ -154,9 +152,9 @@ internal class JSInterfaceMarshaller
         {
             string fieldName = $"_{method.Name}_{fieldIndex++}";
 
-            if (method.IsGenericMethodDefinition || method.ReturnType.IsGenericTypeDefinition)
+            if (method.IsGenericMethodDefinition)
             {
-                // Generic methods are not yet supported.
+                // The delegate field is not used for generic methods.
                 continue;
             }
 
@@ -353,47 +351,103 @@ internal class JSInterfaceMarshaller
 
         ILGenerator il = methodBuilder.GetILGenerator();
 
-        // TODO: Consider defining delegate types as needed for method signatures so the
-        // delegate invocations are not "dynamic". It would avoid boxing value types.
-
-        /*
-         * return this._method.DynamicInvoke(new object[] { Value, args... });
-         */
-
-        // Load the static field for the delegate that implements the method by marshalling to JS.
-        il.Emit(OpCodes.Ldsfld, delegateField);
-
-        // Create an array to hold the arguments passed to the delegate invocation.
-        il.Emit(OpCodes.Ldc_I4, 1 + parameters.Length);
-        il.Emit(OpCodes.Newarr, typeof(object));
-
-        // Store the value from the Value property in the first array slot.
-        il.Emit(OpCodes.Dup); // Duplicate the array reference on the stack.
-        il.Emit(OpCodes.Ldc_I4_0);
-        il.Emit(OpCodes.Ldarg_0); // this
-        PropertyInfo valueProperty = typeof(JSInterface).GetProperty(
-            "Value", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        il.Emit(OpCodes.Call, valueProperty.GetMethod!);
-        il.Emit(OpCodes.Box, typeof(JSValue));
-        il.Emit(OpCodes.Stelem_Ref);
-
-        // Store the arguments in the remaining array slots.
-        for (int i = 0; i < parameters.Length; i++)
+        void EmitArgs()
         {
-            il.Emit(OpCodes.Dup);  // Duplicate the array reference on the stack.
-            il.Emit(OpCodes.Ldc_I4, 1 + i);
-            il.Emit(OpCodes.Ldarg, 1 + i);
+            // Create an array to hold the arguments passed to the delegate invocation.
+            il.Emit(OpCodes.Ldc_I4, 1 + parameters.Length);
+            il.Emit(OpCodes.Newarr, typeof(object));
 
-            if (parameters[i].ParameterType.IsValueType)
-            {
-                il.Emit(OpCodes.Box, parameters[i].ParameterType);
-            }
-
+            // Store the value from the Value property in the first array slot.
+            il.Emit(OpCodes.Dup); // Duplicate the array reference on the stack.
+            il.Emit(OpCodes.Ldc_I4_0);
+            il.Emit(OpCodes.Ldarg_0); // this
+            PropertyInfo valueProperty = typeof(JSInterface).GetProperty(
+                "Value", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            il.Emit(OpCodes.Call, valueProperty.GetMethod!);
+            il.Emit(OpCodes.Box, typeof(JSValue));
             il.Emit(OpCodes.Stelem_Ref);
+
+            // Store the arguments in the remaining array slots.
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                il.Emit(OpCodes.Dup);  // Duplicate the array reference on the stack.
+                il.Emit(OpCodes.Ldc_I4, 1 + i);
+                il.Emit(OpCodes.Ldarg, 1 + i);
+
+                if (parameters[i].ParameterType.IsValueType ||
+                    parameters[i].ParameterType.IsGenericParameter)
+                {
+                    il.Emit(OpCodes.Box, parameters[i].ParameterType);
+                }
+
+                il.Emit(OpCodes.Stelem_Ref);
+            }
         }
 
-        // Invoke the delegate.
-        il.Emit(OpCodes.Callvirt, typeof(Delegate).GetMethod(nameof(Delegate.DynamicInvoke))!);
+        if (method.IsGenericMethodDefinition)
+        {
+            /*
+             * return JSMarshaller.Current.GetToJSMethodDelegate(
+             *     MethodBase.GetCurrentMethod().MakeGenericMethod(new Type[] { typeArgs... }))
+             *     .DynamicInvoke(new object[] { Value, args... });
+             */
+
+            il.Emit(
+                OpCodes.Call,
+                typeof(JSMarshaller).GetStaticProperty(nameof(JSMarshaller.Current)).GetMethod!);
+            il.Emit(
+                OpCodes.Call,
+                typeof(MethodBase).GetStaticMethod(nameof(MethodBase.GetCurrentMethod)));
+            il.Emit(OpCodes.Castclass, typeof(MethodInfo));
+
+            // Create an array to hold the type arguments used to make the generic method.
+            Type[] typeArgs = method.GetGenericArguments();
+            il.Emit(OpCodes.Ldc_I4, typeArgs.Length);
+            il.Emit(OpCodes.Newarr, typeof(Type));
+
+            for (int i = 0; i < typeArgs.Length; i++)
+            {
+                il.Emit(OpCodes.Dup);  // Duplicate the array reference on the stack.
+                il.Emit(OpCodes.Ldc_I4, i);
+                il.Emit(OpCodes.Ldtoken, typeArgs[i]);
+                il.Emit(OpCodes.Call, typeof(Type).GetStaticMethod(nameof(Type.GetTypeFromHandle)));
+                il.Emit(OpCodes.Stelem_Ref);
+            }
+
+            // Make a generic method from the generic method definition.
+            il.Emit(OpCodes.Callvirt,
+                typeof(MethodInfo).GetInstanceMethod(nameof(MethodInfo.MakeGenericMethod)));
+
+            // Request a delegate for the method from the JS marshaller.
+            il.Emit(
+                OpCodes.Callvirt,
+                typeof(JSMarshaller).GetInstanceMethod(nameof(JSMarshaller.GetToJSMethodDelegate)));
+
+            // Dynamically invoke the JS method delegate.
+            EmitArgs();
+            il.Emit(OpCodes.Call,
+                typeof(Delegate).GetInstanceMethod(nameof(Delegate.DynamicInvoke)));
+        }
+        else
+        {
+            /*
+             * return this._method.DynamicInvoke(new object[] { Value, args... });
+             */
+
+            // TODO: Consider defining delegate types as needed for method signatures so the
+            // delegate invocations are not "dynamic". It would avoid boxing value types.
+
+            // Load the static field for the delegate that implements the method by marshalling to JS.
+            il.Emit(OpCodes.Ldsfld, delegateField);
+
+            EmitArgs();
+
+            // Invoke the delegate.
+            il.Emit(
+                OpCodes.Callvirt,
+                typeof(Delegate).GetInstanceMethod(nameof(Delegate.DynamicInvoke)));
+        }
+
 
         // Return the result, casting to the return type if necessary.
         if (method.ReturnType == typeof(void))
@@ -409,6 +463,7 @@ internal class JSInterfaceMarshaller
         {
             il.Emit(OpCodes.Castclass, method.ReturnType);
         }
+
         il.Emit(OpCodes.Ret);
 
         typeBuilder.DefineMethodOverride(methodBuilder, method);

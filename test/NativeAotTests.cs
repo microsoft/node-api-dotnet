@@ -68,6 +68,7 @@ public class NativeAotTests
             ["TargetFramework"] = GetCurrentFrameworkTarget(),
             ["RuntimeIdentifier"] = GetCurrentPlatformRuntimeIdentifier(),
             ["Configuration"] = Configuration,
+            ["DefineConstants"] = "AOT",
         };
 
         BuildProject(

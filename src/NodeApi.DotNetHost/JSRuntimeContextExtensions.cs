@@ -13,12 +13,6 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 public static class JSRuntimeContextExtensions
 {
     /// <summary>
-    /// The marshaller instance can be static because it does not hold any JS values,
-    /// only expressions and delegates generated from reflection.
-    /// </summary>
-    private static readonly JSMarshaller s_marshaller = new();
-
-    /// <summary>
     /// Imports a module or module property from JavaScript and converts it to an interface.
     /// </summary>
     /// <typeparam name="T">Type of the value being imported.</typeparam>
@@ -36,7 +30,7 @@ public static class JSRuntimeContextExtensions
         string? property)
     {
         JSValue jsValue = runtimeContext.Import(module, property);
-        return s_marshaller.To<T>(jsValue);
+        return JSMarshaller.Current.To<T>(jsValue);
     }
 
     /// <summary>

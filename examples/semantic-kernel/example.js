@@ -1,17 +1,33 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { SK, SKOpenAI } from './semantic-kernel.js';
+// @ts-check
 
-const kernel = SK.Kernel.Builder.Build();
+import { SK, SKOpenAI, Logging } from './semantic-kernel.js';
+const LogLevel = Logging.LogLevel;
+
+/** @type {import('./bin/Microsoft.Extensions.Logging.Abstractions').ILogger} */
+const logger = {
+  Log(logLevel, eventId, state, exception, formatter) {
+    console.log(`LOG (${LogLevel[logLevel]}): ${formatter(state, exception)}`);
+  },
+
+  IsEnabled(logLevel) { return true; },
+
+  BeginScope(state) { return { dispose() { } }; },
+};
+
+const kernel = SK.Kernel.Builder
+  .WithLogger(logger)
+  .Build();
 
 // The JS marshaller does not yet support extension methods.
 SKOpenAI.KernelConfigOpenAIExtensions.AddAzureTextCompletionService(
   kernel.Config,
   'davinci-azure',
-  process.env['OPENAI_DEPLOYMENT'],
-  process.env['OPENAI_ENDPOINT'],
-  process.env['OPENAI_KEY'],
+  process.env['OPENAI_DEPLOYMENT'] || '',
+  process.env['OPENAI_ENDPOINT'] || '',
+  process.env['OPENAI_KEY'] || '',
 );
 
 const skPrompt = `

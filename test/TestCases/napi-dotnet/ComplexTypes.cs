@@ -88,9 +88,13 @@ public interface ITestInterface
 {
     string? Value { get; set; }
 
-    string? AppendValue(string append);
+    string AppendValue(string append);
 
     void AppendAndGetPreviousValue(ref string value, out string? previousValue);
+
+#if !AOT
+    string AppendGenericValue<T>(T value);
+#endif
 }
 
 /// <summary>
@@ -101,10 +105,10 @@ public class ClassObject : ITestInterface
 {
     public string? Value { get; set; }
 
-    public string? AppendValue(string append)
+    public string AppendValue(string append)
     {
         Value = (Value ?? "") + append;
-        return Value;
+        return Value!;
     }
 
     public void AppendAndGetPreviousValue(ref string value, out string? previousValue)
@@ -123,6 +127,19 @@ public class ClassObject : ITestInterface
     public static string? StaticValue { get; set; }
 
     public ClassObject ThisObject() => this;
+
+#if !AOT
+    public string AppendGenericValue<T>(T value)
+    {
+        Value = (Value ?? "") + value?.ToString();
+        return Value!;
+    }
+
+    public static void CallGenericMethod(ITestInterface obj, int value)
+    {
+        obj.AppendGenericValue<int>(value);
+    }
+#endif
 }
 
 [JSExport]

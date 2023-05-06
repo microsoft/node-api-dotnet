@@ -26,19 +26,17 @@ internal class AssemblyExporter
     /// Creates a new instance of the <see cref="AssemblyExporter" /> class.
     /// </summary>
     /// <param name="assembly">The assembly to be exported.</param>
-    /// <param name="marshaller">Marshaller that supports dynamic binding to .NET APIs.</param>
     /// <param name="exportedTypes">Mapping from .NET types to exported JS types
     /// (shared by multiple assembly exporters within the same host).</param>
     /// <param name="target">Proxy target object; any properties/methods on this object
     /// will be exposed on the exported assembly object in addition to assembly types.</param>
     public AssemblyExporter(
         Assembly assembly,
-        JSMarshaller marshaller,
         IDictionary<Type, JSReference> exportedTypes,
         JSObject target)
     {
         Assembly = assembly;
-        _marshaller = marshaller;
+        _marshaller = JSMarshaller.Current;
         _exportedTypes = exportedTypes;
 
         JSProxy proxy = new(target, CreateProxyHandler());
@@ -251,29 +249,53 @@ internal class AssemblyExporter
 
     private void ExportClassDependencies(Type type)
     {
+        void ExportTypeIfSupported(Type dependencyType)
+        {
+            if (dependencyType.IsArray)
+            {
+                ExportTypeIfSupported(dependencyType.GetElementType()!);
+                return;
+            }
+
+            string assemblyName = dependencyType.Assembly.GetName().Name!;
+            if (IsSupportedType(dependencyType) &&
+#if NETFRAMEWORK
+                assemblyName != "mscorlib" &&
+#endif
+                assemblyName?.StartsWith("System.") == false)
+            {
+                ExportClass(dependencyType);
+            }
+        }
+
         foreach (MemberInfo member in type.GetMembers
             (BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
         {
             if (member is PropertyInfo property &&
-                property.PropertyType.Assembly.GetName().Name?.StartsWith("System.") == false &&
-#if NETFRAMEWORK
-                property.PropertyType.Assembly.GetName().Name != "mscorlib" &&
-#endif
-                IsSupportedType(property.PropertyType) &&
                 !JSMarshaller.IsConvertedType(property.PropertyType))
             {
-                ExportClass(property.PropertyType);
+                ExportTypeIfSupported(property.PropertyType);
             }
             else if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
-                method.ReturnType.Assembly.GetName().Name?.StartsWith("System.") == false &&
-#if NETFRAMEWORK
-                method.ReturnType.Assembly.GetName().Name != "mscorlib" &&
-#endif
-                IsSupportedType(method.ReturnType) &&
                 !JSMarshaller.IsConvertedType(method.ReturnType))
             {
-                ExportClass(method.ReturnType);
+                ExportTypeIfSupported(method.ReturnType);
+            }
+            else if (member is MethodInfo interfaceMethod && type.IsInterface)
+            {
+                // Interface method parameter types must be exported in case the interface
+                // will be implemented by JS.
+                foreach (ParameterInfo interfaceMethodParameter in interfaceMethod.GetParameters())
+                {
+                    Type parameterType = interfaceMethodParameter.ParameterType;
+#if !NETFRAMEWORK // TODO: Find an alternative for .NET Framework.
+                    if (!parameterType.IsGenericMethodParameter)
+#endif
+                    {
+                        ExportTypeIfSupported(parameterType);
+                    }
+                }
             }
         }
     }
