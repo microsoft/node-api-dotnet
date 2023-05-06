@@ -1782,9 +1782,13 @@ public class JSMarshaller
         }
         else if (toType.IsValueType)
         {
-            if (toType.IsGenericType &&
-                (toType.GetGenericTypeDefinition() == typeof(Memory<>) ||
-                toType.GetGenericTypeDefinition() == typeof(ReadOnlyMemory<>)))
+            Type? genericTypeDefinition = toType.IsGenericType ?
+                toType.GetGenericTypeDefinition() : null;
+            Type[]? genericArguments = toType.IsGenericType ?
+                toType.GetGenericArguments() : null;
+
+            if (genericTypeDefinition == typeof(Memory<>) ||
+                genericTypeDefinition == typeof(ReadOnlyMemory<>))
             {
                 Type elementType = toType.GenericTypeArguments[0];
                 if (!IsTypedArrayType(elementType))
@@ -1800,6 +1804,51 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Property(Expression.Call(asTypedArray, valueParameter), memory),
+                };
+            }
+            else if (genericTypeDefinition == typeof(KeyValuePair<,>))
+            {
+                /*
+                 * new KeyValuePair<TKey, TValue>((TKey)value[0], (TValue)value[1])
+                 */
+                statements = new[]
+                {
+                    Expression.New(
+                        toType.GetConstructor(genericArguments!)!,
+                        InlineOrInvoke(
+                            BuildConvertFromJSValueExpression(genericArguments![0]),
+                            Expression.Call(
+                                typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetElement)),
+                                valueParameter, Expression.Constant(0)),
+                            nameof(BuildConvertFromJSValueExpression)),
+                        InlineOrInvoke(
+                            BuildConvertFromJSValueExpression(genericArguments![1]),
+                            Expression.Call(
+                                typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetElement)),
+                                valueParameter, Expression.Constant(1)),
+                            nameof(BuildConvertFromJSValueExpression))),
+                };
+            }
+            else if (toType == typeof(ValueTuple))
+            {
+                statements = new[] { Expression.Default(typeof(ValueTuple)) };
+            }
+            else if (genericTypeDefinition?.Name.StartsWith("ValueTuple`") == true)
+            {
+                /*
+                 * new ValueTuple((T1)value[0], (T2)value[1], ...)
+                 */
+                Expression TupleItem(int index) => InlineOrInvoke(
+                    BuildConvertFromJSValueExpression(genericArguments![index]),
+                    Expression.Call(
+                        typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetElement)),
+                        valueParameter, Expression.Constant(index)),
+                    nameof(BuildConvertFromJSValueExpression));
+                statements = new[]
+                {
+                    Expression.New(
+                        toType.GetConstructor(genericArguments!)!,
+                        genericArguments!.Select((t, i) => TupleItem(i)).ToArray()),
                 };
             }
             else if (toType == typeof(DateTime))
@@ -1851,6 +1900,25 @@ public class JSMarshaller
                     Expression.Invoke(
                         BuildToJSDelegateExpression(toType),
                         valueParameter),
+                };
+            }
+            else if (toType.IsGenericType && toType.Name.StartsWith("Tuple`"))
+            {
+                /*
+                 * new Tuple((T1)value[0], (T2)value[1], ...)
+                 */
+                Type[]? genericArguments = toType.GetGenericArguments();
+                Expression TupleItem(int index) => InlineOrInvoke(
+                    BuildConvertFromJSValueExpression(genericArguments![index]),
+                    Expression.Call(
+                        typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetElement)),
+                        valueParameter, Expression.Constant(index)),
+                    nameof(BuildConvertFromJSValueExpression));
+                statements = new[]
+                {
+                    Expression.New(
+                        toType.GetConstructor(genericArguments!)!,
+                        genericArguments!.Select((t, i) => TupleItem(i)).ToArray()),
                 };
             }
             else
@@ -1971,7 +2039,12 @@ public class JSMarshaller
         }
         else if (fromType.IsValueType)
         {
-            if (fromType.IsGenericType && fromType.GetGenericTypeDefinition() == typeof(Memory<>))
+            Type? genericTypeDefinition = fromType.IsGenericType ?
+                fromType.GetGenericTypeDefinition() : null;
+            Type[]? genericArguments = fromType.IsGenericType ?
+                fromType.GetGenericArguments() : null;
+
+            if (genericTypeDefinition == typeof(Memory<>))
             {
                 Type elementType = fromType.GenericTypeArguments[0];
                 if (!IsTypedArrayType(elementType))
@@ -1987,6 +2060,58 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Call(asJSValue, Expression.New(constructor, valueParameter)),
+                };
+            }
+            else if (genericTypeDefinition == typeof(KeyValuePair<,>))
+            {
+                /*
+                 * new JSArray(new JSValue[] { (JSValue)value.Key, (JSValue)value.Value })
+                 */
+                statements = new[]
+                {
+                    Expression.Convert(
+                        Expression.New(
+                            typeof(JSArray).GetInstanceConstructor(new[] { typeof(JSValue[]) }),
+                            Expression.NewArrayInit(typeof(JSValue),
+                                InlineOrInvoke(
+                                    BuildConvertToJSValueExpression(genericArguments![0]),
+                                    Expression.Property(valueExpression, "Key"),
+                                    nameof(BuildConvertToJSValueExpression)),
+                                InlineOrInvoke(
+                                    BuildConvertToJSValueExpression(genericArguments![1]),
+                                    Expression.Property(valueExpression, "Value"),
+                                    nameof(BuildConvertToJSValueExpression)))),
+                        typeof(JSValue)),
+                };
+                
+            }
+            else if (fromType == typeof(ValueTuple))
+            {
+                // An empty tuple is marshalled as an empty array.
+                statements = new[]
+                {
+                    Expression.Convert(
+                        Expression.New(typeof(JSArray).GetInstanceConstructor(Array.Empty<Type>())),
+                        typeof(JSValue)),
+                };
+            }
+            else if (genericTypeDefinition?.Name.StartsWith("ValueTuple`") == true)
+            {
+                /*
+                 * new JSArray(new JSValue[] { (JSValue)value.Item1, (JSValue)value.Item2... })
+                 */
+                Expression TupleItem(int index) => InlineOrInvoke(
+                    BuildConvertToJSValueExpression(genericArguments![index]),
+                    Expression.Field(valueExpression, "Item" + (index + 1)),
+                    nameof(BuildConvertToJSValueExpression));
+                statements = new[]
+                {
+                    Expression.Convert(
+                        Expression.New(
+                            typeof(JSArray).GetInstanceConstructor(new[] { typeof(JSValue[]) }),
+                            Expression.NewArrayInit(typeof(JSValue),
+                                genericArguments!.Select((_, i) =>  TupleItem(i)).ToArray())),
+                        typeof(JSValue)),
                 };
             }
             else if (fromType == typeof(DateTime))
@@ -2026,6 +2151,36 @@ public class JSMarshaller
                     Expression.Invoke(
                         BuildFromJSDelegateExpression(fromType),
                         valueParameter),
+                };
+            }
+            else if (fromType == typeof(Tuple))
+            {
+                // An empty tuple is marshalled as an empty array.
+                statements = new[]
+                {
+                    Expression.Convert(
+                        Expression.New(typeof(JSArray).GetInstanceConstructor(Array.Empty<Type>())),
+                        typeof(JSValue)),
+                };
+            }
+            else if (fromType.IsGenericType && fromType.Name.StartsWith("Tuple`") == true)
+            {
+                /*
+                 * new JSArray(new JSValue[] { (JSValue)value.Item1, (JSValue)value.Item2... })
+                 */
+                Type[]? genericArguments = fromType.GetGenericArguments();
+                Expression TupleItem(int index) => InlineOrInvoke(
+                    BuildConvertToJSValueExpression(genericArguments![index]),
+                    Expression.Property(valueExpression, "Item" + (index + 1)),
+                    nameof(BuildConvertToJSValueExpression));
+                statements = new[]
+                {
+                    Expression.Convert(
+                        Expression.New(
+                            typeof(JSArray).GetInstanceConstructor(new[] { typeof(JSValue[]) }),
+                            Expression.NewArrayInit(typeof(JSValue),
+                                genericArguments!.Select((_, i) =>  TupleItem(i)).ToArray())),
+                        typeof(JSValue)),
                 };
             }
             else

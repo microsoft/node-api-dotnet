@@ -173,6 +173,23 @@ assert.deepStrictEqual(dateValue, new Date("2023-02-01"));
 ComplexTypes.date = new Date("2024-03-02T11:00");
 assert.deepStrictEqual(ComplexTypes.date, new Date("2024-03-02T11:00"));
 
+// Tuples
+const pairValue = ComplexTypes.pair;
+assert(Array.isArray(pairValue));
+assert.deepStrictEqual(pairValue, ['pair', 1]);
+ComplexTypes.pair = ['pair', -1];
+assert.deepStrictEqual(ComplexTypes.pair, ['pair', -1]);
+const tupleValue = ComplexTypes.tuple;
+assert(Array.isArray(tupleValue));
+assert.deepStrictEqual(tupleValue, ['tuple', 2]);
+ComplexTypes.tuple = ['tuple', -2];
+assert.deepStrictEqual(ComplexTypes.tuple, ['tuple', -2]);
+const valueTupleValue = ComplexTypes.valueTuple;
+assert(Array.isArray(valueTupleValue));
+assert.deepStrictEqual(valueTupleValue, ['valueTuple', 3]);
+ComplexTypes.valueTuple = ['valueTuple', -3];
+assert.deepStrictEqual(ComplexTypes.valueTuple, ['valueTuple', -3]);
+
 // Ref / out parameters
 const results = classInstance.appendAndGetPreviousValue('!');
 assert.strictEqual('object', typeof results);

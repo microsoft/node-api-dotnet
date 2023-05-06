@@ -26,17 +26,25 @@ generated automatically. Or, the generator tool is available separately via the
 | `string` | `string`              |
 
 ### Object types
-
-| C# Type                       | TypeScript Projection            |
-|-------------------------------|----------------------------------|
-| `class Example`               | `class Example`                  |
-| `struct Example`              | `class Example`                  |
-| `interface IExample`          | `interface IExample`             |
-| `delegate A Example(B value)` | `declare function Example(value: B): A` |
+| C# Type                       | TypeScript Projection |
+|-------------------------------|-----------------------|
+| `class Example`               | `class Example`       |
+| `struct Example`              | `class Example`       |
+| `interface IExample`          | `interface IExample`  |
 
 .NET property names and method names are automatically camel-cased when projected to JavaScript /
 TypeScript by a [C# node module](./node-module.md). Names are projected as-is (without any
 camel-casing) when [dynamically invoking .NET APIs from JavaScript](./dynamic-invoke).
+
+### Delegate types
+| C# Type                       | TypeScript Projection                   |
+|-------------------------------|-----------------------------------------|
+| `Action<T1, T2, ...>`         | `(arg1: T1, arg2: T2, ...) => void`     |
+| `Func<T1, T2, ... TResult>`   | `(arg1: T1, arg2: T2, ...) => TResult`  |
+| `Predicate<T>`                | `(value: T) => boolean`                 |
+| `delegate A Example(B value)` | `declare function Example(value: B): A` |
+
+Named delegate types are declared as TypeScript functions. Generic delegate types are inlined.
 
 ### Enums
 | C# Type                          | TypeScript Projection                |
@@ -71,21 +79,28 @@ for element access. Otherwise prefer collection interfaces (below) which are pas
 
 ### Collection types
 
-| C# Type                  | TypeScript Projection |
-|--------------------------|-----------------------|
-| `IEnumerable<T>`         | `Iterable<T>`         |
-| `IReadOnlyCollection<T>` | `ReadonlySet<T>`      |
-| `ICollection<T>`         | `Set<T>`              |
-| `IReadOnlySet<T>`        | `ReadonlySet<T>`      |
-| `ISet<T>`                | `Set<T>`              |
-| `IReadOnlyList<T>`       | `readonly T[]` (`ReadonlyArray<T>`) |
-| `IList<T>`               | `T[]` aka `Array<T>`  |
-| `IReadOnlyDictionary<T>` | `ReadonlyMap<T>`      |
-| `IDictionary<T>`         | `Map<T>`              |
+| C# Type                     | TypeScript Projection |
+|-----------------------------|-----------------------|
+| `IEnumerable<T>`            | `Iterable<T>`         |
+| `IReadOnlyCollection<T>`    | `ReadonlySet<T>`      |
+| `ICollection<T>`            | `Set<T>`              |
+| `IReadOnlySet<T>`           | `ReadonlySet<T>`      |
+| `ISet<T>`                   | `Set<T>`              |
+| `IReadOnlyList<T>`          | `readonly T[]` (`ReadonlyArray<T>`) |
+| `IList<T>`                  | `T[]` aka `Array<T>`  |
+| `IReadOnlyDictionary<T>`    | `ReadonlyMap<T>`      |
+| `IDictionary<T>`            | `Map<T>`              |
+| `KeyValuePair<TKey, TValue>`| `[TKey, TValue]`      |
+| `Tuple<T1, T2, ...>`        | `[T1, T2, ...]`       |
+| `ValueTuple<T1, T2, ...>`   | `[T1, T2, ...]`       |
 
 Collections exported from .NET use JavaScript proxies with .NET handlers to avoid copying items
 across the .NET/JS boundary. But this implementation detail does not affect the types visible to
 JavaScript code, e.g. a dictionary from .NET still satisfies `instanceof Map` in JS.
+
+`ValueTuple`s with named properties are still projected as JS arrays, not JS objects with named
+properties. So C# `(string A, int B)` becomes TypeScript `[string, number]`, not
+`{ A: string, B: number }`.
 
 ### Special types
 
