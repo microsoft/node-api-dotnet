@@ -648,6 +648,13 @@ public class TypeDefinitionsGenerator : SourceGenerator
                     nullability?.GenericTypeArguments[typeArgs.Length - 1]);
                 tsType = $"({string.Join(", ", parameters)}) => {returnType}";
             }
+            else if (type.IsGenericType &&
+                type.Name.Substring(0, type.Name.IndexOf('`')) == "Predicate")
+            {
+                Type typeArg = type.GetGenericArguments()[0];
+                string tsTypeArg = GetTSType(typeArg, nullability?.GenericTypeArguments[0]);
+                tsType = $"(value: {tsTypeArg}) => boolean";
+            }
             else if (IsTypeExported(type))
             {
                 tsType = type.Name;
@@ -743,6 +750,23 @@ public class TypeDefinitionsGenerator : SourceGenerator
                 string valueTSType = GetTSType(typeArguments[1], typeArgumentsNullability?[1]);
                 tsType = $"ReadonlyMap<{keyTSType}, {valueTSType}>";
             }
+            else if (typeDefinitionName == typeof(KeyValuePair<,>).FullName)
+            {
+                string keyTSType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
+                string valueTSType = GetTSType(typeArguments[1], typeArgumentsNullability?[1]);
+                tsType = $"[{keyTSType}, {valueTSType}]";
+            }
+            else if (typeDefinitionName.StartsWith("System.Tuple`") ||
+                typeDefinitionName.StartsWith("System.ValueTuple`"))
+            {
+                IEnumerable<string> itemTSTypes = typeArguments.Select((typeArg, index) =>
+                    GetTSType(typeArg, typeArgumentsNullability?[index]));
+                tsType = $"[{string.Join(", ", itemTSTypes)}]";
+            }
+        }
+        else if (type.FullName == typeof(ValueTuple).FullName)
+        {
+            tsType = "[]";
         }
         else if (type.FullName == typeof(Task).FullName ||
             type.FullName == typeof(ValueTask).FullName)

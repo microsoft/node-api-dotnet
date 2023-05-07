@@ -51,11 +51,20 @@ public static class ComplexTypes
     public static IDictionary<string, IList<ClassObject>> ObjectListDictionary { get; set; }
         = new Dictionary<string, IList<ClassObject>>();
 
-    public static Memory<uint> Slice(Memory<uint> array, int start, int length) => array.Slice(start, length);
+    public static Memory<uint> Slice(Memory<uint> array, int start, int length)
+        => array.Slice(start, length);
 
     public static TestEnum TestEnum { get; set; }
 
     public static DateTime Date { get; set; } = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    public static KeyValuePair<string, int> Pair { get; set; }
+        = new KeyValuePair<string, int>("pair", 1);
+
+    public static Tuple<string, int> Tuple { get; set; }
+        = new Tuple<string, int>("tuple", 2);
+
+    public static (string Key, int Value) ValueTuple { get; set; } = (Key: "valueTuple", Value: 3);
 }
 
 /// <summary>
