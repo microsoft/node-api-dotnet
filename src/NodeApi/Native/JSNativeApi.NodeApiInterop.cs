@@ -358,10 +358,10 @@ public static partial class JSNativeApi
             nint data,
             napi_threadsafe_function_call_mode is_blocking)
             => s_funcs.napi_call_threadsafe_function(func, data, is_blocking);
-        
+
         internal static napi_status napi_acquire_threadsafe_function(napi_threadsafe_function func)
             => s_funcs.napi_acquire_threadsafe_function(func);
-        
+
         internal static napi_status napi_release_threadsafe_function(
             napi_threadsafe_function func,
             napi_threadsafe_function_release_mode mode)
@@ -370,7 +370,7 @@ public static partial class JSNativeApi
         internal static napi_status napi_unref_threadsafe_function(
             napi_env env, napi_threadsafe_function func)
             => s_funcs.napi_unref_threadsafe_function(env, func);
-        
+
         internal static napi_status napi_ref_threadsafe_function(
             napi_env env, napi_threadsafe_function func)
             => s_funcs.napi_ref_threadsafe_function(env, func);
@@ -382,10 +382,10 @@ public static partial class JSNativeApi
             out napi_async_cleanup_hook_handle remove_handle)
         {
             remove_handle = default;
-            fixed(napi_async_cleanup_hook_handle* remove_handle_ptr = &remove_handle)
+            fixed (napi_async_cleanup_hook_handle* remove_handle_ptr = &remove_handle)
             {
                 return s_funcs.napi_add_async_cleanup_hook(
-                    env, hook, arg, (nint) remove_handle_ptr);
+                    env, hook, arg, (nint)remove_handle_ptr);
             }
         }
 
