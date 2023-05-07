@@ -9,10 +9,6 @@ using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
 
-#if NET7_0_OR_GREATER
-[assembly: DisableRuntimeMarshalling]
-#endif
-
 namespace Microsoft.JavaScript.NodeApi;
 
 public static partial class JSNativeApi
