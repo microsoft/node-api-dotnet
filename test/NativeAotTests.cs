@@ -29,7 +29,7 @@ public class NativeAotTests
         string testCaseName = id.Substring(id.IndexOf('/') + 1);
         string testCasePath = testCaseName.Replace('/', Path.DirectorySeparatorChar);
 
-        string buildLogFilePath = GetBuildLogFilePath(moduleName);
+        string buildLogFilePath = GetBuildLogFilePath("aot", moduleName);
         if (!s_builtTestModules.TryGetValue(moduleName, out string? moduleFilePath))
         {
             moduleFilePath = BuildTestModuleCSharp(moduleName, buildLogFilePath);
