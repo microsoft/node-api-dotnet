@@ -606,6 +606,10 @@ public static partial class JSNativeApi
                 // js_native_api.h APIs
                 //----------------------------------------------------------------------------------
 
+                // Use explicit delegate types to make sure that we use a delegate with CDecl
+                // calling conventions and to avoid runtime error when calling
+                // Marshal.GetFunctionPointerForDelegate because it cannot accept generic
+                // delegate types.
                 napi_add_finalizer = (delegate* unmanaged[Cdecl]<
                     napi_env, napi_value, nint, napi_finalize, nint, nint, napi_status>)
                     GetFunctionPointerForDelegateAndRootIt<DelegateTypes.napi_add_finalizer>(
