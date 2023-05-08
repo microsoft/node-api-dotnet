@@ -2924,7 +2924,11 @@ public class JSMarshaller
 
         if (parameter.GetCustomAttribute<OutAttribute>() is not null)
         {
-            parameterType = parameterType.MakeByRefType();
+            if (!parameterType.IsByRef)
+            {
+                parameterType = parameterType.MakeByRefType();
+            }
+
             if (parameter.GetCustomAttribute<InAttribute>() is null)
             {
                 // ParameterExpression doesn't distinguish between ref and out parameters,

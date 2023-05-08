@@ -131,12 +131,6 @@ public struct JSError
 
     public JSError(Exception exception)
     {
-#if DEBUG
-        // .NET exception stack traces are not yet propagated to JS.
-        // For now, write the stack trace to stdout in debug builds.
-        Console.WriteLine(exception);
-#endif
-
         if (exception is JSException jsException)
         {
             JSError? error = jsException.Error;
@@ -251,7 +245,7 @@ public struct JSError
         {
             // Capture the stack trace of the .NET exception, which will be combined with
             // the JS stack trace when requested.
-            JSValue dotnetStack = exception.StackTrace ?? string.Empty;
+            JSValue dotnetStack = exception.StackTrace?.Replace("\r", string.Empty) ?? string.Empty;
 
             // Capture the current JS stack trace as an object.
             // Defer formatting the stack as a string until requested.
