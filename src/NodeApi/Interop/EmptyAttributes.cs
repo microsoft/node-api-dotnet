@@ -40,7 +40,7 @@ namespace Microsoft.JavaScript.NodeApi
     public sealed class UnmanagedCallersOnlyAttribute : Attribute
     {
         public UnmanagedCallersOnlyAttribute() { }
-        public Type[]? CallConvs { get; set; }
+        public Type[]? CallConvs;
     }
 }
 
