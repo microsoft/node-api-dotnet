@@ -1806,14 +1806,21 @@ public class JSMarshaller
         else if (toType == typeof(object) || !toType.IsPublic)
         {
             // Marshal unknown or nonpublic type as external, so at least it can be round-tripped.
+            // Also accept a wrapped value - this handles the case when an instance of a specific
+            // public type is passed to JS and then passed back to .NET as `object` type.
+
+            /*
+             * (T)(value.TryUnwrap() ?? value.GetValueExternal());
+             */
             MethodInfo getExternalMethod =
                 typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetValueExternal));
             statements = new[]
             {
-                Expression.Condition(
-                    Expression.Call(s_isNullOrUndefined, valueParameter),
-                    Expression.Default(toType),
-                    Expression.Convert(Expression.Call(getExternalMethod, valueParameter), toType)),
+                Expression.Convert(
+                    Expression.Coalesce(
+                        Expression.Call(s_tryUnwrap, valueParameter),
+                        Expression.Call(getExternalMethod, valueParameter)),
+                    toType),
             };
         }
         else if (toType.IsEnum)
