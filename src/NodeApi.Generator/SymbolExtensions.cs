@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 
 namespace Microsoft.JavaScript.NodeApi.Generator;
@@ -35,17 +36,17 @@ internal static class SymbolExtensions
     [ThreadStatic]
     private static Dictionary<string, Type>? s_symbolicTypes;
 
+    private static int s_assemblyIndex = 0;
+
     private static ModuleBuilder ModuleBuilder
     {
         get
         {
             if (s_moduleBuilder == null)
             {
-#pragma warning disable RS1035 // Environment is banned for use by analyzers
                 // Use a unique assembly name per thread.
                 string assemblyName = typeof(SymbolExtensions).FullName +
-                    "_" + Environment.CurrentManagedThreadId;
-#pragma warning restore RS1035
+                    "_" + Interlocked.Increment(ref s_assemblyIndex);
                 s_assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
                     new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
                 s_moduleBuilder = s_assemblyBuilder.DefineDynamicModule(
@@ -62,6 +63,17 @@ internal static class SymbolExtensions
             s_symbolicTypes ??= new Dictionary<string, Type>();
             return s_symbolicTypes;
         }
+    }
+
+    /// <summary>
+    /// Clears the type cache to free up memory and get ready for another possible invocation.
+    /// The cache cannot be re-used across multiple invocations.
+    /// </summary>
+    public static void Reset()
+    {
+        s_assemblyBuilder = null;
+        s_moduleBuilder = null;
+        s_symbolicTypes = null;
     }
 
     /// <summary>

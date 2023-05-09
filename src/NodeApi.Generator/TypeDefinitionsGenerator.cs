@@ -117,14 +117,21 @@ public class TypeDefinitionsGenerator : SourceGenerator
             .Select((r) => Path.GetFileNameWithoutExtension(r))
             .ToArray();
 
-        TypeDefinitionsGenerator generator = new(
-            assembly,
-            assemblyDoc,
-            referenceAssemblies,
-            suppressWarnings);
-        SourceText generatedSource = generator.GenerateTypeDefinitions();
+        try
+        {
+            TypeDefinitionsGenerator generator = new(
+                assembly,
+                assemblyDoc,
+                referenceAssemblies,
+                suppressWarnings);
+            SourceText generatedSource = generator.GenerateTypeDefinitions();
 
-        File.WriteAllText(typeDefinitionsPath, generatedSource.ToString());
+            File.WriteAllText(typeDefinitionsPath, generatedSource.ToString());
+        }
+        finally
+        {
+            SymbolExtensions.Reset();
+        }
     }
 
     public TypeDefinitionsGenerator(
