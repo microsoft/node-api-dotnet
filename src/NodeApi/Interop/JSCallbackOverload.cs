@@ -79,6 +79,7 @@ public readonly struct JSCallbackOverload
         {
             int count = args.Length;
             int countWithDefaults = overload.ParameterTypes.Length;
+            int countRequired = countWithDefaults - overload.DefaultValues.Length;
             Span<napi_value> argsWithDefaults = stackalloc napi_value[countWithDefaults];
             for (int i = 0; i < count; i++)
             {
@@ -87,7 +88,7 @@ public readonly struct JSCallbackOverload
             for (int i = count; i < countWithDefaults; i++)
             {
                 argsWithDefaults[i] = (napi_value)GetDefaultArg(
-                    overload.ParameterTypes[i], overload.DefaultValues[i - count]);
+                    overload.ParameterTypes[i], overload.DefaultValues[i - countRequired]);
             }
 
             return overload.Callback(new JSCallbackArgs(
