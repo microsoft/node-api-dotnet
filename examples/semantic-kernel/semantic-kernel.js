@@ -9,6 +9,7 @@ import dotnet from 'node-api-dotnet';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const loggingAssemblyName = 'Microsoft.Extensions.Logging.Abstractions';
 const skAssemblyName = 'Microsoft.SemanticKernel.Core';
 const skOpenAIAssemblyName = 'Microsoft.SemanticKernel.Connectors.AI.OpenAI';
 
@@ -26,5 +27,7 @@ dotnet.addListener('resolving', (name, version) => {
 const SK = dotnet.load(resolveAssembly(skAssemblyName));
 /** @type import('./bin/Microsoft.SemanticKernel.Connectors.AI.OpenAI') */
 const SKOpenAI = dotnet.load(resolveAssembly(skOpenAIAssemblyName));
+/** @type import('./bin/Microsoft.Extensions.Logging.Abstractions') */
+const Logging = dotnet.load(resolveAssembly(loggingAssemblyName));
 
-export { SK, SKOpenAI };
+export { SK, SKOpenAI, Logging };

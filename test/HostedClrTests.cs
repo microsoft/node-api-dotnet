@@ -37,17 +37,24 @@ public class HostedClrTests
 
         string hostFilePath = s_builtHostModule.Value;
 
-        string buildLogFilePath = GetBuildLogFilePath(moduleName);
+        string buildLogFilePath = GetBuildLogFilePath("hosted", moduleName);
         if (!s_builtTestModules.TryGetValue(moduleName, out string? moduleFilePath))
         {
-            moduleFilePath = BuildTestModuleCSharp(moduleName, buildLogFilePath);
+            try
+            {
+                moduleFilePath = BuildTestModuleCSharp(moduleName, buildLogFilePath);
+            }
+            finally
+            {
+                // Save the built module path for the other tests that use the same module.
+                // Or if the build failed, save null so the next test won't try to build again.
+                s_builtTestModules.Add(moduleName, moduleFilePath);
+            }
 
             if (moduleFilePath != null)
             {
                 BuildTestModuleTypeScript(moduleName);
             }
-
-            s_builtTestModules.Add(moduleName, moduleFilePath);
         }
 
         if (moduleFilePath == null)

@@ -42,12 +42,23 @@ public class JSMarshaller
     /// </summary>
     public const string ResultPropertyName = "result";
 
+    [ThreadStatic]
+    private static JSMarshaller? s_current;
+
+    public static JSMarshaller Current
+    {
+        get => s_current ??
+            throw new InvalidOperationException("No current JSMarshaller instance.");
+        internal set => s_current = value;
+    }
+
     private readonly Lazy<JSInterfaceMarshaller> _interfaceMarshaller = new();
 
     private readonly ConcurrentDictionary<Type, Delegate> _fromJSDelegates = new();
     private readonly ConcurrentDictionary<Type, Delegate> _toJSDelegates = new();
     private readonly ConcurrentDictionary<Type, LambdaExpression> _fromJSExpressions = new();
     private readonly ConcurrentDictionary<Type, LambdaExpression> _toJSExpressions = new();
+    private readonly ConcurrentDictionary<MethodInfo, Delegate> _jsMethodDelegates = new();
 
     private static readonly ParameterExpression s_argsParameter =
         Expression.Parameter(typeof(JSCallbackArgs), "__args");
@@ -210,6 +221,24 @@ public class JSMarshaller
     }
 
     /// <summary>
+    /// Gets a delegate for a .NET adapter to a JS method. When invoked, the adapter will
+    /// marshal the arguments to JS, invoke the JS method, then marshal the return value
+    /// (or exception) back to .NET.
+    /// </summary>
+    /// <remarks>
+    /// The delegate has an extra initial argument of type <see cref="JSValue"/> that is
+    /// the JS object on which the method will be invoked.
+    /// </remarks>
+    public Delegate GetToJSMethodDelegate(MethodInfo method)
+    {
+        return _jsMethodDelegates.GetOrAdd(method, (method) =>
+        {
+            LambdaExpression jsMethodExpression = BuildToJSMethodExpression(method);
+            return jsMethodExpression.Compile();
+        });
+    }
+
+    /// <summary>
     /// Gets a lambda expression that converts from a JS value to a specified type.
     /// </summary>
     /// <param name="toType">The type the value will be converted to.</param>
@@ -346,6 +375,8 @@ public class JSMarshaller
     public Expression<JSCallback> BuildFromJSMethodExpression(MethodInfo method)
     {
         if (method is null) throw new ArgumentNullException(nameof(method));
+        else if (method.IsGenericMethodDefinition) throw new ArgumentException(
+            "Construct a generic method definition from the method first.", nameof(method));
 
         try
         {
@@ -436,6 +467,8 @@ public class JSMarshaller
     public LambdaExpression BuildToJSMethodExpression(MethodInfo method)
     {
         if (method is null) throw new ArgumentNullException(nameof(method));
+        else if (method.IsGenericMethodDefinition) throw new ArgumentException(
+            "Construct a generic method definition from the method first.", nameof(method));
 
         try
         {
@@ -467,8 +500,12 @@ public class JSMarshaller
              * }
              */
 
+            // If the method is an explicit interface implementation, parse off the simple name.
+            // Then convert to JSValue for use as a JS property name.
+            int dotIndex = method.Name.LastIndexOf('.');
             Expression methodName = Expression.Convert(
-                Expression.Constant(ToCamelCase(method.Name)),
+                Expression.Constant(ToCamelCase(
+                    dotIndex >= 0 ? method.Name.Substring(dotIndex + 1) : method.Name)),
                 typeof(JSValue),
                 typeof(JSValue).GetImplicitConversion(typeof(string), typeof(JSValue)));
 
@@ -604,8 +641,12 @@ public class JSMarshaller
     /// the JS function that will be invoked. The lambda expression may be converted to a
     /// delegate with <see cref="LambdaExpression.Compile()"/>.
     /// </remarks>
-    public LambdaExpression BuildToJSDelegateMethodExpression(MethodInfo method)
+    public LambdaExpression BuildToJSFunctionExpression(MethodInfo method)
     {
+        if (method is null) throw new ArgumentNullException(nameof(method));
+        else if (method.IsGenericMethodDefinition) throw new ArgumentException(
+            "Construct a generic method definition from the method first.", nameof(method));
+
         try
         {
             ParameterInfo[] methodParameters = method.GetParameters();
@@ -729,7 +770,7 @@ public class JSMarshaller
     /// the delegate that will be invoked. The lambda expression may be converted to a
     /// delegate with <see cref="LambdaExpression.Compile()"/>.
     /// </remarks>
-    public LambdaExpression BuildFromJSDelegateMethodExpression(MethodInfo method)
+    public LambdaExpression BuildFromJSFunctionExpression(MethodInfo method)
     {
         try
         {
@@ -787,10 +828,10 @@ public class JSMarshaller
         }
     }
 
-    private LambdaExpression BuildToJSDelegateExpression(Type delegateType)
+    private LambdaExpression BuildToJSFunctionExpression(Type delegateType)
     {
         MethodInfo invokeMethod = delegateType.GetMethod(nameof(Action.Invoke))!;
-        LambdaExpression methodExpression = BuildToJSDelegateMethodExpression(invokeMethod);
+        LambdaExpression methodExpression = BuildToJSFunctionExpression(invokeMethod);
 
         // When invoking a JS function via a .NET delegate, use the synchronization context
         // to ensure the call is made on the JS thread. Ordinary method calls from .NET to
@@ -862,10 +903,10 @@ public class JSMarshaller
             new[] { valueParameter });
     }
 
-    private LambdaExpression BuildFromJSDelegateExpression(Type delegateType)
+    private LambdaExpression BuildFromJSFunctionExpression(Type delegateType)
     {
         MethodInfo invokeMethod = delegateType.GetMethod(nameof(Action.Invoke))!;
-        LambdaExpression methodExpression = BuildFromJSDelegateMethodExpression(invokeMethod);
+        LambdaExpression methodExpression = BuildFromJSFunctionExpression(invokeMethod);
 
         /*
          * JSValue.CreateFunction(name, (__args) => __value.Invoke(...args));
@@ -1762,6 +1803,19 @@ public class JSMarshaller
         {
             statements = new[] { valueParameter };
         }
+        else if (toType == typeof(object) || !toType.IsPublic)
+        {
+            // Marshal unknown or nonpublic type as external, so at least it can be round-tripped.
+            MethodInfo getExternalMethod =
+                typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetValueExternal));
+            statements = new[]
+            {
+                Expression.Condition(
+                    Expression.Call(s_isNullOrUndefined, valueParameter),
+                    Expression.Default(toType),
+                    Expression.Convert(Expression.Call(getExternalMethod, valueParameter), toType)),
+            };
+        }
         else if (toType.IsEnum)
         {
             // Cast the JSValue to the enum underlying type, then to the enum type.
@@ -1898,7 +1952,7 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Invoke(
-                        BuildToJSDelegateExpression(toType),
+                        BuildToJSFunctionExpression(toType),
                         valueParameter),
                 };
             }
@@ -2017,6 +2071,18 @@ public class JSMarshaller
         else if (fromType == typeof(JSValue))
         {
             statements = new[] { valueParameter };
+        }
+        else if (fromType == typeof(object) || !fromType.IsPublic)
+        {
+            // Marshal unknown or nonpublic type as external, so at least it can be round-tripped.
+            Expression objectExpression = fromType.IsValueType ?
+                Expression.Convert(valueExpression, typeof(object)) : valueExpression;
+            MethodInfo createExternalMethod =
+                typeof(JSValue).GetStaticMethod(nameof(JSValue.CreateExternal));
+            statements = new[]
+            {
+                Expression.Call(createExternalMethod, objectExpression),
+            };
         }
         else if (fromType.IsEnum)
         {
@@ -2148,7 +2214,7 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Invoke(
-                        BuildFromJSDelegateExpression(fromType),
+                        BuildFromJSFunctionExpression(fromType),
                         valueParameter),
                 };
             }
@@ -2858,13 +2924,22 @@ public class JSMarshaller
 
         if (parameter.GetCustomAttribute<OutAttribute>() is not null)
         {
-            parameterType = parameterType.MakeByRefType();
+            if (!parameterType.IsByRef)
+            {
+                parameterType = parameterType.MakeByRefType();
+            }
+
             if (parameter.GetCustomAttribute<InAttribute>() is null)
             {
                 // ParameterExpression doesn't distinguish between ref and out parameters,
                 // but source generators need to use the correct keyword.
                 parameterName = OutParameterPrefix + parameterName;
             }
+        }
+
+        if (parameterType.IsGenericTypeDefinition || parameterType.IsGenericParameter)
+        {
+            parameterType = typeof(object);
         }
 
         return Expression.Parameter(parameterType, parameterName);
@@ -2887,7 +2962,7 @@ public class JSMarshaller
     }
 
     /// <summary>
-    /// If the lambda expresion consists of a single statement, the statement expression is returned
+    /// If the lambda expression consists of a single statement, the statement expression is returned
     /// directly, with the "value" parameter replaced with the target expression. Otherwise,
     /// an invocation expression for the lambda is returned.
     /// </summary>

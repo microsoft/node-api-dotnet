@@ -4,6 +4,7 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -130,12 +131,6 @@ public struct JSError
 
     public JSError(Exception exception)
     {
-#if DEBUG
-        // .NET exception stack traces are not yet propagated to JS.
-        // For now, write the stack trace to stdout in debug builds.
-        Console.WriteLine(exception);
-#endif
-
         if (exception is JSException jsException)
         {
             JSError? error = jsException.Error;
@@ -235,19 +230,22 @@ public struct JSError
     {
         // Do not construct a JSError object here, because that would require a runtime context.
 
-        // If the exception is a JSException for an error value, throw that error value;
-        // otherwise consturct a new error value from the exception message.
-        JSValue error = (exception as JSException)?.Error?.Value ??
-            JSValue.CreateError(code: null, (JSValue)exception.Message);
+        string message = (exception as TargetInvocationException)?.InnerException?.Message
+            ?? exception.Message;
 
-        // When running on V8, the `Error.catpureStackTrace()` function and `Error.stack` property
+        // If the exception is a JSException for an error value, throw that error value;
+        // otherwise construct a new error value from the exception message.
+        JSValue error = (exception as JSException)?.Error?.Value ??
+            JSValue.CreateError(code: null, (JSValue)message);
+
+        // When running on V8, the `Error.captureStackTrace()` function and `Error.stack` property
         // can be used to add the .NET stack info to the JS error stack.
         JSValue captureStackTrace = JSValue.Global["Error"]["captureStackTrace"];
         if (captureStackTrace.IsFunction())
         {
             // Capture the stack trace of the .NET exception, which will be combined with
             // the JS stack trace when requested.
-            JSValue dotnetStack = exception.StackTrace ?? string.Empty;
+            JSValue dotnetStack = exception.StackTrace?.Replace("\r", string.Empty) ?? string.Empty;
 
             // Capture the current JS stack trace as an object.
             // Defer formatting the stack as a string until requested.

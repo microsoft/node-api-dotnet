@@ -295,6 +295,10 @@ internal static class ExpressionExtensions
         {
             return "(anonymous)";
         }
+        else if (type.IsGenericParameter)
+        {
+            return type.Name;
+        }
         else if (type.IsGenericType)
         {
             if (type.GetGenericTypeDefinition() == typeof(Nullable<>))

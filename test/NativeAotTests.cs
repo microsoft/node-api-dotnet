@@ -29,17 +29,24 @@ public class NativeAotTests
         string testCaseName = id.Substring(id.IndexOf('/') + 1);
         string testCasePath = testCaseName.Replace('/', Path.DirectorySeparatorChar);
 
-        string buildLogFilePath = GetBuildLogFilePath(moduleName);
+        string buildLogFilePath = GetBuildLogFilePath("aot", moduleName);
         if (!s_builtTestModules.TryGetValue(moduleName, out string? moduleFilePath))
         {
-            moduleFilePath = BuildTestModuleCSharp(moduleName, buildLogFilePath);
+            try
+            {
+                moduleFilePath = BuildTestModuleCSharp(moduleName, buildLogFilePath);
+            }
+            finally
+            {
+                // Save the built module path for the other tests that use the same module.
+                // Or if the build failed, save null so the next test won't try to build again.
+                s_builtTestModules.Add(moduleName, moduleFilePath);
+            }
 
             if (moduleFilePath != null)
             {
                 BuildTestModuleTypeScript(moduleName);
             }
-
-            s_builtTestModules.Add(moduleName, moduleFilePath);
         }
 
         if (moduleFilePath == null)
@@ -68,6 +75,7 @@ public class NativeAotTests
             ["TargetFramework"] = GetCurrentFrameworkTarget(),
             ["RuntimeIdentifier"] = GetCurrentPlatformRuntimeIdentifier(),
             ["Configuration"] = Configuration,
+            ["DefineConstants"] = "AOT",
         };
 
         BuildProject(

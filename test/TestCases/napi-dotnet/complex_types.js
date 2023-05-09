@@ -195,3 +195,15 @@ const results = classInstance.appendAndGetPreviousValue('!');
 assert.strictEqual('object', typeof results);
 assert.strictEqual('test2!', results.value);
 assert.strictEqual('test2', results.previousValue);
+
+if (ClassObject.callGenericMethod) {
+  console.log('Calling generic method on interface implemented by JS.')
+  let appendedValue = undefined;
+  ClassObject.callGenericMethod({
+    // TODO: This method should be camel-case... probably?
+    AppendGenericValue(value) { appendedValue = value; }
+  }, 10);
+  assert.strictEqual(appendedValue, 10);
+} else {
+  console.log('Skipping generic method on interface implemented by JS.')
+}

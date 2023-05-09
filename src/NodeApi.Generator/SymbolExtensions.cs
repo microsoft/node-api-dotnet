@@ -70,6 +70,11 @@ internal static class SymbolExtensions
     /// </summary>
     public static Type AsType(this ITypeSymbol typeSymbol)
     {
+        return typeSymbol.AsType(genericTypeParameters: null);
+    }
+
+    private static Type AsType(this ITypeSymbol typeSymbol, Type[]? genericTypeParameters)
+    {
         if (typeSymbol is IArrayTypeSymbol arrayTypeSymbol)
         {
             if (arrayTypeSymbol.Rank != 1)
@@ -78,6 +83,19 @@ internal static class SymbolExtensions
             }
 
             return arrayTypeSymbol.ElementType.AsType().MakeArrayType();
+        }
+
+        if (typeSymbol is ITypeParameterSymbol typeParameterSymbol)
+        {
+            if (genericTypeParameters?.Length > typeParameterSymbol.Ordinal)
+            {
+                return genericTypeParameters[typeParameterSymbol.Ordinal];
+            }
+            else
+            {
+                throw new NotSupportedException(
+                    "Generic type parameters are not supported in this context.");
+            }
         }
 
         if (typeSymbol is not INamedTypeSymbol namedTypeSymbol)
@@ -97,7 +115,7 @@ internal static class SymbolExtensions
             if (genericArguments.Length > 0)
             {
                 systemType = systemType.MakeGenericType(
-                    genericArguments.Select(AsType).ToArray());
+                    genericArguments.Select((t) => t.AsType(genericTypeParameters)).ToArray());
             }
 
             return systemType;
@@ -108,7 +126,7 @@ internal static class SymbolExtensions
             if (genericArguments.Length > 0)
             {
                 symbolicType = symbolicType.MakeGenericType(
-                    genericArguments.Select(AsType).ToArray());
+                    genericArguments.Select((t) => t.AsType(genericTypeParameters)).ToArray());
             }
 
             return symbolicType;
@@ -130,7 +148,7 @@ internal static class SymbolExtensions
         if (genericArguments.Length > 0)
         {
             symbolicType = symbolicType.MakeGenericType(
-                genericArguments.Select(AsType).ToArray());
+                genericArguments.Select((t) => t.AsType(genericTypeParameters)).ToArray());
         }
 
         return symbolicType;
@@ -274,9 +292,18 @@ internal static class SymbolExtensions
         MethodBuilder methodBuilder = typeBuilder.DefineMethod(
             methodSymbol.Name,
             attributes,
-            methodSymbol.IsStatic ? CallingConventions.Standard : CallingConventions.HasThis,
-            methodSymbol.ReturnType.AsType(),
-            methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
+            methodSymbol.IsStatic ? CallingConventions.Standard : CallingConventions.HasThis);
+
+        GenericTypeParameterBuilder[]? genericTypeParameters = null;
+        if (methodSymbol.IsGenericMethod)
+        {
+            genericTypeParameters = methodBuilder.DefineGenericParameters(
+                methodSymbol.TypeParameters.Select((p) => p.Name).ToArray());
+        }
+
+        methodBuilder.SetReturnType(methodSymbol.ReturnType.AsType(genericTypeParameters));
+        methodBuilder.SetParameters(
+            methodSymbol.Parameters.Select((p) => p.Type.AsType(genericTypeParameters)).ToArray());
         BuildSymbolicParameters(methodBuilder, methodSymbol.Parameters);
 
         if (isDelegateMethod)
@@ -374,12 +401,10 @@ internal static class SymbolExtensions
         Type type = methodSymbol.ContainingType.AsType();
         BindingFlags bindingFlags = BindingFlags.Public |
             (methodSymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
-        MethodInfo? methodInfo = type.GetMethod(
-            methodSymbol.Name,
-            bindingFlags,
-            binder: null,
-            methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray(),
-            modifiers: null);
+        MethodInfo? methodInfo = type.GetMethods(bindingFlags)
+            .FirstOrDefault((m) => m.Name == methodSymbol.Name &&
+                m.GetParameters().Select((p) => p.Name).SequenceEqual(
+                    methodSymbol.Parameters.Select((p) => p.Name)));
         return methodInfo ?? throw new InvalidOperationException(
                 $"Method not found: {type.Name}.{methodSymbol.Name}");
     }

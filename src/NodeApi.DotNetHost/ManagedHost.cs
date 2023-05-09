@@ -33,17 +33,6 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     private readonly AssemblyLoadContext _loadContext = new(name: default);
 #endif
 
-    /// <summary>
-    /// The marshaller dynamically generates adapter delegates for calls to & from JS,
-    /// for assemblies that were not pre-built as Node API modules.
-    /// </summary>
-    private readonly JSMarshaller _marshaller = new()
-    {
-        // Currently dynamic invocation does not use automatic camel-casing.
-        // However source-generated marshalling (for a .NET node module) does.
-        AutoCamelCase = false,
-    };
-
     private readonly Dictionary<Type, JSReference> _exportedTypes = new();
     private readonly Dictionary<string, JSReference> _loadedModules = new();
     private readonly Dictionary<string, AssemblyExporter> _loadedAssemblies = new();
@@ -84,9 +73,18 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             JSPropertyDescriptor.ForValue("addListener", addListener),
             JSPropertyDescriptor.ForValue("removeListener", removeListener));
 
+        // Create a marshaller instance for the current thread. The marshaller dynamically
+        // generates adapter delegates for calls to and from JS, for assemblies that were not
+        // pre-built as Node API modules.
+        JSMarshaller.Current = new()
+        {
+            // Currently dynamic invocation does not use automatic camel-casing.
+            // However source-generated marshalling (for a .NET node module) does.
+            AutoCamelCase = false,
+        };
+
         // Export the .NET core library assembly by default, along with additional methods above.
-        _systemAssembly = new AssemblyExporter(
-            typeof(object).Assembly, _marshaller, _exportedTypes, exports);
+        _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _exportedTypes, exports);
     }
 
     public static bool IsTracingEnabled { get; } =
@@ -348,7 +346,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 #else
         Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
-        assemblyExporter = new(assembly, _marshaller, _exportedTypes, target: new JSObject());
+        assemblyExporter = new(assembly, _exportedTypes, target: new JSObject());
         _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);
         JSValue assemblyValue = assemblyExporter.AssemblyObject;
 

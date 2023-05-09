@@ -561,7 +561,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // if the method does not match the `JSCallback` signature.
         string attributes = "JSPropertyAttributes.DefaultMethod" +
             (method.IsStatic ? " | JSPropertyAttributes.Static" : string.Empty);
-        if (IsMethodCallbackAdapterRequired(method))
+        if (method.IsGenericMethod)
+        {
+            // TODO: Export generic method.
+        }
+        else if (IsMethodCallbackAdapterRequired(method))
         {
             Expression<JSCallback> adapter =
                 _marshaller.BuildFromJSMethodExpression(method.AsMethodInfo());
@@ -656,10 +660,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private void ExportDelegate(ITypeSymbol delegateType)
     {
         MethodInfo delegateInvokeMethod = delegateType.AsType().GetMethod("Invoke")!;
-        LambdaExpression fromAdapter = _marshaller.BuildFromJSDelegateMethodExpression(
+        LambdaExpression fromAdapter = _marshaller.BuildFromJSFunctionExpression(
             delegateInvokeMethod);
         _callbackAdapters.Add(fromAdapter.Name!, fromAdapter);
-        LambdaExpression toAapter = _marshaller.BuildToJSDelegateMethodExpression(
+        LambdaExpression toAapter = _marshaller.BuildToJSFunctionExpression(
             delegateInvokeMethod);
         _callbackAdapters.Add(toAapter.Name!, toAapter);
     }
@@ -794,9 +798,42 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 s++;
 
-                LambdaExpression methodAdapter =
-                    _marshaller.BuildToJSMethodExpression(method.AsMethodInfo());
-                s += ReplaceMethodVariables(methodAdapter.ToCS());
+                if (method.IsGenericMethod)
+                {
+                    // Invoking a generic method implemented by JS requires dynamic
+                    // marshalling because the generic type arguments are not known
+                    // ahead of time. This does not work in an AOT-compiled executable.
+
+                    MethodInfo methodInfo = method.AsMethodInfo();
+                    s += $"public {ExpressionExtensions.FormatType(methodInfo.ReturnType)} " +
+                        $"{method.Name}<" +
+                        string.Join(", ", method.TypeParameters.Select((t) => t.Name)) +
+                        ">(" + string.Join(", ", methodInfo.GetParameters().Select((p) =>
+                            $"{ExpressionExtensions.FormatType(p.ParameterType)} {p.Name}")) + ")";
+                    s += "{";
+
+                    // The build-time generated dynamic marshalling code here is similar to
+                    // that generated at runtime by `JSInterfaceMarshaller` when dynamic-binding.
+                    IEnumerable<ITypeSymbol> typeArgs = method.TypeArguments;
+                    s += "var currentMethod = (System.Reflection.MethodInfo)" +
+                        "System.Reflection.MethodBase.GetCurrentMethod();";
+                    s += $"currentMethod = currentMethod.{nameof(MethodInfo.MakeGenericMethod)}(" +
+                        string.Join(", ", typeArgs.Select((t) => $"typeof({t.Name})")) + ");";
+                    s += $"var jsMarshaller = {typeof(JSMarshaller).Namespace}." +
+                        $"{nameof(JSMarshaller)}.{nameof(JSMarshaller.Current)};";
+                    s += $"return ({GetFullName(method.ReturnType)})" +
+                        $"jsMarshaller.{nameof(JSMarshaller.GetToJSMethodDelegate)}" +
+                        $"(currentMethod).DynamicInvoke(Value, " +
+                        string.Join(", ", method.Parameters.Select((p) => p.Name)) + ");";
+
+                    s += "}";
+                }
+                else
+                {
+                    LambdaExpression methodAdapter =
+                        _marshaller.BuildToJSMethodExpression(method.AsMethodInfo());
+                    s += ReplaceMethodVariables(methodAdapter.ToCS());
+                }
             }
         }
 

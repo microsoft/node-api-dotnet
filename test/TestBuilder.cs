@@ -104,10 +104,10 @@ internal static class TestBuilder
         return directoryPath;
     }
 
-    public static string GetBuildLogFilePath(string moduleName)
+    public static string GetBuildLogFilePath(string prefix, string moduleName)
     {
         string logDir = GetModuleIntermediateOutputPath(moduleName);
-        return Path.Combine(logDir, "build.log");
+        return Path.Combine(logDir, prefix + "-build.log");
     }
 
     public static string GetRunLogFilePath(string prefix, string moduleName, string testCasePath)
