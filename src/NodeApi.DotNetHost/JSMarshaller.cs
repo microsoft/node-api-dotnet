@@ -1803,7 +1803,7 @@ public class JSMarshaller
         {
             statements = new[] { valueParameter };
         }
-        else if (toType == typeof(object) || !toType.IsPublic)
+        else if (toType == typeof(object) || !(toType.IsPublic || toType.IsNestedPublic))
         {
             // Marshal unknown or nonpublic type as external, so at least it can be round-tripped.
             // Also accept a wrapped value - this handles the case when an instance of a specific
