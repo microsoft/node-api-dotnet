@@ -2906,19 +2906,25 @@ public class JSMarshaller
 
     internal static string FullTypeName(Type type)
     {
-        string name = (type.Namespace ?? string.Empty).Replace('.', '_');
+        string? ns = type.Namespace;
+        string name = type.Name;
 
         if (type.IsGenericType)
         {
-            name = name + '_' + type.Name.Substring(0, type.Name.IndexOf('`')) +
-                "_of_" + string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
-        }
-        else
-        {
-            name = name + '_' + type.Name;
+            int nameEnd = name.IndexOf('`');
+            if (nameEnd >= 0)
+            {
+                name = name.Substring(0, nameEnd) + "_of_" +
+                    string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+            }
         }
 
-        return name;
+        if (type.IsNested)
+        {
+            return $"{FullTypeName(type.DeclaringType!)}_{name}";
+        }
+
+        return string.IsNullOrEmpty(ns) ? name : $"{ns.Replace('.', '_')}_{name}";
     }
 
     /// <summary>

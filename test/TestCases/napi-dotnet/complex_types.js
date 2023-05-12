@@ -207,3 +207,11 @@ if (ClassObject.callGenericMethod) {
 } else {
   console.log('Skipping generic method on interface implemented by JS.')
 }
+
+// Nested type and type toString
+assert.equal(ClassObject.toString(), 'Microsoft.JavaScript.NodeApi.TestCases.ClassObject');
+assert.strictEqual(typeof ClassObject.NestedClass, 'function');
+assert.equal(ClassObject.NestedClass.toString(),
+  'Microsoft.JavaScript.NodeApi.TestCases.ClassObject.NestedClass');
+const nestedInstance = new ClassObject.NestedClass('nested');
+assert.strictEqual(nestedInstance.value, 'nested');

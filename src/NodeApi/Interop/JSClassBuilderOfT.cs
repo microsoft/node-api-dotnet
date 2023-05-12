@@ -9,6 +9,8 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> where T : class
 {
+    private const char GenericTypeNameSuffix = '$';
+
     private readonly JSCallbackDescriptor? _constructorDescriptor;
 
     public string ClassName { get; }
@@ -64,6 +66,8 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             throw new InvalidOperationException("A class constructor is required.");
         }
 
+        AddTypeToString();
+
         JSRuntimeContext context = JSRuntimeContext.Current;
         JSValue classObject;
         if (typeof(Stream).IsAssignableFrom(typeof(T)))
@@ -107,6 +111,10 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
                 Properties.ToArray());
         }
 
+        // The class object wraps the Type, so it can be easily converted when passed
+        // to APIs that require a Type.
+        classObject.Wrap(typeof(T));
+
         if (baseClass != null && !baseClass.Value.IsUndefined())
         {
             JSValue setPrototypeFunction =
@@ -140,8 +148,11 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             }
         }
 
+        AddTypeToString();
+
         JSValue obj = JSValue.CreateObject();
         obj.DefineProperties(Properties.ToArray());
+        obj.Wrap(typeof(T));
         JSRuntimeContext.Current.RegisterStaticClass(ClassName, obj);
         return obj;
     }
@@ -169,7 +180,9 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             }
         }
 
-        return JSRuntimeContext.Current.RegisterClass<T>(JSNativeApi.DefineClass(
+        AddTypeToString();
+
+        JSValue obj = JSNativeApi.DefineClass(
             ClassName,
             new JSCallbackDescriptor((args) =>
             {
@@ -182,7 +195,9 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
                 JSValue instance = args[0];
                 return JSRuntimeContext.Current.InitializeObjectWrapper(args.ThisArg, instance);
             }),
-            Properties.ToArray()));
+            Properties.ToArray());
+        obj.Wrap(typeof(T));
+        return JSRuntimeContext.Current.RegisterClass<T>(obj);
     }
 
     /// <summary>
@@ -208,15 +223,72 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             }
         }
 
+        AddTypeToString();
+
         JSValue obj = JSValue.CreateObject();
         obj.DefineProperties(Properties.ToArray());
+        obj.Wrap(typeof(T));
 
         // Create the reverse mapping from numeric value to string value.
         foreach (JSPropertyDescriptor property in Properties)
         {
-            obj[property.Value!.Value] = property.Name;
+            if (property.Value.HasValue)
+            {
+                obj[property.Value!.Value] = property.Name;
+            }
         }
 
         return obj;
+    }
+
+    /// <summary>
+    /// Adds a JS `toString()` method on the object that represents the type in JavaScript.
+    /// The method returns the full name of the .NET type.
+    /// </summary>
+    private void AddTypeToString()
+    {
+        // Return early if there is already a static `toString()` method defined.
+        foreach (JSPropertyDescriptor property in Properties)
+        {
+            if (property.Attributes.HasFlag(JSPropertyAttributes.Static) &&
+                property.Name == "toString")
+            {
+                return;
+            }
+        }
+
+        static string TypeName(Type type)
+        {
+            string typeName = type.Name;
+            if (type.IsGenericType)
+            {
+                int nameEnd = typeName.IndexOf('`');
+                if (nameEnd >= 0)
+                {
+                    typeName = typeName.Substring(0, nameEnd);
+                    typeName += GenericTypeNameSuffix;
+                }
+            }
+            return typeName;
+        }
+
+        // Include the declaring type(s) of nested types.
+        string typeName = TypeName(typeof(T));
+        Type? declaringType = typeof(T).DeclaringType;
+        while (declaringType != null)
+        {
+            typeName = TypeName(declaringType) + '.' + typeName;
+            declaringType = declaringType.DeclaringType;
+        }
+
+        if (typeof(T).Namespace != null)
+        {
+            typeName = typeof(T).Namespace + '.' + typeName;
+        }
+
+        AddMethod(
+            "toString",
+            (_) => typeName,
+            JSPropertyAttributes.Static | JSPropertyAttributes.DefaultMethod);
     }
 }

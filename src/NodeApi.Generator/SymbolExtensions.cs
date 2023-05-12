@@ -144,15 +144,24 @@ internal static class SymbolExtensions
             return symbolicType;
         }
 
-        symbolicType = typeSymbol.TypeKind switch
+        if (typeSymbol.ContainingType != null)
         {
-            TypeKind.Enum => BuildSymbolicEnumType(typeSymbol, typeFullName),
+            Type containingType = typeSymbol.ContainingType.AsType();
+            symbolicType = containingType.GetNestedType(typeSymbol.Name)!;
+        }
+        else
+        {
+            symbolicType = typeSymbol.TypeKind switch
+            {
+                TypeKind.Enum => BuildSymbolicEnumType(typeSymbol, typeFullName),
 
-            TypeKind.Class or TypeKind.Interface or TypeKind.Struct or TypeKind.Delegate =>
-                BuildSymbolicObjectType(typeSymbol, typeFullName),
+                TypeKind.Class or TypeKind.Interface or TypeKind.Struct or TypeKind.Delegate =>
+                    BuildSymbolicObjectType(typeSymbol, typeFullName),
 
-            _ => throw new NotSupportedException($"Type kind not supported: {typeSymbol.TypeKind}"),
-        };
+                _ => throw new NotSupportedException(
+                    $"Type kind not supported: {typeSymbol.TypeKind}"),
+            };
+        }
 
         // Update the map entry to refer to the built type instead of the type builder.
         SymbolicTypes[typeFullName] = symbolicType;
@@ -180,28 +189,71 @@ internal static class SymbolExtensions
         return enumBuilder.CreateType()!;
     }
 
+    private static TypeAttributes GetTypeAttributes(TypeKind typeKind)
+    {
+        TypeAttributes attributes = TypeAttributes.Public;
+        if (typeKind == TypeKind.Interface)
+        {
+            attributes |= TypeAttributes.Interface;
+        }
+        else if (typeKind == TypeKind.Delegate)
+        {
+            attributes |= TypeAttributes.Sealed;
+        }
+        if (typeKind != TypeKind.Enum)
+        {
+            attributes |= TypeAttributes.Abstract;
+        }
+        return attributes;
+    }
+
     private static Type BuildSymbolicObjectType(
         ITypeSymbol typeSymbol,
         string typeFullName)
     {
-        TypeAttributes attributes = TypeAttributes.Public | TypeAttributes.Abstract;
-        if (typeSymbol.TypeKind == TypeKind.Interface)
-        {
-            attributes |= TypeAttributes.Interface;
-        }
-        else if (typeSymbol.TypeKind == TypeKind.Delegate)
-        {
-            attributes |= TypeAttributes.Sealed;
-        }
 
         TypeBuilder typeBuilder = ModuleBuilder.DefineType(
             name: typeFullName,
-            attributes,
+            GetTypeAttributes(typeSymbol.TypeKind),
             parent: typeSymbol.BaseType?.AsType());
 
         // Add the type builder to the map while building it, to support circular references.
         SymbolicTypes.Add(typeFullName, typeBuilder);
 
+        BuildSymbolicTypeMembers(typeSymbol, typeBuilder);
+
+        // Preserve JS attributes, which might be referenced by the marshaller.
+        foreach (AttributeData attribute in typeSymbol.GetAttributes())
+        {
+            if (attribute.AttributeClass!.ContainingAssembly.Name ==
+                typeof(JSExportAttribute).Assembly.GetName().Name)
+            {
+                Type attributeType = attribute.AttributeClass.AsType();
+                ConstructorInfo constructor = attributeType.GetConstructor(
+                    attribute.ConstructorArguments.Select((a) => a.Type!.AsType()).ToArray()) ??
+                    throw new MissingMemberException(
+                        $"Constructor not found for attribute: {attributeType.Name}");
+                CustomAttributeBuilder attributeBuilder = new(
+                    constructor,
+                    attribute.ConstructorArguments.Select((a) => a.Value).ToArray(),
+                    attribute.NamedArguments.Select((a) =>
+                        GetAttributeProperty(attributeType, a.Key)).ToArray(),
+                    attribute.NamedArguments.Select((a) => a.Value.Value).ToArray());
+                typeBuilder.SetCustomAttribute(attributeBuilder);
+            }
+        }
+
+        static PropertyInfo GetAttributeProperty(Type type, string name)
+            => type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance) ??
+                throw new MissingMemberException(
+                    $"Property {name} not found on attribute {type.Name}.");
+        return typeBuilder.CreateType()!;
+    }
+
+    private static void BuildSymbolicTypeMembers(
+        ITypeSymbol typeSymbol,
+        TypeBuilder typeBuilder)
+    {
         foreach (Type interfaceType in typeSymbol.Interfaces.Select(AsType))
         {
             typeBuilder.AddInterfaceImplementation(interfaceType);
@@ -233,34 +285,23 @@ internal static class SymbolExtensions
             {
                 // TODO: Fields (at least const fields)
             }
-        }
-
-        // Preserve JS attributes, which might be referenced by the marshaller.
-        foreach (AttributeData attribute in typeSymbol.GetAttributes())
-        {
-            if (attribute.AttributeClass!.ContainingAssembly.Name ==
-                typeof(JSExportAttribute).Assembly.GetName().Name)
+            else if (memberSymbol is INamedTypeSymbol nestedTypeSymbol)
             {
-                Type attributeType = attribute.AttributeClass.AsType();
-                ConstructorInfo constructor = attributeType.GetConstructor(
-                    attribute.ConstructorArguments.Select((a) => a.Type!.AsType()).ToArray()) ??
-                    throw new MissingMemberException(
-                        $"Constructor not found for attribute: {attributeType.Name}");
-                CustomAttributeBuilder attributeBuilder = new(
-                    constructor,
-                    attribute.ConstructorArguments.Select((a) => a.Value).ToArray(),
-                    attribute.NamedArguments.Select((a) =>
-                        GetAttributeProperty(attributeType, a.Key)).ToArray(),
-                    attribute.NamedArguments.Select((a) => a.Value.Value).ToArray());
-                typeBuilder.SetCustomAttribute(attributeBuilder);
+                TypeAttributes attributes = GetTypeAttributes(nestedTypeSymbol.TypeKind);
+                attributes &= ~TypeAttributes.Public;
+                attributes |= TypeAttributes.NestedPublic;
+
+                TypeBuilder nestedTypeBuilder = typeBuilder.DefineNestedType(
+                    nestedTypeSymbol.Name,
+                    attributes,
+                    parent: nestedTypeSymbol.TypeKind == TypeKind.Enum ? typeof(Enum) : null);
+
+                // TODO: Handle nested enum members (fields).
+                BuildSymbolicTypeMembers(nestedTypeSymbol, nestedTypeBuilder);
+
+                nestedTypeBuilder.CreateType();
             }
         }
-
-        static PropertyInfo GetAttributeProperty(Type type, string name)
-            => type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance) ??
-                throw new MissingMemberException(
-                    $"Property {name} not found on attribute {type.Name}.");
-        return typeBuilder.CreateType()!;
     }
 
     private static ConstructorBuilder BuildSymbolicConstructor(
