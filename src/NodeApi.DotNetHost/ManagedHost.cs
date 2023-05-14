@@ -514,7 +514,11 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             string typeName = type.Name;
             if (type.IsGenericTypeDefinition)
             {
+#if NETFRAMEWORK
                 typeName = typeName.Substring(0, typeName.IndexOf('`')) + '$';
+#else
+                typeName = string.Concat(typeName.AsSpan(0, typeName.IndexOf('`')), "$");
+#endif
                 if (!parentNamespace.Types.ContainsKey(typeName))
                 {
                     // Multiple generic types may have the same name but with

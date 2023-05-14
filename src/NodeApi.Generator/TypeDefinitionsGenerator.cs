@@ -152,7 +152,12 @@ dotnet.load(assemblyFilePath);
             if (typeDefinitionsPath.EndsWith(".d.ts", StringComparison.OrdinalIgnoreCase))
             {
                 string modulePath =
+#if NETFRAMEWORK
                     typeDefinitionsPath.Substring(0, typeDefinitionsPath.Length - 5) + ".js";
+#else
+                    string.Concat(
+                        typeDefinitionsPath.AsSpan(0, typeDefinitionsPath.Length - 5), ".js");
+#endif
                 File.WriteAllText(modulePath, generator.GetGeneratedFileHeader() + LoadAssemblyJS);
             }
         }

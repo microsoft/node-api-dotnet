@@ -2835,7 +2835,21 @@ public class JSMarshaller
                     },
                     keyType,
                     valueType);
-            yield return Expression.Call(
+            yield return Expression.
+/* Unmerged change from project 'NodeApi.DotNetHost(net6.0)'
+Before:
+                var typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+After:
+                string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+*/
+
+/* Unmerged change from project 'NodeApi.DotNetHost(net472)'
+Before:
+                var typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+After:
+                string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+*/
+Call(
                 Expression.Property(null, s_context),
                 wrapMethod,
                 valueExpression,
@@ -2914,8 +2928,12 @@ public class JSMarshaller
             int nameEnd = name.IndexOf('`');
             if (nameEnd >= 0)
             {
-                name = name.Substring(0, nameEnd) + "_of_" +
-                    string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+                string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+#if NETFRAMEWORK
+                name = name.Substring(0, nameEnd) + "_of_" + typeArgs;
+#else
+                name = string.Concat(name.AsSpan(0, nameEnd), "_of_", typeArgs);
+#endif
             }
         }
 
