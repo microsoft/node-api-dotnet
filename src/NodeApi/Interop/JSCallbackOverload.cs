@@ -231,15 +231,8 @@ public readonly struct JSCallbackOverload
     {
         if (defaultValue == null)
         {
-            if (!parameterType.IsValueType ||
-                (parameterType.IsGenericType &&
-                    parameterType.GetGenericTypeDefinition() == typeof(Nullable<>)))
-            {
-                return default;
-            }
-
-            throw new InvalidOperationException(
-                "Null default value is not valid for parameter type: " + parameterType);
+            // JS undefined will convert to null for reference types or default for value types.
+            return default;
         }
         else if (parameterType == typeof(string))
         {

@@ -251,7 +251,7 @@ internal class AssemblyExporter
     {
         void ExportTypeIfSupported(Type dependencyType)
         {
-            if (dependencyType.IsArray)
+            if (dependencyType.IsArray || dependencyType.IsByRef)
             {
                 ExportTypeIfSupported(dependencyType.GetElementType()!);
                 return;
