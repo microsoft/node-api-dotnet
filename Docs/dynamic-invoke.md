@@ -4,12 +4,40 @@ For examples of this scenario, see
 [../examples/dynamic-invoke/](../examples/dynamic-invoke/) or
 [../examples/semantic-kernel/](../examples//semantic-kernel/).
 
-1. Add a dependency on the `node-api-dotnet` npm package to your JavaScript project:
+1. (Optional but recommended) Create a `.csproj` project (without any `.cs` source files) that will
+   manage restoring nuget packages for .NET assemblies used by JS:
+   ```xml
+   <Project Sdk="Microsoft.NET.Sdk">
+     <PropertyGroup>
+       <TargetFramework>net6.0</TargetFramework>
+       <OutDir>bin</OutDir>
+     </PropertyGroup>
+     <ItemGroup>
+       <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.2.*" />
+       <PackageReference Include="Example.Package" Version="1.2.3" />
+       <PackageReference Include="Example.Package.Two" Version="2.3.4" />
+     </ItemGroup>
+   </Project>
+   ```
+   - The `TargetFramework` should match the version of .NET that the JS application will load.
+   - For convenience the `OutDir` can be simply set to `bin` because there are no object files
+     or debug/release builds involved. The referenced assemblies (and their dependencies)
+     will be placed there.
+   - The `Microsoft.JavaScript.NodeApi.Generator` package reference enables automatic generation
+     of TS type-definitions for the referenced assemblies.
+
+   Build the project to restore the packages, place assemblies in the `bin` directory, and generate
+   type definitions:
+   ```
+   dotnet build
+   ```
+
+2. Add a dependency on the `node-api-dotnet` npm package to your JavaScript project:
     ```
     npm install node-api-dotnet
     ```
 
-2. Import the `node-api-dotnet` package in your JavaScript code:
+3. Import the `node-api-dotnet` package in your JavaScript code:
     ```JavaScript
     const dotnet = require('node-api-dotnet');
     ```
@@ -18,50 +46,49 @@ For examples of this scenario, see
     import dotnet from 'node-api-dotnet';
     ```
 
-3. Load a .NET assembly from its path:
-    ```JavaScript
-    const ExampleAssembly = dotnet.load('path/to/ExampleAssembly.dll');
-    ```
-    If the assembly depends on other non-framework assemblies, set up a `resolving` event handler
-    _before_ loading the target assembly:
-    ```JavaScript
-    dotnet.addListener('resolving', (name, version) => {
-        const filePath = path.join(__dirname, 'bin', name + '.dll');
-        if (fs.existsSync(filePath)) dotnet.load(filePath);
-    });
-    ```
+4. Load one or more .NET packages using the generated `.js` files:
+   ```JavaScript
+   require('./bin/Example.Package.js');
+   require('./bin/Example.Package.Two.js');
+   ```
+   Or if using ES modules:
+   ```JavaScript
+   import './bin/Example.Package.js';
+   import './bin/Example.Package.Two.js';
+   ```
+   :warning: Do not assign the results of these `require`/`import` statements. The assemblies are
+   all loaded into the `dotnet` object  (explained in the next step).
 
-4. Types in the assembly are projected as properties on the loaded assembly object. So then you can
-   use those to call static methods, construct instances of classes, etc:
-    ```JavaScript
-    ExampleAssembly.StaticClass.ExampleMethod();
-    const exampleObj = new ExampleAssembly.ExampleClass(...args);
-    ```
-    Of course you can access properites, pass arguments to methods, get return values, and so on.
-    Most types get automatically marshalled between JavaScript and .NET as you'd expect. For
-    details, see the [type projections reference](./typescript.md).
+   If any of the loaded assemblies depends on other assemblies outside the core framework, they
+   will be automatically loaded from the same directory. Building the `.csproj` should take care
+   of bin-placing all dependencies together. If some dependencies are are in another location,
+   set up a `resolving` event handler _before_ loading the target assembly:
+   ```JavaScript
+   dotnet.addListener('resolving', (name, version) => {
+       const filePath = path.join(__dirname, 'bin', name + '.dll');
+       if (fs.existsSync(filePath)) dotnet.load(filePath);
+   });
+   ```
 
-    > :warning: Generic types and methods are not yet supported very well -- with the exception of
-    generic collections which work great.
+5. Namespaces and types from the loaded assemblies are projected onto the top-level `dotnet` object.
+   When loading multiple .NET assemblies, types from all assemblies are merged into the same
+   namespace hierarchy.
 
-5. **Optional**: Use the `node-api-dotnet-generator` tool to generate type definitions for the assembly:
-    ```
-    npm exec node-api-dotnet-generator -- -typedefs ExampleAssembly.d.ts --assembly path/to/ExampleAssembly.dll --reference path/to/DependencyAssembly.dll
-    ```
-    > :warning: Any dependencies need to be explicitly referenced with the `--reference` option.
+   It is convenient (and more efficient!) to create aliases for
+   namespace-qualified .NET types, to avoid repeating the namespace every time.
+   ```JavaScript
+   const ExampleStaticClass = dotnet.ExampleNamespace.ExampleStaticClass;
+   const ExampleClass = dotnet.ExampleNamespace.ExampleClass;
+   StaticClass.ExampleMethod();
+   const exampleObj = new ExampleClass(...args);
+   ```
+   Of course you can access properites, pass arguments to methods, get return values, and so on.
+   Most types get automatically marshalled between JavaScript and .NET as you'd expect. For
+   details, see the [type projections reference](./typescript.md).
 
-    > :warning: You may see some warnings about types like `Span<T>` that are not (yet) supported
-    for projecting to JavaScript. The warnings can be ignored if you don't plan on using those
-    specific APIs.
+   You should notice your IDE offers documentation-comments and member completion from the type
+   definitions, and if writing TypeScript code the TypeScript compiler will check against the
+   type definitions.
 
-    After generating the type definitions file, import it as a TypeScript type annotation comment:
-    ```JavaScript
-    /** @type import('./ExampleAssembly') */
-    const ExampleAssembly = dotnet.load('path/to/ExampleAssembly.dll');
-    ```
-    Then you'll notice your IDE offers documentation-comments and member completion from the type
-    definitions, and the TypeScript compiler will use the type definitions.
-
-6. **Optional**: Wrap up the loading code in a convenient JavaScript module that exports the
-   assembly with type definitions. For an example of this, see
-   [../examples/semantic-kernel/semantic-kernel.js](../examples/semantic-kernel/semantic-kernel.js)
+   > :warning: Generic types and methods are not yet supported very well -- with the exception of
+   generic collections which work great.

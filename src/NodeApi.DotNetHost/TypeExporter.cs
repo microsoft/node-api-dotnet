@@ -13,174 +13,83 @@ using Microsoft.JavaScript.NodeApi.Interop;
 using static Microsoft.JavaScript.NodeApi.DotNetHost.ManagedHost;
 
 namespace Microsoft.JavaScript.NodeApi.DotNetHost;
+
 /// <summary>
-/// Dynamically exports APIs from a .NET assembly to JS.
+/// Dynamically exports .NET types to JS.
 /// </summary>
-internal class AssemblyExporter
+internal class TypeExporter
 {
-    private readonly JSMarshaller _marshaller;
     private readonly IDictionary<Type, JSReference> _exportedTypes;
-    private readonly JSReference _assemblyObject;
+    private readonly JSMarshaller _marshaller;
 
     /// <summary>
-    /// Creates a new instance of the <see cref="AssemblyExporter" /> class.
+    /// Creates a new instance of the <see cref="TypeExporter" /> class.
     /// </summary>
-    /// <param name="assembly">The assembly to be exported.</param>
-    /// <param name="exportedTypes">Mapping from .NET types to exported JS types
-    /// (shared by multiple assembly exporters within the same host).</param>
-    /// <param name="target">Proxy target object; any properties/methods on this object
-    /// will be exposed on the exported assembly object in addition to assembly types.</param>
-    public AssemblyExporter(
-        Assembly assembly,
-        IDictionary<Type, JSReference> exportedTypes,
-        JSObject target)
+    /// <param name="exportedTypes">Mapping from .NET types to exported JS types. Used to
+    /// ensure related types are not exported multiple times.</param>
+    public TypeExporter(
+        IDictionary<Type, JSReference> exportedTypes)
     {
-        Assembly = assembly;
         _marshaller = JSMarshaller.Current;
         _exportedTypes = exportedTypes;
-
-        JSProxy proxy = new(target, CreateProxyHandler());
-        _assemblyObject = new JSReference(proxy);
     }
 
     /// <summary>
-    /// Gets the assembly being exported.
+    /// Attempts to project a .NET type as a JS object.
     /// </summary>
-    public Assembly Assembly { get; }
-
-    /// <summary>
-    /// Gets the JS Value (Proxy object) that represents the exported assembly.
-    /// </summary>
-    public JSValue AssemblyObject => _assemblyObject.GetValue()!.Value;
-
-    /// <summary>
-    /// Creates a proxy handler that enables deferred enumeration and loading of types in the
-    /// assembly.
-    /// </summary>
-    private JSProxy.Handler CreateProxyHandler() => new()
-    {
-        Get = (JSObject target, JSValue property, JSObject receiver) =>
-        {
-            if (target.ContainsKey(property))
-            {
-                // The host may define some properties on the target object.
-                return target[property];
-            }
-
-            string? propertyName = property.IsString() ? (string?)property : null;
-            if (propertyName == null)
-            {
-                return JSValue.Undefined;
-            }
-
-            return TryExportType(propertyName);
-        },
-
-        OwnKeys = (JSObject target) =>
-        {
-            JSArray keys = new();
-
-            foreach (JSValue key in target.Keys.Select(v => (string)v))
-            {
-                keys.Add(key);
-            }
-
-            // TODO: Enumerate types in the assembly?
-
-            return keys;
-        },
-
-        GetOwnPropertyDescriptor = (JSObject target, JSValue property) =>
-        {
-            if (target.TryGetValue(property, out JSValue value))
-            {
-                JSObject descriptor = new()
-                {
-                    ["enumerable"] = false, // Target properties are not enumerable.
-                    ["configurable"] = false,
-                    ["value"] = value,
-                };
-                return descriptor;
-            }
-
-            string? propertyName = property.IsString() ? (string?)property : null;
-            if (propertyName == null)
-            {
-                return (JSObject)JSValue.Undefined;
-            }
-
-            JSValue typeValue = TryExportType(propertyName);
-            if (!typeValue.IsUndefined())
-            {
-                JSObject descriptor = new()
-                {
-                    ["enumerable"] = true, // Type properties are enumerable.
-                    ["configurable"] = false,
-                    ["value"] = typeValue,
-                };
-                return descriptor;
-            }
-
-            return (JSObject)JSValue.Undefined;
-        },
-    };
-
-    /// <summary>
-    /// Attempts to load and export a type, either by simple name or full type name.
-    /// </summary>
-    /// <param name="name">Either a simple type name or a namespace-qualified type name.</param>
-    /// <returns>The exported type, or <see cref="JSValue.Undefined"/> if the type was
-    /// not found.</returns>
-    public JSValue TryExportType(string name)
+    /// <param name="type">A type to export.</param>
+    /// <returns>A strong reference to a JS object that represents the exported type, or null
+    /// if the type could not be exported.</returns>
+    public JSReference? TryExportType(Type type)
     {
         // TODO: Handle generic types.
 
-        Type? type = Assembly.GetType(name);
-        if (type == null)
-        {
-            type = Assembly.GetTypes().SingleOrDefault((t) => t.Name == name);
-            if (type == null)
-            {
-                return JSValue.Undefined;
-            }
-        }
-
+        JSReference? valueReference;
         try
         {
-            if (type.IsEnum)
+            if (!IsSupportedType(type))
             {
-                return ExportEnum(type);
+                Trace($"      Unsupported type: {type}");
+                return null;
             }
-            if (type.IsClass || type.IsInterface || type.IsValueType)
+            else if (type.IsEnum)
+            {
+                valueReference = ExportEnum(type);
+            }
+            else if (type.IsClass || type.IsInterface || type.IsValueType)
             {
                 if (type.IsClass && type.BaseType?.FullName == typeof(MulticastDelegate).FullName)
                 {
                     // Delegate types are not exported as type objects, but the JS marshaller can
                     // still dynamically convert delegate instances to/from JS functions.
-                    return JSValue.Undefined;
+                    Trace($"      Delegate types are not exported.");
+                    return null;
                 }
                 else
                 {
-                    return ExportClass(type);
+                    valueReference = ExportClass(type);
                 }
             }
             else
             {
-                return JSValue.Undefined;
+                Trace($"      Unknown type kind: {type}");
+                return null;
             }
         }
         catch (Exception ex)
         {
             Trace($"Failed to export type {type}: {ex}");
-            throw;
+            return null;
         }
+
+        return valueReference;
     }
 
-    private JSValue ExportClass(Type type)
+    private JSReference? ExportClass(Type type)
     {
-        if (_exportedTypes.TryGetValue(type, out JSReference? typeObjectReference))
+        if (_exportedTypes.TryGetValue(type, out JSReference? classObjectReference))
         {
-            return typeObjectReference!.GetValue()!.Value;
+            return classObjectReference;
         }
 
         if (type == typeof(object) || type == typeof(string) ||
@@ -189,7 +98,7 @@ internal class AssemblyExporter
             return default;
         }
 
-        Trace($"> AssemblyExporter.ExportClass({type.FullName})");
+        Trace($"> {nameof(TypeExporter)}.ExportClass({type.FullName})");
 
         bool isStatic = type.IsAbstract && type.IsSealed;
         Type classBuilderType =
@@ -229,6 +138,7 @@ internal class AssemblyExporter
 
         ExportProperties(type, classBuilder);
         ExportMethods(type, classBuilder);
+        ExportNestedTypes(type, classBuilder);
 
         string defineMethodName = type.IsInterface ? "DefineInterface" :
             isStatic ? "DefineStaticClass" : type.IsValueType ? "DefineStruct" : "DefineClass";
@@ -237,14 +147,15 @@ internal class AssemblyExporter
             classBuilder,
             defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
 
-        _exportedTypes.Add(type, new JSReference(classObject));
+        classObjectReference = new JSReference(classObject);
+        _exportedTypes.Add(type, classObjectReference);
 
         // Also export any types returned by properties or methods of this type, because
         // they might otherwise not be referenced by JS before they are used.
         ExportClassDependencies(type);
 
-        Trace($"< AssemblyExporter.ExportClass()");
-        return classObject;
+        Trace($"< {nameof(TypeExporter)}.ExportClass()");
+        return classObjectReference;
     }
 
     private void ExportClassDependencies(Type type)
@@ -256,15 +167,23 @@ internal class AssemblyExporter
                 ExportTypeIfSupported(dependencyType.GetElementType()!);
                 return;
             }
-
-            string assemblyName = dependencyType.Assembly.GetName().Name!;
-            if (IsSupportedType(dependencyType) &&
-#if NETFRAMEWORK
-                assemblyName != "mscorlib" &&
-#endif
-                assemblyName?.StartsWith("System.") == false)
+            else if (dependencyType.IsGenericType)
             {
-                ExportClass(dependencyType);
+                Type genericTypeDefinition = dependencyType.GetGenericTypeDefinition();
+                if (genericTypeDefinition == typeof(Nullable<>) ||
+                    genericTypeDefinition.Namespace == typeof(IList<>).Namespace)
+                {
+                    foreach (Type typeArg in dependencyType.GetGenericArguments())
+                    {
+                        ExportTypeIfSupported(typeArg);
+                    }
+                    return;
+                }
+            }
+
+            if (IsSupportedType(dependencyType))
+            {
+                TryExportType(dependencyType);
             }
         }
 
@@ -468,13 +387,44 @@ internal class AssemblyExporter
         }
     }
 
-    private JSValue ExportEnum(Type type)
+    private void ExportNestedTypes(Type type, object classBuilder)
     {
-        Trace($"> AssemblyExporter.ExportEnum({type.FullName})");
+        Type classBuilderType = classBuilder.GetType();
+        MethodInfo? addValuePropertyMethod = classBuilderType.GetInstanceMethod(
+            "AddProperty", new[] { typeof(string), typeof(JSValue), typeof(JSPropertyAttributes) });
 
-        if (_exportedTypes.TryGetValue(type, out JSReference? typeObjectReference))
+        JSPropertyAttributes propertyAttributes = JSPropertyAttributes.Static |
+            JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable;
+
+        foreach (Type nestedType in type.GetNestedTypes())
         {
-            return typeObjectReference!.GetValue()!.Value;
+            if (!nestedType.IsNestedPublic || !IsSupportedType(nestedType))
+            {
+                continue;
+            }
+
+            JSReference? nestedTypeReference = TryExportType(nestedType);
+            if (nestedTypeReference != null)
+            {
+                addValuePropertyMethod.Invoke(
+                    classBuilder,
+                    new object[]
+                    {
+                        nestedType.Name,
+                        nestedTypeReference.GetValue()!.Value,
+                        propertyAttributes,
+                    });
+            }
+        }
+    }
+
+    private JSReference ExportEnum(Type type)
+    {
+        Trace($"> {nameof(TypeExporter)}.ExportEnum({type.FullName})");
+
+        if (_exportedTypes.TryGetValue(type, out JSReference? enumObjectReference))
+        {
+            return enumObjectReference;
         }
 
         JSClassBuilder<object> enumBuilder = new(type.Name);
@@ -488,10 +438,11 @@ internal class AssemblyExporter
         }
 
         JSValue enumObject = enumBuilder.DefineEnum();
-        _exportedTypes.Add(type, new JSReference(enumObject));
+        enumObjectReference = new JSReference(enumObject);
+        _exportedTypes.Add(type, enumObjectReference);
 
-        Trace($"< AssemblyExporter.ExportEnum()");
-        return enumObject;
+        Trace($"< {nameof(TypeExporter)}.ExportEnum()");
+        return enumObjectReference;
     }
 
     private static bool IsSupportedType(Type type)
@@ -499,6 +450,8 @@ internal class AssemblyExporter
         if (type.IsPointer ||
             type == typeof(Type) ||
             type.Namespace == "System.Reflection" ||
+            (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Memory<>)) ||
+            (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ReadOnlyMemory<>)) ||
             (type.Namespace?.StartsWith("System.Collections.") == true && !type.IsGenericType) ||
             (type.Namespace?.StartsWith("System.Threading.") == true && type != typeof(Task) &&
             !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))))
@@ -517,6 +470,11 @@ internal class AssemblyExporter
         if (typeof(Stream).IsAssignableFrom(type))
         {
             // Streams should be projected as Duplex.
+            return false;
+        }
+
+        if (type.Assembly == typeof(JSValue).Assembly)
+        {
             return false;
         }
 

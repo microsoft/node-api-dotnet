@@ -13,7 +13,7 @@ const dotnet = require(dotnetHost)
 
 const assemblyPath = process.env.TEST_DOTNET_MODULE_PATH;
 const assembly = dotnet.load(assemblyPath);
-const OptionalParameters = assembly['Microsoft.JavaScript.NodeApi.TestCases.OptionalParameters'];
+const OptionalParameters = dotnet.Microsoft.JavaScript.NodeApi.TestCases.OptionalParameters;
 
 assert.strictEqual('a,(null)', OptionalParameters.DefaultNull('a'));
 assert.strictEqual('True,False', OptionalParameters.DefaultFalse(true));

@@ -58,6 +58,13 @@ public abstract class SourceGenerator
     {
         string ns = GetNamespace(symbol);
         string name = (symbol as INamedTypeSymbol)?.OriginalDefinition?.Name ?? symbol.Name;
+
+        while (symbol.ContainingSymbol is INamedTypeSymbol containingType)
+        {
+            name = $"{containingType.OriginalDefinition.Name}.{name}";
+            symbol = containingType;
+        }
+
         return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
     }
 

@@ -3,6 +3,9 @@
 
 // APIs defined here are implemented by Microsoft.JavaScript.NodeApi.DotNetHost.
 
+// This explicit module declaration enables module members to be merged with imported namespaces.
+declare module 'node-api-dotnet' {
+
 /**
  * A .NET assembly that was loaded dynamically by the .NET host. Types within the assembly
  * can be accessed via properties on the assembly object.
@@ -50,3 +53,5 @@ export declare function removeListener(
   event: 'resolving',
   listener: (assemblyName: string, assemblyVersion: string) => void,
 ): this;
+
+}

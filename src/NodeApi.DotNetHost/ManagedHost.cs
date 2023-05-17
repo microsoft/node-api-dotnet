@@ -33,10 +33,70 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     private readonly AssemblyLoadContext _loadContext = new(name: default);
 #endif
 
+    /// <summary>
+    /// Path to the assembly currently being loaded, or null when not loading.
+    /// </summary>
+    /// <remarks>
+    /// This is used to automatically load dependency assemblies from the same directory as
+    /// the initially loaded assembly, if there was no location provided by a resolve handler.
+    /// Note since a .NET host cannot be shared by multiple JS threads (workers), only one
+    /// assembly can be loaded at a time.
+    /// </remarks>
+    private string? _loadingPath;
+
+    /// <summary>
+    /// Strong reference to the JS object that is the exports for this module.
+    /// </summary>
+    /// <remarks>
+    /// The exports object has module APIs such as `require()` and `load()`, along with
+    /// top-level .NET namespaces like `System` and `Microsoft`.
+    /// </remarks>
+    private readonly JSReference _exports;
+
+    /// <summary>
+    /// Component that dynamically exports types from loaded assemblies.
+    /// </summary>
+    private readonly TypeExporter _typeExporter;
+
+    /// <summary>
+    /// Mapping from top-level namespace names like `System` and `Microsoft` to
+    /// namespace objects that track child namespaces and types in the namespace.
+    /// </summary>
+    /// <remarks>
+    /// This is a tree structure because each namespace object has another dictionary
+    /// of child namespaces.
+    /// </remarks>
+    private readonly Dictionary<string, Namespace> _exportedNamespaces = new();
+
+    /// <summary>
+    /// Mapping from .NET types to JS type objects for exported types.
+    /// </summary>
+    /// <remarks>
+    /// Note when dynamically loading an assembly, all the types in the assembly
+    /// are 
+    /// </remarks>
     private readonly Dictionary<Type, JSReference> _exportedTypes = new();
+
+    /// <summary>
+    /// Mapping from assembly file paths to loaded assemblies.
+    /// </summary>
+    private readonly Dictionary<string, Assembly> _loadedAssembliesByPath = new();
+
+    /// <summary>
+    /// Mapping from assembly names (not including version or other parts) to
+    /// loaded assemblies.
+    /// </summary>
+    private readonly Dictionary<string, Assembly> _loadedAssembliesByName = new();
+
+    /// <summary>
+    /// Mapping from assembly file paths to strong references to module exports.
+    /// </summary>
+    /// <remarks>
+    /// Unlike the loaded "assemblies" above, the loaded "modules" do not use
+    /// automatic dynamic binding to .NET APIs; instead they include generated or
+    /// custom code for exporting specific APIs to JS.
+    /// </remarks>
     private readonly Dictionary<string, JSReference> _loadedModules = new();
-    private readonly Dictionary<string, AssemblyExporter> _loadedAssemblies = new();
-    private readonly AssemblyExporter _systemAssembly;
 
     private ManagedHost(JSObject exports)
     {
@@ -83,8 +143,16 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             AutoCamelCase = false,
         };
 
-        // Export the .NET core library assembly by default, along with additional methods above.
-        _systemAssembly = new AssemblyExporter(typeof(object).Assembly, _exportedTypes, exports);
+        // Save the exports object, on which top-level namespaces will be defined.
+        _exports = new JSReference(exports);
+
+        // Export the .NET core library assembly by default.
+        _typeExporter = new(_exportedTypes);
+        LoadAssemblyTypes(typeof(object).Assembly);
+        if (typeof(Console).Assembly != typeof(object).Assembly)
+        {
+            LoadAssemblyTypes(typeof(Console).Assembly);
+        }
     }
 
     public static bool IsTracingEnabled { get; } =
@@ -99,6 +167,10 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         }
     }
 
+    /// <summary>
+    /// Called by the native host to initialize the managed host module.
+    /// Initializes an instance of the managed host and returns the exports object from it.
+    /// </summary>
 #if NETFRAMEWORK
     public static unsafe int InitializeModule(string argument)
     {
@@ -138,7 +210,6 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             }
 
             ManagedHost host = new(exportsObject);
-            exports = (napi_value)host._systemAssembly.AssemblyObject;
 
             Trace("< ManagedHost.InitializeModule()");
         }
@@ -192,19 +263,35 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         // Resolve listeners may call load(assemblyFilePath) to load the requested assembly.
         // The version of the loaded assembly might not match the requested version.
-        // TODO: Consider keeping a dictionary indexed by assembly name to avoid the linear search.
-        AssemblyExporter? assemblyExporter = _loadedAssemblies.Values.FirstOrDefault(
-            (assemblyExporter) => assemblyExporter.Assembly.GetName().Name == assemblyName);
-        if (assemblyExporter != null)
+        if (_loadedAssembliesByName.TryGetValue(assemblyName, out Assembly? assembly))
         {
-            Trace($"    Resolved: {assemblyExporter.Assembly.Location}");
-        }
-        else
-        {
-            Trace($"    Resolve failed: {assemblyName}");
+            Trace($"        Resolved at: {assembly.Location}");
+            return assembly;
         }
 
-        return assemblyExporter?.Assembly;
+        if (!string.IsNullOrEmpty(_loadingPath))
+        {
+            // The dependency assembly was not resolved by an event-handler.
+            // Look for it in the same directory as the initially loaded assembly.
+            string adjacentPath = Path.Combine(
+                Path.GetDirectoryName(_loadingPath) ?? string.Empty,
+                assemblyName + ".dll");
+            try
+            {
+                assembly = LoadAssembly(adjacentPath);
+            }
+            catch (FileNotFoundException)
+            {
+                Trace($"    Assembly not found at: {adjacentPath}");
+                return default;
+            }
+
+            Trace($"        Resolved at: {assembly.Location}");
+            return assembly;
+        }
+
+        Trace($"    Assembly not resolved: {assemblyName}");
+        return default;
     }
 
     /// <summary>
@@ -227,12 +314,23 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             return exportsRef.GetValue()!.Value;
         }
 
+        Assembly assembly;
+        string? previousLoadingPath = _loadingPath;
+        try
+        {
+            _loadingPath = assemblyFilePath;
+
 #if NETFRAMEWORK
-        // TODO: Load module assemblies in separate appdomains.
-        Assembly assembly = Assembly.LoadFrom(assemblyFilePath);
+            // TODO: Load module assemblies in separate appdomains.
+            assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
-        Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+            assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
+        }
+        finally
+        {
+            _loadingPath = previousLoadingPath;
+        }
 
         MethodInfo? initializeMethod = null;
 
@@ -317,13 +415,18 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     public JSValue LoadAssembly(JSCallbackArgs args)
     {
         string assemblyFilePath = (string)args[0];
-        Trace($"> ManagedHost.LoadAssembly({assemblyFilePath})");
 
-        if (_loadedAssemblies.TryGetValue(assemblyFilePath, out AssemblyExporter? assemblyExporter))
+        if (!_loadedAssembliesByPath.ContainsKey(assemblyFilePath))
         {
-            Trace("< ManagedHost.LoadAssembly() => already loaded");
-            return assemblyExporter.AssemblyObject;
+            LoadAssembly(assemblyFilePath);
         }
+
+        return default;
+    }
+
+    private Assembly LoadAssembly(string assemblyFilePath)
+    {
+        Trace($"> ManagedHost.LoadAssembly({assemblyFilePath})");
 
         if (string.IsNullOrEmpty(Path.GetDirectoryName(assemblyFilePath)) &&
             !assemblyFilePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
@@ -340,18 +443,100 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
                 "or the name of a system assembly (without path or DLL extension).");
         }
 
+        Assembly assembly;
+        string? previousLoadingPath = _loadingPath;
+        try
+        {
+            _loadingPath = assemblyFilePath;
+
 #if NETFRAMEWORK
-        // TODO: Load assemblies in a separate appdomain.
-        Assembly assembly = Assembly.LoadFrom(assemblyFilePath);
+            // TODO: Load assemblies in a separate appdomain.
+            assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
-        Assembly assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+            assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
-        assemblyExporter = new(assembly, _exportedTypes, target: new JSObject());
-        _loadedAssemblies.Add(assemblyFilePath, assemblyExporter);
-        JSValue assemblyValue = assemblyExporter.AssemblyObject;
+
+            LoadAssemblyTypes(assembly);
+        }
+        finally
+        {
+            _loadingPath = previousLoadingPath;
+        }
+
+        _loadedAssembliesByPath.Add(assemblyFilePath, assembly);
+        _loadedAssembliesByName.Add(assembly.GetName().Name!, assembly);
 
         Trace("< ManagedHost.LoadAssembly() => newly loaded");
-        return assemblyValue;
+        return assembly;
+    }
+
+    private void LoadAssemblyTypes(Assembly assembly)
+    {
+        Trace($"> ManagedHost.LoadAssemblyTypes({assembly.GetName().Name})");
+        int count = 0;
+
+        foreach (Type type in assembly.GetTypes())
+        {
+            if (!type.IsPublic)
+            {
+                // This also skips nested types which are NestedPublic but not Public.
+                continue;
+            }
+
+            string[] namespaceParts = type.Namespace?.Split('.') ?? Array.Empty<string>();
+            if (namespaceParts.Length == 0)
+            {
+                Trace($"    Skipping un-namespaced type: {type.Name}");
+                continue;
+            }
+
+            if (!_exportedNamespaces.TryGetValue(namespaceParts[0], out Namespace? parentNamespace))
+            {
+                parentNamespace = new Namespace(namespaceParts[0], _typeExporter.TryExportType);
+                _exports.GetValue()!.Value.SetProperty(namespaceParts[0], parentNamespace.Value);
+                _exportedNamespaces.Add(namespaceParts[0], parentNamespace);
+            }
+
+            for (int i = 1; i < namespaceParts.Length; i++)
+            {
+                if (!parentNamespace.Namespaces.TryGetValue(
+                    namespaceParts[i], out Namespace? childNamespace))
+                {
+                    childNamespace = new Namespace(
+                        parentNamespace.Name + '.' + namespaceParts[i],
+                        _typeExporter.TryExportType);
+                    parentNamespace.Namespaces.Add(namespaceParts[i], childNamespace);
+                }
+
+                parentNamespace = childNamespace;
+            }
+
+            string typeName = type.Name;
+            if (type.IsGenericTypeDefinition)
+            {
+#if NETFRAMEWORK
+                typeName = typeName.Substring(0, typeName.IndexOf('`')) + '$';
+#else
+                typeName = string.Concat(typeName.AsSpan(0, typeName.IndexOf('`')), "$");
+#endif
+                if (!parentNamespace.Types.ContainsKey(typeName))
+                {
+                    // Multiple generic types may have the same name but with
+                    // different numbers of type args. They are only exported once.
+                    parentNamespace.Types.Add(typeName, type);
+                    Trace($"    {parentNamespace}.{typeName}");
+                    count++;
+                }
+            }
+            else
+            {
+                parentNamespace.Types.Add(typeName, type);
+                Trace($"    {parentNamespace}.{typeName}");
+                count++;
+            }
+        }
+
+        Trace($"< ManagedHost.LoadAssemblyTypes({assembly.GetName().Name}) => {count} types");
     }
 
     protected override void Dispose(bool disposing)

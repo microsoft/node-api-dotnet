@@ -140,6 +140,16 @@ public class ClassObject : ITestInterface
         obj.AppendGenericValue<int>(value);
     }
 #endif
+
+    public class NestedClass
+    {
+        public NestedClass(string value)
+        {
+            Value = value;
+        }
+
+        public string Value { get; set; }
+    }
 }
 
 [JSExport]

@@ -3,17 +3,19 @@
 
 // @ts-check
 
-import { SK, SKOpenAI, Logging } from './semantic-kernel.js';
-const LogLevel = Logging.LogLevel;
+import dotnet from 'node-api-dotnet';
+import './bin/Microsoft.SemanticKernel.Core.js';
+import './bin/Microsoft.SemanticKernel.Connectors.AI.OpenAI.js';
 
-/** @type {import('./bin/Microsoft.Extensions.Logging.Abstractions').ILogger} */
+const SK = dotnet.Microsoft.SemanticKernel;
+const Logging = dotnet.Microsoft.Extensions.Logging;
+
+/** @type {dotnet.Microsoft.Extensions.Logging.ILogger} */
 const logger = {
   Log(logLevel, eventId, state, exception, formatter) {
-    console.log(`LOG (${LogLevel[logLevel]}): ${formatter(state, exception)}`);
+    console.log(`LOG (${Logging.LogLevel[logLevel]}): ${formatter(state, exception)}`);
   },
-
   IsEnabled(logLevel) { return true; },
-
   BeginScope(state) { return { dispose() { } }; },
 };
 
@@ -22,7 +24,7 @@ const kernel = SK.Kernel.Builder
   .Build();
 
 // The JS marshaller does not yet support extension methods.
-SKOpenAI.KernelConfigOpenAIExtensions.AddAzureTextCompletionService(
+SK.KernelConfigOpenAIExtensions.AddAzureTextCompletionService(
   kernel.Config,
   process.env['OPENAI_DEPLOYMENT'] || '',
   process.env['OPENAI_ENDPOINT'] || '',

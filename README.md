@@ -18,7 +18,7 @@ and it isn't yet all packaged up nicely in a way that can be easily consumed._
 ### Minimal example - JS calling .NET
 ```JavaScript
 // JavaScript
-const Console = require('node-api-dotnet').Console;
+const Console = require('node-api-dotnet').System.Console;
 Console.WriteLine('Hello from .NET!');
 ```
 
@@ -51,21 +51,17 @@ For more examples, see the [examples](./examples/) directory.
 
 ### Load and call .NET assemblies from JS
 The `node-api-dotnet` package manages hosting the .NET runtime in the JS process
-(if not using AOT - see below). The .NET core library types are available directly on the
-`node-api-dotnet` module, and additional .NET assemblies can be loaded by file path:
+(if not using AOT - see below). The .NET core library types are available immediately;
+additional .NET assemblies can be loaded by file path:
 ```JavaScript
 // JavaScript
 const dotnet = require('node-api-dotnet');
-const ExampleAssembly = dotnet.load('path/to/ExampleAssembly.dll');
-const exampleObj = new ExampleAssembly.ExampleClass(...args);
+dotnet.load('path/to/ExampleAssembly.dll');
+const exampleObj = new dotnet.ExampleNamespace.ExampleClass(...args);
 ```
 
-.NET namespaces are stripped for convenience, but in case of ambiguity it's possible to get a type
-by full name:
-```JavaScript
-// JavaScript
-const MyType = ExampleAssembly['Namespace.Qualified.MyType'];
-```
+All .NET namespaces are projected onto the top-level `dotnet` object. When loading multiple .NET
+assemblies, types from all assemblies are merged into the same namespace hierarchy.
 
 ### Load and call JavaScript packages from .NET
 Calling JavaScript from .NET requires hosting a JS runtime such as Node.js in the .NET app.
@@ -100,16 +96,18 @@ type definitions.
 
 ### Generate TS type definitions for .NET APIs
 If writing TypeScript, or type-checked JavaScript, there is a tool to generate type `.d.ts` type
-definitions for .NET APIs. Soon, it should also generate a small `.js` file that exports the
-assembly in a more natural way as a JS module.
+definitions for .NET APIs. It also generates a small `.js` file that makes it simple to load the
+assembly DLL and type-definitions together.
 ```bash
 $ npm exec node-api-dotnet-generator --assembly ExampleAssembly.dll --typedefs ExampleAssembly.d.ts
 ```
 ```TypeScript
 // TypeScript
-import { ExampleClass } from './ExampleAssembly';
-ExampleClass.ExampleMethod(...args); // This call is type-checked!
+import './ExampleAssembly.js'; // TS also loads the adjacent .d.ts file.
+dotnet.ExampleNamespace.ExampleClass.ExampleMethod(...args); // This call is type-checked!
 ```
+
+(CommonJS modules must use `require()` instead of `import`.)
 
 For reference, there is a [list of C# type projections to TypeScript](/Docs/typescript.md).
 

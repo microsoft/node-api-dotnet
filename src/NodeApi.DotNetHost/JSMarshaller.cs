@@ -2835,7 +2835,21 @@ public class JSMarshaller
                     },
                     keyType,
                     valueType);
-            yield return Expression.Call(
+            yield return Expression.
+/* Unmerged change from project 'NodeApi.DotNetHost(net6.0)'
+Before:
+                var typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+After:
+                string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+*/
+
+/* Unmerged change from project 'NodeApi.DotNetHost(net472)'
+Before:
+                var typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+After:
+                string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+*/
+Call(
                 Expression.Property(null, s_context),
                 wrapMethod,
                 valueExpression,
@@ -2906,19 +2920,29 @@ public class JSMarshaller
 
     internal static string FullTypeName(Type type)
     {
-        string name = (type.Namespace ?? string.Empty).Replace('.', '_');
+        string? ns = type.Namespace;
+        string name = type.Name;
 
         if (type.IsGenericType)
         {
-            name = name + '_' + type.Name.Substring(0, type.Name.IndexOf('`')) +
-                "_of_" + string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
-        }
-        else
-        {
-            name = name + '_' + type.Name;
+            int nameEnd = name.IndexOf('`');
+            if (nameEnd >= 0)
+            {
+                string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
+#if NETFRAMEWORK
+                name = name.Substring(0, nameEnd) + "_of_" + typeArgs;
+#else
+                name = string.Concat(name.AsSpan(0, nameEnd), "_of_", typeArgs);
+#endif
+            }
         }
 
-        return name;
+        if (type.IsNested)
+        {
+            return $"{FullTypeName(type.DeclaringType!)}_{name}";
+        }
+
+        return string.IsNullOrEmpty(ns) ? name : $"{ns.Replace('.', '_')}_{name}";
     }
 
     /// <summary>

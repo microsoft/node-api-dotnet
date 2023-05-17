@@ -393,93 +393,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         foreach (ISymbol exportItem in exportItems)
         {
             string exportName = GetExportName(exportItem);
-            if (exportItem is ITypeSymbol exportClass &&
-                (exportClass.TypeKind == TypeKind.Class ||
-                exportClass.TypeKind == TypeKind.Interface))
+            if (exportItem is ITypeSymbol exportType)
             {
-                s += $".AddProperty(\"{exportName}\",";
-                s.IncreaseIndent();
-
-                string ns = GetNamespace(exportClass);
-                if (exportClass.TypeKind == TypeKind.Interface)
-                {
-                    // Interfaces do not have constructors.
-                    s += $"new JSClassBuilder<{exportClass}>(\"{exportName}\")";
-                    _exportedInterfaces.Add(exportClass);
-                }
-                else if (exportClass.IsStatic)
-                {
-                    // Static classes do not have constructors, and cannot be used as type params.
-                    s += $"new JSClassBuilder<object>(\"{exportName}\")";
-                }
-                else
-                {
-                    s += $"new JSClassBuilder<{ns}.{exportClass.Name}>(\"{exportName}\",";
-
-                    // The class constructor may take no parameter, or a single JSCallbackArgs
-                    // parameter, or may use an adapter to support arbitrary parameters.
-                    if (IsConstructorCallbackAdapterRequired(exportClass))
-                    {
-                        LambdaExpression adapter;
-                        ConstructorInfo[] constructors = exportClass.GetMembers()
-                            .OfType<IMethodSymbol>()
-                            .Where((m) => m.MethodKind == MethodKind.Constructor)
-                            .Select((c) => c.AsConstructorInfo())
-                            .ToArray();
-                        if (constructors.Length == 1)
-                        {
-                            adapter = _marshaller.BuildFromJSConstructorExpression(constructors[0]);
-                            s += $"\t{adapter.Name})";
-                        }
-                        else
-                        {
-                            adapter = _marshaller.BuildConstructorOverloadDescriptorExpression(
-                                constructors);
-                            s += $"\t{adapter.Name}())";
-                        }
-                        _callbackAdapters.Add(adapter.Name!, adapter);
-                    }
-                    else if (exportClass.GetMembers().OfType<IMethodSymbol>().Any((m) =>
-                        m.MethodKind == MethodKind.Constructor && m.Parameters.Length == 0))
-                    {
-                        s += $"\t() => new {ns}.{exportClass.Name}())";
-                    }
-                    else
-                    {
-                        s += $"\t(args) => new {ns}.{exportClass.Name}(args))";
-                    }
-                }
-
-                // Export all the class members, then define the class.
-                ExportMembers(ref s, exportClass);
-
-                s += exportClass.TypeKind == TypeKind.Interface ? ".DefineInterface())" :
-                    exportClass.IsStatic ? ".DefineStaticClass())" : ".DefineClass())";
-                s.DecreaseIndent();
-            }
-            else if (exportItem is ITypeSymbol exportStruct &&
-                exportStruct.TypeKind == TypeKind.Struct)
-            {
-                s += $".AddProperty(\"{exportName}\",";
-                s.IncreaseIndent();
-
-                string ns = GetNamespace(exportStruct);
-                s += $"new JSStructBuilder<{ns}.{exportStruct.Name}>(\"{exportName}\")";
-
-                ExportMembers(ref s, exportStruct);
-                s += ".DefineStruct())";
-                s.DecreaseIndent();
-            }
-            else if (exportItem is ITypeSymbol exportEnum && exportEnum.TypeKind == TypeKind.Enum)
-            {
-                s += $".AddProperty(\"{exportName}\",";
-                s.IncreaseIndent();
-
-                // Exported enums are similar to static classes with integer properties.
-                s += $"new JSClassBuilder<object>(\"{exportName}\")";
-                ExportMembers(ref s, exportEnum);
-                s += ".DefineEnum())";
-                s.DecreaseIndent();
+                ExportType(ref s, exportType, exportName);
             }
             else if (exportItem is IPropertySymbol exportProperty)
             {
@@ -514,6 +430,116 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     }
 
     /// <summary>
+    /// Generates code to export a class, struct, interface, enum, or delegate type.
+    /// </summary>
+    private void ExportType(
+        ref SourceBuilder s,
+        ITypeSymbol type,
+        string? exportName = null)
+    {
+        exportName ??= type.Name;
+
+        string propertyAttributes = string.Empty;
+        if (type.ContainingType != null)
+        {
+            propertyAttributes = ", JSPropertyAttributes.Static | " +
+                "JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable";
+        }
+
+        if (type.TypeKind == TypeKind.Class ||
+            type.TypeKind == TypeKind.Interface)
+        {
+            s += $".AddProperty(\"{exportName}\",";
+            s.IncreaseIndent();
+
+            string ns = GetNamespace(type);
+            if (type.TypeKind == TypeKind.Interface)
+            {
+                // Interfaces do not have constructors.
+                s += $"new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\")";
+                _exportedInterfaces.Add(type);
+            }
+            else if (type.IsStatic)
+            {
+                // Static classes do not have constructors, and cannot be used as type params.
+                s += $"new JSClassBuilder<object>(\"{exportName}\")";
+            }
+            else
+            {
+                s += $"new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\",";
+
+                // The class constructor may take no parameter, or a single JSCallbackArgs
+                // parameter, or may use an adapter to support arbitrary parameters.
+                if (IsConstructorCallbackAdapterRequired(type))
+                {
+                    LambdaExpression adapter;
+                    ConstructorInfo[] constructors = type.GetMembers()
+                        .OfType<IMethodSymbol>()
+                        .Where((m) => m.MethodKind == MethodKind.Constructor)
+                        .Select((c) => c.AsConstructorInfo())
+                        .ToArray();
+                    if (constructors.Length == 1)
+                    {
+                        adapter = _marshaller.BuildFromJSConstructorExpression(constructors[0]);
+                        s += $"\t{adapter.Name})";
+                    }
+                    else
+                    {
+                        adapter = _marshaller.BuildConstructorOverloadDescriptorExpression(
+                            constructors);
+                        s += $"\t{adapter.Name}())";
+                    }
+                    _callbackAdapters.Add(adapter.Name!, adapter);
+                }
+                else if (type.GetMembers().OfType<IMethodSymbol>().Any((m) =>
+                    m.MethodKind == MethodKind.Constructor && m.Parameters.Length == 0))
+                {
+                    s += $"\t() => new {ns}.{type.Name}())";
+                }
+                else
+                {
+                    s += $"\t(args) => new {ns}.{type.Name}(args))";
+                }
+            }
+
+            // Export all the class members, then define the class.
+            ExportMembers(ref s, type);
+
+            s += (type.TypeKind == TypeKind.Interface ? ".DefineInterface()" :
+                type.IsStatic ? ".DefineStaticClass()" : ".DefineClass()") +
+                propertyAttributes + ')';
+            s.DecreaseIndent();
+        }
+        else if (type.TypeKind == TypeKind.Struct)
+        {
+            s += $".AddProperty(\"{exportName}\",";
+            s.IncreaseIndent();
+
+            string ns = GetNamespace(type);
+            s += $"new JSStructBuilder<{GetFullName(type)}>(\"{exportName}\")";
+
+            ExportMembers(ref s, type);
+            s += $".DefineStruct(){propertyAttributes})";
+            s.DecreaseIndent();
+        }
+        else if (type.TypeKind == TypeKind.Enum)
+        {
+            s += $".AddProperty(\"{exportName}\",";
+            s.IncreaseIndent();
+
+            // Exported enums are similar to static classes with integer properties.
+            s += $"new JSClassBuilder<object>(\"{exportName}\")";
+            ExportMembers(ref s, type);
+            s += $".DefineEnum(){propertyAttributes})";
+            s.DecreaseIndent();
+        }
+        else if (type.TypeKind == TypeKind.Delegate)
+        {
+            ExportDelegate(type);
+        }
+    }
+
+    /// <summary>
     /// Generates code to define properties and methods for an exported class or struct type.
     /// </summary>
     private void ExportMembers(
@@ -522,7 +548,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         bool isStreamClass = typeof(System.IO.Stream).IsAssignableFrom(type.AsType());
 
-        foreach (ISymbol? member in type.GetMembers()
+        foreach (ISymbol member in type.GetMembers()
           .Where((m) => m.DeclaredAccessibility == Accessibility.Public))
         {
             if (isStreamClass && !member.IsStatic)
@@ -543,6 +569,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 s += $".AddProperty(\"{field.Name}\", {field.ConstantValue}, " +
                     "JSPropertyAttributes.Static | JSPropertyAttributes.Enumerable)";
+            }
+            else if (member is INamedTypeSymbol nestedType)
+            {
+                ExportType(ref s, nestedType);
             }
         }
     }

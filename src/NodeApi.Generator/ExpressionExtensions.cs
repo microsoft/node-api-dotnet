@@ -306,20 +306,27 @@ internal static class ExpressionExtensions
                 return FormatType(type.GetGenericArguments()[0]) + "?";
             }
 
-            if (type.IsNested && type.DeclaringType!.IsGenericType)
+            string typeArgs = string.Join(", ", type.GenericTypeArguments.Select(FormatType));
+            if (type.IsNested)
             {
-                string typeArgs = string.Join(
-                    ", ", type.DeclaringType.GenericTypeArguments.Select(FormatType));
-                string declaringName = type.DeclaringType.Name;
-                return $"{type.Namespace}." +
-                    $"{declaringName.Substring(0, declaringName.IndexOf('`'))}<{typeArgs}>" +
-                    $".{type.Name}";
+                if (type.GenericTypeArguments.Length == 0)
+                {
+                    // Nested type may be generic with 0 type args if the declaring type is generic.
+                    return $"{FormatType(type.DeclaringType!)}.{type.Name}";
+                }
+                else
+                {
+                    return $"{FormatType(type.DeclaringType!)}.{type.Name}<{typeArgs}>";
+                }
             }
             else
             {
-                string typeArgs = string.Join(", ", type.GenericTypeArguments.Select(FormatType));
                 return $"{type.Namespace}.{type.Name.Substring(0, type.Name.IndexOf('`'))}<{typeArgs}>";
             }
+        }
+        else if (type.IsNested)
+        {
+            return $"{FormatType(type.DeclaringType!)}.{type.Name}";
         }
         else if (type.IsArray)
         {
