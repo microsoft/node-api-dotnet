@@ -259,7 +259,8 @@ public sealed class JSRuntimeContext : IDisposable
     {
         if (obj == null)
         {
-            return JSValue.Null;
+            // Marshal null object reference to JS undefined. 
+            return JSValue.Undefined;
         }
 
         JSValue? wrapper = null;

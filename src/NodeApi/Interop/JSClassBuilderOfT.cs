@@ -9,8 +9,6 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> where T : class
 {
-    private const char GenericTypeNameSuffix = '$';
-
     private readonly JSCallbackDescriptor? _constructorDescriptor;
 
     public string ClassName { get; }
@@ -257,38 +255,9 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             }
         }
 
-        static string TypeName(Type type)
-        {
-            string typeName = type.Name;
-            if (type.IsGenericType)
-            {
-                int nameEnd = typeName.IndexOf('`');
-                if (nameEnd >= 0)
-                {
-                    typeName = typeName.Substring(0, nameEnd);
-                    typeName += GenericTypeNameSuffix;
-                }
-            }
-            return typeName;
-        }
-
-        // Include the declaring type(s) of nested types.
-        string typeName = TypeName(typeof(T));
-        Type? declaringType = typeof(T).DeclaringType;
-        while (declaringType != null)
-        {
-            typeName = TypeName(declaringType) + '.' + typeName;
-            declaringType = declaringType.DeclaringType;
-        }
-
-        if (typeof(T).Namespace != null)
-        {
-            typeName = typeof(T).Namespace + '.' + typeName;
-        }
-
         AddMethod(
             "toString",
-            (_) => typeName,
+            (_) => typeof(T).FormatName(),
             JSPropertyAttributes.Static | JSPropertyAttributes.DefaultMethod);
     }
 }
