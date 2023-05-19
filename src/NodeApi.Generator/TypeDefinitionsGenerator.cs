@@ -123,6 +123,7 @@ dotnet.load(assemblyName);
     private bool _autoCamelCase;
     private bool _emitDisposable;
     private bool _emitDuplex;
+    private bool _emitType;
     private readonly bool _suppressWarnings;
 
     public static void GenerateTypeDefinitions(
@@ -436,6 +437,25 @@ dotnet.load(assemblyName);
 
     private void GenerateSupportingInterfaces(ref SourceBuilder s, int insertIndex)
     {
+        if (_emitType)
+        {
+            // This interface is named `IType` rather than `Type` primarily to distinguish it
+            // from tye .NET System.Type type, which could also be accessed from JS.
+            s.Insert(insertIndex, @"
+/** A JavaScript projection of a .NET type. */
+interface IType<T> {
+	/**
+	 * Constructs a new instance of the type.
+	 * (Not available for static class or interface types.)
+	 */
+	new?(...args: any[]): T;
+
+	/** Gets the full name of the .NET type. */
+	toString(): string;
+}
+");
+        }
+
         if (_emitDisposable)
         {
             s.Insert(insertIndex, @"
@@ -472,14 +492,6 @@ import { Duplex } from 'stream';
             genericParams = string.Join(", ", method.GetGenericArguments().Select((t) => t.Name));
             genericParams = $"<{genericParams}>";
         }
-        else if (method.IsStatic && method.ContainsGenericParameters &&
-            method.DeclaringType!.IsGenericTypeDefinition)
-        {
-            // TypeScript doesn't support static methods referencing generic params from the class.
-            Type[] typeArgs = method.DeclaringType.GetGenericArguments();
-            genericParams = string.Join(", ", typeArgs.Select((t) => t.Name));
-            genericParams = $"<{genericParams}>";
-        }
         return genericParams;
     }
 
@@ -487,11 +499,33 @@ import { Duplex } from 'stream';
     {
         s++;
         BeginNamespace(ref s, type);
-        GenerateDocComments(ref s, type);
 
+        string exportName = GetExportName(type);
         MethodInfo invokeMethod = type.GetMethod(nameof(Action.Invoke))!;
 
-        s += $"export interface {GetExportName(type)}{GetGenericParams(type)} {{ (" +
+        if (type.IsGenericTypeDefinition)
+        {
+            GenerateGenericTypeFactory(ref s, type);
+
+            GenerateDocComments(ref s, type);
+
+            Type[] typeArgs = type.GetGenericArguments();
+            string typeParams = string.Join(", ", typeArgs.Select((t) => t.Name));
+            s += $"export interface {exportName}$${typeArgs.Length}<{typeParams}> {{";
+
+            string invokeArgs = string.Join(", ", invokeMethod.GetParameters().Select(
+                (p) => $"{p.Name}: {GetTSType(p)}"));
+            string invokeRet = GetTSType(invokeMethod.ReturnParameter);
+            s += $"new(func: ({invokeArgs}) => {invokeRet}): " +
+                $"{exportName}${typeArgs.Length}<{typeParams}>;";
+
+            s += "}";
+            s++;
+        }
+
+        GenerateDocComments(ref s, type);
+
+        s += $"export interface {exportName}{GetGenericParams(type)} {{ (" +
             $"{GetTSParameters(invokeMethod.GetParameters())}): " +
             $"{GetTSType(invokeMethod.ReturnParameter)}; }}";
 
@@ -502,10 +536,57 @@ import { Duplex } from 'stream';
     {
         s++;
         BeginNamespace(ref s, type);
+
+        string exportName = GetExportName(type);
+
+        bool isFirstMember = true;
+        bool isGenericTypeDefinition = type.IsGenericTypeDefinition;
+        if (isGenericTypeDefinition)
+        {
+            GenerateGenericTypeFactory(ref s, type);
+
+            GenerateDocComments(ref s, type);
+
+            Type[] typeArgs = type.GetGenericArguments();
+            string typeParams = string.Join(", ", typeArgs.Select((t) => t.Name));
+            s += $"export interface {exportName}$${typeArgs.Length}<{typeParams}> {{";
+
+            foreach (ConstructorInfo constructor in type.GetConstructors(
+                BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (isFirstMember) isFirstMember = false; else s++;
+                ExportTypeMember(ref s, constructor);
+            }
+
+            if (type.IsClass)
+            {
+                foreach (PropertyInfo property in type.GetProperties(
+                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                {
+                    if (isFirstMember) isFirstMember = false; else s++;
+                    ExportTypeMember(ref s, property);
+                }
+
+                foreach (MethodInfo method in type.GetMethods(
+                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                {
+                    if (!IsExcludedMethod(method))
+                    {
+                        if (isFirstMember) isFirstMember = false; else s++;
+                        ExportTypeMember(ref s, method);
+                    }
+                }
+            }
+
+            s += "}";
+            s++;
+        }
+
         GenerateDocComments(ref s, type);
 
-        bool isStaticClass = type.IsAbstract && type.IsSealed && !type.IsGenericTypeDefinition;
-        string classKind = type.IsInterface ? "interface" : isStaticClass ? "namespace" : "class";
+        bool isStaticClass = type.IsAbstract && type.IsSealed && !isGenericTypeDefinition;
+        string classKind = type.IsInterface || type.IsGenericTypeDefinition ?
+            "interface" : isStaticClass ? "namespace" : "class";
 
         string implements = string.Empty;
         /*
@@ -524,32 +605,33 @@ import { Duplex } from 'stream';
             _emitDuplex = true;
         }
 
-        string exportName = GetExportName(type);
-
         s += $"export {classKind} {exportName}{GetGenericParams(type)}{implements} {{";
 
-        bool isFirstMember = true;
+        isFirstMember = true;
 
-        foreach (ConstructorInfo constructor in type.GetConstructors(
-            BindingFlags.Public | BindingFlags.Instance))
+        if (!isGenericTypeDefinition)
         {
-            if (isFirstMember) isFirstMember = false; else s++;
-            ExportTypeMember(ref s, constructor);
+            foreach (ConstructorInfo constructor in type.GetConstructors(
+                BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (isFirstMember) isFirstMember = false; else s++;
+                ExportTypeMember(ref s, constructor);
+            }
         }
 
         if (!isStreamSubclass)
         {
             foreach (PropertyInfo property in type.GetProperties(
-                BindingFlags.Public | BindingFlags.DeclaredOnly |
-                BindingFlags.Instance | (type.IsInterface ? default : BindingFlags.Static)))
+                BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance |
+                (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
                 if (isFirstMember) isFirstMember = false; else s++;
                 ExportTypeMember(ref s, property);
             }
 
             foreach (MethodInfo method in type.GetMethods(
-                BindingFlags.Public | BindingFlags.DeclaredOnly |
-                BindingFlags.Instance | (type.IsInterface ? default : BindingFlags.Static)))
+                BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance |
+                (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
                 if (!IsExcludedMethod(method))
                 {
@@ -560,12 +642,27 @@ import { Duplex } from 'stream';
         }
 
         s += "}";
+
         EndNamespace(ref s, type);
 
         foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public))
         {
             ExportType(ref s, nestedType);
         }
+    }
+
+    private void GenerateGenericTypeFactory(ref SourceBuilder s, Type type)
+    {
+        GenerateDocComments(ref s, type, "[Generic type factory] ");
+        string exportName = GetExportName(type);
+        Type[] typeArgs = type.GetGenericArguments();
+        string typeParams = string.Join(", ", typeArgs.Select((t) => $"{t.Name}: IType<any>"));
+
+        // TODO: Instead of `any` here, use TypeScript to map each generic type arg to JS.
+        s += $"export function {exportName}$({typeParams}): " +
+            $"{exportName}$${typeArgs.Length}<{string.Join(", ", typeArgs.Select((_) => "any"))}>;";
+        s++;
+        _emitType = true;
     }
 
     public string GenerateMemberDefinition(MemberInfo member)
@@ -577,11 +674,24 @@ import { Duplex } from 'stream';
 
     private void ExportTypeMember(ref SourceBuilder s, MemberInfo member)
     {
+        Type declaringType = member.DeclaringType!;
+
         if (member is ConstructorInfo constructor)
         {
             GenerateDocComments(ref s, constructor);
             string parameters = GetTSParameters(constructor.GetParameters());
-            s += $"constructor({parameters});";
+
+            if (declaringType.IsGenericTypeDefinition)
+            {
+                string exportName = GetExportName(declaringType);
+                Type[] typeArgs = declaringType.GetGenericArguments();
+                string typeParams = string.Join(", ", typeArgs.Select((t) => t.Name));
+                s += $"new({parameters}): {exportName}${typeArgs.Length}<{typeParams}>;";
+            }
+            else
+            {
+                s += $"constructor({parameters});";
+            }
         }
         else if (member is PropertyInfo property)
         {
@@ -591,15 +701,16 @@ import { Duplex } from 'stream';
             string propertyName = TSIdentifier(memberName);
             string propertyType = GetTSType(property);
 
-            if (property.DeclaringType!.IsAbstract && property.DeclaringType.IsSealed)
+            if (declaringType.IsAbstract && declaringType.IsSealed)
             {
                 string varKind = property.SetMethod == null ? "const " : "var ";
                 s += $"export {varKind}{propertyName}: {propertyType};";
             }
             else
             {
-                bool isStatic = property.GetMethod?.IsStatic ??
-                    property.SetMethod?.IsStatic ?? false;
+                bool isStatic = (property.GetMethod?.IsStatic ??
+                    property.SetMethod?.IsStatic ?? false) &&
+                    !declaringType.IsGenericTypeDefinition;
                 string modifiers = (isStatic ? "static " : "") +
                     (property.SetMethod == null ? "readonly " : "");
                 string optionalToken = string.Empty;
@@ -623,15 +734,16 @@ import { Duplex } from 'stream';
             string parameters = GetTSParameters(method.GetParameters());
             string returnType = GetTSType(method.ReturnParameter);
 
-            if (method.DeclaringType!.IsAbstract && method.DeclaringType.IsSealed &&
-                !method.DeclaringType.IsGenericTypeDefinition)
+            if (declaringType.IsAbstract && declaringType.IsSealed &&
+                !declaringType.IsGenericTypeDefinition)
             {
                 s += "export function " +
                     $"{methodName}{genericParams}({parameters}): {returnType};";
             }
             else
             {
-                s += (method.IsStatic ? "static " : "") +
+                bool isStatic = method.IsStatic && !declaringType.IsGenericTypeDefinition;
+                s += (isStatic ? "static " : "") +
                     $"{methodName}{genericParams}({parameters}): {returnType};";
             }
         }
@@ -716,18 +828,6 @@ import { Duplex } from 'stream';
         {
             propertyType = propertyType.GetElementType()!;
         }
-
-        Type declaringType = property.DeclaringType!;
-#if !NETFRAMEWORK
-        if (isStatic && declaringType.IsGenericTypeDefinition &&
-            (propertyType.IsGenericTypeParameter ||
-            (propertyType.IsGenericType &&
-            propertyType.GenericTypeArguments.Any((t) => t.IsGenericTypeParameter))))
-        {
-            // TypeScript does not support static properties that use generic type params.
-            return "unknown";
-        }
-#endif
 
         string tsType = GetTSType(propertyType, _nullabilityContext.Create(property));
 
@@ -1180,7 +1280,10 @@ import { Duplex } from 'stream';
         }
     }
 
-    private void GenerateDocComments(ref SourceBuilder s, MemberInfo member)
+    private void GenerateDocComments(
+        ref SourceBuilder s,
+        MemberInfo member,
+        string? summaryPrefix = null)
     {
         string memberDocName = member switch
         {
@@ -1205,7 +1308,7 @@ import { Duplex } from 'stream';
             return;
         }
 
-        string summary = FormatDocText(summaryElement);
+        string summary = (summaryPrefix ?? string.Empty) + FormatDocText(summaryElement);
         string remarks = FormatDocText(remarksElement);
 
         if (string.IsNullOrEmpty(remarks) && summary.Length < 83 && summary.IndexOf('\n') < 0)
@@ -1306,7 +1409,7 @@ import { Duplex } from 'stream';
         }
         else
         {
-            return type.FullName!;
+            return type.FullName ?? type.Name;
         }
     }
 

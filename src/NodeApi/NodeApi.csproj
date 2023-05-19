@@ -21,7 +21,7 @@
     <UseSystemResourceKeys>true</UseSystemResourceKeys><!-- Trim detailed system exception messages. -->
   </PropertyGroup>
 
-  <ItemGroup Condition="$(NetFramework)">
+  <ItemGroup Condition=" '$(NetFramework)' == 'true' ">
     <PackageReference Include="System.Memory" />
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
   </ItemGroup>

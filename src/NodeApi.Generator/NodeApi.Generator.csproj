@@ -28,7 +28,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
-    <PackageReference Include="Nullability.Source" Condition="$(NetFramework)" />
+    <PackageReference Include="Nullability.Source" Condition=" '$(NetFramework)' == 'true' " />
     <PackageReference Include="System.Reflection.MetadataLoadContext" />
   </ItemGroup>
 

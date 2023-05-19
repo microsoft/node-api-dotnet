@@ -12,9 +12,10 @@ For examples of this scenario, see
        <TargetFramework>net6.0</TargetFramework>
        <OutDir>bin</OutDir>
        <NodeApiAssemblyJSModuleType>commonjs</NodeApiAssemblyJSModuleType>
+       <GenerateNodeApiTypeDefinitionsForReferences>true</GenerateNodeApiTypeDefinitionsForReferences>
      </PropertyGroup>
      <ItemGroup>
-       <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.2.*" />
+       <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*" />
        <PackageReference Include="Example.Package" Version="1.2.3" />
        <PackageReference Include="Example.Package.Two" Version="2.3.4" />
      </ItemGroup>

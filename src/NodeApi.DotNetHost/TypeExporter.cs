@@ -99,15 +99,7 @@ internal class TypeExporter
             return classObjectReference;
         }
 
-        /*
-        if (type == typeof(object) || type == typeof(string) ||
-            type == typeof(void) || type.IsPrimitive)
-        {
-            throw new NotSupportedException($"Cannot export primitive type.");
-        }
-        */
-
-        Trace($"> {nameof(TypeExporter)}.ExportClass({type.FullName})");
+        Trace($"> {nameof(TypeExporter)}.ExportClass({type.FormatName()})");
 
         bool isStatic = type.IsAbstract && type.IsSealed;
         Type classBuilderType =
@@ -190,7 +182,12 @@ internal class TypeExporter
                 }
             }
 
-            if (IsSupportedType(dependencyType))
+            if (
+#if !NETFRAMEWORK // TODO: Find an alternative for .NET Framework.
+                !dependencyType.IsGenericTypeParameter &&
+                !dependencyType.IsGenericMethodParameter &&
+#endif
+                IsSupportedType(dependencyType))
             {
                 TryExportType(dependencyType);
             }
@@ -216,13 +213,7 @@ internal class TypeExporter
                 // will be implemented by JS.
                 foreach (ParameterInfo interfaceMethodParameter in interfaceMethod.GetParameters())
                 {
-                    Type parameterType = interfaceMethodParameter.ParameterType;
-#if !NETFRAMEWORK // TODO: Find an alternative for .NET Framework.
-                    if (!parameterType.IsGenericMethodParameter)
-#endif
-                    {
-                        ExportTypeIfSupported(parameterType);
-                    }
+                    ExportTypeIfSupported(interfaceMethodParameter.ParameterType);
                 }
             }
         }
@@ -448,7 +439,7 @@ internal class TypeExporter
 
     private JSReference ExportEnum(Type type)
     {
-        Trace($"> {nameof(TypeExporter)}.ExportEnum({type.FullName})");
+        Trace($"> {nameof(TypeExporter)}.ExportEnum({type.FormatName()})");
 
         if (_exportedTypes.TryGetValue(type, out JSReference? enumObjectReference))
         {
@@ -552,7 +543,7 @@ internal class TypeExporter
 
         // A generic type definition is exported as a function that constructs the
         // specialized generic type.
-        JSFunction function = new JSFunction(MakeGenericType, callbackData: type);
+        JSFunction function = new(MakeGenericType, callbackData: type);
 
         // Override the type's toString() to return the formatted generic type name.
         ((JSValue)function).SetProperty("toString", new JSFunction(() => type.FormatName()));
@@ -661,7 +652,7 @@ internal class TypeExporter
         }
 
         JSCallbackDescriptor descriptor = CreateMethodDescriptor(matchingMethods);
-        JSFunction function = new JSFunction(descriptor.Callback, descriptor.Data);
+        JSFunction function = new(descriptor.Callback, descriptor.Data);
 
         if (!args.ThisArg.IsUndefined())
         {
