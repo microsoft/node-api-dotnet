@@ -5,6 +5,8 @@
 
     <NodeApiGeneratorAssemblyName>Microsoft.JavaScript.NodeApi.Generator</NodeApiGeneratorAssemblyName>
     <NodeApiGeneratorAssemblyPath>$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/$(NodeApiGeneratorAssemblyName).dll</NodeApiGeneratorAssemblyPath>
+    <NodeApiAssemblyJSModuleType Condition=" '$(NodeApiAssemblyJSModuleType)' == '' ">commonjs</NodeApiAssemblyJSModuleType>
+    <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiAssemblyJSModuleType) $(NodeApiTypedefsGeneratorOptions)</NodeApiTypeDefinitionsGeneratorOptions>
   </PropertyGroup>
 
   <Target Name="ConfigureNodeApiTypeDefinitions"
@@ -29,7 +31,7 @@
     Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetPath)') "
   >
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot;"
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
       ConsoleToMSBuild="true" />
   </Target>
 
@@ -65,7 +67,7 @@
         Condition=" '%(Filename)' == 'Microsoft.CodeAnalysis' " />
       <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)"
         Condition=" '%(Filename)' == 'Microsoft.CodeAnalysis.CSharp' " />
-      <TypeDefinitionsReferenceItems Include="@(RuntimeCopyLocalItems)" />
+      <NodeApiReferenceAssemblies Include="@(RuntimeCopyLocalItems)" />
     </ItemGroup>
   </Target>
 
@@ -74,15 +76,27 @@
    -->
   <Target Name="GenerateNodeApiReferenceTypeDefinitions"
     AfterTargets="OutputReferenceAssembliesOnly"
-    Inputs="@(TypeDefinitionsReferenceItems)"
-    Outputs="@(TypeDefinitionsReferenceItems->'$(TargetDir)%(Filename).d.ts')"
+    Inputs="@(NodeApiReferenceAssemblies)"
+    Outputs="@(NodeApiReferenceAssemblies->'$(TargetDir)%(Filename).d.ts')"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND '$(Compile)' == '' "
   >
     <PropertyGroup Condition=" '$(EnableTSGenerationWarnings)' != 'true' ">
       <_SuppressTSGenerationWarnings>--nowarn</_SuppressTSGenerationWarnings>
     </PropertyGroup>
-    <!-- This does not use @(TypeDefinitionsReferenceItems) to avoid excluding items that are up-to-date. -->
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; $(_SuppressTSGenerationWarnings) --assemblies &quot;@(RuntimeCopyLocalItems)&quot; --typedefs &quot;@(RuntimeCopyLocalItems->'$(TargetDir)%(Filename).d.ts')&quot;"
+
+    <ItemGroup>
+      <NodeApiSystemReferenceAssemblies Include="System.Runtime" />
+      <NodeApiSystemReferenceAssemblies Include="System.Console" />
+
+      <!-- This does not use @(NodeApiReferenceAssemblies), like the target Inputs, to avoid excluding items that are up-to-date. -->
+      <_NodeApiAllReferenceAssemblies Include="@(RuntimeCopyLocalItems)" />
+      <_NodeApiAllReferenceAssemblies Include="@(NodeApiSystemReferenceAssemblies)" />
+
+      <_NodeApiAllTypeDefs Include="@(RuntimeCopyLocalItems->'$(TargetDir)%(Filename).d.ts')" />
+      <_NodeApiAllTypeDefs Include="@(NodeApiSystemReferenceAssemblies->'$(TargetDir)%(Identity).d.ts')" />
+    </ItemGroup>
+
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; $(_SuppressTSGenerationWarnings) --assemblies &quot;@(_NodeApiAllReferenceAssemblies)&quot; --typedefs &quot;@(_NodeApiAllTypeDefs)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
       ConsoleToMSBuild="true" />
   </Target>
 

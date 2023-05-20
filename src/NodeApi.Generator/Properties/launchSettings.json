@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "NodeApi.Generator": {
+      "commandName": "Project",
+      "commandLineArgs": "--assembly System.Runtime;System.Console --typedefs System.Runtime.d.ts;System.Console.d.ts"
+    }
+  }
+}
