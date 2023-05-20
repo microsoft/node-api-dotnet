@@ -586,7 +586,7 @@ dotnet.load(assemblyName);
         {
             string memberName = GetExportName(property);
 
-            GenerateDocComments(ref s, member);
+            GenerateDocComments(ref s, property);
             string propertyName = TSIdentifier(memberName);
             string propertyType = GetTSType(property);
 
@@ -612,7 +612,7 @@ dotnet.load(assemblyName);
                     $"{propertyType};";
             }
         }
-        else if (member is MethodInfo method && !IsExcludedMethod(method))
+        else if (member is MethodInfo method)
         {
             string memberName = GetExportName(method);
 
