@@ -4,6 +4,8 @@
 // Test project JS references the System.Console assembly, which doesn't exist in .NET Framework 4.
 #if !NETFRAMEWORK
 
+#pragma warning disable CA1822 // Mark members as static
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
