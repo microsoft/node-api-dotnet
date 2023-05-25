@@ -9,6 +9,10 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.JavaScript.NodeApi.Generator;
 
+// This warning is safe to suppress because this code is not part of the analyzer,
+// though it is part of the same assembly.
+#pragma warning disable RS1035 // Do not use APIs banned for analyzers
+
 /// <summary>
 /// Command-line interface for the Node API TS type-definitions generator tool.
 /// </summary>
@@ -24,6 +28,7 @@ public static class Program
     private static readonly List<string> s_referenceAssemblyPaths = new();
     private static readonly List<string> s_typeDefinitionsPaths = new();
     private static readonly HashSet<int> s_systemAssemblyIndexes = new();
+    private static string? s_systemAssemblyDirectory;
     private static TypeDefinitionsGenerator.ModuleType s_moduleType;
     private static bool s_suppressWarnings;
 
@@ -31,12 +36,10 @@ public static class Program
     {
 
 #if DEBUG
-#pragma warning disable RS1035 // The symbol 'Environment' is banned for use by analyzers.
         if (Environment.GetEnvironmentVariable("DEBUG_NODE_API_GENERATOR") != null)
         {
             System.Diagnostics.Debugger.Launch();
         }
-#pragma warning restore RS1035
 #endif
 
         if (!ParseArgs(args))
@@ -44,7 +47,9 @@ public static class Program
             Console.WriteLine("Usage: node-api-dotnet-generator [options...]");
             Console.WriteLine();
             Console.WriteLine("  -a --asssembly  Path to input assembly (required)");
-            Console.WriteLine("  -r --reference  Path to assembly reference by input " +
+            Console.WriteLine("  -f --framework  Target framework of system assemblies " +
+                "(optional)");
+            Console.WriteLine("  -r --reference  Path to reference assembly " +
                 "(optional, multiple)");
             Console.WriteLine("  -t --typedefs   Path to output type definitions file (required)");
             Console.WriteLine("  -m --module     Generate JS loader module(s) alongside typedefs" +
@@ -68,6 +73,7 @@ public static class Program
                 s_typeDefinitionsPaths[i],
                 s_moduleType,
                 isSystemAssembly: s_systemAssemblyIndexes.Contains(i),
+                s_systemAssemblyDirectory,
                 s_suppressWarnings);
 
             if (s_moduleType != TypeDefinitionsGenerator.ModuleType.None)
@@ -84,6 +90,8 @@ public static class Program
 
     private static bool ParseArgs(string[] args)
     {
+        string? targetFramework = null;
+
         for (int i = 0; i < args.Length; i++)
         {
             if (i == args.Length - 1 && args[i] != "--nowarn")
@@ -91,24 +99,39 @@ public static class Program
                 return false;
             }
 
+            void AddItems(List<string> list, string items)
+            {
+                if (!string.IsNullOrEmpty(items))
+                {
+                    // Ignore empty items, which might come from concatenating MSBuild item lists.
+                    list.AddRange(items.Split(
+                        new[] { PathSeparator }, StringSplitOptions.RemoveEmptyEntries));
+                }
+            }
+
             switch (args[i])
             {
                 case "-a":
                 case "--assembly":
                 case "--assemblies":
-                    s_assemblyPaths.AddRange(args[++i].Split(PathSeparator));
+                    AddItems(s_assemblyPaths, args[++i]);
+                    break;
+
+                case "-f":
+                case "--framework":
+                    targetFramework = args[++i];
                     break;
 
                 case "-r":
                 case "--reference":
                 case "--references":
-                    s_referenceAssemblyPaths.AddRange(args[++i].Split(PathSeparator));
+                    AddItems(s_referenceAssemblyPaths, args[++i]);
                     break;
 
                 case "-t":
                 case "--typedef":
                 case "--typedefs":
-                    s_typeDefinitionsPaths.AddRange(args[++i].Split(PathSeparator));
+                    AddItems(s_typeDefinitionsPaths, args[++i]);
                     break;
 
                 case "-m":
@@ -140,12 +163,14 @@ public static class Program
             }
         }
 
-        ResolveSystemAssemblies();
+        ResolveSystemAssemblies(targetFramework);
 
-        if (s_assemblyPaths.Any(
-                (a) => !a.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) ||
-            s_referenceAssemblyPaths.Any(
-                (r) => !r.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) ||
+        bool HasAssemblyExtension(string fileName) =>
+            fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+
+        if (s_assemblyPaths.Any((a) => !HasAssemblyExtension(a)) ||
+            s_referenceAssemblyPaths.Any((r) => !HasAssemblyExtension(r)) ||
             s_typeDefinitionsPaths.Any(
                 (t) => !t.EndsWith(".d.ts", StringComparison.OrdinalIgnoreCase)))
         {
@@ -171,48 +196,57 @@ public static class Program
         return true;
     }
 
-    private static void ResolveSystemAssemblies()
+    private static void ResolveSystemAssemblies(string? targetFramework)
     {
-        string systemAssemblyDirectory = RuntimeEnvironment.GetRuntimeDirectory();
-        if (systemAssemblyDirectory[systemAssemblyDirectory.Length - 1] ==
-            Path.DirectorySeparatorChar)
+        targetFramework ??= GetCurrentFrameworkTarget();
+
+        if (targetFramework.StartsWith("net4"))
         {
-            systemAssemblyDirectory = systemAssemblyDirectory.Substring(
-                0, systemAssemblyDirectory.Length - 1);
+            string refAssemblyDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                "Reference Assemblies",
+                "Microsoft",
+                "Framework",
+                ".NETFramework",
+                "v" + string.Join(".", targetFramework.Substring(3).ToArray())); // v4.7.2
+            if (Directory.Exists(refAssemblyDirectory))
+            {
+                s_systemAssemblyDirectory = refAssemblyDirectory;
+            }
+        }
+        else
+        {
+            string runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
+            if (runtimeDirectory[runtimeDirectory.Length - 1] == Path.DirectorySeparatorChar)
+            {
+                runtimeDirectory = runtimeDirectory.Substring(
+                    0, runtimeDirectory.Length - 1);
+            }
+            string dotnetRootDirectory = Path.GetDirectoryName(Path.GetDirectoryName(
+                Path.GetDirectoryName(runtimeDirectory)!)!)!;
+            string refAssemblyDirectory = Path.Combine(
+                dotnetRootDirectory,
+                "packs",
+                "Microsoft.NETCore.App.Ref");
+            s_systemAssemblyDirectory = Directory.GetDirectories(refAssemblyDirectory)
+                .OrderByDescending((d) => Path.GetFileName(d))
+                .Select((d) => Path.Combine(d, "ref", targetFramework))
+                .FirstOrDefault(Directory.Exists);
         }
 
-        string runtimeVersionDir = Path.GetFileName(systemAssemblyDirectory);
-        string dotnetRootDirectory = Path.GetDirectoryName(Path.GetDirectoryName(
-            Path.GetDirectoryName(systemAssemblyDirectory)!)!)!;
-        string tfm = GetCurrentFrameworkTarget();
-
-        string refAssemblyDirectory = Path.Combine(
-            dotnetRootDirectory,
-            "packs",
-            "Microsoft.NETCore.App.Ref",
-            runtimeVersionDir,
-            "ref",
-            tfm);
+        if (s_systemAssemblyDirectory == null)
+        {
+            // TODO: Check .NET Framework.
+            return;
+        }
 
         for (int i = 0; i < s_assemblyPaths.Count; i++)
         {
-            if (string.IsNullOrEmpty(s_assemblyPaths[i]) &&
-                s_typeDefinitionsPaths.Count == s_assemblyPaths.Count)
-            {
-                // Skip empty items, which might come from concatenating MSBuild item lists.
-                s_assemblyPaths.RemoveAt(i);
-                s_typeDefinitionsPaths.RemoveAt(i);
-                i--;
-                continue;
-            }
-
             if (!s_assemblyPaths[i].EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
                 string systemAssemblyPath = Path.Combine(
-                    refAssemblyDirectory, s_assemblyPaths[i] + ".dll");
-#pragma warning disable RS1035 // Do not use APIs banned for analyzers
+                    s_systemAssemblyDirectory, s_assemblyPaths[i] + ".dll");
                 if (File.Exists(systemAssemblyPath))
-#pragma warning restore RS1035
                 {
                     s_assemblyPaths[i] = systemAssemblyPath;
                     s_systemAssemblyIndexes.Add(i);
@@ -227,10 +261,10 @@ public static class Program
 
     public static string GetCurrentFrameworkTarget()
     {
-#pragma warning disable RS1035 // Do not use APIs banned for analyzers
         Version frameworkVersion = Environment.Version;
-#pragma warning restore RS1035
         return frameworkVersion.Major == 4 ? "net472" :
             $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
     }
 }
+
+#pragma warning restore RS1035

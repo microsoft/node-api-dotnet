@@ -39,13 +39,20 @@ For examples of this scenario, see
     npm install node-api-dotnet
     ```
 
-3. Import the `node-api-dotnet` package in your JavaScript code:
-    ```JavaScript
-    const dotnet = require('node-api-dotnet');
-    ```
-    Or if using ES modules:
+3. Import the `node-api-dotnet` package in your JavaScript or TypeScript code. The import syntax
+   depends on the [module system](https://nodejs.org/api/esm.html) the current project is using.
+
+   ES modules (TypeScript or JavaScript):
     ```JavaScript
     import dotnet from 'node-api-dotnet';
+    ```
+   CommonJS modules (TypeScript):
+    ```TypeScript
+    import * as dotnet from 'node-api-dotnet';
+    ```
+   CommonJS modules (JavaScript):
+    ```JavaScript
+    const dotnet = require('node-api-dotnet');
     ```
 
 4. Load one or more .NET packages using the generated `.js` files:

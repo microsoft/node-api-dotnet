@@ -131,28 +131,27 @@ dotnet.load(assemblyName);
         string typeDefinitionsPath,
         ModuleType loaderModuleType,
         bool isSystemAssembly = false,
+        string? systemReferenceAssemblyDirectory = null,
         bool suppressWarnings = false)
     {
-        // Create a metadata load context that includes a resolver for .NET runtime assemblies
-        // along with the NodeAPI assembly and the target assembly.
+        // Create a metadata load context that includes a resolver for .NET system assemblies
+        // along with the target assembly.
 
-        string[] runtimeAssemblies = Directory.GetFiles(
-            RuntimeEnvironment.GetRuntimeDirectory(), "*.dll");
+        systemReferenceAssemblyDirectory ??= RuntimeEnvironment.GetRuntimeDirectory();
+        string[] systemAssemblies = Directory.GetFiles(
+            systemReferenceAssemblyDirectory, "*.dll");
 
-        // Drop reference assemblies that are already in the runtime directory.
+        // Drop reference assemblies that are already in the system directory.
         // (They would only support older framework versions.)
         referenceAssemblyPaths = referenceAssemblyPaths.Where(
-            (r) => !runtimeAssemblies.Any((a) =>
+            (r) => !systemAssemblies.Any((a) =>
             Path.GetFileName(a).Equals(Path.GetFileName(r), StringComparison.OrdinalIgnoreCase)));
 
         PathAssemblyResolver assemblyResolver = new(
-            runtimeAssemblies
+            new[] { typeof(object).Assembly.Location }
+            .Concat(systemAssemblies)
             .Concat(referenceAssemblyPaths)
-            .Concat(new[]
-            {
-                typeof(JSExportAttribute).Assembly.Location,
-                assemblyPath,
-            }));
+            .Append(assemblyPath));
         using MetadataLoadContext loadContext = new(
             assemblyResolver, typeof(object).Assembly.GetName().Name);
 
@@ -279,6 +278,7 @@ dotnet.load(assemblyName);
         // Default to camel-case for modules, preserve case otherwise.
         _autoCamelCase = autoCamelCase ?? !_exportAll;
 
+        s++;
         s += "declare module 'node-api-dotnet' {";
 
         foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
@@ -300,9 +300,9 @@ dotnet.load(assemblyName);
             }
         }
 
-        GenerateSupportingInterfaces(ref s);
-
         s += "}";
+
+        GenerateSupportingInterfaces(ref s, importsIndex);
 
         if (_imports.Count > 0)
         {
@@ -434,23 +434,24 @@ dotnet.load(assemblyName);
         }
     }
 
-    private void GenerateSupportingInterfaces(ref SourceBuilder s)
+    private void GenerateSupportingInterfaces(ref SourceBuilder s, int insertIndex)
     {
         if (_emitDisposable)
         {
-            s++;
-            s += "export interface IDisposable {";
-            s += "dispose(): void;";
-            s += "}";
+            s.Insert(insertIndex, @"
+interface IDisposable {
+	dispose(): void;
+}
+");
         }
 
         if (_emitDuplex)
         {
-            s++;
-            s += "import { Duplex } from 'stream';";
+            s.Insert(insertIndex, @"
+import { Duplex } from 'stream';
+");
         }
     }
-
     private static string GetGenericParams(Type type)
     {
         string genericParams = string.Empty;
@@ -1207,23 +1208,30 @@ dotnet.load(assemblyName);
         string summary = FormatDocText(summaryElement);
         string remarks = FormatDocText(remarksElement);
 
-        s += "/**";
-
-        foreach (string commentLine in WrapComment(summary, 90 - 3 - s.Indent.Length))
+        if (string.IsNullOrEmpty(remarks) && summary.Length < 83 && summary.IndexOf('\n') < 0)
         {
-            s += " * " + commentLine;
+            s += $"/** {summary} */";
         }
-
-        if (!string.IsNullOrEmpty(remarks))
+        else
         {
-            s += " *";
-            foreach (string commentLine in WrapComment(remarks, 90 - 3 - s.Indent.Length))
+            s += "/**";
+
+            foreach (string commentLine in WrapComment(summary, 90 - 3 - s.Indent.Length))
             {
                 s += " * " + commentLine;
             }
-        }
 
-        s += " */";
+            if (!string.IsNullOrEmpty(remarks))
+            {
+                s += " *";
+                foreach (string commentLine in WrapComment(remarks, 90 - 3 - s.Indent.Length))
+                {
+                    s += " * " + commentLine;
+                }
+            }
+
+            s += " */";
+        }
     }
 
     private static string FormatDocText(XNode? node)
@@ -1239,6 +1247,18 @@ dotnet.load(assemblyName);
             {
                 string target = element.Attribute("cref")?.Value?.ToString() ?? string.Empty;
                 target = target.Substring(target.IndexOf(':') + 1);
+
+                int genericCountIndex = target.LastIndexOf('`');
+#pragma warning disable CA1846 // Prefer 'AsSpan' over 'Substring'
+                if (genericCountIndex > 0 &&
+                    int.TryParse(target.Substring(genericCountIndex + 1), out int genericCount))
+#pragma warning restore CA1846
+                {
+                    // TODO: Resolve generic type paramter names.
+                    target = target.Substring(0, genericCountIndex);
+                    target += $"<{new string(',', genericCount - 1)}>";
+                }
+
                 return $"`{target}`";
             }
             else if (element.Name == "paramref")

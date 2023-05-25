@@ -6,7 +6,7 @@
     <NodeApiGeneratorAssemblyName>Microsoft.JavaScript.NodeApi.Generator</NodeApiGeneratorAssemblyName>
     <NodeApiGeneratorAssemblyPath>$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/$(NodeApiGeneratorAssemblyName).dll</NodeApiGeneratorAssemblyPath>
     <NodeApiAssemblyJSModuleType Condition=" '$(NodeApiAssemblyJSModuleType)' == '' ">commonjs</NodeApiAssemblyJSModuleType>
-    <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiAssemblyJSModuleType) $(NodeApiTypedefsGeneratorOptions)</NodeApiTypeDefinitionsGeneratorOptions>
+    <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiAssemblyJSModuleType) $(NodeApiTypedefsGeneratorOptions) --framework $(TargetFramework)</NodeApiTypeDefinitionsGeneratorOptions>
   </PropertyGroup>
 
   <Target Name="ConfigureNodeApiTypeDefinitions"
@@ -31,7 +31,7 @@
     Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetPath)') "
   >
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --reference &quot;@(ReferencePathWithRefAssemblies)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
       ConsoleToMSBuild="true" />
   </Target>
 
@@ -84,10 +84,15 @@
       <_SuppressTSGenerationWarnings>--nowarn</_SuppressTSGenerationWarnings>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+      <NodeApiSystemReferenceAssemblies Include="mscorlib" />
+      <NodeApiSystemReferenceAssemblies Include="System" />
+    </ItemGroup>
+    <ItemGroup Condition="! $(TargetFramework.StartsWith('net4'))">
       <NodeApiSystemReferenceAssemblies Include="System.Runtime" />
       <NodeApiSystemReferenceAssemblies Include="System.Console" />
-
+    </ItemGroup>
+    <ItemGroup>
       <!-- This does not use @(NodeApiReferenceAssemblies), like the target Inputs, to avoid excluding items that are up-to-date. -->
       <_NodeApiAllReferenceAssemblies Include="@(RuntimeCopyLocalItems)" />
       <_NodeApiAllReferenceAssemblies Include="@(NodeApiSystemReferenceAssemblies)" />

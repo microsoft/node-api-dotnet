@@ -1,0 +1,10 @@
+<Project>
+    <Import Project="../Directory.Build.props" />
+
+    <PropertyGroup>
+      <OutDir>bin</OutDir>
+      <GenerateDocumentationFile>false</GenerateDocumentationFile>
+      <GenerateDependencyFile>false</GenerateDependencyFile>
+    </PropertyGroup>
+
+</Project>
