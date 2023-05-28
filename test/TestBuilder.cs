@@ -52,7 +52,7 @@ internal static class TestBuilder
         var moduleQueue = new Queue<string>();
         foreach (string subDir in Directory.GetDirectories(TestCasesDirectory))
         {
-            if (Path.GetFileName(subDir) != "common")
+            if (!IsExcludedSubDirectory(subDir))
             {
                 moduleQueue.Enqueue(Path.GetFileName(subDir));
             }
@@ -66,10 +66,9 @@ internal static class TestBuilder
                 moduleName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
             foreach (string subDir in Directory.GetDirectories(modulePath))
             {
-                string subDirName = Path.GetFileName(subDir);
-                if (subDirName != "common")
+                if (!IsExcludedSubDirectory(subDir))
                 {
-                    moduleQueue.Enqueue(moduleName + '/' + subDirName);
+                    moduleQueue.Enqueue(moduleName + '/' + Path.GetFileName(subDir));
                 }
             }
 
@@ -86,6 +85,19 @@ internal static class TestBuilder
                 }
             }
         }
+    }
+
+    private static bool IsExcludedSubDirectory(string directoryName)
+    {
+        string name = Path.GetFileName(directoryName);
+        return name switch
+        {
+            "common" => true,
+            "bin" => true,
+            "out" => true,
+            "node_modules" => true,
+            _ => false,
+        };
     }
 
     private static string GetModuleIntermediateOutputPath(string moduleName)
@@ -264,72 +276,6 @@ internal static class TestBuilder
         {
             Assert.Fail($"Build process produced error output:\n{errorOutput}\n" +
                 "Full output: " + logFilePath);
-        }
-    }
-
-    private static string? LogOutput(
-        Process process,
-        StreamWriter logWriter)
-    {
-        StringBuilder errorOutput = new();
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                try
-                {
-                    logWriter.WriteLine(e.Data);
-                    logWriter.Flush();
-                }
-                catch (ObjectDisposedException)
-                {
-                }
-            }
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                try
-                {
-                    logWriter.WriteLine(e.Data);
-                    logWriter.Flush();
-                }
-                catch (ObjectDisposedException)
-                {
-                }
-                errorOutput.AppendLine(e.Data);
-            }
-        };
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        // Process.WaitForExit() may hang when redirecting output because it actually waits for the
-        // stdout/stderr streams to be closed, which may not happen because `dotnet build` passes
-        // the handles to additional child processes, which may be kept running by the build server.
-        // https://github.com/dotnet/runtime/issues/29232
-        while (!process.HasExited)
-        {
-            Thread.Sleep(100);
-        }
-
-        logWriter.Close();
-        return errorOutput.Length > 0 ? errorOutput.ToString() : null;
-    }
-
-    public static void CopyIfNewer(string sourceFilePath, string targetFilePath)
-    {
-        if (!File.Exists(sourceFilePath))
-        {
-            throw new FileNotFoundException("File not found: " + sourceFilePath, sourceFilePath);
-        }
-
-        // GetLastWriteTimeUtc returns MinValue if the target file doesn't exist.
-        DateTime sourceTime = File.GetLastWriteTimeUtc(sourceFilePath);
-        DateTime targetTime = File.GetLastWriteTimeUtc(targetFilePath);
-        if (sourceTime > targetTime)
-        {
-            File.Copy(sourceFilePath, targetFilePath, overwrite: true);
         }
     }
 }

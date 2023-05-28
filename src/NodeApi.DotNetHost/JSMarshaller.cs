@@ -595,11 +595,18 @@ public class JSMarshaller
                             nameof(BuildToJSMethodExpression))));
                 }
 
+                string resultName = ResultPropertyName;
+                if (allMethodParameters.Any(
+                    (p) => p.Name == resultName && (p.IsOut || p.ParameterType.IsByRef)))
+                {
+                    resultName = '_' + resultName;
+                }
+
                 if (method.ReturnType != typeof(void))
                 {
                     // Get the return value from the results object.
                     statements.Add(Expression.Assign(resultVariable, Expression.Property(
-                        resultVariable, s_valueItem, Expression.Constant(ResultPropertyName))));
+                        resultVariable, s_valueItem, Expression.Constant(resultName))));
                     statements.Add(InlineOrInvoke(
                         GetFromJSValueExpression(method.ReturnType),
                         resultVariable,
@@ -1425,10 +1432,16 @@ public class JSMarshaller
 
         if (method.ReturnType != typeof(void))
         {
+            string resultName = ResultPropertyName;
+            if (parameters.Any((p) => p.Name == resultName && (p.IsOut || p.ParameterType.IsByRef)))
+            {
+                resultName = '_' + resultName;
+            }
+
             // Convert and assign the return value to a property on the results object.
             yield return Expression.Assign(
                 Expression.Property(
-                    resultsVariable, s_valueItem, Expression.Constant(ResultPropertyName)),
+                    resultsVariable, s_valueItem, Expression.Constant(resultName)),
                 BuildResultExpression(resultVariable!, method.ReturnType));
         }
     }

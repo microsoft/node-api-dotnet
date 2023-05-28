@@ -146,12 +146,16 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         // Save the exports object, on which top-level namespaces will be defined.
         _exports = new JSReference(exports);
 
-        // Export the .NET core library assembly by default.
         _typeExporter = new(_exportedTypes);
+
+        // Export the System.Runtime and System.Console assemblies by default.
         LoadAssemblyTypes(typeof(object).Assembly);
+        _loadedAssembliesByName.Add("System.Runtime", typeof(object).Assembly);
+
         if (typeof(Console).Assembly != typeof(object).Assembly)
         {
             LoadAssemblyTypes(typeof(Console).Assembly);
+            _loadedAssembliesByName.Add("System.Console", typeof(Console).Assembly);
         }
     }
 
@@ -414,22 +418,24 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// is a public type.</returns>
     public JSValue LoadAssembly(JSCallbackArgs args)
     {
-        string assemblyFilePath = (string)args[0];
+        string assemblyNameOrFilePath = (string)args[0];
 
-        if (!_loadedAssembliesByPath.ContainsKey(assemblyFilePath))
+        if (!_loadedAssembliesByPath.ContainsKey(assemblyNameOrFilePath) &&
+            !_loadedAssembliesByName.ContainsKey(assemblyNameOrFilePath))
         {
-            LoadAssembly(assemblyFilePath);
+            LoadAssembly(assemblyNameOrFilePath);
         }
 
         return default;
     }
 
-    private Assembly LoadAssembly(string assemblyFilePath)
+    private Assembly LoadAssembly(string assemblyNameOrFilePath)
     {
-        Trace($"> ManagedHost.LoadAssembly({assemblyFilePath})");
+        Trace($"> ManagedHost.LoadAssembly({assemblyNameOrFilePath})");
 
-        if (string.IsNullOrEmpty(Path.GetDirectoryName(assemblyFilePath)) &&
-            !assemblyFilePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        string assemblyFilePath = assemblyNameOrFilePath;
+        if (string.IsNullOrEmpty(Path.GetDirectoryName(assemblyNameOrFilePath)) &&
+            !assemblyNameOrFilePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
         {
             // Load the system assembly from the .NET directory.
             assemblyFilePath = Path.Combine(

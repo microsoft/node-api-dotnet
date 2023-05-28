@@ -5,6 +5,7 @@
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <RestorePackagesPath>$(MSBuildThisFileDirectory)/pkg</RestorePackagesPath>
     <OutDir>bin</OutDir>
+    <NodeApiAssemblyJSModuleType>esm</NodeApiAssemblyJSModuleType>
   </PropertyGroup>
 
   <ItemGroup>

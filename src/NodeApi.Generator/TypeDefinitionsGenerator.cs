@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -38,16 +39,23 @@ namespace Microsoft.JavaScript.NodeApi.Generator;
 /// </remarks>
 public class TypeDefinitionsGenerator : SourceGenerator
 {
+    public enum ModuleType
+    {
+        None,
+        CommonJS,
+        ES,
+    }
+
     /// <summary>
     /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
-    /// Enables application code to load an assembly and type definitions with one simple require
-    /// or import statement.
+    /// Enables application code to load an assembly file and type definitions as an ES module with
+    /// one simple import statement.
     /// </summary>
     /// <remarks>
     /// The `__filename` and `__dirname` values are computed for compatibility with ES modules;
     /// they are equivalent to those predefined values defined for CommonJS modules.
     /// </remarks>
-    private const string LoadAssemblyJS = @"
+    private const string LoadAssemblyMJS = @"
 import dotnet from 'node-api-dotnet';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,6 +65,48 @@ const __dirname = path.dirname(__filename);
 const assemblyName = path.basename(__filename, '.js');
 const assemblyFilePath = path.join(__dirname, assemblyName + '.dll');
 dotnet.load(assemblyFilePath);
+";
+
+    /// <summary>
+    /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
+    /// Enables application code to load an assembly file and type definitions as a CommonJS module
+    /// with one simple require statement.
+    /// </summary>
+    private const string LoadAssemblyCJS = @"
+const dotnet = require('node-api-dotnet');
+const path = require('node:path');
+
+const assemblyName = path.basename(__filename, '.js');
+const assemblyFilePath = path.join(__dirname, assemblyName + '.dll');
+dotnet.load(assemblyFilePath);
+";
+
+    /// <summary>
+    /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
+    /// Enables application code to load a system assembly and type definitions as an ES module
+    /// with one simple import statement.
+    /// </summary>
+    private const string LoadSystemAssemblyMJS = @"
+import dotnet from 'node-api-dotnet';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const assemblyName = path.basename(__filename, '.js');
+dotnet.load(assemblyName);
+";
+
+    /// <summary>
+    /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
+    /// Enables application code to load a system assembly and type definitions as a CommonJS
+    /// module with one simple require statement.
+    /// </summary>
+    private const string LoadSystemAssemblyCJS = @"
+const dotnet = require('node-api-dotnet');
+const path = require('node:path');
+
+const assemblyName = path.basename(__filename, '.js');
+dotnet.load(assemblyName);
 ";
 
     private const string UndefinedTypeSuffix = " | undefined";
@@ -79,28 +129,29 @@ dotnet.load(assemblyFilePath);
         string assemblyPath,
         IEnumerable<string> referenceAssemblyPaths,
         string typeDefinitionsPath,
+        ModuleType loaderModuleType,
+        bool isSystemAssembly = false,
+        string? systemReferenceAssemblyDirectory = null,
         bool suppressWarnings = false)
     {
-        // Create a metadata load context that includes a resolver for .NET runtime assemblies
-        // along with the NodeAPI assembly and the target assembly.
+        // Create a metadata load context that includes a resolver for .NET system assemblies
+        // along with the target assembly.
 
-        string[] runtimeAssemblies = Directory.GetFiles(
-            RuntimeEnvironment.GetRuntimeDirectory(), "*.dll");
+        systemReferenceAssemblyDirectory ??= RuntimeEnvironment.GetRuntimeDirectory();
+        string[] systemAssemblies = Directory.GetFiles(
+            systemReferenceAssemblyDirectory, "*.dll");
 
-        // Drop reference assemblies that are already in the runtime directory.
+        // Drop reference assemblies that are already in the system directory.
         // (They would only support older framework versions.)
         referenceAssemblyPaths = referenceAssemblyPaths.Where(
-            (r) => !runtimeAssemblies.Any((a) =>
+            (r) => !systemAssemblies.Any((a) =>
             Path.GetFileName(a).Equals(Path.GetFileName(r), StringComparison.OrdinalIgnoreCase)));
 
         PathAssemblyResolver assemblyResolver = new(
-            runtimeAssemblies
+            new[] { typeof(object).Assembly.Location }
+            .Concat(systemAssemblies)
             .Concat(referenceAssemblyPaths)
-            .Concat(new[]
-            {
-                typeof(JSExportAttribute).Assembly.Location,
-                assemblyPath,
-            }));
+            .Append(assemblyPath));
         using MetadataLoadContext loadContext = new(
             assemblyResolver, typeof(object).Assembly.GetName().Name);
 
@@ -151,14 +202,21 @@ dotnet.load(assemblyFilePath);
 
             if (typeDefinitionsPath.EndsWith(".d.ts", StringComparison.OrdinalIgnoreCase))
             {
-                string modulePath =
-#if NETFRAMEWORK
-                    typeDefinitionsPath.Substring(0, typeDefinitionsPath.Length - 5) + ".js";
-#else
-                    string.Concat(
-                        typeDefinitionsPath.AsSpan(0, typeDefinitionsPath.Length - 5), ".js");
-#endif
-                File.WriteAllText(modulePath, generator.GetGeneratedFileHeader() + LoadAssemblyJS);
+                string pathWithoutExtension = typeDefinitionsPath.Substring(
+                    0, typeDefinitionsPath.Length - 5);
+                string loaderModulePath = pathWithoutExtension + ".js";
+                string header = generator.GetGeneratedFileHeader();
+
+                if (loaderModuleType == ModuleType.ES)
+                {
+                    File.WriteAllText(loaderModulePath, header +
+                        (isSystemAssembly ? LoadSystemAssemblyMJS : LoadAssemblyMJS));
+                }
+                else if (loaderModuleType == ModuleType.CommonJS)
+                {
+                    File.WriteAllText(loaderModulePath, header +
+                        (isSystemAssembly ? LoadSystemAssemblyCJS : LoadAssemblyCJS));
+                }
             }
         }
         finally
@@ -220,6 +278,7 @@ dotnet.load(assemblyFilePath);
         // Default to camel-case for modules, preserve case otherwise.
         _autoCamelCase = autoCamelCase ?? !_exportAll;
 
+        s++;
         s += "declare module 'node-api-dotnet' {";
 
         foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
@@ -241,9 +300,9 @@ dotnet.load(assemblyFilePath);
             }
         }
 
-        GenerateSupportingInterfaces(ref s);
-
         s += "}";
+
+        GenerateSupportingInterfaces(ref s, importsIndex);
 
         if (_imports.Count > 0)
         {
@@ -323,20 +382,26 @@ dotnet.load(assemblyFilePath);
         return false;
     }
 
+    public string GenerateTypeDefinition(Type type)
+    {
+        SourceBuilder s = new();
+        ExportType(ref s, type);
+        return s.ToString();
+    }
+
     private void ExportType(ref SourceBuilder s, Type type)
     {
         if (type.IsClass && type.BaseType?.FullName == typeof(MulticastDelegate).FullName)
         {
             GenerateDelegateDefinition(ref s, type);
         }
-        else if (type.IsClass || type.IsInterface ||
-            (type.IsValueType && !type.IsEnum))
-        {
-            GenerateClassDefinition(ref s, type);
-        }
-        else if (type.IsEnum)
+        else if (type.IsEnum || (type.IsClass && type.BaseType?.FullName == typeof(Enum).FullName))
         {
             GenerateEnumDefinition(ref s, type);
+        }
+        else if (type.IsClass || type.IsInterface || type.IsValueType)
+        {
+            GenerateClassDefinition(ref s, type);
         }
         else
         {
@@ -352,7 +417,7 @@ dotnet.load(assemblyFilePath);
             string exportName = GetExportName(method);
             string parameters = GetTSParameters(method.GetParameters());
             string returnType = GetTSType(method.ReturnParameter);
-            s += $"export declare function {exportName}({parameters}): {returnType};";
+            s += $"export function {exportName}({parameters}): {returnType};";
         }
         else if (member is PropertyInfo property)
         {
@@ -361,7 +426,7 @@ dotnet.load(assemblyFilePath);
             string exportName = GetExportName(property);
             string propertyType = GetTSType(property);
             string varKind = property.SetMethod == null ? "const " : "var ";
-            s += $"export declare {varKind}{exportName}: {propertyType};";
+            s += $"export {varKind}{exportName}: {propertyType};";
         }
         else
         {
@@ -369,21 +434,53 @@ dotnet.load(assemblyFilePath);
         }
     }
 
-    private void GenerateSupportingInterfaces(ref SourceBuilder s)
+    private void GenerateSupportingInterfaces(ref SourceBuilder s, int insertIndex)
     {
         if (_emitDisposable)
         {
-            s++;
-            s += "export interface IDisposable {";
-            s += "dispose(): void;";
-            s += "}";
+            s.Insert(insertIndex, @"
+interface IDisposable {
+	dispose(): void;
+}
+");
         }
 
         if (_emitDuplex)
         {
-            s++;
-            s += "import { Duplex } from 'stream';";
+            s.Insert(insertIndex, @"
+import { Duplex } from 'stream';
+");
         }
+    }
+    private static string GetGenericParams(Type type)
+    {
+        string genericParams = string.Empty;
+        if (type.IsGenericTypeDefinition)
+        {
+            Type[] typeArgs = type.GetGenericArguments();
+            genericParams = string.Join(", ", typeArgs.Select((t) => t.Name));
+            genericParams = $"${typeArgs.Length}<{genericParams}>";
+        }
+        return genericParams;
+    }
+
+    private static string GetGenericParams(MethodInfo method)
+    {
+        string genericParams = string.Empty;
+        if (method.IsGenericMethodDefinition)
+        {
+            genericParams = string.Join(", ", method.GetGenericArguments().Select((t) => t.Name));
+            genericParams = $"<{genericParams}>";
+        }
+        else if (method.IsStatic && method.ContainsGenericParameters &&
+            method.DeclaringType!.IsGenericTypeDefinition)
+        {
+            // TypeScript doesn't support static methods referencing generic params from the class.
+            Type[] typeArgs = method.DeclaringType.GetGenericArguments();
+            genericParams = string.Join(", ", typeArgs.Select((t) => t.Name));
+            genericParams = $"<{genericParams}>";
+        }
+        return genericParams;
     }
 
     private void GenerateDelegateDefinition(ref SourceBuilder s, Type type)
@@ -394,9 +491,9 @@ dotnet.load(assemblyFilePath);
 
         MethodInfo invokeMethod = type.GetMethod(nameof(Action.Invoke))!;
 
-        s += $"declare function {GetExportName(type)}(" +
+        s += $"export interface {GetExportName(type)}{GetGenericParams(type)} {{ (" +
             $"{GetTSParameters(invokeMethod.GetParameters())}): " +
-            $"{GetTSType(invokeMethod.ReturnParameter)};";
+            $"{GetTSType(invokeMethod.ReturnParameter)}; }}";
 
         EndNamespace(ref s, type);
     }
@@ -406,8 +503,9 @@ dotnet.load(assemblyFilePath);
         s++;
         BeginNamespace(ref s, type);
         GenerateDocComments(ref s, type);
-        string classKind = type.IsInterface ? "interface" :
-            (type.IsAbstract && type.IsSealed) ? "declare namespace" : "declare class";
+
+        bool isStaticClass = type.IsAbstract && type.IsSealed && !type.IsGenericTypeDefinition;
+        string classKind = type.IsInterface ? "interface" : isStaticClass ? "namespace" : "class";
 
         string implements = string.Empty;
         /*
@@ -428,68 +526,35 @@ dotnet.load(assemblyFilePath);
 
         string exportName = GetExportName(type);
 
-        s += $"export {classKind} {exportName}{implements} {{";
+        s += $"export {classKind} {exportName}{GetGenericParams(type)}{implements} {{";
 
         bool isFirstMember = true;
-        foreach (MemberInfo member in type.GetMembers(
-            BindingFlags.Public | BindingFlags.DeclaredOnly |
-            BindingFlags.Static | BindingFlags.Instance))
+
+        foreach (ConstructorInfo constructor in type.GetConstructors(
+            BindingFlags.Public | BindingFlags.Instance))
         {
-            string memberName = GetExportName(member);
+            if (isFirstMember) isFirstMember = false; else s++;
+            ExportTypeMember(ref s, constructor);
+        }
 
-            if (!(type.IsAbstract && type.IsSealed) && member is ConstructorInfo constructor)
+        if (!isStreamSubclass)
+        {
+            foreach (PropertyInfo property in type.GetProperties(
+                BindingFlags.Public | BindingFlags.DeclaredOnly |
+                BindingFlags.Instance | (type.IsInterface ? default : BindingFlags.Static)))
             {
                 if (isFirstMember) isFirstMember = false; else s++;
-                GenerateDocComments(ref s, constructor);
-                string parameters = GetTSParameters(constructor.GetParameters());
-                s += $"constructor({parameters});";
+                ExportTypeMember(ref s, property);
             }
-            else if (!isStreamSubclass && member is MethodInfo method && !IsExcludedMethod(method))
-            {
-                if (isFirstMember) isFirstMember = false; else s++;
-                GenerateDocComments(ref s, method);
-                string methodName = TSIdentifier(memberName);
-                string parameters = GetTSParameters(method.GetParameters());
-                string returnType = GetTSType(method.ReturnParameter);
 
-                if (type.IsAbstract && type.IsSealed)
-                {
-                    s += "export function " +
-                        $"{methodName}({parameters}): {returnType};";
-                }
-                else
-                {
-                    s += $"{(method.IsStatic ? "static " : "")}{methodName}({parameters}): " +
-                        $"{returnType};";
-                }
-            }
-            else if (!isStreamSubclass && member is PropertyInfo property)
+            foreach (MethodInfo method in type.GetMethods(
+                BindingFlags.Public | BindingFlags.DeclaredOnly |
+                BindingFlags.Instance | (type.IsInterface ? default : BindingFlags.Static)))
             {
-                if (isFirstMember) isFirstMember = false; else s++;
-                GenerateDocComments(ref s, member);
-                string propertyName = TSIdentifier(memberName);
-                string propertyType = GetTSType(property);
-
-                if (type.IsAbstract && type.IsSealed)
+                if (!IsExcludedMethod(method))
                 {
-                    string varKind = property.SetMethod == null ? "const " : "var ";
-                    s += $"export {varKind}{propertyName}: {propertyType};";
-                }
-                else
-                {
-                    bool isStatic = property.GetMethod?.IsStatic ??
-                        property.SetMethod?.IsStatic ?? false;
-                    string modifiers = (isStatic ? "static " : "") +
-                        (property.SetMethod == null ? "readonly " : "");
-                    string optionalToken = string.Empty;
-                    if (propertyType.EndsWith(UndefinedTypeSuffix))
-                    {
-                        propertyType = propertyType.Substring(
-                            0, propertyType.Length - UndefinedTypeSuffix.Length);
-                        optionalToken = "?";
-                    }
-                    s += $"{modifiers}{propertyName}{optionalToken}: " +
-                        $"{propertyType};";
+                    if (isFirstMember) isFirstMember = false; else s++;
+                    ExportTypeMember(ref s, method);
                 }
             }
         }
@@ -500,6 +565,75 @@ dotnet.load(assemblyFilePath);
         foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public))
         {
             ExportType(ref s, nestedType);
+        }
+    }
+
+    public string GenerateMemberDefinition(MemberInfo member)
+    {
+        SourceBuilder s = new();
+        ExportTypeMember(ref s, member);
+        return s.ToString();
+    }
+
+    private void ExportTypeMember(ref SourceBuilder s, MemberInfo member)
+    {
+        if (member is ConstructorInfo constructor)
+        {
+            GenerateDocComments(ref s, constructor);
+            string parameters = GetTSParameters(constructor.GetParameters());
+            s += $"constructor({parameters});";
+        }
+        else if (member is PropertyInfo property)
+        {
+            string memberName = GetExportName(property);
+
+            GenerateDocComments(ref s, property);
+            string propertyName = TSIdentifier(memberName);
+            string propertyType = GetTSType(property);
+
+            if (property.DeclaringType!.IsAbstract && property.DeclaringType.IsSealed)
+            {
+                string varKind = property.SetMethod == null ? "const " : "var ";
+                s += $"export {varKind}{propertyName}: {propertyType};";
+            }
+            else
+            {
+                bool isStatic = property.GetMethod?.IsStatic ??
+                    property.SetMethod?.IsStatic ?? false;
+                string modifiers = (isStatic ? "static " : "") +
+                    (property.SetMethod == null ? "readonly " : "");
+                string optionalToken = string.Empty;
+                if (propertyType.EndsWith(UndefinedTypeSuffix))
+                {
+                    propertyType = propertyType.Substring(
+                        0, propertyType.Length - UndefinedTypeSuffix.Length);
+                    optionalToken = "?";
+                }
+                s += $"{modifiers}{propertyName}{optionalToken}: " +
+                    $"{propertyType};";
+            }
+        }
+        else if (member is MethodInfo method)
+        {
+            string memberName = GetExportName(method);
+
+            GenerateDocComments(ref s, method);
+            string methodName = TSIdentifier(memberName);
+            string genericParams = GetGenericParams(method);
+            string parameters = GetTSParameters(method.GetParameters());
+            string returnType = GetTSType(method.ReturnParameter);
+
+            if (method.DeclaringType!.IsAbstract && method.DeclaringType.IsSealed &&
+                !method.DeclaringType.IsGenericTypeDefinition)
+            {
+                s += "export function " +
+                    $"{methodName}{genericParams}({parameters}): {returnType};";
+            }
+            else
+            {
+                s += (method.IsStatic ? "static " : "") +
+                    $"{methodName}{genericParams}({parameters}): {returnType};";
+            }
         }
     }
 
@@ -558,7 +692,7 @@ dotnet.load(assemblyFilePath);
         BeginNamespace(ref s, type);
         GenerateDocComments(ref s, type);
         string exportName = GetExportName(type);
-        s += $"export declare enum {exportName} {{";
+        s += $"export enum {exportName} {{";
 
         bool isFirstMember = true;
         foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
@@ -574,7 +708,28 @@ dotnet.load(assemblyFilePath);
 
     private string GetTSType(PropertyInfo property)
     {
-        string tsType = GetTSType(property.PropertyType, _nullabilityContext.Create(property));
+        Type propertyType = property.PropertyType;
+        bool isStatic = property.GetMethod?.IsStatic ??
+            property.SetMethod?.IsStatic ?? false;
+
+        if (propertyType.IsByRef)
+        {
+            propertyType = propertyType.GetElementType()!;
+        }
+
+        Type declaringType = property.DeclaringType!;
+#if !NETFRAMEWORK
+        if (isStatic && declaringType.IsGenericTypeDefinition &&
+            (propertyType.IsGenericTypeParameter ||
+            (propertyType.IsGenericType &&
+            propertyType.GenericTypeArguments.Any((t) => t.IsGenericTypeParameter))))
+        {
+            // TypeScript does not support static properties that use generic type params.
+            return "unknown";
+        }
+#endif
+
+        string tsType = GetTSType(propertyType, _nullabilityContext.Create(property));
 
         if (tsType == "unknown" || tsType.Contains("unknown"))
         {
@@ -634,9 +789,16 @@ dotnet.load(assemblyFilePath);
                 }
                 else
                 {
+                    string resultName = ResultPropertyName;
+                    if (method.GetParameters().Any(
+                        (p) => p.Name == resultName && (p.IsOut || p.ParameterType.IsByRef)))
+                    {
+                        resultName = '_' + resultName;
+                    }
+
                     tsType = GetTSType(
                         parameter.ParameterType, _nullabilityContext.Create(parameter));
-                    return $"{{ {ResultPropertyName}: {tsType}, {outProperties} }}";
+                    return $"{{ {resultName}: {tsType}, {outProperties} }}";
                 }
             }
         }
@@ -679,7 +841,11 @@ dotnet.load(assemblyFilePath);
 
     private string GetTSType(Type type, NullabilityInfo? nullability)
     {
-        string? tsType = "unknown";
+        string tsType = "unknown";
+        if (type.IsPointer)
+        {
+            return tsType;
+        }
 
         string? specialType = type.FullName switch
         {
@@ -729,15 +895,14 @@ dotnet.load(assemblyFilePath);
             {
                 tsType = "() => void";
             }
-            else if (type.IsGenericType &&
-                type.Name.Substring(0, type.Name.IndexOf('`')) == nameof(Action))
+            else if (type.IsGenericType && type.Name.StartsWith(nameof(Action) + "`"))
             {
                 string[] parameters = type.GetGenericArguments().Select((t, i) =>
                         $"arg{i + 1}: {GetTSType(t, nullability?.GenericTypeArguments[i])}")
                     .ToArray();
                 tsType = $"({string.Join(", ", parameters)}) => void";
             }
-            else if (type.IsGenericType && type.Name.Substring(0, type.Name.IndexOf('`')) == "Func")
+            else if (type.IsGenericType && type.Name.StartsWith("Func`"))
             {
                 Type[] typeArgs = type.GetGenericArguments();
                 string[] parameters = typeArgs.Take(typeArgs.Length - 1).Select((t, i) =>
@@ -748,8 +913,7 @@ dotnet.load(assemblyFilePath);
                     nullability?.GenericTypeArguments[typeArgs.Length - 1]);
                 tsType = $"({string.Join(", ", parameters)}) => {returnType}";
             }
-            else if (type.IsGenericType &&
-                type.Name.Substring(0, type.Name.IndexOf('`')) == "Predicate")
+            else if (type.IsGenericType && type.Name.StartsWith("Predicate`"))
             {
                 Type typeArg = type.GetGenericArguments()[0];
                 string tsTypeArg = GetTSType(typeArg, nullability?.GenericTypeArguments[0]);
@@ -757,10 +921,46 @@ dotnet.load(assemblyFilePath);
             }
             else if (IsTypeExported(type))
             {
-                tsType = type.Name;
+                tsType = type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' + type.Name :
+                    (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
             }
         }
-        else if (type.IsGenericType)
+        else if (type.FullName == typeof(ValueTuple).FullName)
+        {
+            tsType = "[]";
+        }
+        else if (type.FullName == typeof(Task).FullName ||
+            type.FullName == typeof(ValueTask).FullName)
+        {
+            tsType = "Promise<void>";
+        }
+        else if (type.FullName == typeof(CancellationToken).FullName)
+        {
+            tsType = "AbortSignal";
+        }
+        else if (type.FullName == typeof(IDisposable).FullName)
+        {
+            tsType = type.Name;
+            _emitDisposable = true;
+        }
+        else if (type.FullName == typeof(Stream).FullName)
+        {
+            tsType = "Duplex";
+            _emitDuplex = true;
+        }
+        else if (IsTypeExported(type))
+        {
+            tsType = type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' + type.Name :
+                (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
+        }
+        else if (_referenceAssemblies.ContainsKey(type.Assembly.GetName().Name!))
+        {
+            tsType = type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' + type.Name :
+                (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
+            _imports.Add(type.Assembly.GetName().Name!);
+        }
+
+        if (type.IsGenericType)
         {
             string typeDefinitionName = type.GetGenericTypeDefinition().FullName!;
             Type[] typeArguments = type.GetGenericArguments();
@@ -863,41 +1063,40 @@ dotnet.load(assemblyFilePath);
                     GetTSType(typeArg, typeArgumentsNullability?[index]));
                 tsType = $"[{string.Join(", ", itemTSTypes)}]";
             }
-        }
-        else if (type.FullName == typeof(ValueTuple).FullName)
-        {
-            tsType = "[]";
-        }
-        else if (type.FullName == typeof(Task).FullName ||
-            type.FullName == typeof(ValueTask).FullName)
-        {
-            tsType = "Promise<void>";
-        }
-        else if (type.FullName == typeof(CancellationToken).FullName)
-        {
-            tsType = "AbortSignal";
-        }
-        else if (type.FullName == typeof(IDisposable).FullName)
-        {
-            tsType = type.Name;
-            _emitDisposable = true;
-        }
-        else if (type.FullName == typeof(Stream).FullName)
-        {
-            tsType = "Duplex";
-            _emitDuplex = true;
-        }
-        else if (IsTypeExported(type))
-        {
-            tsType = type.FullName!.Replace('+', '.');
-        }
-        else if (_referenceAssemblies.ContainsKey(type.Assembly.GetName().Name!))
-        {
-            tsType = type.FullName!.Replace('+', '.');
-            _imports.Add(type.Assembly.GetName().Name!);
+            else
+            {
+                int typeNameEnd = tsType.IndexOf('`');
+                if (typeNameEnd > 0)
+                {
+                    tsType = tsType.Substring(0, typeNameEnd);
+
+                    Type[] typeArgs = type.GetGenericArguments();
+                    string typeParams = string.Join(", ", typeArgs.Select(
+                        (t, i) => GetTSType(t, typeArgumentsNullability?[i])));
+                    tsType = $"{tsType}${typeArgs.Length}<{typeParams}>";
+                }
+                else if (type.IsNested && type.DeclaringType!.IsGenericTypeDefinition)
+                {
+                    int genericParamsStart = tsType.IndexOf('$');
+                    int genericParamsEnd = tsType.IndexOf('>');
+                    if (genericParamsStart > 0 && genericParamsEnd > 0)
+                    {
+                        // TS doesn't support nested types (static properties) on a generic class.
+                        // For now, move the generic type parameters onto the nested class.
+                        string declaringType = tsType.Substring(0, genericParamsStart);
+                        string genericParams = tsType.Substring(
+                                genericParamsStart, genericParamsEnd + 1 - genericParamsStart);
+                        string nestedType = tsType.Substring(genericParamsEnd + 1);
+                        tsType = $"{declaringType}{nestedType}{genericParams}";
+                    }
+                }
+            }
         }
 
         if (nullability?.ReadState == NullabilityState.Nullable &&
+#if !NETFRAMEWORK
+            !type.IsGenericTypeParameter && !type.IsGenericMethodParameter &&
+#endif
             !tsType.EndsWith(UndefinedTypeSuffix))
         {
             tsType += UndefinedTypeSuffix;
@@ -968,11 +1167,13 @@ dotnet.load(assemblyFilePath);
         else
         {
             string name = member.Name;
-            if (member is Type memberType && memberType.IsGenericTypeDefinition &&
-                !memberType.IsNested)
+            if (member is Type memberType && memberType.IsGenericTypeDefinition)
             {
-                // TODO: Handle generic types and interfaces, somehow.
-                name = name.Substring(0, name.IndexOf('`'));
+                int nameEnd = name.IndexOf('`');
+                if (nameEnd > 0)
+                {
+                    name = name.Substring(0, nameEnd);
+                }
             }
 
             return _autoCamelCase && member is not Type ? ToCamelCase(name) : name;
@@ -1007,23 +1208,30 @@ dotnet.load(assemblyFilePath);
         string summary = FormatDocText(summaryElement);
         string remarks = FormatDocText(remarksElement);
 
-        s += "/**";
-
-        foreach (string commentLine in WrapComment(summary, 90 - 3 - s.Indent.Length))
+        if (string.IsNullOrEmpty(remarks) && summary.Length < 83 && summary.IndexOf('\n') < 0)
         {
-            s += " * " + commentLine;
+            s += $"/** {summary} */";
         }
-
-        if (!string.IsNullOrEmpty(remarks))
+        else
         {
-            s += " *";
-            foreach (string commentLine in WrapComment(remarks, 90 - 3 - s.Indent.Length))
+            s += "/**";
+
+            foreach (string commentLine in WrapComment(summary, 90 - 3 - s.Indent.Length))
             {
                 s += " * " + commentLine;
             }
-        }
 
-        s += " */";
+            if (!string.IsNullOrEmpty(remarks))
+            {
+                s += " *";
+                foreach (string commentLine in WrapComment(remarks, 90 - 3 - s.Indent.Length))
+                {
+                    s += " * " + commentLine;
+                }
+            }
+
+            s += " */";
+        }
     }
 
     private static string FormatDocText(XNode? node)
@@ -1039,6 +1247,18 @@ dotnet.load(assemblyFilePath);
             {
                 string target = element.Attribute("cref")?.Value?.ToString() ?? string.Empty;
                 target = target.Substring(target.IndexOf(':') + 1);
+
+                int genericCountIndex = target.LastIndexOf('`');
+#pragma warning disable CA1846 // Prefer 'AsSpan' over 'Substring'
+                if (genericCountIndex > 0 &&
+                    int.TryParse(target.Substring(genericCountIndex + 1), out int genericCount))
+#pragma warning restore CA1846
+                {
+                    // TODO: Resolve generic type paramter names.
+                    target = target.Substring(0, genericCountIndex);
+                    target += $"<{new string(',', genericCount - 1)}>";
+                }
+
                 return $"`{target}`";
             }
             else if (element.Name == "paramref")
