@@ -125,7 +125,6 @@ public static class TestUtils
             Thread.Sleep(100);
         }
 
-        logWriter.Close();
         return errorOutput.Length > 0 ? errorOutput.ToString() : null;
     }
 
