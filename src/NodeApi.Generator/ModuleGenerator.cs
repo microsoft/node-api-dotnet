@@ -808,8 +808,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         static string ReplaceMethodVariables(string cs) =>
             cs.Replace(typeof(JSValue).Namespace + ".", "")
-            .Replace("JSValue __this, ", "")
-            .Replace("__this", "Value")
             .Replace("__value", "value");
 
         /*
@@ -836,7 +834,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     LambdaExpression getterAdapter =
                         _marshaller.BuildToJSPropertyGetExpression(property.AsPropertyInfo());
                     s += "get";
-                    string cs = ReplaceMethodVariables(getterAdapter.ToCS());
+                    string cs = ReplaceMethodVariables(
+                        _marshaller.MakeInterfaceExpression(getterAdapter).ToCS());
                     s += string.Join("\n", cs.Split('\n').Skip(1));
                 }
 
@@ -845,7 +844,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     LambdaExpression setterAdapter =
                         _marshaller.BuildToJSPropertySetExpression(property.AsPropertyInfo());
                     s += "set";
-                    string cs = ReplaceMethodVariables(setterAdapter.ToCS());
+                    string cs = ReplaceMethodVariables(
+                        _marshaller.MakeInterfaceExpression(setterAdapter).ToCS());
                     s += string.Join("\n", cs.Split('\n').Skip(1));
                 }
 
@@ -863,8 +863,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     // ahead of time. This does not work in an AOT-compiled executable.
 
                     MethodInfo methodInfo = method.AsMethodInfo();
-                    s += $"public {ExpressionExtensions.FormatType(methodInfo.ReturnType)} " +
-                        $"{method.Name}<" +
+                    s += $"{ExpressionExtensions.FormatType(methodInfo.ReturnType)} " +
+                        $"{GetFullName(method)}<" +
                         string.Join(", ", method.TypeParameters.Select((t) => t.Name)) +
                         ">(" + string.Join(", ", methodInfo.GetParameters().Select((p) =>
                             $"{ExpressionExtensions.FormatType(p.ParameterType)} {p.Name}")) + ")";
@@ -879,17 +879,22 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         string.Join(", ", typeArgs.Select((t) => $"typeof({t.Name})")) + ");";
                     s += $"var jsMarshaller = {typeof(JSMarshaller).Namespace}." +
                         $"{nameof(JSMarshaller)}.{nameof(JSMarshaller.Current)};";
+
+                    s += $"return ValueReference.Run((__this) => {{";
+
                     s += $"return ({GetFullName(method.ReturnType)})" +
                         $"jsMarshaller.{nameof(JSMarshaller.GetToJSMethodDelegate)}" +
-                        $"(currentMethod).DynamicInvoke(Value, " +
+                        $"(currentMethod).DynamicInvoke(__this, " +
                         string.Join(", ", method.Parameters.Select((p) => p.Name)) + ");";
+
+                    s += "});";
 
                     s += "}";
                 }
                 else
                 {
-                    LambdaExpression methodAdapter =
-                        _marshaller.BuildToJSMethodExpression(method.AsMethodInfo());
+                    LambdaExpression methodAdapter = _marshaller.MakeInterfaceExpression(
+                        _marshaller.BuildToJSMethodExpression(method.AsMethodInfo()));
                     s += ReplaceMethodVariables(methodAdapter.ToCS());
                 }
             }

@@ -35,6 +35,10 @@ public static class AsyncMethods
     public static async Task<string> ReverseInterfaceTest(
         IAsyncInterface jsInterface, string greeter)
     {
+        // ConfigureAwait(false) does not return to the JS thread, but the interface callback
+        // should still use the JS thread.
+        await Task.Delay(50).ConfigureAwait(false);
+
         // Invoke a method on a JS object that implements the interface.
         return await jsInterface.TestAsync(greeter);
     }

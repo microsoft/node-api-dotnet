@@ -2517,7 +2517,7 @@ public class JSMarshaller
         /*
          * StructName obj = default;
          * obj.Property0 = (Property0Type)value["property0"];
-         * ...
+         * ... 
          * return obj;
          */
         ParameterExpression objVariable = Expression.Variable(toType, "obj");
@@ -3046,5 +3046,67 @@ Call(
 
         // Do not recursively visit nested lambdas.
         protected override Expression VisitLambda<T>(Expression<T> node) => node;
+    }
+
+    /// <summary>
+    /// Converts a lambda expression that takes a <see cref="JSValue"/> as the first parameter
+    /// to a lambda expression that references the the member value of a <see cref="JSInterface"/>
+    /// and automatically switches to the JS thread.
+    /// </summary>
+    public LambdaExpression MakeInterfaceExpression(LambdaExpression methodExpression)
+    {
+        ParameterExpression thisVariable = Expression.Variable(typeof(JSInterface), "this");
+
+        if (methodExpression.Parameters.Any((p) => p.IsByRef))
+        {
+            PropertyInfo valueProperty = typeof(JSInterface).GetProperty(
+                "Value", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            // Ref/out parameters cannot be used within a lambda expression. So interface
+            // methods with ref/out parameters will not automatically switch to the JS thread.
+            // (The caller must be already on the JS thread.)
+            // TODO: Use temporary variables to avoid this limitation.
+            return Expression.Lambda(
+                Expression.Block(
+                    methodExpression.Body.Type,
+                    new Expression[]
+                    {
+                        Expression.Assign(
+                            methodExpression.Parameters.First(),
+                            Expression.Property(thisVariable, valueProperty)),
+                    }.Concat(((BlockExpression)methodExpression.Body).Expressions)),
+                methodExpression.Name,
+                methodExpression.Parameters.Skip(1));
+        }
+
+        PropertyInfo valueReferenceProperty = typeof(JSInterface).GetProperty(
+            "ValueReference", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        // Use the JSReference.Run() method to switch to the JS thread when operating on the value.
+        MethodInfo runMethod;
+        if (methodExpression.Body.Type == typeof(void))
+        {
+            runMethod = typeof(JSReference).GetInstanceMethod(
+                nameof(JSReference.Run), new[] { typeof(Action<JSValue>) });
+        }
+        else
+        {
+            runMethod = typeof(JSReference)
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Single((m) => m.Name == nameof(JSReference.Run) && m.IsGenericMethodDefinition)
+                .MakeGenericMethod(methodExpression.Body.Type);
+        }
+
+        // Build a lambda expression that moves the __this parameter from the original lambda
+        // to the inner lambda where the parameter is supplied by the Run() callback.
+        return Expression.Lambda(
+            Expression.Block(methodExpression.Body.Type, Expression.Call(
+                Expression.Property(thisVariable, valueReferenceProperty),
+                runMethod,
+                Expression.Lambda(
+                    methodExpression.Body,
+                    methodExpression.Parameters.Take(1)))),
+            methodExpression.Name,
+            methodExpression.Parameters.Skip(1));
     }
 }
