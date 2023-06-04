@@ -162,3 +162,8 @@ function GetAllResults(value: string):
 ```
 </td></tr>
 </table>
+
+### Generics
+.NET generic types other than those listed above, and generic methods, are projected to JavaScript
+in a way that the generic specializations can be accessed at runtime (unlike TypeScript generics
+which have no runtime representation). See [.NET Generics in JavaScript](./generics.md) for details.
