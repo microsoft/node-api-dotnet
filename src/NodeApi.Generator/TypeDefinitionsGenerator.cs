@@ -821,9 +821,6 @@ import { Duplex } from 'stream';
     private string GetTSType(PropertyInfo property)
     {
         Type propertyType = property.PropertyType;
-        bool isStatic = property.GetMethod?.IsStatic ??
-            property.SetMethod?.IsStatic ?? false;
-
         if (propertyType.IsByRef)
         {
             propertyType = propertyType.GetElementType()!;

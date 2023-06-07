@@ -20,7 +20,7 @@ public class TypeDefsGeneratorTests
         Dictionary<string, string> docs)
     {
         string ns = typeof(TypeDefsGeneratorTests).FullName + "+";
-        XDocument docsXml = new XDocument(new XElement("root", new XElement("members",
+        XDocument docsXml = new(new XElement("root", new XElement("members",
             docs.Select((pair) => new XElement("member",
                 new XAttribute("name", pair.Key.Insert(2, ns)),
                 new XElement("summary", pair.Value))))));
