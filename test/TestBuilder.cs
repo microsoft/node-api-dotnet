@@ -255,6 +255,7 @@ internal static class TestBuilder
                 (errorOutput != null ? "\n" + errorOutput + "\n" : string.Empty) +
                 "Full output: " + logFilePath;
 
+            logWriter.Close();
             string jsFileName = Path.GetFileName(jsFilePath);
             string[] logLines = File.ReadAllLines(logFilePath);
             for (int i = 0; i < logLines.Length; i++)
