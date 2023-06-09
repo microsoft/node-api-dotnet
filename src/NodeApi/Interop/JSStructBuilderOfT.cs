@@ -97,10 +97,41 @@ public class JSStructBuilder<T> where T : struct
         // TODO: Generate a constructor callback that initializes properties on the JS object
         // to converted default values? Otherwise they will be initially undefined.
 
+        AddTypeToString();
+
         // Note this does not use Wrap() because structs are passed by value.
-        return JSRuntimeContext.Current.RegisterStruct<T>(JSNativeApi.DefineClass(
+        JSValue classObject = JSNativeApi.DefineClass(
             StructName,
             new JSCallbackDescriptor((args) => args.ThisArg),
-            Properties.ToArray()));
+            Properties.ToArray());
+
+        // The class object wraps the Type, so it can be easily converted when passed
+        // to APIs that require a Type.
+        classObject.Wrap(typeof(T));
+
+        return JSRuntimeContext.Current.RegisterStruct<T>(classObject);
+    }
+
+
+    /// <summary>
+    /// Adds a JS `toString()` method on the object that represents the type in JavaScript.
+    /// The method returns the full name of the .NET type.
+    /// </summary>
+    private void AddTypeToString()
+    {
+        // Return early if there is already a static `toString()` method defined.
+        foreach (JSPropertyDescriptor property in Properties)
+        {
+            if (property.Attributes.HasFlag(JSPropertyAttributes.Static) &&
+                property.Name == "toString")
+            {
+                return;
+            }
+        }
+
+        AddMethod(
+            "toString",
+            (_) => typeof(T).FormatName(),
+            JSPropertyAttributes.Static | JSPropertyAttributes.DefaultMethod);
     }
 }

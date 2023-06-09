@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SemanticKernel" Version="0.14.547.1-preview" />
-    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.2.*-*" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*-*" />
   </ItemGroup>
 
 </Project>

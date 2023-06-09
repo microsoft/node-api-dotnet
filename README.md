@@ -48,6 +48,7 @@ For more examples, see the [examples](./examples/) directory.
  - [Stream across .NET and JS](#stream-across-net-and-js)
  - [Optional .NET native AOT compilation](#optional-net-native-aot-compilation)
  - [High performance](#high-performance)
+ - [Work with .NET generic APIs in JS](#generics)
 
 ### Load and call .NET assemblies from JS
 The `node-api-dotnet` package manages hosting the .NET runtime in the JS process
@@ -256,6 +257,17 @@ Techniques benefitting performance include:
 Thanks to these design choices, JS to .NET calls are [more than twice as fast](
     https://github.com/jasongin/napi-dotnet/pull/23) when compared to `edge-js` using
     [that project's benchmark](https://github.com/tjanczuk/edge/wiki/Performance).
+
+### Generics
+Even though the JavaScript runtime type system lacks generics, it is possible to work with .NET
+generic types and methods from JavaScript:
+
+```JavaScript
+// JavaScript
+System.Enum.Parse$(System.DayOfWeek)('Tuesday');
+```
+
+For details, see [Using .NET Generics in JavaScript](./docs/generics.md).
 
 ## Getting Started
 #### Requirements

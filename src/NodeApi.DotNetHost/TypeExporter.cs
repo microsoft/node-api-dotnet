@@ -8,6 +8,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Microsoft.JavaScript.NodeApi.Interop;
 
 using static Microsoft.JavaScript.NodeApi.DotNetHost.ManagedHost;
@@ -42,63 +43,63 @@ internal class TypeExporter
     /// if the type could not be exported.</returns>
     public JSReference? TryExportType(Type type)
     {
-        // TODO: Handle generic types.
-
-        JSReference? valueReference;
         try
         {
-            if (!IsSupportedType(type))
-            {
-                Trace($"      Unsupported type: {type}");
-                return null;
-            }
-            else if (type.IsEnum)
-            {
-                valueReference = ExportEnum(type);
-            }
-            else if (type.IsClass || type.IsInterface || type.IsValueType)
-            {
-                if (type.IsClass && type.BaseType?.FullName == typeof(MulticastDelegate).FullName)
-                {
-                    // Delegate types are not exported as type objects, but the JS marshaller can
-                    // still dynamically convert delegate instances to/from JS functions.
-                    Trace($"      Delegate types are not exported.");
-                    return null;
-                }
-                else
-                {
-                    valueReference = ExportClass(type);
-                }
-            }
-            else
-            {
-                Trace($"      Unknown type kind: {type}");
-                return null;
-            }
+            return ExportType(type);
+        }
+        catch (NotSupportedException ex)
+        {
+            Trace($"Cannot export type {type}: {ex}");
+            return null;
         }
         catch (Exception ex)
         {
             Trace($"Failed to export type {type}: {ex}");
             return null;
         }
-
-        return valueReference;
     }
 
-    private JSReference? ExportClass(Type type)
+    private JSReference ExportType(Type type)
+    {
+        if (!IsSupportedType(type))
+        {
+            throw new NotSupportedException("The type is not supported for JS export.");
+        }
+        else if (type.IsEnum)
+        {
+            return ExportEnum(type);
+        }
+        else if (type.IsGenericTypeDefinition)
+        {
+            return ExportGenericTypeDefinition(type);
+        }
+        else if (type.IsClass || type.IsInterface || type.IsValueType)
+        {
+            if (type.IsClass && type.BaseType?.FullName == typeof(MulticastDelegate).FullName)
+            {
+                // Delegate types are not exported as type objects, but the JS marshaller can
+                // still dynamically convert delegate instances to/from JS functions.
+                throw new NotSupportedException("Delegate types are not exported.");
+            }
+            else
+            {
+                return ExportClass(type);
+            }
+        }
+        else
+        {
+            throw new NotSupportedException("Unknown type kind.");
+        }
+    }
+
+    private JSReference ExportClass(Type type)
     {
         if (_exportedTypes.TryGetValue(type, out JSReference? classObjectReference))
         {
             return classObjectReference;
         }
 
-        if (type == typeof(object) || type == typeof(string) ||
-            type == typeof(void) || type.IsPrimitive)
-        {
-            return default;
-        }
-
-        Trace($"> {nameof(TypeExporter)}.ExportClass({type.FullName})");
+        Trace($"> {nameof(TypeExporter)}.ExportClass({type.FormatName()})");
 
         bool isStatic = type.IsAbstract && type.IsSealed;
         Type classBuilderType =
@@ -181,7 +182,12 @@ internal class TypeExporter
                 }
             }
 
-            if (IsSupportedType(dependencyType))
+            if (
+#if !NETFRAMEWORK // TODO: Find an alternative for .NET Framework.
+                !dependencyType.IsGenericTypeParameter &&
+                !dependencyType.IsGenericMethodParameter &&
+#endif
+                IsSupportedType(dependencyType))
             {
                 TryExportType(dependencyType);
             }
@@ -207,13 +213,7 @@ internal class TypeExporter
                 // will be implemented by JS.
                 foreach (ParameterInfo interfaceMethodParameter in interfaceMethod.GetParameters())
                 {
-                    Type parameterType = interfaceMethodParameter.ParameterType;
-#if !NETFRAMEWORK // TODO: Find an alternative for .NET Framework.
-                    if (!parameterType.IsGenericMethodParameter)
-#endif
-                    {
-                        ExportTypeIfSupported(parameterType);
-                    }
+                    ExportTypeIfSupported(interfaceMethodParameter.ParameterType);
                 }
             }
         }
@@ -337,30 +337,20 @@ internal class TypeExporter
                 continue;
             }
 
-            JSCallbackDescriptor methodDescriptor;
-            if (methods.Length == 1 &&
-                !methods[0].GetParameters().Any((p) => p.IsOptional))
+            if (methods.Any((m) => m.IsGenericMethodDefinition))
             {
-                MethodInfo method = methods[0];
-                Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}(" +
-                    string.Join(", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
+                MethodInfo[] genericMethods = methods.Where(
+                    (m) => m.IsGenericMethodDefinition).ToArray();
+                ExportGenericMethodDefinition(classBuilder, genericMethods);
 
-                methodDescriptor = _marshaller.BuildFromJSMethodExpression(method).Compile();
-            }
-            else
-            {
-                // Set up overload resolution for multiple methods or optional parmaeters.
-                Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}[" +
-                    methods.Length + "]");
-                foreach (MethodInfo method in methods)
+                methods = methods.Where((m) => !m.IsGenericMethodDefinition).ToArray();
+                if (methods.Length == 0)
                 {
-                    Trace($"        {methodName}(" + string.Join(
-                        ", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
-
+                    continue;
                 }
-
-                methodDescriptor = _marshaller.BuildMethodOverloadDescriptor(methods);
             }
+
+            JSCallbackDescriptor methodDescriptor = CreateMethodDescriptor(methods);
 
             addMethodMethod.Invoke(
                 classBuilder,
@@ -384,6 +374,35 @@ internal class TypeExporter
                         methodDescriptor.Data,
                     });
             }
+        }
+    }
+
+    private JSCallbackDescriptor CreateMethodDescriptor(MethodInfo[] methods)
+    {
+        string methodName = methods[0].Name;
+        bool methodIsStatic = methods[0].IsStatic;
+        if (methods.Length == 1 &&
+            !methods[0].GetParameters().Any((p) => p.IsOptional))
+        {
+            MethodInfo method = methods[0];
+            Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}(" +
+                string.Join(", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
+
+            return _marshaller.BuildFromJSMethodExpression(method).Compile();
+        }
+        else
+        {
+            // Set up overload resolution for multiple methods or optional parmaeters.
+            Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}[" +
+                methods.Length + "]");
+            foreach (MethodInfo method in methods)
+            {
+                Trace($"        {methodName}(" + string.Join(
+                    ", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
+
+            }
+
+            return _marshaller.BuildMethodOverloadDescriptor(methods);
         }
     }
 
@@ -420,7 +439,7 @@ internal class TypeExporter
 
     private JSReference ExportEnum(Type type)
     {
-        Trace($"> {nameof(TypeExporter)}.ExportEnum({type.FullName})");
+        Trace($"> {nameof(TypeExporter)}.ExportEnum({type.FormatName()})");
 
         if (_exportedTypes.TryGetValue(type, out JSReference? enumObjectReference))
         {
@@ -447,7 +466,13 @@ internal class TypeExporter
 
     private static bool IsSupportedType(Type type)
     {
+        if (type.IsByRef)
+        {
+            type = type.GetElementType()!;
+        }
+
         if (type.IsPointer ||
+            type == typeof(void) ||
             type == typeof(Type) ||
             type.Namespace == "System.Reflection" ||
             (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Memory<>)) ||
@@ -488,16 +513,152 @@ internal class TypeExporter
 
     private static bool IsSupportedMethod(MethodInfo method)
     {
-        return !method.IsGenericMethodDefinition &&
-            method.CallingConvention != CallingConventions.VarArgs &&
+        return method.CallingConvention != CallingConventions.VarArgs &&
             method.Name != nameof(System.Collections.IEnumerable.GetEnumerator) &&
             method.GetParameters().All(IsSupportedParameter) &&
-            IsSupportedParameter(method.ReturnParameter);
+            (method.ReturnType == typeof(void) || IsSupportedParameter(method.ReturnParameter));
     }
 
     private static bool IsSupportedParameter(ParameterInfo parameter)
     {
         Type parameterType = parameter.ParameterType;
+
+        if (parameter.Position < 0 && parameterType.IsByRef)
+        {
+            // Ref return values are not supported.
+            return false;
+        }
+
         return IsSupportedType(parameterType);
+    }
+
+    private JSReference ExportGenericTypeDefinition(Type type)
+    {
+        // TODO: Support multiple generic types with same name and differing type arg counts.
+
+        if (_exportedTypes.TryGetValue(type, out JSReference? genericTypeFunctionReference))
+        {
+            return genericTypeFunctionReference;
+        }
+
+        // A generic type definition is exported as a function that constructs the
+        // specialized generic type.
+        JSFunction function = new(MakeGenericType, callbackData: type);
+
+        // Override the type's toString() to return the formatted generic type name.
+        ((JSValue)function).SetProperty("toString", new JSFunction(() => type.FormatName()));
+
+        genericTypeFunctionReference = new JSReference(function);
+        _exportedTypes.Add(type, genericTypeFunctionReference);
+        return genericTypeFunctionReference;
+    }
+
+    /// <summary>
+    /// Makes a specialized generic type from a generic type definition and type arguments.
+    /// </summary>
+    /// <param name="args">Type arguments passed as JS values.</param>
+    /// <returns>A strong reference to a JS value that represents the specialized generic
+    /// type.</returns>
+    private JSValue MakeGenericType(JSCallbackArgs args)
+    {
+        Type genericTypeDefinition = args.Data as Type ??
+            throw new ArgumentException("Missing generic type definition.");
+
+        Type[] typeArgs = new Type[args.Length];
+        for (int i = 0; i < typeArgs.Length; i++)
+        {
+            typeArgs[i] = args[i].TryUnwrap() as Type ??
+                throw new ArgumentException($"Invalid generic type argument at position {i}.");
+        }
+
+        Type genericType;
+        try
+        {
+            genericType = genericTypeDefinition.MakeGenericType(typeArgs);
+        }
+        catch (Exception ex)
+        {
+            throw new JSException(
+                $"Failed to make generic type {genericTypeDefinition.FormatName()} with supplied " +
+                $"type arguments: [{string.Join(", ", typeArgs.Select((t) => t.FormatName()))}]. " +
+                ex.Message,
+                ex);
+        }
+
+        JSReference exportedTypeReference = ExportType(genericType);
+        return exportedTypeReference.GetValue()!.Value;
+    }
+
+    private void ExportGenericMethodDefinition(object classBuilder, MethodInfo[] methods)
+    {
+        // Add method that is a function that makes the generic method.
+        MethodInfo addMethodMethod = classBuilder.GetType().GetInstanceMethod(
+            "AddMethod",
+            new[]
+            {
+                typeof(string),
+                typeof(JSCallback),
+                typeof(JSPropertyAttributes),
+                typeof(object),
+            });
+        addMethodMethod.Invoke(
+            classBuilder,
+            new object[]
+            {
+                methods[0].Name + '$',
+                (JSCallback)MakeGenericMethod,
+                JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable |
+                    (methods[0].IsStatic ? JSPropertyAttributes.Static : default),
+                methods,
+            });
+    }
+
+    private JSValue MakeGenericMethod(JSCallbackArgs args)
+    {
+        MethodInfo[] genericMethodDefinitions = args.Data as MethodInfo[] ??
+            throw new ArgumentException("Missing generic type definition.");
+
+        Type[] typeArgs = new Type[args.Length];
+        for (int i = 0; i < typeArgs.Length; i++)
+        {
+            typeArgs[i] = args[i].TryUnwrap() as Type ??
+                throw new ArgumentException($"Invalid generic type argument at position {i}.");
+        }
+
+        MethodInfo[] matchingMethodDefinitions = genericMethodDefinitions
+            .Where((m) => m.GetGenericArguments().Length == typeArgs.Length)
+            .ToArray();
+
+        if (matchingMethodDefinitions.Length == 0)
+        {
+            throw new JSException(
+                "Incorrect number of type arguments for method: +" +
+                genericMethodDefinitions[0].Name);
+        }
+
+        MethodInfo[] matchingMethods;
+        try
+        {
+            matchingMethods = genericMethodDefinitions.Select((m) => m.MakeGenericMethod(typeArgs))
+                .ToArray();
+        }
+        catch (Exception ex)
+        {
+            throw new JSException(
+                $"Failed to make generic method {genericMethodDefinitions[0].Name} with supplied " +
+                $"type arguments: [{string.Join(", ", typeArgs.Select((t) => t.FormatName()))}]. " +
+                ex.Message,
+                ex);
+        }
+
+        JSCallbackDescriptor descriptor = CreateMethodDescriptor(matchingMethods);
+        JSFunction function = new(descriptor.Callback, descriptor.Data);
+
+        if (!args.ThisArg.IsUndefined())
+        {
+            function = function.Bind(args.ThisArg);
+        }
+
+        return function;
     }
 }
