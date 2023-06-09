@@ -516,7 +516,7 @@ internal class TypeExporter
         return method.CallingConvention != CallingConventions.VarArgs &&
             method.Name != nameof(System.Collections.IEnumerable.GetEnumerator) &&
             method.GetParameters().All(IsSupportedParameter) &&
-            IsSupportedParameter(method.ReturnParameter);
+            (method.ReturnType == typeof(void) || IsSupportedParameter(method.ReturnParameter));
     }
 
     private static bool IsSupportedParameter(ParameterInfo parameter)
