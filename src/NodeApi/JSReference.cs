@@ -101,6 +101,11 @@ public class JSReference : IDisposable
         return result;
     }
 
+    /// <summary>
+    /// Runs an action with the referenced value, using the <see cref="JSSynchronizationContext" />
+    /// associated with the reference to switch to the JS thread (if necessary) while operating
+    /// on the value.
+    /// </summary>
     public void Run(Action<JSValue> action)
     {
         Action getValueAndRunAction = () =>
@@ -125,6 +130,11 @@ public class JSReference : IDisposable
         }
     }
 
+    /// <summary>
+    /// Runs an action with the referenced value, using the <see cref="JSSynchronizationContext" />
+    /// associated with the reference to switch to the JS thread (if necessary) while operating
+    /// on the value.
+    /// </summary>
     public T Run<T>(Func<JSValue, T> action)
     {
         Func<T> getValueAndRunAction = () =>
