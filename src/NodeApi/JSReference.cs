@@ -65,6 +65,16 @@ public class JSReference : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Gets the synchronization context that must be used to access the referenced value.
+    /// </summary>
+    /// <remarks>
+    /// Use the <see cref="JSSynchronizationContext.Run(Action)" /> method to wrap code that
+    /// accesses the referenced value, if there is a possibility that the current execution
+    /// context is not already on the correct thread.
+    /// </remarks>
+    public JSSynchronizationContext? SynchronizationContext => _context?.SynchronizationContext;
+
     public void MakeWeak()
     {
         ThrowIfDisposed();
@@ -89,6 +99,64 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         napi_get_reference_value(_env, _handle, out napi_value result).ThrowIfFailed();
         return result;
+    }
+
+    /// <summary>
+    /// Runs an action with the referenced value, using the <see cref="JSSynchronizationContext" />
+    /// associated with the reference to switch to the JS thread (if necessary) while operating
+    /// on the value.
+    /// </summary>
+    public void Run(Action<JSValue> action)
+    {
+        void GetValueAndRunAction()
+        {
+            JSValue? value = GetValue();
+            if (!value.HasValue)
+            {
+                throw new NullReferenceException("The JS reference is null.");
+            }
+
+            action(value.Value);
+        }
+
+        JSSynchronizationContext? synchronizationContext = SynchronizationContext;
+        if (synchronizationContext != null)
+        {
+            synchronizationContext.Run(GetValueAndRunAction);
+        }
+        else
+        {
+            GetValueAndRunAction();
+        }
+    }
+
+    /// <summary>
+    /// Runs an action with the referenced value, using the <see cref="JSSynchronizationContext" />
+    /// associated with the reference to switch to the JS thread (if necessary) while operating
+    /// on the value.
+    /// </summary>
+    public T Run<T>(Func<JSValue, T> action)
+    {
+        T GetValueAndRunAction()
+        {
+            JSValue? value = GetValue();
+            if (!value.HasValue)
+            {
+                throw new NullReferenceException("The JS reference is null.");
+            }
+
+            return action(value.Value);
+        }
+
+        JSSynchronizationContext? synchronizationContext = SynchronizationContext;
+        if (synchronizationContext != null)
+        {
+            return synchronizationContext.Run(GetValueAndRunAction);
+        }
+        else
+        {
+            return GetValueAndRunAction();
+        }
     }
 
     public static explicit operator napi_ref(JSReference value) => value._handle;
@@ -120,15 +188,15 @@ public class JSReference : IDisposable
             IsDisposed = true;
             napi_ref handle = _handle; // To capture in lambda
 
-            // The context may be null if the reference was creatd from a "no-context" scope such
+            // The context may be null if the reference was created from a "no-context" scope such
             // as the native host. In that case the reference must be disposed from the JS thread.
-            if (_context == null)
+            if (SynchronizationContext == null)
             {
                 napi_delete_reference(_env, handle).ThrowIfFailed();
             }
             else
             {
-                _context.SynchronizationContext.Post(
+                SynchronizationContext.Post(
                     () => napi_delete_reference(_env, handle).ThrowIfFailed(), allowSync: true);
             }
         }

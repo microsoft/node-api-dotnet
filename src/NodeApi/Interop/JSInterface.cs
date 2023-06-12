@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
+
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
 /// <summary>
@@ -9,19 +11,43 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// </summary>
 public abstract class JSInterface
 {
-    private readonly JSReference _jsReference;
-
     protected JSInterface(JSValue value)
     {
-        _jsReference = new JSReference(value, isWeak: false);
+        ValueReference = new JSReference(value, isWeak: false);
     }
 
-    public static JSValue? GetJSValue(object obj)
-        => (obj as JSInterface)?.Value;
+    /// <summary>
+    /// Gets the JS value for a .NET object, if the object is a proxy to a JS object that
+    /// implements a .NET interface.
+    /// </summary>
+    public static JSValue? GetJSValue(object obj) => (obj as JSInterface)?.Value;
 
     /// <summary>
-    /// Gets the underlying JS value. (The property name is prefixed with `__` to avoid
-    /// possible conflicts with interface
+    /// Gets a reference to the underlying JS value.
     /// </summary>
-    protected internal JSValue Value => _jsReference.GetValue()!.Value;
+    protected JSReference ValueReference { get; }
+
+    /// <summary>
+    /// Gets the underlying JS value.
+    /// </summary>
+    protected JSValue Value => ValueReference.GetValue()!.Value;
+
+    /// <summary>
+    /// Dynamically invokes an interface method JS adapter delegate after obtaining the JS `this`
+    /// value from the reference.
+    /// </summary>
+    /// <param name="interfaceMethod">Interface method JS adapter delegate.</param>
+    /// <param name="args">Array of method arguments starting at index 1. Index 0 is reserved
+    /// for the JS `this` value.</param>
+    /// <remarks>
+    /// This method is used by the dynamically-emitted interface marshalling code.
+    /// </remarks>
+    protected object? DynamicInvoke(Delegate interfaceMethod, object?[] args)
+    {
+        return ValueReference.Run((value) =>
+        {
+            args[0] = value;
+            return interfaceMethod.DynamicInvoke(args);
+        });
+    }
 }

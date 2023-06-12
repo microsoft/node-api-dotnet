@@ -106,6 +106,8 @@ internal static class ExpressionExtensions
                       ToCS(conditional.IfFalse, path, variables),
 
             MemberExpression { NodeType: ExpressionType.MemberAccess } member =>
+                member.Expression is ParameterExpression parameterExpression &&
+                parameterExpression.Name == "this" ? member.Member.Name :
                 (member.Expression != null ? WithParentheses(member.Expression, path, variables) :
                     member.Member.DeclaringType!.FullName) + "." + member.Member.Name,
 

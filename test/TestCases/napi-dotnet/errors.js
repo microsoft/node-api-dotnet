@@ -67,15 +67,16 @@ function catchJSError() {
   assert(stack[0].startsWith(`at Object.${throwJSError.name} `));
 
   // Skip over initial non-.NET lines in the stack trace.
-  while (!stack[0].startsWith(`at ${dotnetNamespacePrefix}`)) stack.shift();
+  while (stack.length > 0 && !stack[0].startsWith(`at ${dotnetNamespacePrefix}`)) stack.shift();
 
   // The .NET stack trace should include the .NET method that called the JS thrower.
-  while (!stack[0].includes('Errors.ThrowJSError(')) stack.shift();
+  while (stack.length > 0 && !stack[0].includes('ThrowJSError(')) stack.shift();
   assert(stack.length > 0);
 
   // Skip over .NET lines in the stack trace. (Native delegates may include !<BaseAddress>)
-  while (stack[0].startsWith(`at ${dotnetNamespacePrefix}`) ||
-    stack[0].includes('!<')) stack.shift();
+  while (stack.length > 0 && (stack[0].startsWith(`at ${dotnetNamespacePrefix}`) ||
+    stack[0].includes('!<'))) stack.shift();
+  assert(stack.length > 0);
 
   // The following JS line of the stack trace should refer to this JS method.
   assert(stack[0].startsWith(`at ${catchJSError.name} `));
