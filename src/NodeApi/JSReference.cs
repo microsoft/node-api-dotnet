@@ -108,7 +108,7 @@ public class JSReference : IDisposable
     /// </summary>
     public void Run(Action<JSValue> action)
     {
-        Action getValueAndRunAction = () =>
+        void GetValueAndRunAction()
         {
             JSValue? value = GetValue();
             if (!value.HasValue)
@@ -117,16 +117,16 @@ public class JSReference : IDisposable
             }
 
             action(value.Value);
-        };
+        }
 
         JSSynchronizationContext? synchronizationContext = SynchronizationContext;
         if (synchronizationContext != null)
         {
-            synchronizationContext.Run(getValueAndRunAction);
+            synchronizationContext.Run(GetValueAndRunAction);
         }
         else
         {
-            getValueAndRunAction();
+            GetValueAndRunAction();
         }
     }
 
@@ -137,7 +137,7 @@ public class JSReference : IDisposable
     /// </summary>
     public T Run<T>(Func<JSValue, T> action)
     {
-        Func<T> getValueAndRunAction = () =>
+        T GetValueAndRunAction()
         {
             JSValue? value = GetValue();
             if (!value.HasValue)
@@ -146,16 +146,16 @@ public class JSReference : IDisposable
             }
 
             return action(value.Value);
-        };
+        }
 
         JSSynchronizationContext? synchronizationContext = SynchronizationContext;
         if (synchronizationContext != null)
         {
-            return synchronizationContext.Run(getValueAndRunAction);
+            return synchronizationContext.Run(GetValueAndRunAction);
         }
         else
         {
-            return getValueAndRunAction();
+            return GetValueAndRunAction();
         }
     }
 
