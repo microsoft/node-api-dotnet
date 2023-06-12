@@ -11,8 +11,8 @@ const dotnet = require('node-api-dotnet');
 // The generator depends on these assemblies; for now they have to be loaded explicitly.
 dotnet.load(path.join(assemblyDir, 'System.Reflection.MetadataLoadContext.dll'));
 dotnet.load(path.join(assemblyDir, 'Microsoft.CodeAnalysis.dll'));
-
-const Generator = dotnet.load(path.join(assemblyDir, 'Microsoft.JavaScript.NodeApi.Generator.dll'));
+dotnet.load(path.join(assemblyDir, 'Microsoft.JavaScript.NodeApi.Generator.dll'));
+const Generator = dotnet.Microsoft.JavaScript.NodeApi.Generator;
 
 const args = process.argv.slice(2);
 Generator.Program.Main(args);
