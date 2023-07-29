@@ -32,6 +32,10 @@
     <PackageReference Include="System.Reflection.MetadataLoadContext" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.JavaScript.NodeApi.Test" />
+  </ItemGroup>
+
   <!--
     Source generator dependencies require special handling.
     https://github.com/dotnet/roslyn-sdk/blob/main/samples/CSharp/SourceGenerators/SourceGeneratorSamples/CSharpSourceGeneratorSamples.csproj

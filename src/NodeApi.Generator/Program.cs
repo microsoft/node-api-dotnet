@@ -88,8 +88,52 @@ public static class Program
         return 0;
     }
 
+    // Split cmd-line into args[]
+    // ToDo: Currently only supports double quotes and no escapes
+    internal static string[] SplitCmdLine(string cmd)
+    {
+        List<string> args = new();
+
+        bool inQuotes = false;
+        int i = 0, start = 0;
+        for (; i < cmd.Length; i++)
+        {
+            char c = cmd[i];
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (inQuotes || !char.IsWhiteSpace(c))
+                continue;
+
+            AddCurrent();
+            start = i + 1;
+        }
+        AddCurrent();
+
+        void AddCurrent()
+        {
+            int length = i - start;
+            if (length > 0)
+                args.Add(cmd.Substring(start, length).Replace("\"", null));
+        }
+
+        return args.ToArray();
+    }
+
     private static bool ParseArgs(string[] args)
     {
+        // If we only get a single argument pointing to a *.arg file
+        // treat content as arguments
+        if (args.Length == 1 && args[0].EndsWith(".arg"))
+        {
+            string fileName = args[0];
+            // args = System.CommandLine.ParsingCommandLineStringSplitter.Instance.Split(File.ReadAllText(fileName)).ToArray();
+            args = SplitCmdLine(File.ReadAllText(fileName));
+        }
+
         string? targetFramework = null;
 
         for (int i = 0; i < args.Length; i++)

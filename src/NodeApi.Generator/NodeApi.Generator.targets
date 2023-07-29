@@ -7,6 +7,8 @@
     <NodeApiGeneratorAssemblyPath>$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/$(NodeApiGeneratorAssemblyName).dll</NodeApiGeneratorAssemblyPath>
     <NodeApiAssemblyJSModuleType Condition=" '$(NodeApiAssemblyJSModuleType)' == '' ">commonjs</NodeApiAssemblyJSModuleType>
     <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiAssemblyJSModuleType) $(NodeApiTypedefsGeneratorOptions) --framework $(TargetFramework)</NodeApiTypeDefinitionsGeneratorOptions>
+
+    <NodeApiGeneratedFilesDir Condition="'$(NodeApiGeneratedFilesDir)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'Generated Files'))</NodeApiGeneratedFilesDir>
   </PropertyGroup>
 
   <Target Name="ConfigureNodeApiTypeDefinitions"
@@ -15,10 +17,10 @@
   >
     <!-- When the project does not have any source files, copy all reference assemblies to output and generate typedefs for them. -->
     <PropertyGroup Condition=" '@(Compile)' == '' ">
-        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-        <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
-        <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
-        <GenerateNodeApiTypeDefinitionsForReferences Condition=" '$(GenerateNodeApiTypeDefinitionsForReferences)' == '' ">true</GenerateNodeApiTypeDefinitionsForReferences>
+      <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+      <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
+      <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
+      <GenerateNodeApiTypeDefinitionsForReferences Condition=" '$(GenerateNodeApiTypeDefinitionsForReferences)' == '' ">true</GenerateNodeApiTypeDefinitionsForReferences>
     </PropertyGroup>
   </Target>
 
@@ -31,7 +33,13 @@
     Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetPath)') "
   >
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --reference &quot;@(ReferencePathWithRefAssemblies)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
+    <PropertyGroup>
+      <NodeApiArgumentsFile>$(NodeApiGeneratedFilesDir)NodeApi.arg</NodeApiArgumentsFile>
+      <NodeApiArgumentsContent>--assembly &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'--reference "%(Identity)"') --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)</NodeApiArgumentsContent>
+    </PropertyGroup>
+    <MakeDir Directories="$(NodeApiGeneratedFilesDir)" />
+    <WriteLinesToFile File="$(NodeApiArgumentsFile)" Lines="$(NodeApiArgumentsContent)" Overwrite="true" />
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; &quot;$(NodeApiArgumentsFile)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
 
@@ -101,7 +109,13 @@
       <_NodeApiAllTypeDefs Include="@(NodeApiSystemReferenceAssemblies->'$(TargetDir)%(Identity).d.ts')" />
     </ItemGroup>
 
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; $(_SuppressTSGenerationWarnings) --assemblies &quot;@(_NodeApiAllReferenceAssemblies)&quot; --typedefs &quot;@(_NodeApiAllTypeDefs)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
+    <PropertyGroup>
+      <NodeApiArgumentsFile>$(NodeApiGeneratedFilesDir)NodeApiReferences.arg</NodeApiArgumentsFile>
+      <NodeApiArgumentsContent>$(_SuppressTSGenerationWarnings) @(_NodeApiAllReferenceAssemblies->'--assemblies "%(Identity)"') --typedefs &quot;@(_NodeApiAllTypeDefs)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"</NodeApiArgumentsContent>
+    </PropertyGroup>
+    <MakeDir Directories="$(NodeApiGeneratedFilesDir)" />
+    <WriteLinesToFile File="$(NodeApiArgumentsFile)" Lines="$(NodeApiArgumentsContent)" Overwrite="true" />
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; &quot;$(NodeApiArgumentsFile)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
 

@@ -253,6 +253,19 @@ export interface GenericDelegate$1<T> { (arg: T): T; }",
             ["T:GenericDelegate`1"] = "generic-delegate",
         }));
     }
+
+    [Theory]
+    [InlineData("abc test 456 z", new[] { "abc", "test", "456", "z" })]
+    [InlineData("abc  test 456   z", new[] { "abc", "test", "456", "z" })]
+    [InlineData("abc test    456 z", new[] { "abc", "test", "456", "z" })]
+    [InlineData(" abc test 456   z  ", new[] { "abc", "test", "456", "z" })]
+    [InlineData(" abc \"a b c\" \"456\"   z  ", new[] { "abc", "a b c", "456", "z" })]
+    public void SplitCmdLine(string cmd, string[] expectedArgs)
+    {
+        var result = Program.SplitCmdLine(cmd);
+
+        Assert.Equal(expectedArgs, result);
+    }
 }
 
 #endif // !NETFRAMEWORK
