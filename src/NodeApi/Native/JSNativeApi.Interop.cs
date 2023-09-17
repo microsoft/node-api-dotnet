@@ -1286,13 +1286,13 @@ public static partial class JSNativeApi
 
         public record struct napi_env(nint Handle)
         {
-            public bool IsNull => Handle == default;
+            public readonly bool IsNull => Handle == default;
             public static napi_env Null => new(default);
         }
         public record struct napi_value(nint Handle)
         {
             public static napi_value Null => new(default);
-            public bool IsNull => Handle == default;
+            public readonly bool IsNull => Handle == default;
         }
         public record struct napi_ref(nint Handle);
         public record struct napi_handle_scope(nint Handle);

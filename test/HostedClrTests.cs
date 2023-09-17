@@ -113,7 +113,7 @@ public class HostedClrTests
         Directory.CreateDirectory(logDir);
         string logFilePath = Path.Combine(logDir, "publish-host.log");
 
-        var targetFramework = GetCurrentFrameworkTarget();
+        string targetFramework = GetCurrentFrameworkTarget();
         var properties = new Dictionary<string, string>
         {
             ["TargetFramework"] = targetFramework,

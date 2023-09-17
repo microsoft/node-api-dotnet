@@ -63,7 +63,7 @@ public class JSException : Exception
                 }
 
                 // Strip the ThrowIfFailed() line(s) from the .NET stack trace.
-                string dotnetStack = base.StackTrace?.TrimStart(new[] { '\r', '\n' }) ??
+                string dotnetStack = base.StackTrace?.TrimStart(s_trimChars) ??
                     string.Empty;
                 firstLineEnd = dotnetStack.IndexOf('\n');
                 while (firstLineEnd >= 0 && dotnetStack.IndexOf(
@@ -79,4 +79,6 @@ public class JSException : Exception
             return base.StackTrace;
         }
     }
+
+    private static readonly char[] s_trimChars = new[] { '\r', '\n' };
 }

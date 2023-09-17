@@ -23,18 +23,18 @@ internal static unsafe partial class MSCorEE
 {
     public record struct HRESULT(int hr)
     {
-        public void ThrowIfFailed()
+        public readonly void ThrowIfFailed()
         {
             if (hr < 0) Marshal.ThrowExceptionForHR(hr);
         }
 
-        public T ThrowIfFailed<T>(T value)
+        public readonly T ThrowIfFailed<T>(T value)
         {
             if (hr < 0) Marshal.ThrowExceptionForHR(hr);
             return value;
         }
 
-        public T* ThrowIfFailed<T>(T* value) where T : unmanaged
+        public readonly T* ThrowIfFailed<T>(T* value) where T : unmanaged
         {
             if (hr < 0) Marshal.ThrowExceptionForHR(hr);
             return value;

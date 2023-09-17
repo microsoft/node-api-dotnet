@@ -406,9 +406,8 @@ public class JSMarshaller
     {
         if (property is null) throw new ArgumentNullException(nameof(property));
 
-        MethodInfo? getMethod = property.GetMethod;
-        if (getMethod is null) throw new ArgumentException("Property does not have a get method.");
-
+        MethodInfo? getMethod = property.GetMethod ??
+            throw new ArgumentException("Property does not have a get method.");
         try
         {
             return getMethod.IsStatic
@@ -437,9 +436,8 @@ public class JSMarshaller
     {
         if (property is null) throw new ArgumentNullException(nameof(property));
 
-        MethodInfo? setMethod = property.SetMethod;
-        if (setMethod is null) throw new ArgumentException("Property does not have a set method.");
-
+        MethodInfo? setMethod = property.SetMethod ??
+            throw new ArgumentException("Property does not have a set method.");
         try
         {
             return setMethod.IsStatic

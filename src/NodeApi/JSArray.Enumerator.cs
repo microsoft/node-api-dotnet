@@ -45,10 +45,10 @@ public partial struct JSArray
             return false;
         }
 
-        public JSValue Current
+        public readonly JSValue Current
             => _current ?? throw new InvalidOperationException("Unexpected enumerator state");
 
-        object? IEnumerator.Current
+        readonly object? IEnumerator.Current
         {
             get
             {
@@ -66,7 +66,7 @@ public partial struct JSArray
             _current = default;
         }
 
-        void IDisposable.Dispose()
+        readonly void IDisposable.Dispose()
         {
         }
     }

@@ -109,7 +109,7 @@ internal static partial class HostFxr
         // Scan available hostfxr versions and find the best match to the target version.
         for (int i = 0; i < versionDirs.Length; i++)
         {
-            var versionString = versionDirs[i];
+            string versionString = versionDirs[i];
             if (allowPrerelease)
             {
                 int hyphenIndex = versionString.IndexOf('-');

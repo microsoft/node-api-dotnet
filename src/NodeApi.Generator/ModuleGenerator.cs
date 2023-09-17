@@ -765,7 +765,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             return true;
         }
 
-        if (!constructors.Any() || constructors.Any((c) => c.Parameters.Length == 0 ||
+        if (constructors.Length == 0 || constructors.Any((c) => c.Parameters.Length == 0 ||
             (c.Parameters.Length == 1 && c.Parameters[0].Type.AsType() == typeof(JSCallbackArgs))))
         {
             return false;

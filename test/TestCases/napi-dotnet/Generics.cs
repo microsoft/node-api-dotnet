@@ -25,7 +25,7 @@ public struct GenericStruct<T>
 {
     public GenericStruct(T value) { Value = value; }
     public T Value { get; set; }
-    public T GetValue(T value) => value;
+    public readonly T GetValue(T value) => value;
 }
 
 public static class StaticClassWithGenericMethods

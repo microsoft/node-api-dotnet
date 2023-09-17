@@ -167,7 +167,7 @@ public struct JSError
         }
     }
 
-    public JSValue Value
+    public readonly JSValue Value
     {
         get
         {
@@ -192,7 +192,7 @@ public struct JSError
         }
     }
 
-    public void ThrowError()
+    public readonly void ThrowError()
     {
         if (_errorRef is null)
             return;
