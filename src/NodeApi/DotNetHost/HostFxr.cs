@@ -58,6 +58,7 @@ internal static partial class HostFxr
         // (Select the correct architecture.)
 
         string defaultRoot;
+        string? defaultRoot2 = null;
         string libraryName;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -69,6 +70,7 @@ internal static partial class HostFxr
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             defaultRoot = "/usr/share/dotnet";
+            defaultRoot2 = "/usr/lib/dotnet";
             libraryName = "libhostfxr.so";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -86,12 +88,24 @@ internal static partial class HostFxr
         {
             dotnetRoot = defaultRoot;
         }
+        else
+        {
+            defaultRoot2 = null;
+        }
 
         NativeHost.Trace("    .NET root: " + dotnetRoot);
 
         if (!Directory.Exists(dotnetRoot))
         {
-            throw new DirectoryNotFoundException(".NET installation not found at " + dotnetRoot);
+            if (defaultRoot2 != null && Directory.Exists(defaultRoot2))
+            {
+                dotnetRoot = defaultRoot2;
+            }
+            else
+            {
+                throw new DirectoryNotFoundException(
+                    ".NET installation not found at " + dotnetRoot);
+            }
         }
 
         string fxrDir = Path.Combine(dotnetRoot, "host", "fxr");
