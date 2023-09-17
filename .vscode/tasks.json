@@ -46,7 +46,7 @@
                 "-c",
                 "Release",
                 "-f",
-                "net7.0",
+                "net8.0",
                 "--",
                 "--filter",
                 "*.NonAot.*"
@@ -68,7 +68,7 @@
               "-c",
               "Release",
               "-f",
-              "net7.0",
+              "net8.0",
               "--",
               "--filter",
               "*.Aot.*"

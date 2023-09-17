@@ -106,6 +106,8 @@ public class JSProjectTests
             WorkingDirectory = ProjectDir(projectName),
         };
 
+        logWriter.WriteLine("npm install");
+
         Process npmProcess = Process.Start(npmStartInfo)!;
         string? errorOutput = LogOutput(npmProcess, logWriter);
 
@@ -129,6 +131,9 @@ public class JSProjectTests
             UseShellExecute = false,
             WorkingDirectory = ProjectDir(projectName),
         };
+
+        logWriter.WriteLine();
+        logWriter.WriteLine("tsc");
 
         Process nodeProcess = Process.Start(nodeStartInfo)!;
         errorOutput = LogOutput(nodeProcess, logWriter);

@@ -40,7 +40,7 @@ use the same target framework version._
 
 Use `--framework` to specify a target framework, or `--filter` to run a subset of test cases:
 ```bash
-dotnet test --framework net7.0 --filter "DisplayName~aot"
+dotnet test --framework net8.0 --filter "DisplayName~aot"
 ```
 
 The list of test cases is automatically derived from the set of `.js` files under the

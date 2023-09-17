@@ -18,13 +18,13 @@ internal static partial class HostFxr
 {
     public static nint Handle { get; private set; }
 
-    public static void Initialize(Version minVersion)
+    public static void Initialize(Version targetVersion, bool allowPrerelease = false)
     {
         if (Handle == default)
         {
             NativeHost.Trace("> HostFxr.Initialize()");
 
-            string hostfxrPath = GetHostFxrPath(minVersion);
+            string hostfxrPath = GetHostFxrPath(targetVersion, allowPrerelease);
             NativeHost.Trace("    HostFxr path: " + hostfxrPath);
 
             if (!File.Exists(hostfxrPath))
@@ -51,7 +51,7 @@ internal static partial class HostFxr
         span.Slice(encodedCount, capacity - encodedCount).Clear();
     }
 
-    public static string GetHostFxrPath(Version minVersion)
+    private static string GetHostFxrPath(Version targetVersion, bool allowPrerelease)
     {
         // TODO: Port more of the logic to find hostfxr path from
         // https://github.com/dotnet/runtime/blob/main/src/native/corehost/nethost/nethost.cpp
@@ -87,6 +87,8 @@ internal static partial class HostFxr
             dotnetRoot = defaultRoot;
         }
 
+        NativeHost.Trace("    .NET root: " + dotnetRoot);
+
         if (!Directory.Exists(dotnetRoot))
         {
             throw new DirectoryNotFoundException(".NET installation not found at " + dotnetRoot);
@@ -100,27 +102,41 @@ internal static partial class HostFxr
 
         string[] versionDirs = Directory.GetDirectories(fxrDir);
         Array.Sort(versionDirs);
-        for (int i = versionDirs.Length - 1; i >= 0; i--)
+
+        string? hostfxrPath = null;
+        Version? foundVersion = null;
+
+        // Scan available hostfxr versions and find the best match to the target version.
+        for (int i = 0; i < versionDirs.Length; i++)
         {
-            if (!Version.TryParse(Path.GetFileName(versionDirs[i]), out Version? version))
+            var versionString = versionDirs[i];
+            if (allowPrerelease)
             {
+                int hyphenIndex = versionString.IndexOf('-');
+                if (hyphenIndex >= 0)
+                {
+                    versionString = versionString.Substring(0, hyphenIndex);
+                }
+            }
+
+            if (!Version.TryParse(Path.GetFileName(versionString), out Version? version))
+            {
+                // Skip prerelease versions when not allowed (or other unexpected subdir format).
                 continue;
             }
 
-            if (version >= minVersion)
+            // Select the latest patch version of the major.minor version that matches the target
+            // version, or the next highest found major.minor if an exact match wasn't found.
+            if (version >= targetVersion && (foundVersion == null ||
+                (version.Major == foundVersion.Major && version.Minor == foundVersion.Minor)))
             {
-                string hostfxrPath = Path.Combine(versionDirs[i], libraryName);
-                return hostfxrPath;
-            }
-            else
-            {
-                throw new Exception(
-                    $"The latest .NET version found ({version}) " +
-                    $"does not meet the minimum requirement ({minVersion}).");
+                hostfxrPath = Path.Combine(versionDirs[i], libraryName);
+                foundVersion = version;
             }
         }
 
-        throw new Exception(".NET HostFXR directory does not contain any versions: " + fxrDir);
+        return hostfxrPath ?? throw new Exception("Failed to find an installed .NET host " +
+            $"compatible with target version {targetVersion}.");
     }
 
     public record struct hostfxr_handle(nint Handle);

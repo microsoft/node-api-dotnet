@@ -18,10 +18,10 @@ if (!configuration || rids.length === 0) {
 
 const assemblyName = 'Microsoft.JavaScript.NodeApi';
 
-const targetFrameworks = ['net7.0', 'net6.0'];
+const targetFrameworks = ['net8.0', 'net6.0'];
 if (process.platform === 'win32') targetFrameworks.push('net472');
 
-const aotTargetFramework = 'net7.0';
+const aotTargetFramework = 'net8.0';
 const defaultManagedHostTargetFramework = 'net6.0';
 
 const fs = require('fs');
@@ -166,8 +166,7 @@ function copyPlatformSpecificBinaries(rids, packageStageDir, ...binFiles) {
     fs.mkdirSync(ridStageDir);
     binFiles.forEach((binFile) => {
       const [projectName, binFileName] = binFile.split('/', 2);
-      const tfm = targetFrameworks[0];
-      const binPath = path.join(outBinDir, projectName, tfm, rid, 'publish', binFileName);
+      const binPath = path.join(outBinDir, projectName, 'aot', rid, 'publish', binFileName);
       copyFile(binPath, path.join(ridStageDir, binFileName));
     });
   });

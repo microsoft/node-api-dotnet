@@ -105,7 +105,7 @@ For a minimal example of this scenario, see
     To configure a .NET Node API module project for AOT, make sure the target framework is .NET 7 or
     later, and add the publishing properties to the project file:
     ```xml
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <PublishAot>true</PublishAot>
     <PublishNodeModule>true</PublishNodeModule>
     ```

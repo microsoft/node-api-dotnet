@@ -88,10 +88,10 @@ jobs:
       env:
         TRACE_NODE_API_HOST: 1
       run: >
-        dotnet test -f net7.0
+        dotnet test -f net8.0
         --configuration ${{ matrix.configuration }}
         --logger trx
-        --results-directory "out/test/dotnet7-node${{ matrix.node-version }}-${{ matrix.configuration }}"
+        --results-directory "out/test/dotnet8-node${{ matrix.node-version }}-${{ matrix.configuration }}"
 
     - name: Upload test logs
       if: always() # Update artifacts regardless if code succeeded, failed, or cancelled

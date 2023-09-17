@@ -3,6 +3,7 @@
   <PropertyGroup>
     <RootNamespace>Microsoft.JavaScript.NodeApi.Test</RootNamespace>
     <AssemblyName>Microsoft.JavaScript.NodeApi.Test</AssemblyName>
+    <SelfContained>false</SelfContained>
     <IsPublishable>false</IsPublishable>
   </PropertyGroup>
 
@@ -29,9 +30,12 @@
   <!--
     Pass the "no-build" flag to the tests so they can also skip the automatic build of dependencies.
   -->
-  <Target Name="RecordTestNoBuild" BeforeTargets="VSTest">
+  <Target Name="RecordTestNoBuild" BeforeTargets="VSTest"
+    Condition=" Exists('$(IntermediateOutputPath)\no-build-$(VSTestSessionCorrelationId).txt') "
+  >
     <WriteLinesToFile Condition=" '$(VSTestNoBuild)' == 'true' " File="$(IntermediateOutputPath)\no-build.txt" />
     <Delete Condition=" '$(VSTestNoBuild)' != 'true' " Files="$(IntermediateOutputPath)\no-build.txt" />
+    <WriteLinesToFile File="$(IntermediateOutputPath)\no-build-$(VSTestSessionCorrelationId).txt" />
   </Target>
 
 </Project>

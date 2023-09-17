@@ -191,6 +191,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     public static napi_value InitializeModule(napi_env env, napi_value exports)
     {
         Trace($"> ManagedHost.InitializeModule({env.Handle:X8})");
+        Trace($"    .NET Runtime version: {Environment.Version}");
 #endif
 
 #if DEBUG
