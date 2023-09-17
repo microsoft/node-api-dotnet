@@ -1,8 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// Note while this code is used to load the .NET Framework host,
-// it is compiled using .NET 7 Native AOT.
+// Note while this code is used to load the .NET Framework host, it is compiled using .NET Native AOT.
 #if !NETFRAMEWORK
 
 using System;

@@ -94,7 +94,7 @@ For a minimal example of this scenario, see
     AOT compiled modules load more quickly and _do not have any runtime dependency .NET_. However,
     .NET Native AOT has some limitations, so you should understand the implications before starting
     on this path. Some of the considerations include:
-      - .NET 7 SDK or later is required at build time. (Not at run time.)
+      - .NET 8 SDK or later is required at build time. (Not at run time.)
       - AOT binaries are much larger: at least 4-10 MB depending on the platform.
       - AOT code can only call other native code. That may include other .NET Native AOT assemblies,
         but NOT any managed .NET assemblies, because the .NET runtime is not loaded.
@@ -102,7 +102,7 @@ For a minimal example of this scenario, see
       - Some .NET APIs and libraries are not compatible with AOT.
     For more details, see https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/
 
-    To configure a .NET Node API module project for AOT, make sure the target framework is .NET 7 or
+    To configure a .NET Node API module project for AOT, make sure the target framework is .NET 8 or
     later, and add the publishing properties to the project file:
     ```xml
     <TargetFramework>net8.0</TargetFramework>
