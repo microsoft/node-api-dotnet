@@ -23,10 +23,12 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(PublishAot)' == 'true' ">
-    <!-- Modify the build output path when publishing for AOT. This enables separately compiling
+    <!-- Modify the build output paths when publishing for AOT. This enables separately compiling
          AOT and non-AOT flavors of the same project, which is necessary because .NET 8 blocks
          dynamic code generation even in the managed assembly if AOT is enabled at compile time. -->
     <OutputPath>$(BaseOutputPath)bin/$(Configuration)/$(MSBuildProjectName)/aot/</OutputPath>
+    <BaseIntermediateOutputPath>$(BaseIntermediateOutputPath)aot/</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <StripSymbols>true</StripSymbols>
   </PropertyGroup>
