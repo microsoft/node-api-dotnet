@@ -266,7 +266,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     /// <param name="moduleInitializer">Optional custom module class or module initialization method.</param>
     /// <param name="exportItems">Enumeration of all exported types and functions (static methods).</param>
     /// <returns>The generated source.</returns>
-    private SourceText GenerateModuleInitializer(
+    private SourceBuilder GenerateModuleInitializer(
       ISymbol? moduleInitializer,
       IEnumerable<ISymbol> exportItems)
     {

@@ -217,7 +217,7 @@ public sealed class JSDispatcherQueue
         }
     }
 
-    private IDisposable CreateDeferral()
+    private Deferral CreateDeferral()
     {
         IncrementDeferralCount();
         return new Deferral(DecrementDeferralCount);

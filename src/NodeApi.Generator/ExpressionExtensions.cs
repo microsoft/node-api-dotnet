@@ -224,7 +224,7 @@ internal static class ExpressionExtensions
     {
         string cs = ToCS(expression, path, variables);
 
-        if (cs.StartsWith("(") &&
+        if (cs.StartsWith('(') &&
             (expression.NodeType == ExpressionType.TypeAs ||
             expression.NodeType == ExpressionType.Convert ||
             expression.NodeType == ExpressionType.Call ||
@@ -278,7 +278,7 @@ internal static class ExpressionExtensions
 
         s += ToCS(expression, path, variables);
 
-        if (!s.EndsWith("}"))
+        if (!s.EndsWith('}'))
         {
             s += ';';
         }

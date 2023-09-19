@@ -57,11 +57,7 @@ internal class SourceBuilder : SourceText
 
     private void AppendLine(string line)
     {
-#if NETFRAMEWORK
-        if (line.Contains("\n"))
-#else
         if (line.Contains('\n'))
-#endif
         {
             foreach (string singleLine in line.Split('\n'))
             {
@@ -71,11 +67,11 @@ internal class SourceBuilder : SourceText
             return;
         }
 
-        if (line.StartsWith("}"))
+        if (line.StartsWith('}'))
         {
             DecreaseIndent();
         }
-        else if (line.StartsWith("{") || line.StartsWith(")"))
+        else if (line.StartsWith('{') || line.StartsWith(')'))
         {
             ResetExtraIndent();
         }
@@ -87,17 +83,17 @@ internal class SourceBuilder : SourceText
 
         _text.AppendLine(line);
 
-        if (line.EndsWith("{"))
+        if (line.EndsWith('{'))
         {
             IncreaseIndent();
         }
-        else if (line.EndsWith("(") || line.EndsWith("?") || line.EndsWith("=>"))
+        else if (line.EndsWith('(') || line.EndsWith('?') || line.EndsWith("=>"))
         {
             // The "extra" indent persists until the end of the set of lines appended together
             // (before the split) or until a line ending with a semicolon."
             IncreaseExtraIndent();
         }
-        else if (line.EndsWith(";"))
+        else if (line.EndsWith(';'))
         {
             ResetExtraIndent();
         }

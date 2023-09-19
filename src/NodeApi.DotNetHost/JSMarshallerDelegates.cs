@@ -49,7 +49,7 @@ internal class JSMarshallerDelegates
 
     private delegate JSValue FromJS<T>(T thisParameter, JSCallbackArgs args);
 
-    public Type GetFromJSDelegateType(Type thisParameterType)
+    public static Type GetFromJSDelegateType(Type thisParameterType)
     {
         return typeof(FromJS<>).MakeGenericType(thisParameterType);
     }
@@ -84,57 +84,53 @@ internal class JSMarshallerDelegates
 
         if (returnType == typeof(void))
         {
-            switch (parameters.Length)
+            return parameters.Length switch
             {
-                case 0: return typeof(ToJSVoid);
-                case 1: return typeof(ToJSVoid<>).MakeGenericType(parameters[0].Type);
-                case 2: return typeof(ToJSVoid<,>).MakeGenericType(
-                    parameters[0].Type, parameters[1].Type);
-                case 3: return typeof(ToJSVoid<,,>).MakeGenericType(
-                    parameters[0].Type, parameters[1].Type, parameters[2].Type);
-                case 4: return typeof(ToJSVoid<,,,>).MakeGenericType(
-                    parameters[0].Type,
-                    parameters[1].Type,
-                    parameters[2].Type,
-                    parameters[3].Type);
-                case 5: return typeof(ToJSVoid<,,,,>).MakeGenericType(
+                0 => typeof(ToJSVoid),
+                1 => typeof(ToJSVoid<>).MakeGenericType(parameters[0].Type),
+                2 => typeof(ToJSVoid<,>).MakeGenericType(parameters[0].Type, parameters[1].Type),
+                3 => typeof(ToJSVoid<,,>).MakeGenericType(
+                    parameters[0].Type, parameters[1].Type, parameters[2].Type),
+                4 => typeof(ToJSVoid<,,,>).MakeGenericType(
+                    parameters[0].Type, parameters[1].Type, parameters[2].Type, parameters[3].Type),
+                5 => typeof(ToJSVoid<,,,,>).MakeGenericType(
                     parameters[0].Type,
                     parameters[1].Type,
                     parameters[2].Type,
                     parameters[3].Type,
-                    parameters[4].Type);
-                default: throw new NotSupportedException("Method has too many parameters.");
-            }
+                    parameters[4].Type),
+                _ => throw new NotSupportedException("Method has too many parameters."),
+            };
         }
 
-        switch (parameters.Length)
+        return parameters.Length switch
         {
-            case 0: return typeof(ToJS<>).MakeGenericType(returnType);
-            case 1: return typeof(ToJS<,>).MakeGenericType(parameters[0].Type, returnType);
-            case 2: return typeof(ToJS<,,>).MakeGenericType(
-                parameters[0].Type, parameters[1].Type, returnType);
-            case 3: return typeof(ToJS<,,,>).MakeGenericType(
-                parameters[0].Type, parameters[1].Type, parameters[2].Type, returnType);
-            case 4: return typeof(ToJS<,,,,>).MakeGenericType(
+            0 => typeof(ToJS<>).MakeGenericType(returnType),
+            1 => typeof(ToJS<,>).MakeGenericType(parameters[0].Type, returnType),
+            2 => typeof(ToJS<,,>).MakeGenericType(
+                parameters[0].Type, parameters[1].Type, returnType),
+            3 => typeof(ToJS<,,,>).MakeGenericType(
+                parameters[0].Type, parameters[1].Type, parameters[2].Type, returnType),
+            4 => typeof(ToJS<,,,,>).MakeGenericType(
                 parameters[0].Type,
                 parameters[1].Type,
                 parameters[2].Type,
                 parameters[3].Type,
-                returnType);
-            case 5: return typeof(ToJS<,,,,,>).MakeGenericType(
+                returnType),
+            5 => typeof(ToJS<,,,,,>).MakeGenericType(
                 parameters[0].Type,
                 parameters[1].Type,
                 parameters[2].Type,
                 parameters[3].Type,
                 parameters[4].Type,
-                returnType);
-            default: throw new NotSupportedException("Method has too many parameters.");
-        }
+                returnType),
+            _ => throw new NotSupportedException("Method has too many parameters."),
+        };
     }
 
     private static readonly Type[] s_delegateCtorSignature = { typeof(object), typeof(IntPtr) };
 
-    private Type MakeCustomDelegate(Type[] parameterTypes, Type returnType)
+    private TypeInfo MakeCustomDelegate(Type[] parameterTypes, Type returnType)
     {
         // TODO: Consider caching custom delegate types?
 
