@@ -88,7 +88,8 @@ public static class NativeLibrary
 
     private static nint dlopen(nint fileName, int flags)
     {
-        // libdl version 2 may or may not be availbale depending on the Linux distro / version.
+        // Some Linux distros / versions have libdl version 2 only.
+        // Mac OS only has the unversioned library.
         try
         {
             return dlopen2(fileName, flags);
@@ -99,7 +100,7 @@ public static class NativeLibrary
         }
     }
 
-    [DllImport("libdl.so", EntryPoint = "dlopen")]
+    [DllImport("libdl", EntryPoint = "dlopen")]
     private static extern nint dlopen1(nint fileName, int flags);
 
     [DllImport("libdl.so.2", EntryPoint = "dlopen")]
