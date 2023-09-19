@@ -36,7 +36,7 @@ public partial struct JSObject
             _current = default;
         }
 
-        public void Dispose()
+        public readonly void Dispose()
         {
         }
 
@@ -55,10 +55,10 @@ public partial struct JSObject
             return false;
         }
 
-        public KeyValuePair<JSValue, JSValue> Current
+        public readonly KeyValuePair<JSValue, JSValue> Current
             => _current ?? throw new InvalidOperationException("Unexpected enumerator state");
 
-        object? IEnumerator.Current
+        readonly object? IEnumerator.Current
         {
             get
             {

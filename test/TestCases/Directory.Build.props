@@ -12,7 +12,7 @@
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     </PropertyGroup>
 
-    <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0' ">
+    <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
       <PublishAot>true</PublishAot>
       <StripSymbols>true</StripSymbols>
       <PublishNodeModule>true</PublishNodeModule>

@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -52,7 +53,16 @@ public class JSMarshaller
         internal set => s_current = value;
     }
 
-    private readonly Lazy<JSInterfaceMarshaller> _interfaceMarshaller = new();
+    public JSMarshaller()
+    {
+        _interfaceMarshaller = new(() => new JSInterfaceMarshaller(),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+        _delegates = new(() => new JSMarshallerDelegates(),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+    }
+
+    private readonly Lazy<JSInterfaceMarshaller> _interfaceMarshaller;
+    private readonly Lazy<JSMarshallerDelegates> _delegates;
 
     private readonly ConcurrentDictionary<Type, Delegate> _fromJSDelegates = new();
     private readonly ConcurrentDictionary<Type, Delegate> _toJSDelegates = new();
@@ -406,9 +416,8 @@ public class JSMarshaller
     {
         if (property is null) throw new ArgumentNullException(nameof(property));
 
-        MethodInfo? getMethod = property.GetMethod;
-        if (getMethod is null) throw new ArgumentException("Property does not have a get method.");
-
+        MethodInfo? getMethod = property.GetMethod ??
+            throw new ArgumentException("Property does not have a get method.");
         try
         {
             return getMethod.IsStatic
@@ -437,9 +446,8 @@ public class JSMarshaller
     {
         if (property is null) throw new ArgumentNullException(nameof(property));
 
-        MethodInfo? setMethod = property.SetMethod;
-        if (setMethod is null) throw new ArgumentException("Property does not have a set method.");
-
+        MethodInfo? setMethod = property.SetMethod ??
+            throw new ArgumentException("Property does not have a set method.");
         try
         {
             return setMethod.IsStatic
@@ -627,6 +635,7 @@ public class JSMarshaller
             }
 
             return Expression.Lambda(
+                _delegates.Value.GetToJSDelegateType(method.ReturnType, parameters),
                 Expression.Block(method.ReturnType, new[] { resultVariable }, statements),
                 name,
                 parameters);
@@ -756,6 +765,7 @@ public class JSMarshaller
             }
 
             return Expression.Lambda(
+                _delegates.Value.GetToJSDelegateType(method.ReturnType, parameters),
                 Expression.Block(method.ReturnType, new[] { resultVariable }, statements),
                 $"to_{FullMethodName(method)}",
                 parameters);
@@ -824,6 +834,7 @@ public class JSMarshaller
             }
 
             return Expression.Lambda(
+                JSMarshallerDelegates.GetFromJSDelegateType(method.DeclaringType!),
                 body: Expression.Block(typeof(JSValue), variables, statements),
                 $"from_{FullMethodName(method)}",
                 parameters: new[] { thisParameter, s_argsParameter });
@@ -879,24 +890,36 @@ public class JSMarshaller
 
         // Select either the Action or Func<> overload of JSSynchronizationContext.Run,
         // depending on whether the delegate returns a value.
-        MethodInfo runMethod = invokeMethod.ReturnType == typeof(void)
-            ? typeof(JSSynchronizationContext).GetInstanceMethod(
-                nameof(JSSynchronizationContext.Run), new[] { typeof(Action) })
-            : typeof(JSSynchronizationContext).GetInstanceMethod(
+        Type runDelegateType;
+        MethodInfo runMethod;
+        if (invokeMethod.ReturnType == typeof(void))
+        {
+            runDelegateType = typeof(Action);
+            runMethod = typeof(JSSynchronizationContext).GetInstanceMethod(
+                nameof(JSSynchronizationContext.Run), new[] { typeof(Action) });
+        }
+        else
+        {
+            runDelegateType = typeof(Func<>).MakeGenericType(invokeMethod.ReturnType);
+            runMethod = typeof(JSSynchronizationContext).GetInstanceMethod(
                 nameof(JSSynchronizationContext.Run),
                 new[] { typeof(Func<>) },
                 genericArg: invokeMethod.ReturnType);
+        }
 
         LambdaExpression innerLambdaExpression = Expression.Lambda(
+            runDelegateType,
             Expression.Invoke(
                 methodExpression,
-                new[] { getValueExpression }.Concat(parameters)));
+                parameters.Prepend(getValueExpression)));
         Expression lambdaExpression = Expression.Lambda(
             delegateType,
             Expression.Call(syncContextVariable, runMethod, innerLambdaExpression),
             parameters);
 
+        parameters = new[] { valueParameter };
         return Expression.Lambda(
+            _delegates.Value.GetToJSDelegateType(delegateType, parameters),
             Expression.Block(
                 delegateType,
                 new[] { valueRefVariable, syncContextVariable },
@@ -907,7 +930,7 @@ public class JSMarshaller
                     lambdaExpression,
                 }),
             $"to_{FullTypeName(delegateType)}",
-            new[] { valueParameter });
+            parameters);
     }
 
     private LambdaExpression BuildFromJSFunctionExpression(Type delegateType)
@@ -929,7 +952,9 @@ public class JSMarshaller
             Expression.Invoke(methodExpression, valueParameter, s_argsParameter),
             s_argsArray);
 
+        ParameterExpression[] parameters = new[] { valueParameter };
         return Expression.Lambda(
+            _delegates.Value.GetToJSDelegateType(typeof(JSValue), parameters),
             Expression.Block(
                 typeof(JSValue),
                 new Expression[]
@@ -941,7 +966,7 @@ public class JSMarshaller
                         Expression.Default(typeof(object))),
                 }),
             $"from_{FullTypeName(delegateType)}",
-            new[] { valueParameter });
+            parameters);
     }
 
     /// <summary>
@@ -997,6 +1022,7 @@ public class JSMarshaller
                 nameof(BuildToJSPropertyGetExpression));
 
             return Expression.Lambda(
+                _delegates.Value.GetToJSDelegateType(property.PropertyType, thisParameter),
                 Expression.Block(
                     property.PropertyType,
                     new[] { resultVariable },
@@ -1069,13 +1095,15 @@ public class JSMarshaller
                 propertyName,
                 jsValueVariable);
 
+            ParameterExpression[] parameters = { thisParameter, valueParameter };
             return Expression.Lambda(
+                _delegates.Value.GetToJSDelegateType(typeof(void), parameters),
                 Expression.Block(
                     typeof(void),
                     new[] { jsValueVariable },
                     new[] { convertStatement, setStatement }),
                 name,
-                new[] { thisParameter, valueParameter });
+                parameters);
         }
         catch (Exception ex)
         {
@@ -1137,6 +1165,7 @@ public class JSMarshaller
             createDescriptorMethod, overloadsVariable);
 
         return (Expression<Func<JSCallbackDescriptor>>)Expression.Lambda(
+            typeof(Func<JSCallbackDescriptor>),
             Expression.Block(
                 typeof(JSCallbackDescriptor),
                 new[] { overloadsVariable },
@@ -1224,6 +1253,7 @@ public class JSMarshaller
             createDescriptorMethod, overloadsVariable);
 
         return (Expression<Func<JSCallbackDescriptor>>)Expression.Lambda(
+            typeof(Func<JSCallbackDescriptor>),
             Expression.Block(
                 typeof(JSCallbackDescriptor),
                 new[] { overloadsVariable },
@@ -2434,7 +2464,7 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildFromJSToArrayExpressions(
         Type elementType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         ParameterExpression valueVariable)
     {
         /*
@@ -2478,7 +2508,7 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildToJSFromArrayExpressions(
         Type elementType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         /*
@@ -2511,7 +2541,7 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildFromJSToStructExpressions(
         Type toType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         ParameterExpression valueVariable)
     {
         /*
@@ -2547,7 +2577,7 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildToJSFromStructExpressions(
         Type fromType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         /*
@@ -3056,8 +3086,10 @@ Call(
     public LambdaExpression MakeInterfaceExpression(LambdaExpression methodExpression)
     {
         ParameterExpression thisVariable = Expression.Variable(typeof(JSInterface), "this");
+        ParameterExpression[] parameters = methodExpression.Parameters.Skip(1).ToArray();
+        Type returnType = methodExpression.Body.Type;
 
-        if (methodExpression.Parameters.Any((p) => p.IsByRef))
+        if (parameters.Any((p) => p.IsByRef))
         {
             PropertyInfo valueProperty = typeof(JSInterface).GetProperty(
                 "Value", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -3067,8 +3099,9 @@ Call(
             // (The caller must be already on the JS thread.)
             // TODO: Use temporary variables to avoid this limitation.
             return Expression.Lambda(
+                _delegates.Value.GetToJSDelegateType(returnType, parameters),
                 Expression.Block(
-                    methodExpression.Body.Type,
+                    returnType,
                     new Expression[]
                     {
                         Expression.Assign(
@@ -3076,37 +3109,60 @@ Call(
                             Expression.Property(thisVariable, valueProperty)),
                     }.Concat(((BlockExpression)methodExpression.Body).Expressions)),
                 methodExpression.Name,
-                methodExpression.Parameters.Skip(1));
+                parameters);
         }
 
         PropertyInfo valueReferenceProperty = typeof(JSInterface).GetProperty(
             "ValueReference", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         // Use the JSReference.Run() method to switch to the JS thread when operating on the value.
+        Type runDelegateType;
         MethodInfo runMethod;
-        if (methodExpression.Body.Type == typeof(void))
+        if (returnType == typeof(void))
         {
+            runDelegateType = typeof(Action<JSValue>);
             runMethod = typeof(JSReference).GetInstanceMethod(
                 nameof(JSReference.Run), new[] { typeof(Action<JSValue>) });
         }
         else
         {
+            runDelegateType = typeof(Func<,>).MakeGenericType(typeof(JSValue), returnType);
             runMethod = typeof(JSReference)
                 .GetMethods(BindingFlags.Public | BindingFlags.Instance)
                 .Single((m) => m.Name == nameof(JSReference.Run) && m.IsGenericMethodDefinition)
-                .MakeGenericMethod(methodExpression.Body.Type);
+                .MakeGenericMethod(returnType);
         }
 
         // Build a lambda expression that moves the __this parameter from the original lambda
         // to the inner lambda where the parameter is supplied by the Run() callback.
         return Expression.Lambda(
-            Expression.Block(methodExpression.Body.Type, Expression.Call(
+            _delegates.Value.GetToJSDelegateType(returnType, parameters),
+            Expression.Block(returnType, Expression.Call(
                 Expression.Property(thisVariable, valueReferenceProperty),
                 runMethod,
                 Expression.Lambda(
+                    runDelegateType,
                     methodExpression.Body,
                     methodExpression.Parameters.Take(1)))),
             methodExpression.Name,
-            methodExpression.Parameters.Skip(1));
+            parameters);
+    }
+
+    internal static AssemblyBuilder CreateAssemblyBuilder(Type forType)
+    {
+        string assemblyName = forType.FullName + "_" + Environment.CurrentManagedThreadId;
+
+#if NETFRAMEWORK
+        bool collectible = false;
+#else
+        // Make the dynamic assembly collectible if in a collectible load context.
+        // The delegate types generated by lambda expressions are not collectible by default;
+        // the custom marshalling delegates resolve that problem.
+        bool collectible = System.Runtime.Loader.AssemblyLoadContext.Default.IsCollectible;
+#endif
+
+        return AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName(assemblyName),
+            collectible ? AssemblyBuilderAccess.RunAndCollect : AssemblyBuilderAccess.Run);
     }
 }

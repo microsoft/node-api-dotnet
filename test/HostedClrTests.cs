@@ -72,8 +72,19 @@ public class HostedClrTests
         {
             CopyIfNewer(hostFilePath + ".pdb", hostFilePath2 + ".pdb");
         }
+
+        string runtimeConfigFilePath = Path.Combine(
+            RepoRootDirectory,
+            "out",
+            "bin",
+            Configuration,
+            "NodeApi",
+            GetCurrentFrameworkTarget(),
+            GetCurrentPlatformRuntimeIdentifier(),
+            "publish",
+            Path.GetFileNameWithoutExtension(hostFilePath) + ".runtimeconfig.json");
         CopyIfNewer(
-            hostFilePath.Replace(".node", ".runtimeconfig.json"),
+            runtimeConfigFilePath,
             hostFilePath2.Replace(".node", ".runtimeconfig.json"));
         hostFilePath = hostFilePath2;
 
@@ -102,18 +113,29 @@ public class HostedClrTests
         Directory.CreateDirectory(logDir);
         string logFilePath = Path.Combine(logDir, "publish-host.log");
 
+        string targetFramework = GetCurrentFrameworkTarget();
         var properties = new Dictionary<string, string>
         {
-            ["TargetFramework"] = "net7.0", // The host is always built with the latest framework.
+            ["TargetFramework"] = targetFramework,
             ["RuntimeIdentifier"] = GetCurrentPlatformRuntimeIdentifier(),
             ["Configuration"] = Configuration,
         };
-
         BuildProject(
             projectFilePath,
             "Publish",
             properties,
             logFilePath,
+            verboseLog: false);
+
+        // The native AOT host must be built separately. It always uses the latest .NET version.
+        properties["TargetFramework"] = "net8.0";
+        properties["PublishAot"] = "true";
+        string logFilePath2 = Path.Combine(logDir, "publish-nativehost.log");
+        BuildProject(
+            projectFilePath,
+            "Publish",
+            properties,
+            logFilePath2,
             verboseLog: false);
 
         string publishDir = Path.Combine(
@@ -122,7 +144,7 @@ public class HostedClrTests
             "bin",
             Configuration,
             "NodeApi",
-            "net7.0",
+            "aot",
             GetCurrentPlatformRuntimeIdentifier(),
             "publish");
         string moduleFilePath = Path.Combine(publishDir, "Microsoft.JavaScript.NodeApi.node");

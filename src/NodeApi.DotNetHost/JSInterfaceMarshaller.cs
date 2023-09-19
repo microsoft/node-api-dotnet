@@ -22,12 +22,8 @@ internal class JSInterfaceMarshaller
 
     public JSInterfaceMarshaller()
     {
-        string assemblyName = typeof(JSInterface).FullName +
-            "_" + Environment.CurrentManagedThreadId;
-        _assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
-            new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
-        _moduleBuilder =
-            _assemblyBuilder.DefineDynamicModule(typeof(JSInterface).Name);
+        _assemblyBuilder = JSMarshaller.CreateAssemblyBuilder(typeof(JSInterfaceMarshaller));
+        _moduleBuilder = _assemblyBuilder.DefineDynamicModule(typeof(JSInterfaceMarshaller).Name);
     }
 
     /// <summary>

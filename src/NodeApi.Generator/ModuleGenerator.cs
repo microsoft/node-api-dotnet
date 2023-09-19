@@ -56,34 +56,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
     public void Execute(GeneratorExecutionContext context)
     {
-#if !NETFRAMEWORK
-        // Lambda expressions emit temporary types in a non-collectible assembly. If NodeApi
-        // assemblies are collectible, generated lambdas using them throw NotSupportedException
-        // because a non-collectible assembly cannot reference a collectible assembly. See
-        // https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/7.0/collectible-assemblies
-        // In .NET 7 the source generator host changed its assembly load context to be collectible
-        // https://github.com/dotnet/roslyn/commit/79e33c53dcb2f6fe4b89e9e75d7290deb3d804e3#diff-e83b25465c74c0ddb41908da0687bd9ecac28fa4e3cc1ce10c70fb95ae4cec03R80
-        // which makes NodeApi assemblies collectible in the context of this source-generator.
-        // This works around the problem by re-loading the generator in a non-collectible context.
-        if (typeof(ModuleGenerator).Assembly.IsCollectible)
-        {
-            Assembly.LoadFrom(typeof(JSValue).Assembly.Location);
-            Assembly.LoadFrom(typeof(JSMarshaller).Assembly.Location);
-            Assembly generatorAssembly = Assembly.LoadFrom(
-                typeof(ModuleGenerator).Assembly.Location);
-            if (generatorAssembly.IsCollectible)
-            {
-                throw new NotSupportedException(
-                    "Failed to load non-collectible generator assembly.");
-            }
-
-            Type generatorType = generatorAssembly.GetType(typeof(ModuleGenerator).FullName!)!;
-            object generator = generatorType.GetConstructor(Array.Empty<Type>())!.Invoke(null);
-            generatorType.GetMethod(nameof(Execute))!.Invoke(generator, new object[] { context });
-            return;
-        }
-#endif
-
         Context = context;
         string generatedSourceFileName =
             (context.Compilation.AssemblyName ?? "Assembly") + ".NodeApi.g.cs";
@@ -294,7 +266,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     /// <param name="moduleInitializer">Optional custom module class or module initialization method.</param>
     /// <param name="exportItems">Enumeration of all exported types and functions (static methods).</param>
     /// <returns>The generated source.</returns>
-    private SourceText GenerateModuleInitializer(
+    private SourceBuilder GenerateModuleInitializer(
       ISymbol? moduleInitializer,
       IEnumerable<ISymbol> exportItems)
     {
@@ -765,7 +737,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             return true;
         }
 
-        if (!constructors.Any() || constructors.Any((c) => c.Parameters.Length == 0 ||
+        if (constructors.Length == 0 || constructors.Any((c) => c.Parameters.Length == 0 ||
             (c.Parameters.Length == 1 && c.Parameters[0].Type.AsType() == typeof(JSCallbackArgs))))
         {
             return false;

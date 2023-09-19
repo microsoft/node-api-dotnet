@@ -1,8 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// Note while this code is used to load the .NET Framework host,
-// it is compiled using .NET 7 Native AOT.
+// Note while this code is used to load the .NET Framework host, it is compiled using .NET Native AOT.
 #if !NETFRAMEWORK
 
 using System;
@@ -24,18 +23,18 @@ internal static unsafe partial class MSCorEE
 {
     public record struct HRESULT(int hr)
     {
-        public void ThrowIfFailed()
+        public readonly void ThrowIfFailed()
         {
             if (hr < 0) Marshal.ThrowExceptionForHR(hr);
         }
 
-        public T ThrowIfFailed<T>(T value)
+        public readonly T ThrowIfFailed<T>(T value)
         {
             if (hr < 0) Marshal.ThrowExceptionForHR(hr);
             return value;
         }
 
-        public T* ThrowIfFailed<T>(T* value) where T : unmanaged
+        public readonly T* ThrowIfFailed<T>(T* value) where T : unmanaged
         {
             if (hr < 0) Marshal.ThrowExceptionForHR(hr);
             return value;

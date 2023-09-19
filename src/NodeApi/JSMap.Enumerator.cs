@@ -40,10 +40,10 @@ public partial struct JSMap
             }
         }
 
-        public KeyValuePair<JSValue, JSValue> Current
+        public readonly KeyValuePair<JSValue, JSValue> Current
             => _current ?? throw new InvalidOperationException("Unexpected enumerator state");
 
-        object? System.Collections.IEnumerator.Current => Current;
+        readonly object? System.Collections.IEnumerator.Current => Current;
 
         void System.Collections.IEnumerator.Reset()
         {
@@ -51,7 +51,7 @@ public partial struct JSMap
             _current = default;
         }
 
-        void IDisposable.Dispose()
+        readonly void IDisposable.Dispose()
         {
         }
     }

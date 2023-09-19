@@ -86,8 +86,25 @@ public static class NativeLibrary
     [DllImport("kernel32")]
     private static extern nint GetProcAddress(nint hModule, string procName);
 
-    [DllImport("libdl")]
-    private static extern nint dlopen(nint fileName, int flags);
+    private static nint dlopen(nint fileName, int flags)
+    {
+        // Some Linux distros / versions have libdl version 2 only.
+        // Mac OS only has the unversioned library.
+        try
+        {
+            return dlopen2(fileName, flags);
+        }
+        catch (DllNotFoundException)
+        {
+            return dlopen1(fileName, flags);
+        }
+    }
+
+    [DllImport("libdl", EntryPoint = "dlopen")]
+    private static extern nint dlopen1(nint fileName, int flags);
+
+    [DllImport("libdl.so.2", EntryPoint = "dlopen")]
+    private static extern nint dlopen2(nint fileName, int flags);
 
     private const int RTLD_LAZY = 1;
 

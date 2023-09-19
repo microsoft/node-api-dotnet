@@ -16,27 +16,27 @@ parameters:
   # Matrix with target platforms.
   # x86 versions are not supported by Native AOT.
   # linux-arm64 must be added after we learn how to set up the cross-compilation environment.
-  # Use net7.0 as the latest stable version except for osx-arm64 which is only supported in net8.0.
+  # Use net8.0 as the latest stable version.
 - name: buildMatrix
   type: object
   default:
     - Name: win_x64
       VMImage: windows-latest
       TargetRuntime: win-x64
-      DotNetVersion: 7.0.x
-      DotNetMoniker: net7.0
+      DotNetVersion: 8.0.x
+      DotNetMoniker: net8.0
       UseGlobalJson: true
     - Name: win_arm64
       VMImage: windows-latest
       TargetRuntime: win-arm64
-      DotNetVersion: 7.0.x
-      DotNetMoniker: net7.0
+      DotNetVersion: 8.0.x
+      DotNetMoniker: net8.0
       UseGlobalJson: true
     - Name: osx_x64
       VMImage: macos-latest
       TargetRuntime: osx-x64
-      DotNetVersion: 7.0.x
-      DotNetMoniker: net7.0
+      DotNetVersion: 8.0.x
+      DotNetMoniker: net8.0
       UseGlobalJson: true
     - Name: osx_arm64
       VMImage: macos-latest
@@ -47,8 +47,8 @@ parameters:
     - Name: linux_x64
       VMImage: ubuntu-latest
       TargetRuntime: linux-x64
-      DotNetVersion: 7.0.x
-      DotNetMoniker: net7.0
+      DotNetVersion: 8.0.x
+      DotNetMoniker: net8.0
       UseGlobalJson: true
 
 jobs:
@@ -126,8 +126,8 @@ jobs:
     variables:
       VMImage: windows-latest
       TargetRuntime: win-x64
-      DotNetVersion: 7.0.x
-      DotNetMoniker: net7.0
+      DotNetVersion: 8.0.x
+      DotNetMoniker: net8.0
       UseGlobalJson: true
       TargetRuntimeList:
 

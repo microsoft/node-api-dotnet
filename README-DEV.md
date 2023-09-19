@@ -1,13 +1,13 @@
 # node-api-dotnet Development Notes
 
 ### Requirements for Development
- - [.NET 7 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/7.0)
+ - [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
    - _and_ [.NET 6 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/6.0)
    - _and_ [.NET 4.7.2 developer pack](https://dotnet.microsoft.com/en-us/download/dotnet-framework/net472)
      (Windows only)
  - [Node.js](https://nodejs.org/) version 16 or later
 
-While `node-api-dotnet` supports .NET 6 or .NET Framework 4 at runtime, .NET 7 or later SDK is
+While `node-api-dotnet` supports .NET 6 or .NET Framework 4 at runtime, .NET 8 or later SDK is
 required for building the AOT components.
 
 ## Build
@@ -40,7 +40,7 @@ use the same target framework version._
 
 Use `--framework` to specify a target framework, or `--filter` to run a subset of test cases:
 ```bash
-dotnet test --framework net7.0 --filter "DisplayName~aot"
+dotnet test --framework net8.0 --filter "DisplayName~aot"
 ```
 
 The list of test cases is automatically derived from the set of `.js` files under the

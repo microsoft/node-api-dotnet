@@ -38,10 +38,10 @@ public partial struct JSIterable
             }
         }
 
-        public JSValue Current
+        public readonly JSValue Current
             => _current ?? throw new InvalidOperationException("Unexpected enumerator state");
 
-        object? IEnumerator.Current => Current;
+        readonly object? IEnumerator.Current => Current;
 
         void IEnumerator.Reset()
         {
@@ -49,7 +49,7 @@ public partial struct JSIterable
             _current = default;
         }
 
-        void IDisposable.Dispose()
+        readonly void IDisposable.Dispose()
         {
         }
     }

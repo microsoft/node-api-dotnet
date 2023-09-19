@@ -1,7 +1,8 @@
 <Project>
   <PropertyGroup>
-    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and ! $([MSBuild]::IsOsPlatform('Windows')) ">net7.0;net6.0</TargetFrameworks>
-    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and $([MSBuild]::IsOsPlatform('Windows')) ">net7.0;net6.0;net472</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and ! $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net6.0</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net6.0;net472</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(PublishAot)' == 'true' ">net8.0</TargetFrameworks>
     <LangVersion>10</LangVersion>
     <Nullable>enable</Nullable>
     <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
@@ -16,6 +17,20 @@
 
     <!-- Display each test case and passed/failed status when using `dotnet test`. -->
     <VSTestLogger Condition="'$(VSTestLogger)' == ''">console%3Bverbosity=normal</VSTestLogger>
+
+    <!-- Suppress warnings about using a preview version of .NET. -->
+    <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(PublishAot)' == 'true' ">
+    <!-- Modify the build output paths when publishing for AOT. This enables separately compiling
+         AOT and non-AOT flavors of the same project, which is necessary because .NET 8 blocks
+         dynamic code generation even in the managed assembly if AOT is enabled at compile time. -->
+    <OutputPath>$(BaseOutputPath)bin/$(Configuration)/$(MSBuildProjectName)/aot/</OutputPath>
+    <BaseIntermediateOutputPath>$(BaseIntermediateOutputPath)aot/</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <StripSymbols>true</StripSymbols>
   </PropertyGroup>
 
   <PropertyGroup Label="Nuget metadata">

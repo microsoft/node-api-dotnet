@@ -272,7 +272,7 @@ For details, see [Using .NET Generics in JavaScript](./docs/generics.md).
 ## Getting Started
 #### Requirements
  - .NET 6 or later
-    - .NET 7 or later is required for AOT support.
+    - .NET 8 or later is required for AOT support.
     - .NET Framework 4.7.2 or later is supported at runtime,
       but .NET 6 SDK is still required for building.
  - Node.js v16 or later

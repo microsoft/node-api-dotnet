@@ -56,7 +56,7 @@ internal static class SymbolExtensions
         }
     }
 
-    private static IDictionary<string, Type> SymbolicTypes
+    private static Dictionary<string, Type> SymbolicTypes
     {
         get
         {

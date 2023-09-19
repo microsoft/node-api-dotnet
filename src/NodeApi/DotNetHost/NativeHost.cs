@@ -225,16 +225,16 @@ internal unsafe partial class NativeHost : IDisposable
     /// <summary>
     /// Initializes the .NET runtime using HostFxr.
     /// </summary>
-    /// <param name="minVersion">Minimum requested .NET version.</param>
+    /// <param name="targetVersion">Requested .NET version.</param>
     /// <param name="managedHostPath">Path to the managed host assembly file.</param>
     /// <param name="require">Require function passed in by the init script.</param>
     /// <returns>JS exports value from the managed host.</returns>
     private JSValue InitializeDotNetHost(
-        Version minVersion,
+        Version targetVersion,
         string managedHostPath,
         JSValue require)
     {
-        Trace("    Initializing .NET " + minVersion);
+        Trace("    Initializing .NET " + targetVersion);
 
         string managedHostAssemblyName = Path.GetFileNameWithoutExtension(managedHostPath);
         string nodeApiAssemblyName = managedHostAssemblyName.Substring(
@@ -242,7 +242,7 @@ internal unsafe partial class NativeHost : IDisposable
 
         string runtimeConfigPath = Path.Join(
             Path.GetDirectoryName(managedHostPath), nodeApiAssemblyName + ".runtimeconfig.json");
-        _hostContextHandle = InitializeManagedRuntime(minVersion, runtimeConfigPath);
+        _hostContextHandle = InitializeManagedRuntime(targetVersion, runtimeConfigPath);
 
         // Get a CLR function that can load an assembly.
         Trace("    Getting runtime load-assembly delegate...");
@@ -308,18 +308,13 @@ internal unsafe partial class NativeHost : IDisposable
     }
 
     private hostfxr_handle InitializeManagedRuntime(
-        Version minVersion,
+        Version targetVersion,
         string runtimeConfigPath)
     {
         Trace($"> NativeHost.InitializeManagedRuntime({runtimeConfigPath})");
 
-        string hostfxrPath = HostFxr.GetHostFxrPath(minVersion);
-        string dotnetRoot = Path.GetDirectoryName(
-            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(hostfxrPath))))!;
-        Trace("    .NET root: " + dotnetRoot);
-
         // Load the library that provides CLR hosting APIs.
-        HostFxr.Initialize(minVersion);
+        HostFxr.Initialize(targetVersion, allowPrerelease: true);
 
         int runtimeConfigPathCapacity = HostFxr.Encoding.GetByteCount(runtimeConfigPath) + 2;
 

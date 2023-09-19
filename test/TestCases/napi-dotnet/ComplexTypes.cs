@@ -77,7 +77,7 @@ public struct StructObject
 
     public static string? StaticValue { get; set; }
 
-    public StructObject ThisObject() => this;
+    public readonly StructObject ThisObject() => this;
 }
 
 /// <summary>
