@@ -43,7 +43,7 @@ parameters:
       TargetRuntime: osx-arm64
       DotNetVersion: 8.0.x
       DotNetMoniker: net8.0
-      UseGlobalJson: false
+      UseGlobalJson: true
     - Name: linux_x64
       VMImage: ubuntu-latest
       TargetRuntime: linux-x64
@@ -153,7 +153,7 @@ jobs:
         inputs:
           packageType: sdk
           version: $(DotNetVersion)
-          useGlobalJson: true
+          useGlobalJson: $(UseGlobalJson)
 
       - script: env
         displayName: Print environment
