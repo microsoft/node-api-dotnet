@@ -201,13 +201,15 @@ internal class TypeExporter
             {
                 ExportTypeIfSupported(property.PropertyType);
             }
-            else if (member is MethodInfo method &&
+
+            if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
                 !JSMarshaller.IsConvertedType(method.ReturnType))
             {
                 ExportTypeIfSupported(method.ReturnType);
             }
-            else if (member is MethodInfo interfaceMethod && type.IsInterface)
+            
+            if (member is MethodInfo interfaceMethod && type.IsInterface)
             {
                 // Interface method parameter types must be exported in case the interface
                 // will be implemented by JS.
@@ -339,6 +341,8 @@ internal class TypeExporter
 
             if (methods.Any((m) => m.IsGenericMethodDefinition))
             {
+                Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}<>()");
+
                 MethodInfo[] genericMethods = methods.Where(
                     (m) => m.IsGenericMethodDefinition).ToArray();
                 ExportGenericMethodDefinition(classBuilder, genericMethods);
