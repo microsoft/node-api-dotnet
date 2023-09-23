@@ -603,7 +603,11 @@ import { Duplex } from 'stream';
             {
                 // Extending generic collection interfaces gets tricky because of the way
                 // those are projected to JS types. For now, those are just omitted here.
-                implements += prefix + GetTSType(interfaceType, nullability: null);
+                string tsType = GetTSType(interfaceType, nullability: null);
+                if (tsType != "unknown")
+                {
+                    implements += prefix + tsType;
+                }
             }
         }
 
@@ -1311,9 +1315,6 @@ import { Duplex } from 'stream';
         if (memberElement == null || summaryElement == null ||
             string.IsNullOrWhiteSpace(summaryElement.Value))
         {
-#if DEBUG
-            s += $"/** [{memberDocName}] **/";
-#endif
             return;
         }
 

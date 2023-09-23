@@ -181,7 +181,7 @@ export interface GenericInterface$1<T> {
         {
             ["T:GenericInterface`1"] = "generic-interface",
             ["P:GenericInterface`1.TestProperty"] = "instance-property",
-            ["M:GenericInterface`1.TestMethod(T)"] = "instance-method",
+            ["M:GenericInterface`1.TestMethod(`0)"] = "instance-method",
         }));
     }
 
@@ -224,11 +224,11 @@ export interface GenericClass$1<T> {
         GenerateTypeDefinition(typeof(GenericClass<>), new Dictionary<string, string>
         {
             ["T:GenericClass`1"] = "generic-class",
-            ["M:GenericClass`1.#ctor(T)"] = "constructor",
+            ["M:GenericClass`1.#ctor(`0)"] = "constructor",
             ["P:GenericClass`1.TestStaticProperty"] = "static-property",
-            ["M:GenericClass`1.TestStaticMethod(T)"] = "static-method",
+            ["M:GenericClass`1.TestStaticMethod(`0)"] = "static-method",
             ["P:GenericClass`1.TestProperty"] = "instance-property",
-            ["M:GenericClass`1.TestMethod(T)"] = "instance-method",
+            ["M:GenericClass`1.TestMethod(`0)"] = "instance-method",
         }));
     }
 
