@@ -588,19 +588,29 @@ import { Duplex } from 'stream';
             "interface" : isStaticClass ? "namespace" : "class";
 
         string implements = string.Empty;
-        /*
-        foreach (INamedTypeSymbol? implemented in exportClass.Interfaces.Where(
-            (type) => _exportItems.Contains(type, SymbolEqualityComparer.Default)))
+
+        foreach (Type interfaceType in type.GetInterfaces())
         {
-            implements += (implements.Length == 0 ? " implements " : ", ");
-            implements += implemented.Name;
+            string prefix = (implements.Length == 0 ?
+                (type.IsInterface ? " extends " : " implements ") : ", ");
+
+            if (interfaceType == typeof(IDisposable))
+            {
+                implements += prefix + nameof(IDisposable);
+                _emitDisposable = true;
+            }
+            else if (interfaceType.Namespace != typeof(IList<>).Namespace)
+            {
+                // Extending generic collection interfaces gets tricky because of the way
+                // those are projected to JS types. For now, those are just omitted here.
+                implements += prefix + GetTSType(interfaceType, nullability: null);
+            }
         }
-        */
 
         bool isStreamSubclass = type.BaseType?.FullName == typeof(Stream).FullName;
         if (isStreamSubclass)
         {
-            implements = " extends Duplex";
+            implements = " extends Duplex" + implements;
             _emitDuplex = true;
         }
 
@@ -1285,10 +1295,10 @@ import { Duplex } from 'stream';
         {
             Type type => $"T:{type.FullName}",
             PropertyInfo property => $"P:{property.DeclaringType!.FullName}.{property.Name}",
-            MethodInfo method => $"M:{method.DeclaringType!.FullName}.{method.Name}" +
-                FormatDocMemberParameters(method.GetParameters()),
+            MethodInfo method => $"M:{FormatDocMethodName(method)}" +
+                FormatDocMethodParameters(method),
             ConstructorInfo constructor => $"M:{constructor.DeclaringType!.FullName}.#ctor" +
-                FormatDocMemberParameters(constructor.GetParameters()),
+                FormatDocMethodParameters(constructor),
             FieldInfo field => $"F:{field.DeclaringType!.FullName}.{field.Name}",
             _ => string.Empty,
         };
@@ -1301,6 +1311,9 @@ import { Duplex } from 'stream';
         if (memberElement == null || summaryElement == null ||
             string.IsNullOrWhiteSpace(summaryElement.Value))
         {
+#if DEBUG
+            s += $"/** [{memberDocName}] **/";
+#endif
             return;
         }
 
@@ -1375,31 +1388,81 @@ import { Duplex } from 'stream';
             (node?.ToString() ?? string.Empty).Replace("\r", "").Trim(), " ");
     }
 
-    private static string FormatDocMemberParameters(ParameterInfo[] parameters)
+    private static string FormatDocMethodName(MethodInfo method)
     {
-        return parameters.Length == 0 ? string.Empty :
-            '(' + string.Join(",", parameters.Select(
-                (p) => FormatDocMemberParameterType(p.ParameterType))) + ')';
+        string genericSuffix = method.IsGenericMethodDefinition ?
+            "``" + method.GetGenericArguments().Length : string.Empty;
+        return $"{method.DeclaringType!.FullName}.{method.Name}{genericSuffix}";
     }
 
-    private static string FormatDocMemberParameterType(Type type)
+    private static string FormatDocMethodParameters(MethodBase method)
     {
-        if (type.IsGenericType)
+        Type[]? genericTypeParams = null;
+        if (method.DeclaringType!.IsGenericTypeDefinition)
+        {
+            // Constructors and methods may include generic parameters from the type.
+            genericTypeParams = method.DeclaringType.GetGenericArguments();
+        }
+
+        Type[]? genericMethodParams = null;
+        try
+        {
+            if (method.ContainsGenericParameters)
+            {
+                genericMethodParams = method.GetGenericArguments();
+            }
+        }
+        catch (NotSupportedException)
+        {
+            // A constructor or method that contains generic type parameters but not
+            // generic method parameters may return true for ContainsGenericParameters
+            // and then throw NotSupportedException from GetGenericArguments().
+        }
+
+        ParameterInfo[] parameters = method.GetParameters();
+        return parameters.Length == 0 ? string.Empty :
+            '(' + string.Join(",", parameters.Select(
+                (p) => FormatDocMemberParameterType(
+                    p.ParameterType, genericTypeParams, genericMethodParams))) + ')';
+    }
+
+    private static string FormatDocMemberParameterType(
+        Type type,
+        Type[]? genericTypeParams,
+        Type[]? genericMethodParams)
+    {
+#if NETFRAMEWORK
+        if (type.IsGenericMethodParameter() && genericMethodParams != null)
+#else
+        if (type.IsGenericTypeParameter && genericTypeParams != null)
+        {
+            return "`" + Array.IndexOf(genericTypeParams, type);
+        }
+        else if (type.IsGenericMethodParameter && genericMethodParams != null)
+#endif
+        {
+            return "``" + Array.IndexOf(genericMethodParams, type);
+        }
+        else if (type.IsGenericType)
         {
             if (type.IsNested && type.DeclaringType!.IsGenericType)
             {
                 string declaringTypeName = type.DeclaringType.Name;
                 declaringTypeName = declaringTypeName.Substring(0, declaringTypeName.IndexOf('`'));
                 string typeArgs = string.Join(
-                    ", ",
-                    type.DeclaringType.GenericTypeArguments.Select(FormatDocMemberParameterType));
+                    ",",
+                    type.DeclaringType.GenericTypeArguments.Select(
+                        (t) => FormatDocMemberParameterType(
+                            t, genericTypeParams, genericMethodParams)));
                 return $"{type.Namespace}.{declaringTypeName}{{{typeArgs}}}.{type.Name}";
             }
             else
             {
                 string typeName = type.Name.Substring(0, type.Name.IndexOf('`'));
                 string typeArgs = string.Join(
-                    ", ", type.GenericTypeArguments.Select(FormatDocMemberParameterType));
+                    ",", type.GenericTypeArguments.Select(
+                        (t) => FormatDocMemberParameterType(
+                            t, genericTypeParams, genericMethodParams)));
                 return $"{type.Namespace}.{typeName}{{{typeArgs}}}";
             }
         }
