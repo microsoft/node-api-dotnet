@@ -114,8 +114,7 @@ internal class JSInterfaceMarshaller
                 typeBuilder,
                 property,
                 getFieldBuilder,
-                setFieldBuilder,
-                marshaller);
+                setFieldBuilder);
         }
 
         foreach (MethodInfo method in interfaceMethods)
@@ -127,7 +126,7 @@ internal class JSInterfaceMarshaller
 
         foreach (EventInfo eventInfo in interfaceEvents)
         {
-            BuildEventImplementation(typeBuilder, eventInfo, marshaller);
+            BuildEventImplementation(typeBuilder, eventInfo);
         }
 
         implementationType = typeBuilder.CreateType()!;
@@ -212,8 +211,7 @@ internal class JSInterfaceMarshaller
         TypeBuilder typeBuilder,
         PropertyInfo property,
         FieldInfo? getDelegateField,
-        FieldInfo? setDelegateField,
-        JSMarshaller marshaller)
+        FieldInfo? setDelegateField)
     {
         PropertyBuilder propertyBuilder = typeBuilder.DefineProperty(
             property.Name,
@@ -472,8 +470,7 @@ internal class JSInterfaceMarshaller
 
     private static void BuildEventImplementation(
         TypeBuilder typeBuilder,
-        EventInfo eventInfo,
-        JSMarshaller marshaller)
+        EventInfo eventInfo)
     {
         EventBuilder eventBuilder = typeBuilder.DefineEvent(
             eventInfo.DeclaringType!.Name + ".add_" + eventInfo.Name, // Explicit interface impl

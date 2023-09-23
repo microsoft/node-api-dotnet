@@ -208,7 +208,7 @@ internal class TypeExporter
             {
                 ExportTypeIfSupported(method.ReturnType);
             }
-            
+
             if (member is MethodInfo interfaceMethod && type.IsInterface)
             {
                 // Interface method parameter types must be exported in case the interface
