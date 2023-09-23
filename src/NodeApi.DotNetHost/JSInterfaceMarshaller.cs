@@ -16,6 +16,13 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// </summary>
 internal class JSInterfaceMarshaller
 {
+    private static readonly MethodInfo s_jsInterfaceDynamicInvoke = typeof(JSInterface).GetMethod(
+        nameof(Delegate.DynamicInvoke),
+        BindingFlags.NonPublic | BindingFlags.Instance,
+        binder: null,
+        new[] { typeof(Delegate), typeof(object?[]) },
+        modifiers: null)!;
+
     private readonly ConcurrentDictionary<Type, Type> _interfaceTypes = new();
     private readonly AssemblyBuilder _assemblyBuilder;
     private readonly ModuleBuilder _moduleBuilder;
@@ -85,6 +92,9 @@ internal class JSInterfaceMarshaller
         IEnumerable<MethodInfo> interfaceMethods =
             allInterfaces.SelectMany((i) => i.GetMethods())
             .Where((m) => !m.IsStatic && !m.IsSpecialName);
+        IEnumerable<EventInfo> interfaceEvents =
+            allInterfaces.SelectMany((i) => i.GetEvents())
+            .Where((e) => e.AddMethod?.IsStatic != true && e.RemoveMethod?.IsStatic != true);
 
         foreach (PropertyInfo? property in interfaceProperties)
         {
@@ -108,14 +118,17 @@ internal class JSInterfaceMarshaller
                 marshaller);
         }
 
-        foreach (MethodInfo? method in interfaceMethods)
+        foreach (MethodInfo method in interfaceMethods)
         {
             FieldBuilder fieldBuilder = CreateDelegateField(method);
 
             BuildMethodImplementation(typeBuilder, method, fieldBuilder, marshaller);
         }
 
-        // TODO: Events
+        foreach (EventInfo eventInfo in interfaceEvents)
+        {
+            BuildEventImplementation(typeBuilder, eventInfo, marshaller);
+        }
 
         implementationType = typeBuilder.CreateType()!;
         _interfaceTypes.TryUpdate(interfaceType, implementationType, typeBuilder);
@@ -227,7 +240,7 @@ internal class JSInterfaceMarshaller
             ILGenerator il = getMethodBuilder.GetILGenerator();
 
             /*
-             * return this.DynamicInvoke._get_property, new object[] { Value });
+             * return this.DynamicInvoke(_get_property, new object[] { Value });
              */
 
             il.Emit(OpCodes.Ldarg_0); // this
@@ -240,8 +253,7 @@ internal class JSInterfaceMarshaller
             il.Emit(OpCodes.Newarr, typeof(object));
 
             // Invoke the delegate.
-            il.Emit(OpCodes.Callvirt, typeof(JSInterface).GetMethod(
-                nameof(Delegate.DynamicInvoke), BindingFlags.NonPublic | BindingFlags.Instance)!);
+            il.Emit(OpCodes.Callvirt, s_jsInterfaceDynamicInvoke);
 
             // Return the result, casting to the return type.
             if (property.PropertyType.IsValueType)
@@ -292,8 +304,7 @@ internal class JSInterfaceMarshaller
             il.Emit(OpCodes.Stelem_Ref);
 
             // Invoke the delegate.
-            il.Emit(OpCodes.Callvirt, typeof(JSInterface).GetMethod(
-                nameof(Delegate.DynamicInvoke), BindingFlags.NonPublic | BindingFlags.Instance)!);
+            il.Emit(OpCodes.Callvirt, s_jsInterfaceDynamicInvoke);
 
             // Remove unused return value from the stack.
             il.Emit(OpCodes.Pop);
@@ -360,14 +371,12 @@ internal class JSInterfaceMarshaller
         if (method.IsGenericMethodDefinition)
         {
             /*
-             * return this.DynamicInvoke(JSMarshaller.Current.GetToJSMethodDelegate(
-             *     MethodBase.GetCurrentMethod().MakeGenericMethod(new Type[] { typeArgs... })),
-             *     new object[] { Value, args... });
+             * return this.DynamicInvoke(
+                   MethodBase.GetCurrentMethod().MakeGenericMethod(new Type[] { typeArgs... }),
+                   JSMarshaller.StaticGetToJSMethodDelegate,
+                   new object[] { Value, args... });
              */
 
-            il.Emit(
-                OpCodes.Call,
-                typeof(JSMarshaller).GetStaticProperty(nameof(JSMarshaller.Current)).GetMethod!);
             il.Emit(
                 OpCodes.Call,
                 typeof(MethodBase).GetStaticMethod(nameof(MethodBase.GetCurrentMethod)));
@@ -391,10 +400,26 @@ internal class JSInterfaceMarshaller
             il.Emit(OpCodes.Callvirt,
                 typeof(MethodInfo).GetInstanceMethod(nameof(MethodInfo.MakeGenericMethod)));
 
-            // Request a delegate for the method from the JS marshaller.
+            // Load the delegate provider callback. The callback will be invoked on the JS thread,
+            // which is necessary because it uses the thread-local JSMarshaller instance.
+            il.Emit(OpCodes.Ldnull);
             il.Emit(
-                OpCodes.Callvirt,
-                typeof(JSMarshaller).GetInstanceMethod(nameof(JSMarshaller.GetToJSMethodDelegate)));
+                OpCodes.Ldftn,
+                typeof(JSMarshaller).GetStaticMethod(
+                    nameof(JSMarshaller.StaticGetToJSMethodDelegate)));
+            il.Emit(OpCodes.Newobj,
+                typeof(Func<MethodInfo, Delegate>)
+                    .GetConstructor(new[] { typeof(object), typeof(nint) })!);
+
+            EmitArgs();
+
+            // Invoke the delegate.
+            il.Emit(OpCodes.Callvirt, typeof(JSInterface).GetMethod(
+                nameof(Delegate.DynamicInvoke),
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                new[] { typeof(MethodInfo), typeof(Func<MethodInfo, Delegate>), typeof(object?[]) },
+                modifiers: null)!);
         }
         else
         {
@@ -405,15 +430,15 @@ internal class JSInterfaceMarshaller
             // TODO: Consider defining delegate types as needed for method signatures so the
             // delegate invocations are not "dynamic". It would avoid boxing value types.
 
-            // Load the static field for the delegate that implements the method by marshalling to JS.
+            // Load the static field for the delegate that implements the method by marshalling
+            // to JS.
             il.Emit(OpCodes.Ldsfld, delegateField);
+
+            EmitArgs();
+
+            // Invoke the delegate.
+            il.Emit(OpCodes.Callvirt, s_jsInterfaceDynamicInvoke);
         }
-
-        EmitArgs();
-
-        // Invoke the delegate.
-        il.Emit(OpCodes.Callvirt, typeof(JSInterface).GetMethod(
-            nameof(Delegate.DynamicInvoke), BindingFlags.NonPublic | BindingFlags.Instance)!);
 
         // Return the result, casting to the return type if necessary.
         if (method.ReturnType == typeof(void))
@@ -442,6 +467,59 @@ internal class JSInterfaceMarshaller
         {
             // Position here is offset by one because the return parameter is at 0.
             methodBuilder.DefineParameter(i + 1, parameters[i].Attributes, parameters[i].Name);
+        }
+    }
+
+    private static void BuildEventImplementation(
+        TypeBuilder typeBuilder,
+        EventInfo eventInfo,
+        JSMarshaller marshaller)
+    {
+        EventBuilder eventBuilder = typeBuilder.DefineEvent(
+            eventInfo.DeclaringType!.Name + ".add_" + eventInfo.Name, // Explicit interface impl
+            EventAttributes.None,
+            eventInfo.EventHandlerType!);
+
+        MethodAttributes attributes =
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.Final |
+            MethodAttributes.NewSlot | MethodAttributes.HideBySig | MethodAttributes.SpecialName;
+
+        if (eventInfo.AddMethod != null)
+        {
+            MethodBuilder addMethodBuilder = typeBuilder.DefineMethod(
+                eventInfo.DeclaringType!.Name + ".add_" + eventInfo.Name, // Explicit interface impl
+                attributes,
+                CallingConventions.HasThis,
+                returnType: typeof(void),
+                parameterTypes: new[] { eventInfo.EventHandlerType! });
+            addMethodBuilder.DefineParameter(1, ParameterAttributes.None, "value");
+
+            ILGenerator il = addMethodBuilder.GetILGenerator();
+
+            // TODO: Implement event add method.
+            il.Emit(OpCodes.Ret);
+
+            eventBuilder.SetAddOnMethod(addMethodBuilder);
+            typeBuilder.DefineMethodOverride(addMethodBuilder, eventInfo.AddMethod);
+        }
+
+        if (eventInfo.RemoveMethod != null)
+        {
+            MethodBuilder removeMethodBuilder = typeBuilder.DefineMethod(
+                eventInfo.DeclaringType!.Name + ".remove_" + eventInfo.Name, // Explicit interface impl
+                attributes,
+                CallingConventions.HasThis,
+                returnType: typeof(void),
+                parameterTypes: new[] { eventInfo.EventHandlerType! });
+            removeMethodBuilder.DefineParameter(1, ParameterAttributes.None, "value");
+
+            ILGenerator il2 = removeMethodBuilder.GetILGenerator();
+
+            // TODO: Implement event remove method.
+            il2.Emit(OpCodes.Ret);
+
+            eventBuilder.SetRemoveOnMethod(removeMethodBuilder);
+            typeBuilder.DefineMethodOverride(removeMethodBuilder, eventInfo.RemoveMethod);
         }
     }
 }
