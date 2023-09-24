@@ -290,7 +290,7 @@ dotnet.load(assemblyName);
             else
             {
                 foreach (MemberInfo member in type.GetMembers(
-                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                    BindingFlags.Public | BindingFlags.Static))
                 {
                     if (IsMemberExported(member))
                     {
@@ -560,14 +560,14 @@ import { Duplex } from 'stream';
             if (type.IsClass)
             {
                 foreach (PropertyInfo property in type.GetProperties(
-                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                    BindingFlags.Public | BindingFlags.Static))
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, property);
                 }
 
                 foreach (MethodInfo method in type.GetMethods(
-                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                    BindingFlags.Public | BindingFlags.Static))
                 {
                     if (!IsExcludedMethod(method))
                     {
@@ -584,25 +584,42 @@ import { Duplex } from 'stream';
         GenerateDocComments(ref s, type);
 
         bool isStaticClass = type.IsAbstract && type.IsSealed && !isGenericTypeDefinition;
+        bool isStreamSubclass = type.BaseType?.FullName == typeof(Stream).FullName;
         string classKind = type.IsInterface || type.IsGenericTypeDefinition ?
             "interface" : isStaticClass ? "namespace" : "class";
+        string implementsKind = type.IsInterface || type.IsGenericTypeDefinition ?
+            "extends" : "implements";
 
         string implements = string.Empty;
 
-        foreach (Type interfaceType in type.GetInterfaces())
+        Type[] interfaceTypes = type.GetInterfaces();
+        foreach (Type interfaceType in interfaceTypes)
         {
-            string prefix = (implements.Length == 0 ?
-                (type.IsInterface ? " extends " : " implements ") : ", ");
+            string prefix = (implements.Length == 0 ? $" {implementsKind}" : ",") +
+                (interfaceTypes.Length > 1 ? "\n\t" : " ");
 
-            if (interfaceType == typeof(IDisposable))
+            if (isStreamSubclass &&
+                (interfaceType.Name == nameof(IDisposable) ||
+                interfaceType.Name == nameof(IAsyncDisposable)))
+            {
+                // Stream projections extend JS Duplex class which has different close semantics.
+                continue;
+            }
+            else if (interfaceType == typeof(IDisposable))
             {
                 implements += prefix + nameof(IDisposable);
                 _emitDisposable = true;
             }
-            else if (interfaceType.Namespace != typeof(IList<>).Namespace)
+            else if (interfaceType.Namespace != typeof(IList<>).Namespace &&
+                !HasExplicitInterfaceImplementations(type, interfaceType))
             {
                 // Extending generic collection interfaces gets tricky because of the way
                 // those are projected to JS types. For now, those are just omitted here.
+
+                // If any of the class's interface methods are implemented explicitly,
+                // the interface is omitted. TypeScript does not and cannot support
+                // explicit interface implementations because it uses duck typing.
+
                 string tsType = GetTSType(interfaceType, nullability: null);
                 if (tsType != "unknown")
                 {
@@ -611,7 +628,6 @@ import { Duplex } from 'stream';
             }
         }
 
-        bool isStreamSubclass = type.BaseType?.FullName == typeof(Stream).FullName;
         if (isStreamSubclass)
         {
             implements = " extends Duplex" + implements;
@@ -635,7 +651,8 @@ import { Duplex } from 'stream';
         if (!isStreamSubclass)
         {
             foreach (PropertyInfo property in type.GetProperties(
-                BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance |
+                BindingFlags.Public | BindingFlags.Instance |
+                (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
                 if (isFirstMember) isFirstMember = false; else s++;
@@ -643,7 +660,8 @@ import { Duplex } from 'stream';
             }
 
             foreach (MethodInfo method in type.GetMethods(
-                BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance |
+                BindingFlags.Public | BindingFlags.Instance |
+                (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
                 if (!IsExcludedMethod(method))
@@ -662,6 +680,69 @@ import { Duplex } from 'stream';
         {
             ExportType(ref s, nestedType);
         }
+    }
+
+    private static bool HasExplicitInterfaceImplementations(Type type, Type interfaceType)
+    {
+        if (!type.IsClass)
+        {
+            if ((interfaceType.Name == nameof(IComparable) && type.IsInterface &&
+                type.GetInterfaces().Any((i) => i.Name == typeof(IComparable<>).Name)) ||
+                (interfaceType.Name == "ISpanFormattable" && type.IsInterface &&
+                type.GetInterfaces().Any((i) => i.Name == "INumberBase`1")))
+            {
+                // TS interfaces cannot extend multiple interfaces that have non-identical methods
+                // with the same name. This is most commonly an issue with IComparable and
+                // ISpanFormattable/INumberBase generic and non-generic interfaces.
+                return true;
+            }
+
+            return false;
+        }
+        else if (type.Name == "TypeDelegator" && interfaceType.Name == "IReflectableType")
+        {
+            // Special case: TypeDelegator has an explicit implementation of this interface,
+            // but it isn't detected by reflection due to the runtime type delegation.
+            return true;
+        }
+
+        // Note the InterfaceMapping class is not supported for assemblies loaded by a
+        // MetadataLoadContext, so the answer is a little harder to find.
+
+        if (interfaceType.IsConstructedGenericType)
+        {
+            interfaceType = interfaceType.GetGenericTypeDefinition();
+        }
+
+        // Get the interface type name with generic type parameters for matching.
+        // It would be more precise to match the generic type params also,
+        // but also more complicated.
+        string interfaceTypeName = interfaceType.FullName!;
+        int genericMarkerIndex = interfaceTypeName.IndexOf('`');
+        if (genericMarkerIndex >= 0)
+        {
+            interfaceTypeName = interfaceTypeName.Substring(0, genericMarkerIndex);
+        }
+
+        foreach (MethodInfo method in type.GetMethods(
+            BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        {
+            if (method.IsFinal && method.IsPrivate &&
+                method.Name.StartsWith(interfaceTypeName))
+            {
+                return true;
+            }
+        }
+
+        foreach (Type baseInterfaceType in interfaceType.GetInterfaces())
+        {
+            if (HasExplicitInterfaceImplementations(type, baseInterfaceType))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void GenerateGenericTypeFactory(ref SourceBuilder s, Type type)
@@ -746,6 +827,12 @@ import { Duplex } from 'stream';
             string genericParams = GetGenericParams(method);
             string parameters = GetTSParameters(method.GetParameters());
             string returnType = GetTSType(method.ReturnParameter);
+
+            if (methodName == nameof(IDisposable.Dispose))
+            {
+                // Match JS disposable naming convention.
+                methodName = "dispose";
+            }
 
             if (declaringType.IsAbstract && declaringType.IsSealed &&
                 !declaringType.IsGenericTypeDefinition)
