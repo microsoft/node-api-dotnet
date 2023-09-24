@@ -23,39 +23,28 @@ parameters:
     - Name: win_x64
       VMImage: windows-latest
       TargetRuntime: win-x64
-      DotNetVersion: 8.0.x
-      DotNetMoniker: net8.0
-      UseGlobalJson: true
     - Name: win_arm64
       VMImage: windows-latest
       TargetRuntime: win-arm64
-      DotNetVersion: 8.0.x
-      DotNetMoniker: net8.0
-      UseGlobalJson: true
     - Name: osx_x64
       VMImage: macos-latest
       TargetRuntime: osx-x64
-      DotNetVersion: 8.0.x
-      DotNetMoniker: net8.0
-      UseGlobalJson: true
     - Name: osx_arm64
       VMImage: macos-latest
       TargetRuntime: osx-arm64
-      DotNetVersion: 8.0.x
-      DotNetMoniker: net8.0
       UseGlobalJson: true
     - Name: linux_x64
       VMImage: ubuntu-latest
       TargetRuntime: linux-x64
-      DotNetVersion: 8.0.x
-      DotNetMoniker: net8.0
-      UseGlobalJson: true
 
 jobs:
   # Build Native AOT .Net hosts for Node-API modules.
   - ${{ each matrixEntry in parameters.buildMatrix }}:
     - job: buildAOTBinary${{ matrixEntry.Name }}
       displayName: Build ${{ matrixEntry.TargetRuntime }} AOT binary
+
+      variables:
+        DotNetMoniker: net8.0
 
       pool:
         vmImage: ${{ matrixEntry.VMImage }}
@@ -69,12 +58,10 @@ jobs:
           lfs: false
 
         - task: UseDotNet@2
-          displayName: Install .Net ${{ matrixEntry.DotNetVersion }}
+          displayName: Install .NET SDK using global.json
           inputs:
             packageType: sdk
-            version: ${{ matrixEntry.DotNetVersion }}
-            includePreviewVersions: ${{ eq(matrixEntry.UseGlobalJson, false) }}
-            useGlobalJson: ${{ matrixEntry.UseGlobalJson }}
+            useGlobalJson: true
 
         - script: env
           displayName: Print environment
@@ -82,27 +69,21 @@ jobs:
         - script: dotnet --info
           displayName: Print .Net info
 
-        - task: DeleteFiles@1 # To enable net8.0 use for osx-arm64
-          displayName: Delete global.json
-          inputs:
-            Contents: global.json
-          condition: eq(${{ matrixEntry.UseGlobalJson }}, false)
-
         - script: >
             dotnet publish
             --configuration Release
             --runtime ${{ matrixEntry.TargetRuntime }}
             --no-self-contained
-            --framework ${{ matrixEntry.DotNetMoniker }}
+            --framework $(DotNetMoniker)
           displayName: Build Native AOT binaries
           env:
-            TargetFrameworks: ${{ matrixEntry.DotNetMoniker }}
+            TargetFrameworks: $(DotNetMoniker)
 
         - task: CopyFiles@2
           displayName: Copy Native AOT binaries to staging
           inputs:
             sourceFolder: "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/\
-              ${{ matrixEntry.DotNetMoniker }}/${{ matrixEntry.TargetRuntime }}/publish"
+              $(DotNetMoniker)/${{ matrixEntry.TargetRuntime }}/publish"
             targetFolder: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
             contents: Microsoft.JavaScript.NodeApi.node
 
@@ -126,9 +107,7 @@ jobs:
     variables:
       VMImage: windows-latest
       TargetRuntime: win-x64
-      DotNetVersion: 8.0.x
       DotNetMoniker: net8.0
-      UseGlobalJson: true
       TargetRuntimeList:
 
     pool:
@@ -149,11 +128,10 @@ jobs:
           version: 6.0.x
 
       - task: UseDotNet@2
-        displayName: Install .Net $(DotNetVersion)
+        displayName: Install .NET SDK using global.json
         inputs:
           packageType: sdk
-          version: $(DotNetVersion)
-          useGlobalJson: $(UseGlobalJson)
+          useGlobalJson: true
 
       - script: env
         displayName: Print environment
