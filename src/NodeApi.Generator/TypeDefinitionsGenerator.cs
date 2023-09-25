@@ -320,7 +320,11 @@ dotnet.load(assemblyName);
 
     private bool IsTypeExported(Type type)
     {
-        if (type.Assembly != _assembly)
+        // Types not in the current assembly are not exported from this TS module.
+        // (But support mscorlib and System.Runtime forwarding to System.Private.CoreLib.)
+        if (type.Assembly != _assembly &&
+            !(type.Assembly.GetName().Name == "System.Private.CoreLib" &&
+            (_assembly.GetName().Name == "mscorlib" || _assembly.GetName().Name == "System.Runtime")))
         {
             return false;
         }
@@ -689,7 +693,8 @@ import { Duplex } from 'stream';
             if ((interfaceType.Name == nameof(IComparable) && type.IsInterface &&
                 type.GetInterfaces().Any((i) => i.Name == typeof(IComparable<>).Name)) ||
                 (interfaceType.Name == "ISpanFormattable" && type.IsInterface &&
-                type.GetInterfaces().Any((i) => i.Name == "INumberBase`1")))
+                (type.Name == "INumberBase`1" ||
+                type.GetInterfaces().Any((i) => i.Name == "INumberBase`1"))))
             {
                 // TS interfaces cannot extend multiple interfaces that have non-identical methods
                 // with the same name. This is most commonly an issue with IComparable and
@@ -891,11 +896,13 @@ import { Duplex } from 'stream';
     {
         // Exclude "special" methods like property get/set and event add/remove.
         // Exclude old style Begin/End async methods, as they always have Task-based alternatives.
+        // Exclude instance methods declared by System.Object like ToString() and Equals().
         return method.IsSpecialName ||
             (method.Name.StartsWith("Begin") &&
                 method.ReturnType.FullName == typeof(IAsyncResult).FullName) ||
             (method.Name.StartsWith("End") && method.GetParameters().Length == 1 &&
-            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName);
+            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName) ||
+            (!method.IsStatic && method.DeclaringType!.FullName == "System.Object");
     }
 
     private void GenerateEnumDefinition(ref SourceBuilder s, Type type)
