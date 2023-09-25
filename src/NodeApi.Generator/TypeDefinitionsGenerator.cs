@@ -290,7 +290,7 @@ dotnet.load(assemblyName);
             else
             {
                 foreach (MemberInfo member in type.GetMembers(
-                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                    BindingFlags.Public | BindingFlags.Static))
                 {
                     if (IsMemberExported(member))
                     {
@@ -320,7 +320,11 @@ dotnet.load(assemblyName);
 
     private bool IsTypeExported(Type type)
     {
-        if (type.Assembly != _assembly)
+        // Types not in the current assembly are not exported from this TS module.
+        // (But support mscorlib and System.Runtime forwarding to System.Private.CoreLib.)
+        if (type.Assembly != _assembly &&
+            !(type.Assembly.GetName().Name == "System.Private.CoreLib" &&
+            (_assembly.GetName().Name == "mscorlib" || _assembly.GetName().Name == "System.Runtime")))
         {
             return false;
         }
@@ -560,14 +564,14 @@ import { Duplex } from 'stream';
             if (type.IsClass)
             {
                 foreach (PropertyInfo property in type.GetProperties(
-                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                    BindingFlags.Public | BindingFlags.Static))
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, property);
                 }
 
                 foreach (MethodInfo method in type.GetMethods(
-                    BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
+                    BindingFlags.Public | BindingFlags.Static))
                 {
                     if (!IsExcludedMethod(method))
                     {
@@ -584,23 +588,53 @@ import { Duplex } from 'stream';
         GenerateDocComments(ref s, type);
 
         bool isStaticClass = type.IsAbstract && type.IsSealed && !isGenericTypeDefinition;
+        bool isStreamSubclass = type.BaseType?.FullName == typeof(Stream).FullName;
         string classKind = type.IsInterface || type.IsGenericTypeDefinition ?
             "interface" : isStaticClass ? "namespace" : "class";
+        string implementsKind = type.IsInterface || type.IsGenericTypeDefinition ?
+            "extends" : "implements";
 
         string implements = string.Empty;
-        /*
-        foreach (INamedTypeSymbol? implemented in exportClass.Interfaces.Where(
-            (type) => _exportItems.Contains(type, SymbolEqualityComparer.Default)))
-        {
-            implements += (implements.Length == 0 ? " implements " : ", ");
-            implements += implemented.Name;
-        }
-        */
 
-        bool isStreamSubclass = type.BaseType?.FullName == typeof(Stream).FullName;
+        Type[] interfaceTypes = type.GetInterfaces();
+        foreach (Type interfaceType in interfaceTypes)
+        {
+            string prefix = (implements.Length == 0 ? $" {implementsKind}" : ",") +
+                (interfaceTypes.Length > 1 ? "\n\t" : " ");
+
+            if (isStreamSubclass &&
+                (interfaceType.Name == nameof(IDisposable) ||
+                interfaceType.Name == nameof(IAsyncDisposable)))
+            {
+                // Stream projections extend JS Duplex class which has different close semantics.
+                continue;
+            }
+            else if (interfaceType == typeof(IDisposable))
+            {
+                implements += prefix + nameof(IDisposable);
+                _emitDisposable = true;
+            }
+            else if (interfaceType.Namespace != typeof(IList<>).Namespace &&
+                !HasExplicitInterfaceImplementations(type, interfaceType))
+            {
+                // Extending generic collection interfaces gets tricky because of the way
+                // those are projected to JS types. For now, those are just omitted here.
+
+                // If any of the class's interface methods are implemented explicitly,
+                // the interface is omitted. TypeScript does not and cannot support
+                // explicit interface implementations because it uses duck typing.
+
+                string tsType = GetTSType(interfaceType, nullability: null);
+                if (tsType != "unknown")
+                {
+                    implements += prefix + tsType;
+                }
+            }
+        }
+
         if (isStreamSubclass)
         {
-            implements = " extends Duplex";
+            implements = " extends Duplex" + implements;
             _emitDuplex = true;
         }
 
@@ -621,7 +655,8 @@ import { Duplex } from 'stream';
         if (!isStreamSubclass)
         {
             foreach (PropertyInfo property in type.GetProperties(
-                BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance |
+                BindingFlags.Public | BindingFlags.Instance |
+                (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
                 if (isFirstMember) isFirstMember = false; else s++;
@@ -629,7 +664,8 @@ import { Duplex } from 'stream';
             }
 
             foreach (MethodInfo method in type.GetMethods(
-                BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance |
+                BindingFlags.Public | BindingFlags.Instance |
+                (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
                 if (!IsExcludedMethod(method))
@@ -648,6 +684,70 @@ import { Duplex } from 'stream';
         {
             ExportType(ref s, nestedType);
         }
+    }
+
+    private static bool HasExplicitInterfaceImplementations(Type type, Type interfaceType)
+    {
+        if (!type.IsClass)
+        {
+            if ((interfaceType.Name == nameof(IComparable) && type.IsInterface &&
+                type.GetInterfaces().Any((i) => i.Name == typeof(IComparable<>).Name)) ||
+                (interfaceType.Name == "ISpanFormattable" && type.IsInterface &&
+                (type.Name == "INumberBase`1" ||
+                type.GetInterfaces().Any((i) => i.Name == "INumberBase`1"))))
+            {
+                // TS interfaces cannot extend multiple interfaces that have non-identical methods
+                // with the same name. This is most commonly an issue with IComparable and
+                // ISpanFormattable/INumberBase generic and non-generic interfaces.
+                return true;
+            }
+
+            return false;
+        }
+        else if (type.Name == "TypeDelegator" && interfaceType.Name == "IReflectableType")
+        {
+            // Special case: TypeDelegator has an explicit implementation of this interface,
+            // but it isn't detected by reflection due to the runtime type delegation.
+            return true;
+        }
+
+        // Note the InterfaceMapping class is not supported for assemblies loaded by a
+        // MetadataLoadContext, so the answer is a little harder to find.
+
+        if (interfaceType.IsConstructedGenericType)
+        {
+            interfaceType = interfaceType.GetGenericTypeDefinition();
+        }
+
+        // Get the interface type name with generic type parameters for matching.
+        // It would be more precise to match the generic type params also,
+        // but also more complicated.
+        string interfaceTypeName = interfaceType.FullName!;
+        int genericMarkerIndex = interfaceTypeName.IndexOf('`');
+        if (genericMarkerIndex >= 0)
+        {
+            interfaceTypeName = interfaceTypeName.Substring(0, genericMarkerIndex);
+        }
+
+        foreach (MethodInfo method in type.GetMethods(
+            BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        {
+            if (method.IsFinal && method.IsPrivate &&
+                method.Name.StartsWith(interfaceTypeName))
+            {
+                return true;
+            }
+        }
+
+        foreach (Type baseInterfaceType in interfaceType.GetInterfaces())
+        {
+            if (HasExplicitInterfaceImplementations(type, baseInterfaceType))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void GenerateGenericTypeFactory(ref SourceBuilder s, Type type)
@@ -733,6 +833,12 @@ import { Duplex } from 'stream';
             string parameters = GetTSParameters(method.GetParameters());
             string returnType = GetTSType(method.ReturnParameter);
 
+            if (methodName == nameof(IDisposable.Dispose))
+            {
+                // Match JS disposable naming convention.
+                methodName = "dispose";
+            }
+
             if (declaringType.IsAbstract && declaringType.IsSealed &&
                 !declaringType.IsGenericTypeDefinition)
             {
@@ -790,11 +896,13 @@ import { Duplex } from 'stream';
     {
         // Exclude "special" methods like property get/set and event add/remove.
         // Exclude old style Begin/End async methods, as they always have Task-based alternatives.
+        // Exclude instance methods declared by System.Object like ToString() and Equals().
         return method.IsSpecialName ||
             (method.Name.StartsWith("Begin") &&
                 method.ReturnType.FullName == typeof(IAsyncResult).FullName) ||
             (method.Name.StartsWith("End") && method.GetParameters().Length == 1 &&
-            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName);
+            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName) ||
+            (!method.IsStatic && method.DeclaringType!.FullName == "System.Object");
     }
 
     private void GenerateEnumDefinition(ref SourceBuilder s, Type type)
@@ -1285,10 +1393,10 @@ import { Duplex } from 'stream';
         {
             Type type => $"T:{type.FullName}",
             PropertyInfo property => $"P:{property.DeclaringType!.FullName}.{property.Name}",
-            MethodInfo method => $"M:{method.DeclaringType!.FullName}.{method.Name}" +
-                FormatDocMemberParameters(method.GetParameters()),
+            MethodInfo method => $"M:{FormatDocMethodName(method)}" +
+                FormatDocMethodParameters(method),
             ConstructorInfo constructor => $"M:{constructor.DeclaringType!.FullName}.#ctor" +
-                FormatDocMemberParameters(constructor.GetParameters()),
+                FormatDocMethodParameters(constructor),
             FieldInfo field => $"F:{field.DeclaringType!.FullName}.{field.Name}",
             _ => string.Empty,
         };
@@ -1375,31 +1483,81 @@ import { Duplex } from 'stream';
             (node?.ToString() ?? string.Empty).Replace("\r", "").Trim(), " ");
     }
 
-    private static string FormatDocMemberParameters(ParameterInfo[] parameters)
+    private static string FormatDocMethodName(MethodInfo method)
     {
-        return parameters.Length == 0 ? string.Empty :
-            '(' + string.Join(",", parameters.Select(
-                (p) => FormatDocMemberParameterType(p.ParameterType))) + ')';
+        string genericSuffix = method.IsGenericMethodDefinition ?
+            "``" + method.GetGenericArguments().Length : string.Empty;
+        return $"{method.DeclaringType!.FullName}.{method.Name}{genericSuffix}";
     }
 
-    private static string FormatDocMemberParameterType(Type type)
+    private static string FormatDocMethodParameters(MethodBase method)
     {
-        if (type.IsGenericType)
+        Type[]? genericTypeParams = null;
+        if (method.DeclaringType!.IsGenericTypeDefinition)
+        {
+            // Constructors and methods may include generic parameters from the type.
+            genericTypeParams = method.DeclaringType.GetGenericArguments();
+        }
+
+        Type[]? genericMethodParams = null;
+        try
+        {
+            if (method.ContainsGenericParameters)
+            {
+                genericMethodParams = method.GetGenericArguments();
+            }
+        }
+        catch (NotSupportedException)
+        {
+            // A constructor or method that contains generic type parameters but not
+            // generic method parameters may return true for ContainsGenericParameters
+            // and then throw NotSupportedException from GetGenericArguments().
+        }
+
+        ParameterInfo[] parameters = method.GetParameters();
+        return parameters.Length == 0 ? string.Empty :
+            '(' + string.Join(",", parameters.Select(
+                (p) => FormatDocMemberParameterType(
+                    p.ParameterType, genericTypeParams, genericMethodParams))) + ')';
+    }
+
+    private static string FormatDocMemberParameterType(
+        Type type,
+        Type[]? genericTypeParams,
+        Type[]? genericMethodParams)
+    {
+#if NETFRAMEWORK
+        if (type.IsGenericMethodParameter() && genericMethodParams != null)
+#else
+        if (type.IsGenericTypeParameter && genericTypeParams != null)
+        {
+            return "`" + Array.IndexOf(genericTypeParams, type);
+        }
+        else if (type.IsGenericMethodParameter && genericMethodParams != null)
+#endif
+        {
+            return "``" + Array.IndexOf(genericMethodParams, type);
+        }
+        else if (type.IsGenericType)
         {
             if (type.IsNested && type.DeclaringType!.IsGenericType)
             {
                 string declaringTypeName = type.DeclaringType.Name;
                 declaringTypeName = declaringTypeName.Substring(0, declaringTypeName.IndexOf('`'));
                 string typeArgs = string.Join(
-                    ", ",
-                    type.DeclaringType.GenericTypeArguments.Select(FormatDocMemberParameterType));
+                    ",",
+                    type.DeclaringType.GenericTypeArguments.Select(
+                        (t) => FormatDocMemberParameterType(
+                            t, genericTypeParams, genericMethodParams)));
                 return $"{type.Namespace}.{declaringTypeName}{{{typeArgs}}}.{type.Name}";
             }
             else
             {
                 string typeName = type.Name.Substring(0, type.Name.IndexOf('`'));
                 string typeArgs = string.Join(
-                    ", ", type.GenericTypeArguments.Select(FormatDocMemberParameterType));
+                    ",", type.GenericTypeArguments.Select(
+                        (t) => FormatDocMemberParameterType(
+                            t, genericTypeParams, genericMethodParams)));
                 return $"{type.Namespace}.{typeName}{{{typeArgs}}}";
             }
         }

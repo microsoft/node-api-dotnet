@@ -249,6 +249,13 @@ public class JSMarshaller
     }
 
     /// <summary>
+    /// Gets a delegate for a .NET adapter to a JS method, using the current thread
+    /// JS marshaller instance.
+    /// </summary>
+    public static Delegate StaticGetToJSMethodDelegate(MethodInfo method)
+        => Current.GetToJSMethodDelegate(method);
+
+    /// <summary>
     /// Gets a lambda expression that converts from a JS value to a specified type.
     /// </summary>
     /// <param name="toType">The type the value will be converted to.</param>
