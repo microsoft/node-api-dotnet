@@ -98,7 +98,12 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// </remarks>
     private readonly Dictionary<string, JSReference> _loadedModules = new();
 
-    private ManagedHost(JSObject exports)
+    /// <summary>
+    /// Creates a new instance of a <see cref="ManagedHost" /> that supports loading and
+    /// invoking managed .NET assemblies in a JavaScript process.
+    /// </summary>
+    /// <param name="exports">JS object on which the managed host APIs will be exported.</param>
+    public ManagedHost(JSObject exports)
     {
 #if NETFRAMEWORK
         AppDomain.CurrentDomain.AssemblyResolve += OnResolvingAssembly;

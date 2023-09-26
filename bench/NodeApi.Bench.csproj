@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Compile Include="../test/TestUtils.cs" Link="TestUtils.cs" />
+    <None Remove="BenchmarkDotNet.Artifacts/**" />
   </ItemGroup>
 
   <ItemGroup>

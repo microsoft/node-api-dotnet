@@ -2720,12 +2720,27 @@ public static partial class JSNativeApi
             napi_error_message_handler err_handler,
             out napi_platform result)
         {
-            result = default;
-            fixed (napi_platform* result_ptr = &result)
+            nint args_ptr = StringsToHGlobalUtf8(args, out int args_count);
+            nint exec_args_ptr = StringsToHGlobalUtf8(exec_args, out int exec_args_count);
+
+            try
             {
-                // TODO: Handle args, exec_args.
-                return s_funcs.napi_create_platform(
-                    0, default, 0, default, err_handler, (nint)result_ptr);
+                result = default;
+                fixed (napi_platform* result_ptr = &result)
+                {
+                    return s_funcs.napi_create_platform(
+                        args_count,
+                        args_ptr,
+                        exec_args_count,
+                        exec_args_ptr,
+                        err_handler,
+                        (nint)result_ptr);
+                }
+            }
+            finally
+            {
+                FreeStringsHGlobal(args_ptr, args_count);
+                FreeStringsHGlobal(exec_args_ptr, exec_args_count);
             }
         }
 
@@ -2808,6 +2823,39 @@ public static partial class JSNativeApi
             Marshal.Copy(bytes, 0, ptr, bytes.Length);
             Marshal.WriteByte(ptr, bytes.Length, 0);
             return ptr;
+        }
+
+        private static nint StringsToHGlobalUtf8(string[]? s, out int count)
+        {
+            nint array_ptr = default;
+            count = 0;
+
+            if (s != null)
+            {
+                count = s.Length;
+                array_ptr = Marshal.AllocHGlobal(count * sizeof(nint));
+                for (int i = 0; i < count; i++)
+                {
+                    nint ptr = StringToHGlobalUtf8(s[i]);
+                    Marshal.WriteIntPtr(array_ptr + i * sizeof(nint), ptr);
+                }
+            }
+
+            return array_ptr;
+        }
+
+        private static void FreeStringsHGlobal(nint array_ptr, int count)
+        {
+            if (array_ptr != default)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    nint ptr = Marshal.ReadIntPtr(array_ptr + i * sizeof(nint));
+                    Marshal.FreeHGlobal(ptr);
+                }
+
+                Marshal.FreeHGlobal(array_ptr);
+            }
         }
 
         private static nint GetFunctionPointerForDelegateAndRootIt<TDelegate>(TDelegate d)

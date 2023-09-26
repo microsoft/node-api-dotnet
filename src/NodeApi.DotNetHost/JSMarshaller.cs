@@ -1860,10 +1860,10 @@ public class JSMarshaller
             // public type is passed to JS and then passed back to .NET as `object` type.
 
             /*
-             * (T)(value.TryUnwrap() ?? value.GetValueExternal());
+             * (T)(value.TryUnwrap() ?? value.TryGetValueExternal());
              */
             MethodInfo getExternalMethod =
-                typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetValueExternal));
+                typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.TryGetValueExternal));
             statements = new[]
             {
                 Expression.Convert(
