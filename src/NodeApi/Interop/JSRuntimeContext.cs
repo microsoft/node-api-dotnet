@@ -73,8 +73,11 @@ public sealed class JSRuntimeContext : IDisposable
     /// a C# object maps to the same JS instance when marshalled multiple times. The
     /// references are weak to allow the JS wrappers to be released; new wrappers are
     /// re-constructed as needed.
+    /// Important! We need to match by reference, otherwise for classes that overrides
+    /// the <see cref="object.Equals(object?)"/> method, JS can receive unpredictable
+    /// object instance.
     /// </remarks>
-    private readonly ConcurrentDictionary<object, JSReference> _objectMap = new();
+    private readonly ConcurrentDictionary<object, JSReference> _objectMap = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// Maps from exported struct types to (strong references to) JS constructors for classes
