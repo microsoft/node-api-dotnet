@@ -293,7 +293,7 @@ public sealed class NodejsEnvironment : IDisposable
             gcFunction.Call();
             return true;
         });
-        
+
         if (!result)
         {
             throw new InvalidOperationException("The global gc() function was not found. " +

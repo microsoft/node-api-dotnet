@@ -50,7 +50,7 @@ public class GCTests
             // - JSPropertyDescriptor: DotnetClass.toString
             Assert.Equal(5, JSRuntimeContext.Current.GCHandleCount);
 
-            using JSValueScope innerScope = new JSValueScope(JSValueScopeType.Callback);
+            using JSValueScope innerScope = new(JSValueScopeType.Callback);
             jsCreateInstanceFunction.CallAsStatic(dotnetClass);
 
             gcHandleCount = JSRuntimeContext.Current.GCHandleCount;

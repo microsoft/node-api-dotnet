@@ -612,7 +612,7 @@ public sealed class JSRuntimeContext : IDisposable
         references.Clear();
     }
 
-    
+
     private long _gcHandleCount;
 
     /// <summary>
@@ -627,7 +627,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// </remarks>
     public long GCHandleCount => _gcHandleCount;
 
-    #if DEBUG
+#if DEBUG
 
     /// <summary>
     /// Records the target object and allocation stack trace of a GC handle.
@@ -646,7 +646,7 @@ public sealed class JSRuntimeContext : IDisposable
     public Dictionary<nint, GCHandleInfo> GCHandleMap { get; }
         = new Dictionary<nint, GCHandleInfo>();
 
-    #endif
+#endif
 
     /// <summary>
     /// Allocates a GC handle and tracks the allocation on the current runtime context. Call this
@@ -694,7 +694,7 @@ public sealed class JSRuntimeContext : IDisposable
             // JSRuntimeContext is not in the map because its constructor calls SetInstanceData()
             // before it can be assigned to the root JSValueScope.
             if (!currentContext.GCHandleMap.Remove((nint)handle) &&
-                !(handle.Target is JSRuntimeContext))
+                handle.Target is not JSRuntimeContext)
             {
                 throw new InvalidOperationException("Freed GC handle was not in the handle map.");
             }
