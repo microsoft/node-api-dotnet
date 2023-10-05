@@ -114,6 +114,8 @@ public sealed class JSRuntimeContext : IDisposable
     /// <summary>
     /// Gets the current runtime context.
     /// </summary>
+    /// <exception cref="InvalidOperationException">No runtime context was set for the current
+    /// thread.</exception>
     public static JSRuntimeContext Current => JSValueScope.Current.RuntimeContext;
 
     public JSSynchronizationContext SynchronizationContext { get; }
@@ -656,7 +658,7 @@ public sealed class JSRuntimeContext : IDisposable
     {
         GCHandle handle = GCHandle.Alloc(value);
 
-        JSRuntimeContext currentContext = Current;
+        JSRuntimeContext? currentContext = JSValueScope.CurrentRuntimeContext;
         if (currentContext is not null)
         {
             Interlocked.Increment(ref currentContext._gcHandleCount);
@@ -682,7 +684,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// by <see cref="AllocGCHandle(object)" />, or was already freed.</exception>
     internal static void FreeGCHandle(GCHandle handle)
     {
-        JSRuntimeContext currentContext = Current;
+        JSRuntimeContext? currentContext = JSValueScope.CurrentRuntimeContext;
         if (currentContext is not null)
         {
             Interlocked.Decrement(ref currentContext._gcHandleCount);
@@ -696,7 +698,8 @@ public sealed class JSRuntimeContext : IDisposable
             if (!currentContext.GCHandleMap.Remove((nint)handle) &&
                 handle.Target is not JSRuntimeContext)
             {
-                throw new InvalidOperationException("Freed GC handle was not in the handle map.");
+                throw new InvalidOperationException(
+                    $"Freed GC handle to {targetType} was not in the handle map.");
             }
 #endif
         }
