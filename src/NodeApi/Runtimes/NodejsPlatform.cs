@@ -22,7 +22,7 @@ public sealed class NodejsPlatform : IDisposable
 {
     private readonly napi_platform _platform;
 
-    public static explicit operator napi_platform(NodejsPlatform platform) => platform._platform;
+    public static implicit operator napi_platform(NodejsPlatform platform) => platform._platform;
 
     /// <summary>
     /// Initializes the Node.js platform.

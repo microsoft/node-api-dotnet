@@ -500,7 +500,7 @@ public static partial class JSNativeApi
         JSCallbackDescriptor constructorDescriptor,
         params JSPropertyDescriptor[] propertyDescriptors)
     {
-        GCHandle descriptorHandle = GCHandle.Alloc(constructorDescriptor);
+        GCHandle descriptorHandle = JSRuntimeContext.AllocGCHandle(constructorDescriptor);
         JSValue? func = null;
         napi_callback callback = new(
             JSValueScope.Current?.ScopeType == JSValueScopeType.NoContext
@@ -534,7 +534,7 @@ public static partial class JSNativeApi
     /// <returns>The JS wrapper.</returns>
     public static unsafe JSValue Wrap(this JSValue wrapper, object value)
     {
-        GCHandle valueHandle = GCHandle.Alloc(value);
+        GCHandle valueHandle = JSRuntimeContext.AllocGCHandle(value);
         napi_wrap(
             Env,
             (napi_value)wrapper,
@@ -556,7 +556,7 @@ public static partial class JSNativeApi
     public static unsafe JSValue Wrap(
         this JSValue wrapper, object value, out JSReference wrapperWeakRef)
     {
-        GCHandle valueHandle = GCHandle.Alloc(value);
+        GCHandle valueHandle = JSRuntimeContext.AllocGCHandle(value);
         napi_ref weakRef;
         napi_wrap(
             Env,
@@ -651,9 +651,31 @@ public static partial class JSNativeApi
         return true;
     }
 
+    /// <summary>
+    /// Gets the object that is represented as an external value.
+    /// (Throws if the JS value is not an external value.)
+    /// </summary>
     public static unsafe object GetValueExternal(this JSValue thisValue)
     {
         napi_get_value_external(Env, (napi_value)thisValue, out nint result).ThrowIfFailed();
+        return GCHandle.FromIntPtr(result).Target!;
+    }
+
+    /// <summary>
+    /// Gets the object that is represented as an external value, or null if the JS value
+    /// is not an external value.
+    /// </summary>
+    public static unsafe object? TryGetValueExternal(this JSValue thisValue)
+    {
+        napi_status status = napi_get_value_external(Env, (napi_value)thisValue, out nint result);
+
+        // The invalid arg error code is returned if there was no external value.
+        if (status == napi_status.napi_invalid_arg)
+        {
+            return null;
+        }
+
+        status.ThrowIfFailed();
         return GCHandle.FromIntPtr(result).Target!;
     }
 
@@ -801,7 +823,7 @@ public static partial class JSNativeApi
 
     public static unsafe void AddFinalizer(this JSValue thisValue, Action finalize)
     {
-        GCHandle finalizeHandle = GCHandle.Alloc(finalize);
+        GCHandle finalizeHandle = JSRuntimeContext.AllocGCHandle(finalize);
         napi_add_finalizer(
             Env,
             (napi_value)thisValue,
@@ -814,7 +836,7 @@ public static partial class JSNativeApi
     public static unsafe void AddFinalizer(
         this JSValue thisValue, Action finalize, out JSReference finalizerRef)
     {
-        GCHandle finalizeHandle = GCHandle.Alloc(finalize);
+        GCHandle finalizeHandle = JSRuntimeContext.AllocGCHandle(finalize);
         napi_ref reference;
         napi_add_finalizer(
             Env,
@@ -871,12 +893,12 @@ public static partial class JSNativeApi
         {
             // Current napi_set_instance_data implementation does not call finalizer when we replace existing instance data.
             // It means that we only remove the GC root, but do not call Dispose.
-            GCHandle.FromIntPtr(handlePtr).Free();
+            JSRuntimeContext.FreeGCHandle(GCHandle.FromIntPtr(handlePtr));
         }
 
         if (data != null)
         {
-            GCHandle handle = GCHandle.Alloc(data);
+            GCHandle handle = JSRuntimeContext.AllocGCHandle(data);
             napi_set_instance_data(
               env,
               (nint)handle,
@@ -1094,7 +1116,7 @@ public static partial class JSNativeApi
             (handle.Target as IDisposable)?.Dispose();
         }
 
-        handle.Free();
+        JSRuntimeContext.FreeGCHandle(handle);
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1102,7 +1124,7 @@ public static partial class JSNativeApi
     {
         GCHandle handle = GCHandle.FromIntPtr(hint);
         (handle.Target as IDisposable)?.Dispose();
-        handle.Free();
+        JSRuntimeContext.FreeGCHandle(handle);
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1118,7 +1140,7 @@ public static partial class JSNativeApi
         }
         finally
         {
-            gcHandle.Free();
+            JSRuntimeContext.FreeGCHandle(gcHandle);
         }
     }
 
@@ -1160,7 +1182,8 @@ public static partial class JSNativeApi
             descriptorPtr->attributes = (napi_property_attributes)descriptor.Attributes;
             if (descriptor.Data != null || descriptor.Method != null || descriptor.Getter != null || descriptor.Setter != null)
             {
-                handlesToFinalize[i] = descriptorPtr->data = (nint)GCHandle.Alloc(descriptor);
+                handlesToFinalize[i] = descriptorPtr->data =
+                    (nint)JSRuntimeContext.AllocGCHandle(descriptor);
             }
             else
             {

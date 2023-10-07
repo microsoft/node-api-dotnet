@@ -74,6 +74,24 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
         set => _value.SetProperty(name, value);
     }
 
+    public JSValue CallMethod(JSValue methodName)
+        => _value.GetProperty(methodName).Call(_value);
+
+    public JSValue CallMethod(JSValue methodName, JSValue arg0)
+        => _value.GetProperty(methodName).Call(_value, arg0);
+
+    public JSValue CallMethod(JSValue methodName, JSValue arg0, JSValue arg1)
+        => _value.GetProperty(methodName).Call(_value, arg0, arg1);
+
+    public JSValue CallMethod(JSValue methodName, JSValue arg0, JSValue arg1, JSValue arg2)
+        => _value.GetProperty(methodName).Call(_value, arg0, arg1, arg2);
+
+    public JSValue CallMethod(JSValue methodName, params JSValue[] args)
+        => _value.GetProperty(methodName).Call(_value, args);
+
+    public JSValue CallMethod(JSValue methodName, ReadOnlySpan<JSValue> args)
+        => _value.GetProperty(methodName).Call(_value, args);
+
     public void Add(JSValue key, JSValue value) => _value.SetProperty(key, value);
 
     public bool ContainsKey(JSValue key) => _value.HasProperty(key);

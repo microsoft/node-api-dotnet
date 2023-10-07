@@ -42,7 +42,10 @@ public class JSThreadSafeFunction
                                 JSThreadSafeCallback? jsCaller = null)
     {
         FunctionData functionData = new(functionContext, finalize, jsCaller);
+
+        // Do not use AllocGCHandle() because we're calling from another thread.
         GCHandle functionDataHandle = GCHandle.Alloc(functionData);
+
         napi_status status = napi_create_threadsafe_function(
                                  (napi_env)JSValueScope.Current,
                                  (napi_value)jsFunction,
@@ -59,7 +62,7 @@ public class JSThreadSafeFunction
                                  out _tsfn);
         if (status != napi_status.napi_ok)
         {
-            functionDataHandle.Free();
+            JSRuntimeContext.FreeGCHandle(functionDataHandle);
             status.ThrowIfFailed();
         }
     }
@@ -178,11 +181,12 @@ public class JSThreadSafeFunction
 
     private napi_status CallInternal(object? callbackOrData, napi_threadsafe_function_call_mode mode)
     {
+        // Do not use AllocGCHandle() because we're calling from another thread.
         GCHandle callbackOrDataHandle = GCHandle.Alloc(callbackOrData);
         napi_status status = napi_call_threadsafe_function(_tsfn, (nint)callbackOrDataHandle, mode);
-        if (status != napi_status.napi_ok && callbackOrData != null)
+        if (status != napi_status.napi_ok)
         {
-            (callbackOrData as IDisposable)?.Dispose();
+            // Do not use FreeGCHandle() - the handle was allocated on a different thread.
             callbackOrDataHandle.Free();
         }
 
@@ -232,6 +236,8 @@ public class JSThreadSafeFunction
             {
                 GCHandle dataHandle = GCHandle.FromIntPtr(data);
                 callbackData = dataHandle.Target!;
+
+                // Do not use FreeGCHandle() - the handle was allocated on a different thread.
                 dataHandle.Free();
             }
 
@@ -261,7 +267,10 @@ public class JSThreadSafeFunction
             {
                 GCHandle dataHandle = GCHandle.FromIntPtr(data);
                 object dataObject = dataHandle.Target!;
+
+                // Do not use FreeGCHandle() - the handle was allocated on a different thread.
                 dataHandle.Free();
+
                 if (dataObject is Action action)
                 {
                     action();

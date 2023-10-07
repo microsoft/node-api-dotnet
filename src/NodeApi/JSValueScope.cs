@@ -56,6 +56,16 @@ public enum JSValueScopeType
     Escapable,
 }
 
+/// <summary>
+/// A scope that controls the lifetime of JS values. When the scope is disposed, any
+/// JS values created within the scope are released unless they are held by a strong
+/// <see cref="JSReference" />.
+/// </summary>
+/// <remarks>
+/// Every call from JS to .NET creates a separate scope for the duration of the call.
+/// That means any JS values created during the call are released when the call returns,
+/// unless they are returned to JS or held by a strong <see cref="JSReference" />.
+/// </remarks>
 public sealed class JSValueScope : IDisposable
 {
     private readonly JSValueScope? _parentScope;
@@ -67,12 +77,19 @@ public sealed class JSValueScope : IDisposable
 
     public JSValueScopeType ScopeType { get; }
 
+    /// <summary>
+    /// Gets the current JS value scope.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No scope was established for the current
+    /// thread.</exception>
     public static JSValueScope Current => s_currentScope ??
         throw new InvalidOperationException("No current scope.");
 
     public bool IsDisposed { get; private set; }
 
     public JSRuntimeContext RuntimeContext { get; }
+
+    internal static JSRuntimeContext? CurrentRuntimeContext => s_currentScope?.RuntimeContext;
 
     public JSModuleContext? ModuleContext { get; internal set; }
 

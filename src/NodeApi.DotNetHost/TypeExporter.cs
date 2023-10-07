@@ -477,7 +477,6 @@ internal class TypeExporter
 
         if (type.IsPointer ||
             type == typeof(void) ||
-            type == typeof(Type) ||
             type.Namespace == "System.Reflection" ||
             (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Memory<>)) ||
             (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ReadOnlyMemory<>)) ||

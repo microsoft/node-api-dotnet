@@ -164,7 +164,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static unsafe JSValue CreateFunction(
         ReadOnlySpan<byte> utf8Name, JSCallback callback, object? callbackData = null)
     {
-        GCHandle descriptorHandle = GCHandle.Alloc(
+        GCHandle descriptorHandle = JSRuntimeContext.AllocGCHandle(
             new JSCallbackDescriptor(callback, callbackData));
         JSValue func = CreateFunction(
             utf8Name,
@@ -179,7 +179,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     private static unsafe JSValue CreateFunction(
         byte* utf8Name, int utf8NameLength, JSCallback callback, object? callbackData = null)
     {
-        GCHandle descriptorHandle = GCHandle.Alloc(
+        GCHandle descriptorHandle = JSRuntimeContext.AllocGCHandle(
             new JSCallbackDescriptor(callback, callbackData));
         JSValue func = napi_create_function(
             Env,
@@ -236,7 +236,7 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public static unsafe JSValue CreateExternal(object value)
     {
-        GCHandle valueHandle = GCHandle.Alloc(value);
+        GCHandle valueHandle = JSRuntimeContext.AllocGCHandle(value);
         return napi_create_external(
             Env,
             (nint)valueHandle,
@@ -271,7 +271,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             (nuint)pinnedMemory.Length,
             // We pass object to finalize as a hint parameter
             new napi_finalize(s_finalizeHintHandle),
-            (nint)GCHandle.Alloc(pinnedMemory),
+            (nint)JSRuntimeContext.AllocGCHandle(pinnedMemory),
             out napi_value result)
             .ThrowIfFailed(result);
     }

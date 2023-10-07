@@ -274,4 +274,30 @@ public sealed class NodejsEnvironment : IDisposable
     /// not initialized.</exception>
     public JSValue Import(string? module, string? property = null)
         => _scope.RuntimeContext.Import(module, property);
+
+    /// <summary>
+    /// Runs garbage collection in the JS environment.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The Node.js platform was not initialized
+    /// with the --expose-gc option.</exception>
+    public void GC()
+    {
+        bool result = SynchronizationContext.Run(() =>
+        {
+            JSValue gcFunction = JSValue.Global["gc"];
+            if (gcFunction.TypeOf() != JSValueType.Function)
+            {
+                return false;
+            }
+
+            gcFunction.Call();
+            return true;
+        });
+
+        if (!result)
+        {
+            throw new InvalidOperationException("The global gc() function was not found. " +
+                "Make sure the Node.js platform was initialized with the `--enable-gc` option.");
+        }
+    }
 }
