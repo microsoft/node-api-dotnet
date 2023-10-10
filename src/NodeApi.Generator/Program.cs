@@ -224,6 +224,7 @@ public static class Program
             }
             string dotnetRootDirectory = Path.GetDirectoryName(Path.GetDirectoryName(
                 Path.GetDirectoryName(runtimeDirectory)!)!)!;
+
             string refAssemblyDirectory = Path.Combine(
                 dotnetRootDirectory,
                 "packs",

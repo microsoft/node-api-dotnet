@@ -933,7 +933,9 @@ import { Duplex } from 'stream';
             propertyType = propertyType.GetElementType()!;
         }
 
-        string tsType = GetTSType(propertyType, _nullabilityContext.Create(property));
+        string tsType = GetTSType(
+            propertyType,
+            FixNullability(_nullabilityContext.Create(property)));
 
         if (tsType == "unknown" || tsType.Contains("unknown"))
         {
@@ -1001,7 +1003,8 @@ import { Duplex } from 'stream';
                     }
 
                     tsType = GetTSType(
-                        parameter.ParameterType, _nullabilityContext.Create(parameter));
+                        parameter.ParameterType,
+                        FixNullability(_nullabilityContext.Create(parameter)));
                     return $"{{ {resultName}: {tsType}, {outProperties} }}";
                 }
             }
@@ -1013,7 +1016,7 @@ import { Duplex } from 'stream';
             parameterType = parameterType.GetElementType()!;
         }
 
-        tsType = GetTSType(parameterType, _nullabilityContext.Create(parameter));
+        tsType = GetTSType(parameterType, FixNullability(_nullabilityContext.Create(parameter)));
         if (tsType == "unknown" || tsType.Contains("unknown"))
         {
             string className = parameter.Member.DeclaringType!.Name;
@@ -1041,6 +1044,34 @@ import { Duplex } from 'stream';
         }
 
         return tsType;
+    }
+
+    /// <summary>
+    /// The generator loads all referenced types in a separate MetadataLoadContext,
+    /// which causes a problem with NullabilityInfoContext when it tries to detect
+    /// whether a type is a value type, because the referenced ValueType type is not
+    /// the same as the system ValueType type. This method overrides the nullability
+    /// state for value types, which can never be nullable. (Note Nullable<T> is itself
+    /// a non-nullable value type; it is handled by the generator as a special case.)
+    /// </summary>
+    private static NullabilityInfo FixNullability(NullabilityInfo nullability)
+    {
+        if (nullability.Type.BaseType?.FullName == typeof(ValueType).FullName)
+        {
+            // Use reflection to override these properties which have internal setters.
+            // There is no public constructor and no other way to set these properties.
+            typeof(NullabilityInfo).GetProperty(nameof(NullabilityInfo.ReadState))!
+                .SetValue(nullability, NullabilityState.NotNull);
+            typeof(NullabilityInfo).GetProperty(nameof(NullabilityInfo.WriteState))!
+                .SetValue(nullability, NullabilityState.NotNull);
+        }
+
+        for (int i = 0; i < nullability.GenericTypeArguments.Length; i++)
+        {
+            FixNullability(nullability.GenericTypeArguments[i]);
+        }
+
+        return nullability;
     }
 
     private string GetTSType(Type type, NullabilityInfo? nullability)
