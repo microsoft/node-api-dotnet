@@ -552,14 +552,13 @@ public static partial class JSNativeApi
         this JSValue wrapper, object value, out JSReference wrapperWeakRef)
     {
         GCHandle valueHandle = JSRuntimeContext.AllocGCHandle(value);
-        napi_ref weakRef;
         CurrentRuntime.Wrap(
             Env,
             (napi_value)wrapper,
             (nint)valueHandle,
             new napi_finalize(s_finalizeGCHandle),
             default,
-            out weakRef).ThrowIfFailed();
+            out napi_ref weakRef).ThrowIfFailed();
         wrapperWeakRef = new JSReference(weakRef, isWeak: true);
         return wrapper;
     }

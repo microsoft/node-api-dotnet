@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.Text;
 
@@ -7,36 +7,34 @@ namespace Microsoft.JavaScript.NodeApi;
 public struct PooledBuffer : IDisposable
 {
     private ArrayPool<byte>? _pool;
-    private readonly byte[] _buffer;
-
-    public static readonly PooledBuffer Empty = new PooledBuffer(null, Array.Empty<byte>(), 0);
+    public static readonly PooledBuffer Empty = new(null, Array.Empty<byte>(), 0);
 
     public PooledBuffer(ArrayPool<byte> pool, int length)
-        : this(pool, pool.Rent(length), length) {}
+        : this(pool, pool.Rent(length), length) { }
 
     public PooledBuffer(ArrayPool<byte> pool, int length, int bufferMinimumLength)
-        : this(pool, pool.Rent(bufferMinimumLength), length) {}
+        : this(pool, pool.Rent(bufferMinimumLength), length) { }
 
     private PooledBuffer(ArrayPool<byte>? pool, byte[] buffer, int length)
     {
         _pool = pool;
-        _buffer = buffer;
+        Buffer = buffer;
         Length = length;
     }
 
-    public int Length { get; private set;}
+    public int Length { get; private set; }
 
-    public byte[]? Buffer => _buffer;
+    public readonly byte[] Buffer { get; }
 
-    public Span<byte> Span => _buffer;
+    public readonly Span<byte> Span => Buffer;
 
-    public ref byte Pin() => ref Span.GetPinnableReference();
+    public readonly ref byte Pin() => ref Span.GetPinnableReference();
 
     public void Dispose()
     {
         if (_pool != null)
         {
-            _pool.Return(_buffer!);
+            _pool.Return(Buffer!);
             _pool = null;
         }
     }
@@ -49,7 +47,7 @@ public struct PooledBuffer : IDisposable
         }
 
         int byteLength = Encoding.UTF8.GetByteCount(value);
-        PooledBuffer buffer = new PooledBuffer(ArrayPool<byte>.Shared, byteLength, byteLength + 1);
+        PooledBuffer buffer = new(ArrayPool<byte>.Shared, byteLength, byteLength + 1);
 
         fixed (char* pChars = value)
         fixed (byte* pBuffer = buffer.Buffer)

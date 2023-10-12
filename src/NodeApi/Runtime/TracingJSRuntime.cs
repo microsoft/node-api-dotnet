@@ -93,7 +93,7 @@ public class TracingJSRuntime : JSRuntime
     private string Format(napi_env env, napi_value value)
     {
         _runtime.GetValueType(env, value, out napi_valuetype valueType);
-        
+
         string valueString = string.Empty;
         switch (valueType)
         {
@@ -133,7 +133,7 @@ public class TracingJSRuntime : JSRuntime
                 else if (_runtime.IsPromise(env, value, out bool isPromise) ==
                     napi_status.napi_ok && isPromise)
                 {
-                        valueString = " {promise}";
+                    valueString = " {promise}";
                 }
                 break;
 
@@ -160,7 +160,7 @@ public class TracingJSRuntime : JSRuntime
         }
         else
         {
-            return $"@{@ref.Handle:X16} " + status.ToString().Substring(5);
+            return $"@{@ref.Handle:X16} {status.ToString().Substring(5)}";
         }
     }
 
@@ -202,7 +202,6 @@ public class TracingJSRuntime : JSRuntime
     }
 
     private void TraceCall(
-        napi_env env,
         IEnumerable<string> args,
         [CallerMemberName] string name = "")
     {
@@ -216,7 +215,6 @@ public class TracingJSRuntime : JSRuntime
     }
 
     private void TraceReturn(
-        napi_env env,
         napi_status status,
         IEnumerable<string>? results = null,
         [CallerMemberName] string name = "")
@@ -231,7 +229,6 @@ public class TracingJSRuntime : JSRuntime
     }
 
     private void TraceException(
-        napi_env env,
         Exception ex,
         [CallerMemberName] string name = "")
     {
@@ -250,7 +247,7 @@ public class TracingJSRuntime : JSRuntime
         Func<napi_status> call,
         [CallerMemberName] string name = "")
     {
-        TraceCall(env, args, name);
+        TraceCall(args, name);
 
         napi_status status;
         try
@@ -259,11 +256,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex, name);
+            TraceException(ex, name);
             throw;
         }
 
-        TraceReturn(env, status, null, name);
+        TraceReturn(status, null, name);
         return status;
     }
 
@@ -273,7 +270,7 @@ public class TracingJSRuntime : JSRuntime
         Func<(napi_status, string)> call,
         [CallerMemberName] string name = "")
     {
-        return TraceCall(env, args, () =>
+        return TraceCall(args, () =>
         {
             (napi_status status, string result) = call();
             return (status, new[] { result });
@@ -281,12 +278,11 @@ public class TracingJSRuntime : JSRuntime
     }
 
     private napi_status TraceCall(
-        napi_env env,
         IEnumerable<string> args,
         Func<(napi_status, string[])> call,
         [CallerMemberName] string name = "")
     {
-        TraceCall(env, args, name);
+        TraceCall(args, name);
 
         napi_status status;
         string[] results;
@@ -296,15 +292,15 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex, name);
+            TraceException(ex, name);
             throw;
         }
 
-        TraceReturn(env, status, results, name);
+        TraceReturn(status, results, name);
         return status;
     }
 
-    public void TraceCallback()
+    public static void TraceCallback()
     {
         // TODO: Trace callbacks from JS to .NET
     }
@@ -667,7 +663,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value value, Span<byte> buf, out int result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[] { Format(env, value) });
+        TraceCall(new[] { Format(env, value) });
 
         napi_status status;
         try
@@ -676,12 +672,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
         TraceReturn(
-            env,
             status,
             buf.Length == 0 ? new[] { result.ToString() } : new[]
             {
@@ -695,7 +690,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value value, Span<char> buf, out int result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[] { Format(env, value) });
+        TraceCall(new[] { Format(env, value) });
 
         napi_status status;
         try
@@ -704,12 +699,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
         TraceReturn(
-            env,
             status,
             buf.Length == 0 ? new[] { result.ToString() } : new[]
             {
@@ -777,7 +771,6 @@ public class TracingJSRuntime : JSRuntime
         napi_value resultValue = default;
         int resultOffset = default;
         napi_status status = TraceCall(
-            env,
             new[] { Format(env, typedarray) },
             () => (_runtime.GetValueTypedArray(
                 env,
@@ -809,7 +802,6 @@ public class TracingJSRuntime : JSRuntime
         napi_value resultValue = default;
         int resultOffset = default;
         napi_status status = TraceCall(
-            env,
             new[] { Format(env, dataview) },
             () => (_runtime.GetValueDataView(
                 env,
@@ -946,7 +938,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, ReadOnlySpan<byte> utf8Str, out napi_value result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[] { Format(Encoding.UTF8.GetString(utf8Str.ToArray())) });
+        TraceCall(new[] { Format(Encoding.UTF8.GetString(utf8Str.ToArray())) });
 
         napi_status status;
         try
@@ -955,11 +947,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status, new[] { Format(env, result) });
+        TraceReturn(status, new[] { Format(env, result) });
         return status;
     }
 
@@ -967,7 +959,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, ReadOnlySpan<char> utf16Str, out napi_value result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[] { Format(new string(utf16Str.ToArray())) });
+        TraceCall(new[] { Format(new string(utf16Str.ToArray())) });
 
         napi_status status;
         try
@@ -976,11 +968,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status, new[] { Format(env, result) });
+        TraceReturn(status, new[] { Format(env, result) });
         return status;
     }
 
@@ -1151,12 +1143,12 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-     public override napi_status CreateFunction(
-        napi_env env,
-        string? name,
-        napi_callback cb,
-        nint data,
-        out napi_value result)
+    public override napi_status CreateFunction(
+       napi_env env,
+       string? name,
+       napi_callback cb,
+       nint data,
+       out napi_value result)
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
@@ -1343,7 +1335,7 @@ public class TracingJSRuntime : JSRuntime
         out napi_value result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[] { Format(env, recv) }.Concat(
+        TraceCall(new[] { Format(env, recv) }.Concat(
             args.ToArray().Select((a) => Format(env, a))));
 
         napi_status status;
@@ -1353,11 +1345,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status, new[] { Format(env, result) });
+        TraceReturn(status, new[] { Format(env, result) });
         return status;
     }
 
@@ -1370,9 +1362,8 @@ public class TracingJSRuntime : JSRuntime
         int resultCount = default;
         nint resultData = default;
         napi_status status = TraceCall(
-            env,
             new[] { $"{cbinfo.Handle:X16}" },
-            () => (_runtime.GetCallbackInfo(env,cbinfo, out resultCount, out resultData),
+            () => (_runtime.GetCallbackInfo(env, cbinfo, out resultCount, out resultData),
                 new[] { resultCount.ToString(), Format(resultData) }));
         argc = resultCount;
         data = resultData;
@@ -1386,7 +1377,7 @@ public class TracingJSRuntime : JSRuntime
         out napi_value this_arg)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[] { $"{cbinfo.Handle:X16}", $"[{args.Length}]" });
+        TraceCall(new[] { $"{cbinfo.Handle:X16}", $"[{args.Length}]" });
 
         napi_status status;
         try
@@ -1395,11 +1386,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status, new[] { Format(env, this_arg) }.Concat(
+        TraceReturn(status, new[] { Format(env, this_arg) }.Concat(
             args.ToArray().Select((a) => Format(env, a))));
         return status;
     }
@@ -1473,7 +1464,6 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value js_object, ReadOnlySpan<byte> utf8name, out bool result)
     {
         TraceCall(
-            env,
             new[] { Format(env, js_object), Format(Encoding.UTF8.GetString(utf8name.ToArray())) });
 
         napi_status status;
@@ -1483,11 +1473,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status, new[] { Format(result) });
+        TraceReturn(status, new[] { Format(result) });
         return status;
     }
 
@@ -1495,7 +1485,6 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value js_object, ReadOnlySpan<byte> utf8name, out napi_value result)
     {
         TraceCall(
-            env,
             new[] { Format(env, js_object), Format(Encoding.UTF8.GetString(utf8name.ToArray())) });
 
         napi_status status;
@@ -1505,11 +1494,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status, new[] { Format(env, result) });
+        TraceReturn(status, new[] { Format(env, result) });
         return status;
     }
 
@@ -1517,7 +1506,6 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value js_object, ReadOnlySpan<byte> utf8name, napi_value value)
     {
         TraceCall(
-            env,
             new[] {
                 Format(env, js_object),
                 Format(Encoding.UTF8.GetString(utf8name.ToArray())),
@@ -1531,11 +1519,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status);
+        TraceReturn(status);
         return status;
     }
 
@@ -1637,7 +1625,7 @@ public class TracingJSRuntime : JSRuntime
         ReadOnlySpan<napi_property_descriptor> properties)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[]
+        TraceCall(new[]
         {
             Format(env, js_object),
             $"[{string.Join(", ", properties.ToArray().Select((p) => Format(env, p)))}]",
@@ -1650,11 +1638,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status);
+        TraceReturn(status);
         return status;
     }
 
@@ -1667,7 +1655,7 @@ public class TracingJSRuntime : JSRuntime
         out napi_value result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[]
+        TraceCall(new[]
         {
             Format(name),
             Format(data),
@@ -1682,11 +1670,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status, new[] { Format(env, result) });
+        TraceReturn(status, new[] { Format(env, result) });
         return status;
     }
 
@@ -1712,7 +1700,7 @@ public class TracingJSRuntime : JSRuntime
         out napi_value result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(env, new[] { Format(env, constructor) }.Concat(
+        TraceCall(new[] { Format(env, constructor) }.Concat(
             args.ToArray().Select((a) => Format(env, a))));
 
         napi_status status;
@@ -1722,11 +1710,11 @@ public class TracingJSRuntime : JSRuntime
         }
         catch (Exception ex)
         {
-            TraceException(env, ex);
+            TraceException(ex);
             throw;
         }
 
-        TraceReturn(env, status, new[] { Format(env, result) });
+        TraceReturn(status, new[] { Format(env, result) });
         return status;
     }
 

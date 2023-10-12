@@ -387,14 +387,14 @@ public unsafe class NodejsRuntime : JSRuntime
 
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-        fixed (byte* code_ptr = &codeBuffer.Pin())
-        fixed (byte* msg_ptr = &codeBuffer.Pin())
-        {
-            return napi_throw_error(
-                env,
-                code == null ? 0 : (nint)code_ptr,
-                msg == null ? 0 : (nint)msg_ptr);
-        }
+            fixed (byte* code_ptr = &codeBuffer.Pin())
+            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            {
+                return napi_throw_error(
+                    env,
+                    code == null ? 0 : (nint)code_ptr,
+                    msg == null ? 0 : (nint)msg_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, nint, napi_status> napi_throw_type_error;
@@ -409,14 +409,14 @@ public unsafe class NodejsRuntime : JSRuntime
 
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-        fixed (byte* code_ptr = &codeBuffer.Pin())
-        fixed (byte* msg_ptr = &codeBuffer.Pin())
-        {
-            return napi_throw_type_error(
-                env,
-                code == null ? 0 : (nint)code_ptr,
-                msg == null ? 0 : (nint)msg_ptr);
-        }
+            fixed (byte* code_ptr = &codeBuffer.Pin())
+            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            {
+                return napi_throw_type_error(
+                    env,
+                    code == null ? 0 : (nint)code_ptr,
+                    msg == null ? 0 : (nint)msg_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, nint, napi_status>
@@ -432,15 +432,15 @@ public unsafe class NodejsRuntime : JSRuntime
 
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-        fixed (byte* code_ptr = &codeBuffer.Pin())
-        fixed (byte* msg_ptr = &codeBuffer.Pin())
+            fixed (byte* code_ptr = &codeBuffer.Pin())
+            fixed (byte* msg_ptr = &codeBuffer.Pin())
 
-        {
-            return napi_throw_range_error(
-                env,
-                code == null ? 0 : (nint)code_ptr,
-                msg == null ? 0 : (nint)msg_ptr);
-        }
+            {
+                return napi_throw_range_error(
+                    env,
+                    code == null ? 0 : (nint)code_ptr,
+                    msg == null ? 0 : (nint)msg_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, nint, napi_status>
@@ -457,14 +457,14 @@ public unsafe class NodejsRuntime : JSRuntime
 
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-        fixed (byte* code_ptr = &codeBuffer.Pin())
-        fixed (byte* msg_ptr = &codeBuffer.Pin())
-        {
-            return node_api_throw_syntax_error(
-                env,
-                code == null ? 0 : (nint)code_ptr,
-                msg == null ? 0 : (nint)msg_ptr);
-        }
+            fixed (byte* code_ptr = &codeBuffer.Pin())
+            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            {
+                return node_api_throw_syntax_error(
+                    env,
+                    code == null ? 0 : (nint)code_ptr,
+                    msg == null ? 0 : (nint)msg_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, napi_status> napi_is_exception_pending;
@@ -866,15 +866,15 @@ public unsafe class NodejsRuntime : JSRuntime
 
         result = default;
         using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
-        fixed (byte* name_ptr = &nameBuffer.Pin())
-        fixed (napi_value* result_ptr = &result)
-        {
-            return node_api_symbol_for(
-                env,
-                name == null ? 0 : (nint)name_ptr,
-                (nuint)nameBuffer.Length,
-                (nint)result_ptr);
-        }
+            fixed (byte* name_ptr = &nameBuffer.Pin())
+            fixed (napi_value* result_ptr = &result)
+            {
+                return node_api_symbol_for(
+                    env,
+                    name == null ? 0 : (nint)name_ptr,
+                    (nuint)nameBuffer.Length,
+                    (nint)result_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, napi_status>
@@ -1391,17 +1391,17 @@ public unsafe class NodejsRuntime : JSRuntime
         }
 
         using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
-        fixed (byte* name_ptr = &nameBuffer.Pin())
-        fixed (napi_value* result_ptr = &result)
-        {
-            return napi_create_function(
-                env,
-                name == null ? 0 : (nint)name_ptr,
-                (nuint)nameBuffer.Length,
-                cb,
-                data,
-                (nint)result_ptr);
-        }
+            fixed (byte* name_ptr = &nameBuffer.Pin())
+            fixed (napi_value* result_ptr = &result)
+            {
+                return napi_create_function(
+                    env,
+                    name == null ? 0 : (nint)name_ptr,
+                    (nuint)nameBuffer.Length,
+                    cb,
+                    data,
+                    (nint)result_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, nint, napi_status> napi_create_promise;
@@ -1987,7 +1987,7 @@ public unsafe class NodejsRuntime : JSRuntime
     {
         if (napi_get_property_names == null)
         {
-            napi_get_property_names =(delegate* unmanaged[Cdecl]<
+            napi_get_property_names = (delegate* unmanaged[Cdecl]<
                 napi_env, napi_value, nint, napi_status>)
                 GetExport(nameof(napi_get_property_names));
         }
@@ -2083,20 +2083,20 @@ public unsafe class NodejsRuntime : JSRuntime
 
         result = default;
         using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
-        fixed (byte* name_ptr = &nameBuffer.Pin())
-        fixed (napi_property_descriptor* properties_ptr = &properties.GetPinnableReference())
-        fixed (napi_value* result_ptr = &result)
-        {
-            return napi_define_class(
-                env,
-                name == null ? 0 : (nint)name_ptr,
-                (nuint)nameBuffer.Length,
-                constructor,
-                data,
-                (nuint)properties.Length,
-                (nint)properties_ptr,
-                (nint)result_ptr);
-        }
+            fixed (byte* name_ptr = &nameBuffer.Pin())
+            fixed (napi_property_descriptor* properties_ptr = &properties.GetPinnableReference())
+            fixed (napi_value* result_ptr = &result)
+            {
+                return napi_define_class(
+                    env,
+                    name == null ? 0 : (nint)name_ptr,
+                    (nuint)nameBuffer.Length,
+                    constructor,
+                    data,
+                    (nuint)properties.Length,
+                    (nint)properties_ptr,
+                    (nint)result_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, napi_status> napi_get_prototype;

@@ -120,16 +120,16 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         AssemblyLoadContext.Default.Resolving += OnResolvingAssembly;
 #endif
 
-        JSCallback addListener = (JSCallbackArgs args) =>
+        JSValue addListener(JSCallbackArgs args)
         {
             AddListener(eventName: (string)args[0], listener: args[1]);
             return args.ThisArg;
-        };
-        JSCallback removeListener = (JSCallbackArgs args) =>
+        }
+        JSValue removeListener(JSCallbackArgs args)
         {
             RemoveListener(eventName: (string)args[0], listener: args[1]);
             return args.ThisArg;
-        };
+        }
 
         exports.DefineProperties(
             // The require() method loads a .NET assembly that was built to be a Node API module.
@@ -214,7 +214,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         if (Environment.GetEnvironmentVariable("TRACE_NODE_API_RUNTIME") != null)
         {
-            TraceSource trace = new TraceSource(typeof(JSValue).Namespace!);
+            TraceSource trace = new(typeof(JSValue).Namespace!);
             trace.Switch.Level = SourceLevels.All;
             trace.Listeners.Add(new JSConsoleTraceListener());
             JSNativeApi.EnableTracing(trace);
