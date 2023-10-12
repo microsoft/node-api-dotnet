@@ -9,7 +9,7 @@ using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 using Microsoft.JavaScript.NodeApi.DotNetHost;
 using Microsoft.JavaScript.NodeApi.Interop;
-using Microsoft.JavaScript.NodeApi.Runtimes;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 

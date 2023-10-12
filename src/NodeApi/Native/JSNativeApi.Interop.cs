@@ -4,15 +4,32 @@
 // Definitions from Node.JS js_native_api.h and js_native_api_types.h
 
 using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
+using Microsoft.JavaScript.NodeApi.Runtime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
 public static partial class JSNativeApi
 {
+    // TODO: When complete, JSRuntime will mostly or fully replace the JSNativeApi class.
+    // TODO: Move this to a thread-local or attach it to the thread-local
+    // JSValueScope or JSRuntimeContext.
+    internal static JSRuntime CurrentRuntime { get; private set; } = default!;
+
+    // TODO: Consider how to expose a public API to enable tracing,
+    // or more generally to replace/augment the JSRuntime implementation.
+    public static void EnableTracing(TraceSource trace)
+    {
+        if (CurrentRuntime is not TracingJSRuntime)
+        {
+            CurrentRuntime = new TracingJSRuntime(CurrentRuntime, trace);
+        }
+    }
+
     // Node-API Interop definitions and functions.
     [SuppressUnmanagedCodeSecurity]
     public static unsafe partial class Interop
@@ -32,6 +49,7 @@ public static partial class JSNativeApi
             }
 
             s_libraryHandle = libraryHandle;
+            CurrentRuntime = new NodejsRuntime(libraryHandle);
         }
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

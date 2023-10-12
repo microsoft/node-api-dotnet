@@ -4,7 +4,7 @@
 using System;
 using System.IO;
 using Microsoft.JavaScript.NodeApi.Interop;
-using Microsoft.JavaScript.NodeApi.Runtimes;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using Xunit;
 using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 

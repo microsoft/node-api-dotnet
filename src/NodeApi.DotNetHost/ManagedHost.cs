@@ -11,6 +11,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 using Microsoft.JavaScript.NodeApi.Interop;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+
+
 
 #if !NETFRAMEWORK
 using System.Runtime.Loader;
@@ -116,27 +120,27 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         AssemblyLoadContext.Default.Resolving += OnResolvingAssembly;
 #endif
 
-        JSValue addListener = JSValue.CreateFunction("addListener", (JSCallbackArgs args) =>
+        JSCallback addListener = (JSCallbackArgs args) =>
         {
             AddListener(eventName: (string)args[0], listener: args[1]);
             return args.ThisArg;
-        });
-        JSValue removeListener = JSValue.CreateFunction("removeListener", (JSCallbackArgs args) =>
+        };
+        JSCallback removeListener = (JSCallbackArgs args) =>
         {
             RemoveListener(eventName: (string)args[0], listener: args[1]);
             return args.ThisArg;
-        });
+        };
 
         exports.DefineProperties(
             // The require() method loads a .NET assembly that was built to be a Node API module.
             // It uses static binding to the APIs the module specifically exports to JS.
-            JSPropertyDescriptor.ForValue("require", JSValue.CreateFunction("require", LoadModule)),
+            JSPropertyDescriptor.Function("require", LoadModule),
 
             // The load() method loads any .NET assembly and enables dynamic invocation of any APIs.
-            JSPropertyDescriptor.ForValue("load", JSValue.CreateFunction("load", LoadAssembly)),
+            JSPropertyDescriptor.Function("load", LoadAssembly),
 
-            JSPropertyDescriptor.ForValue("addListener", addListener),
-            JSPropertyDescriptor.ForValue("removeListener", removeListener));
+            JSPropertyDescriptor.Function("addListener", addListener),
+            JSPropertyDescriptor.Function("removeListener", removeListener));
 
         // Create a marshaller instance for the current thread. The marshaller dynamically
         // generates adapter delegates for calls to and from JS, for assemblies that were not
@@ -207,6 +211,14 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 #endif
 
         using JSValueScope scope = new(JSValueScopeType.Root, env);
+
+        if (Environment.GetEnvironmentVariable("TRACE_NODE_API_RUNTIME") != null)
+        {
+            TraceSource trace = new TraceSource(typeof(JSValue).Namespace!);
+            trace.Switch.Level = SourceLevels.All;
+            trace.Listeners.Add(new JSConsoleTraceListener());
+            JSNativeApi.EnableTracing(trace);
+        }
 
         try
         {
@@ -595,5 +607,25 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         }
 
         base.Dispose(disposing);
+    }
+
+    private class JSConsoleTraceListener : ConsoleTraceListener
+    {
+        public override void TraceEvent(
+            TraceEventCache? eventCache,
+            string source,
+            TraceEventType eventType,
+            int id,
+            string? message)
+        => TraceEvent(eventCache, source, eventType, id, message, null);
+
+        public override void TraceEvent(
+            TraceEventCache? eventCache,
+            string source,
+            TraceEventType eventType,
+            int id,
+            string? format,
+            params object?[]? args)
+        => WriteLine(string.Format(format ?? string.Empty, args ?? Array.Empty<object>()));
     }
 }

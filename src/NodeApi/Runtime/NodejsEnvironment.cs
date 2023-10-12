@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace Microsoft.JavaScript.NodeApi.Runtimes;
+namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 /// <summary>
 /// A Node.js runtime environment with a dedicated main execution thread.

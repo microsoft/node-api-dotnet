@@ -28,9 +28,9 @@ public readonly struct JSSymbol : IEquatable<JSValue>
         _value = JSValue.CreateSymbol(description ?? JSValue.Undefined);
     }
 
-    public static JSSymbol For(ReadOnlySpan<byte> utf8Name)
+    public static JSSymbol For(string name)
     {
-        return new JSSymbol(JSValue.SymbolFor(utf8Name));
+        return new JSSymbol(JSValue.SymbolFor(name));
     }
 
     public static JSSymbol Iterator => (JSSymbol)s_iteratorSymbol.Value.GetValue()!;
