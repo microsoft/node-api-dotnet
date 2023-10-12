@@ -14,15 +14,13 @@ public class GCTests
 {
     private static string LibnodePath { get; } = GetLibnodePath();
 
-    // The Node.js platform may only be initialized once per process.
-    private static NodejsPlatform? NodejsPlatform { get; } =
-        File.Exists(LibnodePath) ? new(LibnodePath, args: new[] { "node", "--expose-gc" }) : null;
-
     [SkippableFact]
     public void GCTest()
     {
-        Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        using NodejsEnvironment nodejs = NodejsPlatform.CreateEnvironment();
+        Skip.If(
+            NodejsEmbeddingTests.NodejsPlatform == null,
+            "Node shared library not found at " + LibnodePath);
+        using NodejsEnvironment nodejs = NodejsEmbeddingTests.NodejsPlatform.CreateEnvironment();
 
         long gcHandleCount = 0;
         nodejs.SynchronizationContext.Run(() =>

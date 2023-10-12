@@ -3,7 +3,6 @@
 
 using System;
 using System.Runtime.InteropServices;
-using System.Text;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
@@ -386,21 +385,15 @@ public unsafe class NodejsRuntime : JSRuntime
                 GetExport(nameof(napi_throw_error));
         }
 
-#if NET5_0_OR_GREATER
-        Span<byte> codeBytes = stackalloc byte[Encoding.UTF8.GetByteCount(code ?? string.Empty)];
-        Span<byte> msgBytes = stackalloc byte[Encoding.UTF8.GetByteCount(msg)];
-        Encoding.UTF8.GetBytes(code ?? string.Empty, codeBytes);
-        Encoding.UTF8.GetBytes(msg, msgBytes);
-        fixed (byte* code_ptr = &codeBytes.GetPinnableReference())
-        fixed (byte* msg_ptr = &codeBytes.GetPinnableReference())
-#else
-        byte[] codeBytes = Encoding.UTF8.GetBytes(code ?? string.Empty);
-        byte[] msgBytes = Encoding.UTF8.GetBytes(msg);
-        fixed (byte* code_ptr = codeBytes)
-        fixed (byte* msg_ptr = codeBytes)
-#endif
+        using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
+        using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
+        fixed (byte* code_ptr = &codeBuffer.Pin())
+        fixed (byte* msg_ptr = &codeBuffer.Pin())
         {
-            return napi_throw_error(env, code == null ? 0 : (nint)code_ptr, (nint)msg_ptr);
+            return napi_throw_error(
+                env,
+                code == null ? 0 : (nint)code_ptr,
+                msg == null ? 0 : (nint)msg_ptr);
         }
     }
 
@@ -414,21 +407,15 @@ public unsafe class NodejsRuntime : JSRuntime
                 GetExport(nameof(napi_throw_type_error));
         }
 
-#if NET5_0_OR_GREATER
-        Span<byte> codeBytes = stackalloc byte[Encoding.UTF8.GetByteCount(code ?? string.Empty)];
-        Span<byte> msgBytes = stackalloc byte[Encoding.UTF8.GetByteCount(msg)];
-        Encoding.UTF8.GetBytes(code ?? string.Empty, codeBytes);
-        Encoding.UTF8.GetBytes(msg, msgBytes);
-        fixed (byte* code_ptr = &codeBytes.GetPinnableReference())
-        fixed (byte* msg_ptr = &codeBytes.GetPinnableReference())
-#else
-        byte[] codeBytes = Encoding.UTF8.GetBytes(code ?? string.Empty);
-        byte[] msgBytes = Encoding.UTF8.GetBytes(msg);
-        fixed (byte* code_ptr = codeBytes)
-        fixed (byte* msg_ptr = codeBytes)
-#endif
+        using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
+        using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
+        fixed (byte* code_ptr = &codeBuffer.Pin())
+        fixed (byte* msg_ptr = &codeBuffer.Pin())
         {
-            return napi_throw_type_error(env, code == null ? 0 : (nint)code_ptr, (nint)msg_ptr);
+            return napi_throw_type_error(
+                env,
+                code == null ? 0 : (nint)code_ptr,
+                msg == null ? 0 : (nint)msg_ptr);
         }
     }
 
@@ -443,22 +430,16 @@ public unsafe class NodejsRuntime : JSRuntime
                 GetExport(nameof(napi_throw_range_error));
         }
 
-#if NET5_0_OR_GREATER
-        Span<byte> codeBytes = stackalloc byte[Encoding.UTF8.GetByteCount(code ?? string.Empty)];
-        Span<byte> msgBytes = stackalloc byte[Encoding.UTF8.GetByteCount(msg)];
-        Encoding.UTF8.GetBytes(code ?? string.Empty, codeBytes);
-        Encoding.UTF8.GetBytes(msg, msgBytes);
-        fixed (byte* code_ptr = &codeBytes.GetPinnableReference())
-        fixed (byte* msg_ptr = &codeBytes.GetPinnableReference())
-#else
-        byte[] codeBytes = Encoding.UTF8.GetBytes(code ?? string.Empty);
-        byte[] msgBytes = Encoding.UTF8.GetBytes(msg);
-        fixed (byte* code_ptr = codeBytes)
-        fixed (byte* msg_ptr = codeBytes)
-#endif
+        using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
+        using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
+        fixed (byte* code_ptr = &codeBuffer.Pin())
+        fixed (byte* msg_ptr = &codeBuffer.Pin())
 
         {
-            return napi_throw_range_error(env, code == null ? 0 : (nint)code_ptr, (nint)msg_ptr);
+            return napi_throw_range_error(
+                env,
+                code == null ? 0 : (nint)code_ptr,
+                msg == null ? 0 : (nint)msg_ptr);
         }
     }
 
@@ -474,22 +455,15 @@ public unsafe class NodejsRuntime : JSRuntime
                     GetExport(nameof(node_api_throw_syntax_error));
         }
 
-#if NET5_0_OR_GREATER
-        Span<byte> codeBytes = stackalloc byte[Encoding.UTF8.GetByteCount(code ?? string.Empty)];
-        Span<byte> msgBytes = stackalloc byte[Encoding.UTF8.GetByteCount(msg)];
-        Encoding.UTF8.GetBytes(code ?? string.Empty, codeBytes);
-        Encoding.UTF8.GetBytes(msg, msgBytes);
-        fixed (byte* code_ptr = &codeBytes.GetPinnableReference())
-        fixed (byte* msg_ptr = &codeBytes.GetPinnableReference())
-#else
-        byte[] codeBytes = Encoding.UTF8.GetBytes(code ?? string.Empty);
-        byte[] msgBytes = Encoding.UTF8.GetBytes(msg);
-        fixed (byte* code_ptr = codeBytes)
-        fixed (byte* msg_ptr = codeBytes)
-#endif
+        using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
+        using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
+        fixed (byte* code_ptr = &codeBuffer.Pin())
+        fixed (byte* msg_ptr = &codeBuffer.Pin())
         {
             return node_api_throw_syntax_error(
-                env, code == null ? 0 : (nint)code_ptr, (nint)msg_ptr);
+                env,
+                code == null ? 0 : (nint)code_ptr,
+                msg == null ? 0 : (nint)msg_ptr);
         }
     }
 
@@ -891,19 +865,15 @@ public unsafe class NodejsRuntime : JSRuntime
         }
 
         result = default;
-
-#if NET5_0_OR_GREATER
-        Span<byte> nameBytes = stackalloc byte[Encoding.UTF8.GetByteCount(name)];
-        Encoding.UTF8.GetBytes(name, nameBytes);
-        fixed (byte* name_ptr = &nameBytes.GetPinnableReference())
-#else
-        byte[] nameBytes = Encoding.UTF8.GetBytes(name);
-        fixed (byte* name_ptr = nameBytes)
-#endif
+        using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
+        fixed (byte* name_ptr = &nameBuffer.Pin())
         fixed (napi_value* result_ptr = &result)
         {
             return node_api_symbol_for(
-                env, (nint)name_ptr, (nuint)nameBytes.Length, (nint)result_ptr);
+                env,
+                name == null ? 0 : (nint)name_ptr,
+                (nuint)nameBuffer.Length,
+                (nint)result_ptr);
         }
     }
 
@@ -1420,20 +1390,14 @@ public unsafe class NodejsRuntime : JSRuntime
                 GetExport(nameof(napi_create_function));
         }
 
-#if NET5_0_OR_GREATER
-        Span<byte> nameBytes = stackalloc byte[Encoding.UTF8.GetByteCount(name ?? string.Empty)];
-        Encoding.UTF8.GetBytes(name ?? string.Empty, nameBytes);
-        fixed (byte* name_ptr = &nameBytes.GetPinnableReference())
-#else
-        byte[] nameBytes = Encoding.UTF8.GetBytes(name);
-        fixed (byte* name_ptr = nameBytes)
-#endif
+        using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
+        fixed (byte* name_ptr = &nameBuffer.Pin())
         fixed (napi_value* result_ptr = &result)
         {
             return napi_create_function(
                 env,
                 name == null ? 0 : (nint)name_ptr,
-                (nuint)nameBytes.Length,
+                (nuint)nameBuffer.Length,
                 cb,
                 data,
                 (nint)result_ptr);
@@ -2118,21 +2082,15 @@ public unsafe class NodejsRuntime : JSRuntime
         }
 
         result = default;
-#if NET5_0_OR_GREATER
-        Span<byte> nameBytes = stackalloc byte[Encoding.UTF8.GetByteCount(name)];
-        Encoding.UTF8.GetBytes(name, nameBytes);
-        fixed (byte* name_ptr = &nameBytes.GetPinnableReference())
-#else
-        byte[] nameBytes = Encoding.UTF8.GetBytes(name);
-        fixed (byte* name_ptr = nameBytes)
-#endif
+        using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
+        fixed (byte* name_ptr = &nameBuffer.Pin())
         fixed (napi_property_descriptor* properties_ptr = &properties.GetPinnableReference())
         fixed (napi_value* result_ptr = &result)
         {
             return napi_define_class(
                 env,
-                (nint)name_ptr,
-                (nuint)nameBytes.Length,
+                name == null ? 0 : (nint)name_ptr,
+                (nuint)nameBuffer.Length,
                 constructor,
                 data,
                 (nuint)properties.Length,
