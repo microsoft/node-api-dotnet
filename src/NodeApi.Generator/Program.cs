@@ -25,10 +25,10 @@ public static class Program
     private const char PathSeparator = ';';
 
     private static readonly List<string> s_assemblyPaths = new();
+    private static readonly List<string> s_referenceAssemblyDirectories = new();
     private static readonly List<string> s_referenceAssemblyPaths = new();
     private static readonly List<string> s_typeDefinitionsPaths = new();
     private static readonly HashSet<int> s_systemAssemblyIndexes = new();
-    private static string? s_systemAssemblyDirectory;
     private static TypeDefinitionsGenerator.ModuleType s_moduleType;
     private static bool s_suppressWarnings;
 
@@ -49,6 +49,7 @@ public static class Program
             Console.WriteLine("  -a --asssembly  Path to input assembly (required)");
             Console.WriteLine("  -f --framework  Target framework of system assemblies " +
                 "(optional)");
+            Console.WriteLine("  -p --pack       Targeting pack (optional, multiple)");
             Console.WriteLine("  -r --reference  Path to reference assembly " +
                 "(optional, multiple)");
             Console.WriteLine("  -t --typedefs   Path to output type definitions file (required)");
@@ -70,10 +71,10 @@ public static class Program
             TypeDefinitionsGenerator.GenerateTypeDefinitions(
                 s_assemblyPaths[i],
                 allReferencePaths,
+                s_referenceAssemblyDirectories,
                 s_typeDefinitionsPaths[i],
                 s_moduleType,
                 isSystemAssembly: s_systemAssemblyIndexes.Contains(i),
-                s_systemAssemblyDirectory,
                 s_suppressWarnings);
 
             if (s_moduleType != TypeDefinitionsGenerator.ModuleType.None)
@@ -91,6 +92,7 @@ public static class Program
     private static bool ParseArgs(string[] args)
     {
         string? targetFramework = null;
+        List<string> targetingPacks = new();
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -120,6 +122,12 @@ public static class Program
                 case "-f":
                 case "--framework":
                     targetFramework = args[++i];
+                    break;
+
+                case "-p":
+                case "--pack":
+                case "--packs":
+                    AddItems(targetingPacks, args[++i]);
                     break;
 
                 case "-r":
@@ -163,21 +171,31 @@ public static class Program
             }
         }
 
-        ResolveSystemAssemblies(targetFramework);
+        ResolveSystemAssemblies(targetFramework, targetingPacks);
 
         bool HasAssemblyExtension(string fileName) =>
             fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
             fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
 
-        if (s_assemblyPaths.Any((a) => !HasAssemblyExtension(a)) ||
-            s_referenceAssemblyPaths.Any((r) => !HasAssemblyExtension(r)) ||
-            s_typeDefinitionsPaths.Any(
-                (t) => !t.EndsWith(".d.ts", StringComparison.OrdinalIgnoreCase)))
+        string? invalidAssemblyPath = s_assemblyPaths.Concat(s_referenceAssemblyPaths)
+            .FirstOrDefault((a) => !HasAssemblyExtension(a));
+        if (invalidAssemblyPath != null)
         {
-            Console.WriteLine("Incorrect file path or extension.");
+            Console.WriteLine(
+                "Incorrect assembly file extension: " + Path.GetFileName(invalidAssemblyPath));
             return false;
         }
-        else if (s_assemblyPaths.Count == 0)
+
+        string? invalidTypedefPath = s_typeDefinitionsPaths.FirstOrDefault(
+            (t) => !t.EndsWith(".d.ts", StringComparison.OrdinalIgnoreCase));
+        if (invalidTypedefPath != null)
+        {
+            Console.WriteLine(
+                "Incorrect typedef file extension: " + Path.GetFileName(invalidTypedefPath));
+            return false;
+        }
+
+        if (s_assemblyPaths.Count == 0)
         {
             Console.WriteLine("Specify an assembly file path.");
             return false;
@@ -196,12 +214,27 @@ public static class Program
         return true;
     }
 
-    private static void ResolveSystemAssemblies(string? targetFramework)
+    private static void ResolveSystemAssemblies(
+        string? targetFramework,
+        List<string> targetingPacks)
     {
-        targetFramework ??= GetCurrentFrameworkTarget();
+        if (targetFramework == null)
+        {
+            targetFramework = GetCurrentFrameworkTarget();
+        }
+        else if (targetFramework.Contains('-'))
+        {
+            // Strip off a platform suffix from a target framework like "net6.0-windows".
+            targetFramework = targetFramework.Substring(0, targetFramework.IndexOf('-'));
+        }
 
         if (targetFramework.StartsWith("net4"))
         {
+            if (targetingPacks.Count > 0)
+            {
+                Console.WriteLine("Ignoring target packs for .NET Framework target");
+            }
+
             string refAssemblyDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
                 "Reference Assemblies",
@@ -211,11 +244,17 @@ public static class Program
                 "v" + string.Join(".", targetFramework.Substring(3).ToArray())); // v4.7.2
             if (Directory.Exists(refAssemblyDirectory))
             {
-                s_systemAssemblyDirectory = refAssemblyDirectory;
+                s_referenceAssemblyDirectories.Add(refAssemblyDirectory);
             }
         }
         else
         {
+            if (targetingPacks.Count == 0)
+            {
+                // If no targeting packs were specified, use the deafult targeting pack for .NET.
+                targetingPacks.Add("Microsoft.NETCore.App");
+            }
+
             string runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
             if (runtimeDirectory[runtimeDirectory.Length - 1] == Path.DirectorySeparatorChar)
             {
@@ -225,36 +264,60 @@ public static class Program
             string dotnetRootDirectory = Path.GetDirectoryName(Path.GetDirectoryName(
                 Path.GetDirectoryName(runtimeDirectory)!)!)!;
 
-            string refAssemblyDirectory = Path.Combine(
-                dotnetRootDirectory,
-                "packs",
-                "Microsoft.NETCore.App.Ref");
-            s_systemAssemblyDirectory = Directory.GetDirectories(refAssemblyDirectory)
-                .OrderByDescending((d) => Path.GetFileName(d))
-                .Select((d) => Path.Combine(d, "ref", targetFramework))
-                .FirstOrDefault(Directory.Exists);
-        }
+            foreach (string targetPack in targetingPacks)
+            {
+                string targetPackDirectory = Path.Combine(
+                    dotnetRootDirectory,
+                    "packs",
+                    targetPack + ".Ref");
+                if (Directory.Exists(targetPackDirectory))
+                {
+                    string? refAssemblyDirectory = Directory.GetDirectories(targetPackDirectory)
+                        .OrderByDescending((d) => Path.GetFileName(d))
+                        .Select((d) => Path.Combine(d, "ref", targetFramework))
+                        .FirstOrDefault(Directory.Exists);
+                    if (refAssemblyDirectory != null)
+                    {
+                        s_referenceAssemblyDirectories.Add(refAssemblyDirectory);
+                    }
+                }
+            }
 
-        if (s_systemAssemblyDirectory == null)
-        {
-            // TODO: Check .NET Framework.
-            return;
+            // Reverse the order of reference assembly directories so that reference assemblies
+            // specified later in the list are searched first (they override earlier directories).
+            s_referenceAssemblyDirectories.Reverse();
         }
 
         for (int i = 0; i < s_assemblyPaths.Count; i++)
         {
             if (!s_assemblyPaths[i].EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
-                string systemAssemblyPath = Path.Combine(
-                    s_systemAssemblyDirectory, s_assemblyPaths[i] + ".dll");
-                if (File.Exists(systemAssemblyPath))
+                string? systemAssemblyPath = null;
+                foreach (string referenceAssemblyDirectory in s_referenceAssemblyDirectories)
+                {
+                    string potentialSystemAssemblyPath = Path.Combine(
+                        referenceAssemblyDirectory, s_assemblyPaths[i] + ".dll");
+                    if (File.Exists(potentialSystemAssemblyPath))
+                    {
+                        systemAssemblyPath = potentialSystemAssemblyPath;
+                        break;
+                    }
+                }
+
+                if (systemAssemblyPath != null)
                 {
                     s_assemblyPaths[i] = systemAssemblyPath;
                     s_systemAssemblyIndexes.Add(i);
                 }
                 else
                 {
-                    Console.WriteLine("System assembly not found at " + systemAssemblyPath);
+                    Console.WriteLine(
+                        $"Assembly '{s_assemblyPaths[i]}' was not found in " +
+                        "reference assembly directories:");
+                    foreach (string referenceAssemblyDirectory in s_referenceAssemblyDirectories)
+                    {
+                        Console.WriteLine("    " + referenceAssemblyDirectory);
+                    }
                 }
             }
         }

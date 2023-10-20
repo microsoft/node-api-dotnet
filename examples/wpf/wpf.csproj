@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <RestorePackagesPath>$(MSBuildThisFileDirectory)/pkg</RestorePackagesPath>
+    <OutDir>bin</OutDir>
+    <NodeApiAssemblyJSModuleType>esm</NodeApiAssemblyJSModuleType>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <NodeApiSystemReferenceAssembly Include="WindowsBase" />
+    <NodeApiSystemReferenceAssembly Include="PresentationCore" />
+    <NodeApiSystemReferenceAssembly Include="PresentationFramework" />
+    <NodeApiSystemReferenceAssembly Include="UIAutomationTypes" />
+    <NodeApiSystemReferenceAssembly Include="System.IO.Packaging" />
+    <NodeApiSystemReferenceAssembly Include="System.Security.Cryptography.Xml" />
+    <NodeApiSystemReferenceAssembly Include="System.Windows" />
+    <NodeApiSystemReferenceAssembly Include="System.Windows.Extensions" />
+    <NodeApiSystemReferenceAssembly Include="System.Windows.Input.Manipulations" />
+    <NodeApiSystemReferenceAssembly Include="System.Xaml" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*-*" />
+  </ItemGroup>
+
+</Project>

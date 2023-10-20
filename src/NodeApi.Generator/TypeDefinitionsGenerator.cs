@@ -128,24 +128,26 @@ dotnet.load(assemblyName);
     public static void GenerateTypeDefinitions(
         string assemblyPath,
         IEnumerable<string> referenceAssemblyPaths,
+        IEnumerable<string> systemReferenceAssemblyDirectories,
         string typeDefinitionsPath,
         ModuleType loaderModuleType,
         bool isSystemAssembly = false,
-        string? systemReferenceAssemblyDirectory = null,
         bool suppressWarnings = false)
     {
         // Create a metadata load context that includes a resolver for .NET system assemblies
         // along with the target assembly.
 
-        systemReferenceAssemblyDirectory ??= RuntimeEnvironment.GetRuntimeDirectory();
-        string[] systemAssemblies = Directory.GetFiles(
-            systemReferenceAssemblyDirectory, "*.dll");
+        // Resolve all assemblies in all the system reference assembly directories.
+        string[] systemAssemblies = systemReferenceAssemblyDirectories
+            .SelectMany((d) => Directory.GetFiles(d, "*.dll"))
+            .ToArray();
 
-        // Drop reference assemblies that are already in the system directory.
+        // Drop reference assemblies that are already in any system ref assembly directories.
         // (They would only support older framework versions.)
         referenceAssemblyPaths = referenceAssemblyPaths.Where(
-            (r) => !systemAssemblies.Any((a) =>
-            Path.GetFileName(a).Equals(Path.GetFileName(r), StringComparison.OrdinalIgnoreCase)));
+            (r) => Path.GetFileNameWithoutExtension(r).Equals("WindowsBase") ||
+            !systemAssemblies.Any((a) => Path.GetFileName(a).Equals(
+                Path.GetFileName(r), StringComparison.OrdinalIgnoreCase)));
 
         PathAssemblyResolver assemblyResolver = new(
             new[] { typeof(object).Assembly.Location }

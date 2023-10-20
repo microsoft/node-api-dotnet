@@ -31,7 +31,7 @@
     Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetPath)') "
   >
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --reference &quot;@(ReferencePathWithRefAssemblies)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --packs &quot;@(TargetingPack)&quot; --reference &quot;@(ReferencePathWithRefAssemblies)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
       ConsoleToMSBuild="true" />
   </Target>
 
@@ -85,23 +85,23 @@
     </PropertyGroup>
 
     <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-      <NodeApiSystemReferenceAssemblies Include="mscorlib" />
-      <NodeApiSystemReferenceAssemblies Include="System" />
+      <NodeApiSystemReferenceAssembly Include="mscorlib" />
+      <NodeApiSystemReferenceAssembly Include="System" />
     </ItemGroup>
     <ItemGroup Condition="! $(TargetFramework.StartsWith('net4'))">
-      <NodeApiSystemReferenceAssemblies Include="System.Runtime" />
-      <NodeApiSystemReferenceAssemblies Include="System.Console" />
+      <NodeApiSystemReferenceAssembly Include="System.Runtime" />
+      <NodeApiSystemReferenceAssembly Include="System.Console" />
     </ItemGroup>
     <ItemGroup>
       <!-- This does not use @(NodeApiReferenceAssemblies), like the target Inputs, to avoid excluding items that are up-to-date. -->
       <_NodeApiAllReferenceAssemblies Include="@(RuntimeCopyLocalItems)" />
-      <_NodeApiAllReferenceAssemblies Include="@(NodeApiSystemReferenceAssemblies)" />
+      <_NodeApiAllReferenceAssemblies Include="@(NodeApiSystemReferenceAssembly)" />
 
       <_NodeApiAllTypeDefs Include="@(RuntimeCopyLocalItems->'$(TargetDir)%(Filename).d.ts')" />
-      <_NodeApiAllTypeDefs Include="@(NodeApiSystemReferenceAssemblies->'$(TargetDir)%(Identity).d.ts')" />
+      <_NodeApiAllTypeDefs Include="@(NodeApiSystemReferenceAssembly->'$(TargetDir)%(Identity).d.ts')" />
     </ItemGroup>
 
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; $(_SuppressTSGenerationWarnings) --assemblies &quot;@(_NodeApiAllReferenceAssemblies)&quot; --typedefs &quot;@(_NodeApiAllTypeDefs)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; $(_SuppressTSGenerationWarnings) --assemblies &quot;@(_NodeApiAllReferenceAssemblies)&quot; --packs &quot;@(TargetingPack)&quot; --typedefs &quot;@(_NodeApiAllTypeDefs)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
       ConsoleToMSBuild="true" />
   </Target>
 
