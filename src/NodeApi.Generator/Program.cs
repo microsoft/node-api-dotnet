@@ -216,13 +216,13 @@ public static class Program
 
     private static void ResolveSystemAssemblies(
         string? targetFramework,
-        IList<string> targetingPacks)
+        List<string> targetingPacks)
     {
         if (targetFramework == null)
         {
             targetFramework = GetCurrentFrameworkTarget();
         }
-        else if (targetFramework.Contains("-"))
+        else if (targetFramework.Contains('-'))
         {
             // Strip off a platform suffix from a target framework like "net6.0-windows".
             targetFramework = targetFramework.Substring(0, targetFramework.IndexOf('-'));
@@ -264,7 +264,7 @@ public static class Program
             string dotnetRootDirectory = Path.GetDirectoryName(Path.GetDirectoryName(
                 Path.GetDirectoryName(runtimeDirectory)!)!)!;
 
-            foreach (var targetPack in targetingPacks)
+            foreach (string targetPack in targetingPacks)
             {
                 string targetPackDirectory = Path.Combine(
                     dotnetRootDirectory,
@@ -293,7 +293,7 @@ public static class Program
             if (!s_assemblyPaths[i].EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
                 string? systemAssemblyPath = null;
-                foreach (var referenceAssemblyDirectory in  s_referenceAssemblyDirectories)
+                foreach (string referenceAssemblyDirectory in s_referenceAssemblyDirectories)
                 {
                     string potentialSystemAssemblyPath = Path.Combine(
                         referenceAssemblyDirectory, s_assemblyPaths[i] + ".dll");
@@ -314,9 +314,9 @@ public static class Program
                     Console.WriteLine(
                         $"Assembly '{s_assemblyPaths[i]}' was not found in " +
                         "reference assembly directories:");
-                    foreach (var referenceAssemblyDirectory in s_referenceAssemblyDirectories)
+                    foreach (string referenceAssemblyDirectory in s_referenceAssemblyDirectories)
                     {
-                        Console.WriteLine("    " +  referenceAssemblyDirectory);
+                        Console.WriteLine("    " + referenceAssemblyDirectory);
                     }
                 }
             }
