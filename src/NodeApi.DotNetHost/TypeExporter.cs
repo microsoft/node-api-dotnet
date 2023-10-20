@@ -172,6 +172,7 @@ internal class TypeExporter
             {
                 Type genericTypeDefinition = dependencyType.GetGenericTypeDefinition();
                 if (genericTypeDefinition == typeof(Nullable<>) ||
+                    genericTypeDefinition == typeof(Task<>) ||
                     genericTypeDefinition.Namespace == typeof(IList<>).Namespace)
                 {
                     foreach (Type typeArg in dependencyType.GetGenericArguments())
@@ -217,6 +218,8 @@ internal class TypeExporter
                 {
                     ExportTypeIfSupported(interfaceMethodParameter.ParameterType);
                 }
+
+                ExportTypeIfSupported(interfaceMethod.ReturnType);
             }
         }
     }

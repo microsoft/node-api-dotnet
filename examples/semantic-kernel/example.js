@@ -5,12 +5,8 @@
 
 import dotnet from 'node-api-dotnet';
 import './bin/Microsoft.SemanticKernel.Core.js';
+import './bin/Microsoft.SemanticKernel.Functions.Semantic.js';
 import './bin/Microsoft.SemanticKernel.Connectors.AI.OpenAI.js';
-
-// The PromptTemplateEngine assembly must be explicitly loaded here, because
-// SK KernelBuilder uses Assembly.Load() to load it, and that is not detected
-// by the JS exporter.
-import './bin/Microsoft.SemanticKernel.TemplateEngine.PromptTemplateEngine.js';
 
 const SK = dotnet.Microsoft.SemanticKernel;
 const Logging = dotnet.Microsoft.Extensions.Logging;
@@ -56,9 +52,10 @@ does not conflict with the First or Second Law.
 `;
 
 // The JS marshaller does not yet support extension methods.
-const summaryFunction = SK.InlineFunctionsDefinitionExtension
+const summaryFunction = SK.KernelSemanticFunctionExtensions
   .CreateSemanticFunction(kernel, skPrompt);
 
-const summary = await SK.SKFunctionExtensions.InvokeAsync(summaryFunction, textToSummarize);
+const summary = await SK.SKFunctionExtensions.InvokeAsync(
+  summaryFunction, textToSummarize, kernel);
 
 console.log(summary.toString());
