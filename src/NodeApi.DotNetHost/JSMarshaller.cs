@@ -159,8 +159,7 @@ public class JSMarshaller
         }
 
         if (type.IsGenericTypeDefinition &&
-            (type == typeof(Task<>) ||
-            type == typeof(CancellationToken) ||
+            (type == typeof(CancellationToken) ||
             type == typeof(IEnumerable<>) ||
             type == typeof(IAsyncEnumerable<>) ||
             type == typeof(ICollection<>) ||
