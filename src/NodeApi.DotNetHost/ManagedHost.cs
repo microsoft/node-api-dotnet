@@ -447,6 +447,17 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             assemblyFilePath = Path.Combine(
                 Path.GetDirectoryName(typeof(object).Assembly.Location)!,
                 assemblyFilePath + ".dll");
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // Also support loading Windows-specific system assemblies.
+                string assemblyFilePath2 = assemblyFilePath.Replace(
+                    "Microsoft.NETCore.App", "Microsoft.WindowsDesktop.App");
+                if (File.Exists(assemblyFilePath2))
+                {
+                    assemblyFilePath = assemblyFilePath2;
+                }
+            }
         }
         else if (!Path.IsPathRooted(assemblyFilePath))
         {
