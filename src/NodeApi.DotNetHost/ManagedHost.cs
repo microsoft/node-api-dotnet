@@ -422,6 +422,10 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// </summary>
     /// <returns>A JS object that represents the loaded assembly; each property of the object
     /// is a public type.</returns>
+    /// <remarks>
+    /// Also supports loading native libraries, to make them available for assemblies to
+    /// resolve using DllImport.
+    /// </remarks>
     public JSValue LoadAssembly(JSCallbackArgs args)
     {
         string assemblyNameOrFilePath = (string)args[0];
@@ -429,13 +433,13 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         if (!_loadedAssembliesByPath.ContainsKey(assemblyNameOrFilePath) &&
             !_loadedAssembliesByName.ContainsKey(assemblyNameOrFilePath))
         {
-            LoadAssembly(assemblyNameOrFilePath);
+            LoadAssembly(assemblyNameOrFilePath, allowNativeLibrary: true);
         }
 
         return default;
     }
 
-    private Assembly LoadAssembly(string assemblyNameOrFilePath)
+    private Assembly LoadAssembly(string assemblyNameOrFilePath, bool allowNativeLibrary = false)
     {
         Trace($"> ManagedHost.LoadAssembly({assemblyNameOrFilePath})");
 
@@ -480,6 +484,21 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 #endif
 
             LoadAssemblyTypes(assembly);
+        }
+        catch (BadImageFormatException)
+        {
+            if (!allowNativeLibrary)
+            {
+                throw;
+            }
+
+            // This might be a native DLL, not a managed assembly.
+            // Load the native library, which enables it to be auto-resolved by
+            // any later DllImport operations for the same library name.
+            NativeLibrary.Load(assemblyFilePath);
+
+            Trace("< ManagedHost.LoadAssembly() => loaded native library");
+            return null!;
         }
         finally
         {
