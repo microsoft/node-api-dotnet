@@ -77,6 +77,8 @@ jobs:
             --runtime ${{ matrixEntry.TargetRuntime }}
             --no-self-contained
             --framework $(DotNetMoniker)
+            -p:PublishAot=true
+            $(Build.SourcesDirectory)/src/NodeApi/NodeApi.csproj
           displayName: Build Native AOT binaries
           env:
             TargetFrameworks: $(DotNetMoniker)
