@@ -118,8 +118,12 @@ internal static class SymbolExtensions
             }
             else
             {
+#if NETFRAMEWORK
                 throw new NotSupportedException(
                     "Generic type parameters are not supported in this context.");
+#else
+                return Type.MakeGenericMethodParameter(typeParameterSymbol.Ordinal);
+#endif
             }
         }
 
@@ -154,6 +158,12 @@ internal static class SymbolExtensions
             {
                 symbolicType = symbolicType.MakeGenericType(
                     genericArguments.Select((t) => t.AsType(genericTypeParameters)).ToArray());
+            }
+
+            if (buildType && symbolicType is TypeBuilder typeBuilder)
+            {
+                symbolicType = typeBuilder.CreateType()!;
+                SymbolicTypes[typeFullName] = symbolicType;
             }
 
             return symbolicType;
@@ -268,8 +278,8 @@ internal static class SymbolExtensions
         // Preserve JS attributes, which might be referenced by the marshaller.
         foreach (AttributeData attribute in typeSymbol.GetAttributes())
         {
-            if (attribute.AttributeClass!.ContainingNamespace.Name ==
-                typeof(JSExportAttribute).Namespace)
+            if (attribute.AttributeClass!.ContainingNamespace.ToString()!.StartsWith(
+                    typeof(JSExportAttribute).Namespace!))
             {
                 Type attributeType = attribute.AttributeClass.AsType();
                 ConstructorInfo constructor = attributeType.GetConstructor(
@@ -528,6 +538,13 @@ internal static class SymbolExtensions
         }
 
         Type type = methodSymbol.ContainingType.AsType();
+
+        // Ensure constructor parameter types are built.
+        foreach (IParameterSymbol parameter in methodSymbol.Parameters)
+        {
+            parameter.Type.AsType(type.GenericTypeArguments, buildType: true);
+        }
+
         ConstructorInfo? constructorInfo = type.GetConstructor(
             methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
         return constructorInfo ?? throw new InvalidOperationException(
@@ -540,6 +557,18 @@ internal static class SymbolExtensions
     public static MethodInfo AsMethodInfo(this IMethodSymbol methodSymbol)
     {
         Type type = methodSymbol.ContainingType.AsType();
+
+        // Ensure method parameter and return types are built.
+        Type[] typeParameters = type.GetGenericArguments();
+        foreach (IParameterSymbol parameter in methodSymbol.Parameters)
+        {
+            IEnumerable<Type> methodTypeParameters =
+                methodSymbol.TypeParameters.Select((t) => t.AsType(typeParameters));
+            parameter.Type.AsType(
+                typeParameters.Concat(methodTypeParameters).ToArray(), buildType: true);
+        }
+        methodSymbol.ReturnType.AsType(type.GenericTypeArguments, buildType: true);
+
         BindingFlags bindingFlags = BindingFlags.Public |
             (methodSymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
         MethodInfo? methodInfo = type.GetMethods(bindingFlags)
@@ -556,6 +585,10 @@ internal static class SymbolExtensions
     public static PropertyInfo AsPropertyInfo(this IPropertySymbol propertySymbol)
     {
         Type type = propertySymbol.ContainingType.AsType();
+
+        // Ensure the property type is built.
+        propertySymbol.Type.AsType(type.GenericTypeArguments, buildType: true);
+
         BindingFlags bindingFlags = BindingFlags.Public |
             (propertySymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
         PropertyInfo? propertyInfo = type.GetProperty(propertySymbol.Name, bindingFlags);
