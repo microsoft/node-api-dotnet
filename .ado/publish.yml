@@ -85,7 +85,7 @@ jobs:
           displayName: Copy Native AOT binaries to staging
           inputs:
             sourceFolder: "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/\
-              $(DotNetMoniker)/${{ matrixEntry.TargetRuntime }}/publish"
+              aot/${{ matrixEntry.TargetRuntime }}/publish"
             targetFolder: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
             contents: Microsoft.JavaScript.NodeApi.node
 
@@ -152,7 +152,7 @@ jobs:
           inputs:
             artifact: ${{ matrixEntry.TargetRuntime }}
             path: "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/\
-              $(DotNetMoniker)/${{ matrixEntry.TargetRuntime }}/publish"
+              aot/${{ matrixEntry.TargetRuntime }}/publish"
 
       - ${{ each matrixEntry in parameters.buildMatrix }}:
         - powershell: >
