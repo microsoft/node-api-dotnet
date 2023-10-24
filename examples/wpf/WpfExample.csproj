@@ -7,6 +7,7 @@
     <OutDir>bin</OutDir>
     <NodeApiAssemblyJSModuleType>esm</NodeApiAssemblyJSModuleType>
     <UseWPF>true</UseWPF>
+    <GenerateNodeApiTypeDefinitionsForReferences>true</GenerateNodeApiTypeDefinitionsForReferences>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,8 @@
     <NodeApiSystemReferenceAssembly Include="System.Windows.Extensions" />
     <NodeApiSystemReferenceAssembly Include="System.Windows.Input.Manipulations" />
     <NodeApiSystemReferenceAssembly Include="System.Xaml" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2088.41" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.4.*-*" PrivateAssets="all" />
     <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*-*" />
   </ItemGroup>
 

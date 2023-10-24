@@ -145,8 +145,7 @@ dotnet.load(assemblyName);
         // Drop reference assemblies that are already in any system ref assembly directories.
         // (They would only support older framework versions.)
         referenceAssemblyPaths = referenceAssemblyPaths.Where(
-            (r) => Path.GetFileNameWithoutExtension(r).Equals("WindowsBase") ||
-            !systemAssemblies.Any((a) => Path.GetFileName(a).Equals(
+            (r) => !systemAssemblies.Any((a) => Path.GetFileName(a).Equals(
                 Path.GetFileName(r), StringComparison.OrdinalIgnoreCase)));
 
         PathAssemblyResolver assemblyResolver = new(

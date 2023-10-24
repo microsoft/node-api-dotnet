@@ -1,8 +1,11 @@
 
 ## Example: Calling WFP APIs from JS
-The `example.js` script dynamically loads the WPF .NET assemblies and shows a simple message box.
+The `example.js` script loads WPF .NET assemblies and shows a WPF window with a WebView2
+control with a JS script that renders a mermaid diagram.
 
-_**.NET events** are not yet projected to JS ([#59](https://github.com/microsoft/node-api-dotnet/issues/59)). WPF capabilities will be limited until that issue is resolved._
+_**.NET events** are not yet projected to JS
+([#59](https://github.com/microsoft/node-api-dotnet/issues/59)).
+WPF capabilities will be limited until that issue is resolved._
 
 | Command                          | Explanation
 |----------------------------------|--------------------------------------------------

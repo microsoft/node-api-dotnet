@@ -82,10 +82,23 @@ internal static class SymbolExtensions
     /// </summary>
     public static Type AsType(this ITypeSymbol typeSymbol)
     {
-        return typeSymbol.AsType(genericTypeParameters: null);
+        return typeSymbol.AsType(genericTypeParameters: null, buildType: true);
     }
 
-    private static Type AsType(this ITypeSymbol typeSymbol, Type[]? genericTypeParameters)
+    /// <summary>
+    /// Gets either the actual type (if it is a system type) or a symbolic type
+    /// for the type symbol.
+    /// </summary>
+    /// <param name="genericTypeParameters">Generic parameters from the containing type,
+    /// if the type is a nested type and the containing type is generic.</param>
+    /// <param name="buildType">True to force building (AKA emitting) the Type instance; if false
+    /// then an unbuilt TypeBuilder instance may be returned. (It is a subclass of Type, but
+    /// does not support some reflection operations.) Delayed type building is necessary in
+    /// complex object graphs where types have circular references to each other.</param>
+    private static Type AsType(
+        this ITypeSymbol typeSymbol,
+        Type[]? genericTypeParameters,
+        bool buildType = false)
     {
         if (typeSymbol is IArrayTypeSymbol arrayTypeSymbol)
         {
@@ -94,7 +107,7 @@ internal static class SymbolExtensions
                 throw new NotSupportedException("Multi-dimensional arrays are not supported.");
             }
 
-            return arrayTypeSymbol.ElementType.AsType().MakeArrayType();
+            return arrayTypeSymbol.ElementType.AsType(genericTypeParameters).MakeArrayType();
         }
 
         if (typeSymbol is ITypeParameterSymbol typeParameterSymbol)
@@ -105,8 +118,12 @@ internal static class SymbolExtensions
             }
             else
             {
+#if NETFRAMEWORK
                 throw new NotSupportedException(
                     "Generic type parameters are not supported in this context.");
+#else
+                return Type.MakeGenericMethodParameter(typeParameterSymbol.Ordinal);
+#endif
             }
         }
 
@@ -115,10 +132,8 @@ internal static class SymbolExtensions
             throw new NotSupportedException($"Unnamed types are not supported: {typeSymbol}");
         }
 
-        string typeFullName = typeSymbol.ContainingNamespace + "." + typeSymbol.Name;
+        string typeFullName = GetTypeSymbolFullName(namedTypeSymbol);
         ITypeSymbol[] genericArguments = namedTypeSymbol.TypeArguments.ToArray();
-        typeFullName += genericArguments.Length > 0 ?
-            "`" + genericArguments.Length : string.Empty;
         Type? systemType = typeof(object).Assembly.GetType(typeFullName) ??
             typeof(JSValue).Assembly.GetType(typeFullName);
 
@@ -133,6 +148,10 @@ internal static class SymbolExtensions
             return systemType;
         }
 
+        // Generating the containing type will also generate the nested type,
+        // so it should be found in the SymbolicTypes dictionary afterward.
+        typeSymbol.ContainingType?.AsType();
+
         if (SymbolicTypes.TryGetValue(typeFullName, out Type? symbolicType))
         {
             if (genericArguments.Length > 0)
@@ -141,27 +160,26 @@ internal static class SymbolExtensions
                     genericArguments.Select((t) => t.AsType(genericTypeParameters)).ToArray());
             }
 
+            if (buildType && symbolicType is TypeBuilder typeBuilder)
+            {
+                symbolicType = typeBuilder.CreateType()!;
+                SymbolicTypes[typeFullName] = symbolicType;
+            }
+
             return symbolicType;
         }
 
-        if (typeSymbol.ContainingType != null)
+        symbolicType = typeSymbol.TypeKind switch
         {
-            Type containingType = typeSymbol.ContainingType.AsType();
-            symbolicType = containingType.GetNestedType(typeSymbol.Name)!;
-        }
-        else
-        {
-            symbolicType = typeSymbol.TypeKind switch
-            {
-                TypeKind.Enum => BuildSymbolicEnumType(typeSymbol, typeFullName),
+            TypeKind.Enum => BuildSymbolicEnumType(namedTypeSymbol, typeFullName),
 
-                TypeKind.Class or TypeKind.Interface or TypeKind.Struct or TypeKind.Delegate =>
-                    BuildSymbolicObjectType(typeSymbol, typeFullName),
+            TypeKind.Class or TypeKind.Interface or TypeKind.Struct or TypeKind.Delegate =>
+            BuildSymbolicObjectType(
+                namedTypeSymbol, typeFullName, genericTypeParameters, buildType),
 
-                _ => throw new NotSupportedException(
-                    $"Type kind not supported: {typeSymbol.TypeKind}"),
-            };
-        }
+            _ => throw new NotSupportedException(
+                $"Type kind not supported: {typeSymbol.TypeKind}"),
+        };
 
         // Update the map entry to refer to the built type instead of the type builder.
         SymbolicTypes[typeFullName] = symbolicType;
@@ -175,11 +193,30 @@ internal static class SymbolExtensions
         return symbolicType;
     }
 
+    /// <summary>
+    /// Gets the full name of a type symbol. It is the same as <see cref="Type.FullName" />,
+    /// but this is used before the Type instance is built from the type symbol.
+    /// </summary>
+    private static string GetTypeSymbolFullName(INamedTypeSymbol typeSymbol)
+    {
+        string ns = typeSymbol.ContainingType != null ?
+            GetTypeSymbolFullName(typeSymbol.ContainingType) :
+            typeSymbol.ContainingNamespace.ToString()!;
+        string name = (ns.Length > 0 ? ns + "." : "") + typeSymbol.Name;
+
+        if (typeSymbol.TypeParameters.Length > 0)
+        {
+            name += "`" + typeSymbol.TypeParameters.Length;
+        }
+
+        return name;
+    }
+
     private static Type BuildSymbolicEnumType(
-        ITypeSymbol typeSymbol,
+        INamedTypeSymbol typeSymbol,
         string typeFullName)
     {
-        Type underlyingType = ((INamedTypeSymbol)typeSymbol).EnumUnderlyingType!.AsType();
+        Type underlyingType = typeSymbol.EnumUnderlyingType!.AsType();
         EnumBuilder enumBuilder = ModuleBuilder.DefineEnum(
             typeFullName, TypeAttributes.Public, underlyingType);
         foreach (IFieldSymbol fieldSymbol in typeSymbol.GetMembers().OfType<IFieldSymbol>())
@@ -208,25 +245,41 @@ internal static class SymbolExtensions
     }
 
     private static Type BuildSymbolicObjectType(
-        ITypeSymbol typeSymbol,
-        string typeFullName)
+        INamedTypeSymbol typeSymbol,
+        string typeFullName,
+        Type[]? genericTypeParameters,
+        bool buildType)
     {
+        Type? baseType = typeSymbol.BaseType?.AsType(genericTypeParameters, buildType);
+
+        // A base type might have had a reference to this type and therefore already defined it.
+        if (SymbolicTypes.TryGetValue(typeFullName, out Type? thisType))
+        {
+            return thisType;
+        }
 
         TypeBuilder typeBuilder = ModuleBuilder.DefineType(
             name: typeFullName,
             GetTypeAttributes(typeSymbol.TypeKind),
-            parent: typeSymbol.BaseType?.AsType());
+            parent: baseType);
+
+        if (typeSymbol.TypeParameters.Length > 0)
+        {
+            genericTypeParameters ??= Array.Empty<Type>();
+            genericTypeParameters = typeBuilder.DefineGenericParameters(
+                typeSymbol.TypeParameters.Select((p) => p.Name).ToArray());
+        }
 
         // Add the type builder to the map while building it, to support circular references.
         SymbolicTypes.Add(typeFullName, typeBuilder);
 
-        BuildSymbolicTypeMembers(typeSymbol, typeBuilder);
+        BuildSymbolicTypeMembers(typeSymbol, typeBuilder, genericTypeParameters);
 
         // Preserve JS attributes, which might be referenced by the marshaller.
         foreach (AttributeData attribute in typeSymbol.GetAttributes())
         {
-            if (attribute.AttributeClass!.ContainingAssembly.Name ==
-                typeof(JSExportAttribute).Assembly.GetName().Name)
+            if (attribute.AttributeClass!.ContainingNamespace.ToString()!.StartsWith(
+                    typeof(JSExportAttribute).Namespace!))
             {
                 Type attributeType = attribute.AttributeClass.AsType();
                 ConstructorInfo constructor = attributeType.GetConstructor(
@@ -247,12 +300,46 @@ internal static class SymbolExtensions
             => type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance) ??
                 throw new MissingMemberException(
                     $"Property {name} not found on attribute {type.Name}.");
+
+        if (!buildType)
+        {
+            return typeBuilder;
+        }
+
+        // Ensure the base type is built before building the derived type.
+        if (baseType != null)
+        {
+            BuildBaseType(typeSymbol);
+        }
+
+        // Ensure this type is only built once.
+        if (SymbolicTypes.TryGetValue(typeFullName, out thisType) && thisType is not TypeBuilder)
+        {
+            return thisType;
+        }
+
         return typeBuilder.CreateType()!;
+    }
+
+    private static void BuildBaseType(INamedTypeSymbol typeSymbol)
+    {
+        string baseTypeFullName = GetTypeSymbolFullName(typeSymbol.BaseType!);
+        if (SymbolicTypes.TryGetValue(baseTypeFullName, out Type? baseType) &&
+            baseType is TypeBuilder baseTypeBuilder)
+        {
+            if (typeSymbol.BaseType != null)
+            {
+                BuildBaseType(typeSymbol.BaseType);
+            }
+
+            baseTypeBuilder.CreateType();
+        }
     }
 
     private static void BuildSymbolicTypeMembers(
         ITypeSymbol typeSymbol,
-        TypeBuilder typeBuilder)
+        TypeBuilder typeBuilder,
+        Type[]? genericTypeParameters)
     {
         foreach (Type interfaceType in typeSymbol.Interfaces.Select(AsType))
         {
@@ -271,11 +358,11 @@ internal static class SymbolExtensions
                 (methodSymbol.MethodKind == MethodKind.Ordinary ||
                 methodSymbol.MethodKind == MethodKind.DelegateInvoke))
             {
-                BuildSymbolicMethod(typeBuilder, methodSymbol);
+                BuildSymbolicMethod(typeBuilder, methodSymbol, genericTypeParameters);
             }
             else if (memberSymbol is IPropertySymbol propertySymbol)
             {
-                BuildSymbolicProperty(typeBuilder, propertySymbol);
+                BuildSymbolicProperty(typeBuilder, propertySymbol, genericTypeParameters);
             }
             else if (memberSymbol is IEventSymbol eventSymbol)
             {
@@ -297,9 +384,8 @@ internal static class SymbolExtensions
                     parent: nestedTypeSymbol.TypeKind == TypeKind.Enum ? typeof(Enum) : null);
 
                 // TODO: Handle nested enum members (fields).
-                BuildSymbolicTypeMembers(nestedTypeSymbol, nestedTypeBuilder);
-
-                nestedTypeBuilder.CreateType();
+                BuildSymbolicTypeMembers(
+                    nestedTypeSymbol, nestedTypeBuilder, genericTypeParameters);
             }
         }
     }
@@ -336,7 +422,9 @@ internal static class SymbolExtensions
     }
 
     private static void BuildSymbolicMethod(
-        TypeBuilder typeBuilder, IMethodSymbol methodSymbol)
+        TypeBuilder typeBuilder,
+        IMethodSymbol methodSymbol,
+        Type[]? genericTypeParameters)
     {
         bool isDelegateMethod = typeBuilder.BaseType == typeof(MulticastDelegate);
         MethodAttributes attributes = MethodAttributes.Public | (methodSymbol.IsStatic ?
@@ -347,16 +435,21 @@ internal static class SymbolExtensions
             attributes,
             methodSymbol.IsStatic ? CallingConventions.Standard : CallingConventions.HasThis);
 
-        GenericTypeParameterBuilder[]? genericTypeParameters = null;
-        if (methodSymbol.IsGenericMethod)
+        GenericTypeParameterBuilder[]? genericMethodParameters = null;
+        if (methodSymbol.TypeParameters.Length > 0)
         {
-            genericTypeParameters = methodBuilder.DefineGenericParameters(
+            genericMethodParameters = methodBuilder.DefineGenericParameters(
                 methodSymbol.TypeParameters.Select((p) => p.Name).ToArray());
         }
 
-        methodBuilder.SetReturnType(methodSymbol.ReturnType.AsType(genericTypeParameters));
+        Type[]? genericParameters =
+            genericTypeParameters == null ? genericMethodParameters :
+            genericMethodParameters == null ? genericTypeParameters :
+            genericTypeParameters.Concat(genericMethodParameters).ToArray();
+
+        methodBuilder.SetReturnType(methodSymbol.ReturnType.AsType(genericParameters));
         methodBuilder.SetParameters(
-            methodSymbol.Parameters.Select((p) => p.Type.AsType(genericTypeParameters)).ToArray());
+            methodSymbol.Parameters.Select((p) => p.Type.AsType(genericParameters)).ToArray());
         BuildSymbolicParameters(methodBuilder, methodSymbol.Parameters);
 
         if (isDelegateMethod)
@@ -373,13 +466,16 @@ internal static class SymbolExtensions
     }
 
     private static void BuildSymbolicProperty(
-        TypeBuilder typeBuilder, IPropertySymbol propertySymbol)
+        TypeBuilder typeBuilder,
+        IPropertySymbol propertySymbol,
+        Type[]? genericTypeParameters)
     {
         PropertyBuilder propertyBuilder = typeBuilder.DefineProperty(
             propertySymbol.Name,
             PropertyAttributes.None,
-            propertySymbol.Type.AsType(),
-            propertySymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
+            propertySymbol.Type.AsType(genericTypeParameters),
+            propertySymbol.Parameters.Select(
+                (p) => p.Type.AsType(genericTypeParameters)).ToArray());
 
         MethodAttributes attributes = MethodAttributes.SpecialName | MethodAttributes.Public |
             (propertySymbol.IsStatic ? MethodAttributes.Static :
@@ -391,8 +487,9 @@ internal static class SymbolExtensions
                 propertySymbol.GetMethod.Name,
                 attributes,
                 propertySymbol.IsStatic ? CallingConventions.Standard : CallingConventions.HasThis,
-                propertySymbol.GetMethod.ReturnType.AsType(),
-                propertySymbol.GetMethod.Parameters.Select((p) => p.Type.AsType()).ToArray());
+                propertySymbol.GetMethod.ReturnType.AsType(genericTypeParameters),
+                propertySymbol.GetMethod.Parameters.Select(
+                    (p) => p.Type.AsType(genericTypeParameters)).ToArray());
             BuildSymbolicParameters(getMethodBuilder, propertySymbol.GetMethod.Parameters);
             if (propertySymbol.IsStatic) getMethodBuilder.GetILGenerator().Emit(OpCodes.Ret);
             propertyBuilder.SetGetMethod(getMethodBuilder);
@@ -404,8 +501,9 @@ internal static class SymbolExtensions
                 propertySymbol.SetMethod.Name,
                 attributes,
                 propertySymbol.IsStatic ? CallingConventions.Standard : CallingConventions.HasThis,
-                propertySymbol.SetMethod.ReturnType.AsType(),
-                propertySymbol.SetMethod.Parameters.Select((p) => p.Type.AsType()).ToArray());
+                propertySymbol.SetMethod.ReturnType.AsType(genericTypeParameters),
+                propertySymbol.SetMethod.Parameters.Select(
+                    (p) => p.Type.AsType(genericTypeParameters)).ToArray());
             BuildSymbolicParameters(setMethodBuilder, propertySymbol.SetMethod.Parameters);
             if (propertySymbol.IsStatic) setMethodBuilder.GetILGenerator().Emit(OpCodes.Ret);
             propertyBuilder.SetSetMethod(setMethodBuilder);
@@ -440,6 +538,13 @@ internal static class SymbolExtensions
         }
 
         Type type = methodSymbol.ContainingType.AsType();
+
+        // Ensure constructor parameter types are built.
+        foreach (IParameterSymbol parameter in methodSymbol.Parameters)
+        {
+            parameter.Type.AsType(type.GenericTypeArguments, buildType: true);
+        }
+
         ConstructorInfo? constructorInfo = type.GetConstructor(
             methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
         return constructorInfo ?? throw new InvalidOperationException(
@@ -452,6 +557,18 @@ internal static class SymbolExtensions
     public static MethodInfo AsMethodInfo(this IMethodSymbol methodSymbol)
     {
         Type type = methodSymbol.ContainingType.AsType();
+
+        // Ensure method parameter and return types are built.
+        Type[] typeParameters = type.GetGenericArguments();
+        foreach (IParameterSymbol parameter in methodSymbol.Parameters)
+        {
+            IEnumerable<Type> methodTypeParameters =
+                methodSymbol.TypeParameters.Select((t) => t.AsType(typeParameters));
+            parameter.Type.AsType(
+                typeParameters.Concat(methodTypeParameters).ToArray(), buildType: true);
+        }
+        methodSymbol.ReturnType.AsType(type.GenericTypeArguments, buildType: true);
+
         BindingFlags bindingFlags = BindingFlags.Public |
             (methodSymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
         MethodInfo? methodInfo = type.GetMethods(bindingFlags)
@@ -468,6 +585,10 @@ internal static class SymbolExtensions
     public static PropertyInfo AsPropertyInfo(this IPropertySymbol propertySymbol)
     {
         Type type = propertySymbol.ContainingType.AsType();
+
+        // Ensure the property type is built.
+        propertySymbol.Type.AsType(type.GenericTypeArguments, buildType: true);
+
         BindingFlags bindingFlags = BindingFlags.Public |
             (propertySymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
         PropertyInfo? propertyInfo = type.GetProperty(propertySymbol.Name, bindingFlags);

@@ -62,6 +62,20 @@ public static class Program
 
         for (int i = 0; i < s_assemblyPaths.Count; i++)
         {
+            if (Path.GetFileName(s_assemblyPaths[i]).StartsWith(
+                typeof(JSValue).Namespace + ".", StringComparison.OrdinalIgnoreCase))
+            {
+                // Never generate type definitions for node-api-dotnet interop assemblies.
+                continue;
+            }
+
+            if (s_assemblyPaths.Take(i).Any(
+                (a) => string.Equals(a, s_assemblyPaths[i], StringComparison.OrdinalIgnoreCase)))
+            {
+                // Skip duplicate references.
+                continue;
+            }
+
             // Reference other supplied assemblies, but not the current one.
             List<string> allReferencePaths = s_referenceAssemblyPaths
                 .Concat(s_assemblyPaths.Where((_, j) => j != i)).ToList();
