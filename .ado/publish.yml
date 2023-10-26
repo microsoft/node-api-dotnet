@@ -174,7 +174,7 @@ jobs:
       - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
         displayName: CodeSign Binaries
         inputs:
-          ConnectedServiceName: ESRP-JsHost
+          ConnectedServiceName: ESRP-JsHost2
           FolderPath: $(Build.SourcesDirectory)/out/bin/Release
           # Recursively finds files matching these patterns:
           Pattern: |
@@ -218,7 +218,7 @@ jobs:
       - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
         displayName: CodeSign NuGets
         inputs:
-          ConnectedServiceName: ESRP-JsHost
+          ConnectedServiceName: ESRP-JsHost2
           FolderPath: $(Build.SourcesDirectory)/out/pkg
           Pattern: |
             **/Microsoft.JavaScript.NodeApi.*.nupkg
