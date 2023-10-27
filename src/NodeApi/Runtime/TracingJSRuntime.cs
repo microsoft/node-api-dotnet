@@ -4,13 +4,17 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
+
+using static NodejsRuntime;
 
 /// <summary>
 /// Wraps a <see cref="JSRuntime" /> and traces all the calls from .NET to JS, including
@@ -45,6 +49,7 @@ public class TracingJSRuntime : JSRuntime
 
     private readonly JSRuntime _runtime;
     private readonly TraceSource _trace;
+    private bool _formatting;
 
     public TracingJSRuntime(JSRuntime runtime, TraceSource trace)
     {
@@ -52,20 +57,25 @@ public class TracingJSRuntime : JSRuntime
         _trace = trace;
     }
 
-    private static string Format(napi_env env)
-    {
-        return env.Handle.ToString("X16");
-    }
+    public TraceSource Trace => _trace;
 
-    private static string Format(napi_handle_scope scope)
-    {
-        return scope.Handle.ToString("X16");
-    }
+    public override bool IsAvailable(string functionName) => _runtime.IsAvailable(functionName);
 
-    private static string Format(napi_escapable_handle_scope scope)
-    {
-        return scope.Handle.ToString("X16");
-    }
+    #region Formatting
+
+    private static string Format(napi_platform platform) => platform.Handle.ToString("X16");
+    private static string Format(napi_env env) => env.Handle.ToString("X16");
+    private static string Format(napi_handle_scope scope) => scope.Handle.ToString("X16");
+    private static string Format(napi_escapable_handle_scope scope) => scope.Handle.ToString("X16");
+    private static string Format(napi_callback_info scope) => scope.Handle.ToString("X16");
+    private static string Format(napi_threadsafe_function function)
+        => function.Handle.ToString("X16");
+    private static string Format(napi_callback_scope scope) => scope.Handle.ToString("X16");
+    private static string Format(napi_async_context context) => context.Handle.ToString("X16");
+    private static string Format(napi_async_work work) => work.Handle.ToString("X16");
+    private static string Format(napi_async_cleanup_hook_handle hook)
+         => hook.Handle.ToString("X16");
+    private static string Format(uv_loop_t loop) => loop.Handle.ToString("X16");
 
     private string GetValueString(napi_env env, napi_value value)
     {
@@ -90,65 +100,92 @@ public class TracingJSRuntime : JSRuntime
         return string.Empty;
     }
 
+    private napi_value GetValueProperty(napi_env env, napi_value value, string property)
+    {
+        return _runtime.CreateString(env, property.AsSpan(), out napi_value propertyName) ==
+            napi_status.napi_ok &&
+            _runtime.GetProperty(env, value, propertyName, out napi_value propertyValue) ==
+            napi_status.napi_ok ? propertyValue : default;
+    }
+
     private string Format(napi_env env, napi_value value)
     {
-        _runtime.GetValueType(env, value, out napi_valuetype valueType);
-
-        string valueString = string.Empty;
-        switch (valueType)
+        if (_formatting) return string.Empty; // Prevent tracing while formatting.
+        _formatting = true;
+        try
         {
-            case napi_valuetype.napi_string:
-                valueString = $" \"{GetValueString(env, value)}\"";
-                break;
+            _runtime.GetValueType(env, value, out napi_valuetype valueType);
 
-            case napi_valuetype.napi_number:
-                if (_runtime.GetValueDouble(env, value, out double number) ==
-                    napi_status.napi_ok)
-                {
-                    valueString = $" {number}";
-                }
-                break;
+            string valueString = string.Empty;
+            switch (valueType)
+            {
+                case napi_valuetype.napi_string:
+                    valueString = $" \"{GetValueString(env, value)}\"";
+                    break;
 
-            case napi_valuetype.napi_boolean:
-                if (_runtime.GetValueBool(env, value, out bool boolean) ==
-                    napi_status.napi_ok)
-                {
-                    valueString = $" {(boolean ? "true" : "false")}";
-                }
-                break;
-
-            case napi_valuetype.napi_object:
-                if (_runtime.IsArray(env, value, out bool isArray) ==
-                    napi_status.napi_ok && isArray)
-                {
-
-                    if (_runtime.CreateString(env, "length".AsSpan(), out napi_value lengthName) ==
-                        napi_status.napi_ok &&
-                        _runtime.GetProperty(env, value, lengthName, out napi_value size) ==
+                case napi_valuetype.napi_number:
+                    if (_runtime.GetValueDouble(env, value, out double number) ==
                         napi_status.napi_ok)
                     {
-                        valueString = $" [{size}]";
+                        valueString = $" {number}";
                     }
-                }
-                else if (_runtime.IsPromise(env, value, out bool isPromise) ==
-                    napi_status.napi_ok && isPromise)
-                {
-                    valueString = " {promise}";
-                }
-                break;
+                    break;
 
-            case napi_valuetype.napi_function:
-                if (_runtime.CreateString(env, "name".AsSpan(), out napi_value nameName) ==
-                    napi_status.napi_ok &&
-                    _runtime.GetProperty(env, value, nameName, out napi_value name) ==
-                    napi_status.napi_ok)
-                {
-                    valueString = $" {GetValueString(env, name)}()";
-                }
-                break;
-        };
+                case napi_valuetype.napi_boolean:
+                    if (_runtime.GetValueBool(env, value, out bool boolean) ==
+                        napi_status.napi_ok)
+                    {
+                        valueString = $" {(boolean ? "true" : "false")}";
+                    }
+                    break;
 
-        return $"{value.Handle:X16} {valueType.ToString().Substring(5)}{valueString}";
+                case napi_valuetype.napi_object:
+                    if (_runtime.IsArray(env, value, out bool isArray) ==
+                        napi_status.napi_ok && isArray)
+                    {
+                        napi_value size = GetValueProperty(env, value, "length");
+                        if (size != default)
+                        {
+                            valueString = $" [{size}]";
+                        }
+                    }
+                    else if (_runtime.IsPromise(env, value, out bool isPromise) ==
+                        napi_status.napi_ok && isPromise)
+                    {
+                        valueString = " {promise}";
+                    }
+                    else
+                    {
+                        napi_value constructor = GetValueProperty(env, value, "constructor");
+                        if (_runtime.GetValueType(
+                            env, constructor, out napi_valuetype constructorType) ==
+                            napi_status.napi_ok &&
+                            constructorType == napi_valuetype.napi_function)
+                        {
+                            napi_value constructorName = GetValueProperty(env, constructor, "name");
+                            if (constructorName != default)
+                            {
+                                valueString = $" {GetValueString(env, constructorName)}";
+                            }
+                        }
+                    }
+                    break;
+
+                case napi_valuetype.napi_function:
+                    napi_value functionName = GetValueProperty(env, value, "name");
+                    if (functionName != default)
+                    {
+                        valueString = $" {GetValueString(env, functionName)}()";
+                    }
+                    break;
+            };
+
+            return $"{value.Handle:X16} {valueType.ToString().Substring(5)}{valueString}";
+        }
+        finally
+        {
+            _formatting = false;
+        }
     }
 
     private string Format(napi_env env, napi_ref @ref)
@@ -193,6 +230,11 @@ public class TracingJSRuntime : JSRuntime
 
     private static string Format(string? value)
     {
+        if (value?.Length > 32)
+        {
+            value = value.Substring(0, 32) + "...";
+        }
+
         return value == null ? "null" : $"\"{value}\"";
     }
 
@@ -201,15 +243,23 @@ public class TracingJSRuntime : JSRuntime
         return value == null ? "null" : value.Value ? "true" : "false";
     }
 
+    #endregion
+
+    #region Tracing
+
     private void TraceCall(
         IEnumerable<string> args,
-        [CallerMemberName] string name = "")
+        [CallerMemberName] string name = "",
+        string prefix = "<")
     {
+        if (_formatting) return; // Prevent tracing while formatting.
+
         // The env arg is not traced; would it be helpful?
         _trace.TraceEvent(
             TraceEventType.Information,
             CallTrace,
-            "< {0}({1})",
+            "{0} {1}({2})",
+            prefix,
             name,
             string.Join(", ", args));
     }
@@ -217,12 +267,16 @@ public class TracingJSRuntime : JSRuntime
     private void TraceReturn(
         napi_status status,
         IEnumerable<string>? results = null,
-        [CallerMemberName] string name = "")
+        [CallerMemberName] string name = "",
+        string prefix = ">")
     {
+        if (_formatting) return; // Prevent tracing while formatting.
+
         _trace.TraceEvent(
             status == napi_status.napi_ok ? TraceEventType.Information : TraceEventType.Warning,
             ReturnTrace,
-            "> {0}({1})",
+            "{0} {1}({2})",
+            prefix,
             name,
             status != napi_status.napi_ok || results == null ?
                 status.ToString().Substring(5) : string.Join(", ", results));
@@ -230,12 +284,16 @@ public class TracingJSRuntime : JSRuntime
 
     private void TraceException(
         Exception ex,
-        [CallerMemberName] string name = "")
+        [CallerMemberName] string name = "",
+        string prefix = ">")
     {
+        if (_formatting) return; // Prevent tracing while formatting.
+
         _trace.TraceEvent(
             TraceEventType.Error,
             ExceptionTrace,
-            $"> {0}({1}: {2})",
+            "{0} {1}({2}: {3})",
+            prefix,
             name,
             ex.GetType().Name,
             ex.Message);
@@ -271,7 +329,7 @@ public class TracingJSRuntime : JSRuntime
         return TraceCall(args, () =>
         {
             (napi_status status, string result) = call();
-            return (status, new[] { result });
+            return (status, [result]);
         }, name);
     }
 
@@ -298,10 +356,112 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-    public static void TraceCallback()
+#if NETFRAMEWORK
+    private static readonly napi_callback.Delegate s_traceFunctionCallback = TraceFunctionCallback;
+    private static readonly napi_callback.Delegate s_traceMethodCallback = TraceMethodCallback;
+    private static readonly napi_callback.Delegate s_traceGetterCallback = TraceGetterCallback;
+    private static readonly napi_callback.Delegate s_traceSetterCallback = TraceSetterCallback;
+#else
+    private static readonly unsafe delegate* unmanaged[Cdecl]
+        <napi_env, napi_callback_info, napi_value> s_traceFunctionCallback = &TraceFunctionCallback;
+    private static readonly unsafe delegate* unmanaged[Cdecl]
+        <napi_env, napi_callback_info, napi_value> s_traceMethodCallback = &TraceMethodCallback;
+    private static readonly unsafe delegate* unmanaged[Cdecl]
+        <napi_env, napi_callback_info, napi_value> s_traceGetterCallback = &TraceGetterCallback;
+    private static readonly unsafe delegate* unmanaged[Cdecl]
+        <napi_env, napi_callback_info, napi_value> s_traceSetterCallback = &TraceSetterCallback;
+#endif
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe napi_value TraceFunctionCallback(napi_env env, napi_callback_info cbinfo)
     {
-        // TODO: Trace callbacks from JS to .NET
+        using var scope = new JSValueScope(JSValueScopeType.Callback);
+        return ((TracingJSRuntime)scope.Runtime).TraceCallback<JSCallbackDescriptor>(
+            scope, cbinfo, (descriptor) => descriptor);
     }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe napi_value TraceMethodCallback(napi_env env, napi_callback_info cbinfo)
+    {
+        using var scope = new JSValueScope(JSValueScopeType.Callback);
+        return ((TracingJSRuntime)scope.Runtime).TraceCallback<JSPropertyDescriptor>(
+            scope, cbinfo, (propertyDescriptor) => new(
+                propertyDescriptor.Name,
+                propertyDescriptor.Method!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe napi_value TraceGetterCallback(napi_env env, napi_callback_info cbinfo)
+    {
+        using var scope = new JSValueScope(JSValueScopeType.Callback);
+        return ((TracingJSRuntime)scope.Runtime).TraceCallback<JSPropertyDescriptor>(
+            scope, cbinfo, (propertyDescriptor) => new(
+                propertyDescriptor.Name,
+                propertyDescriptor.Getter!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe napi_value TraceSetterCallback(napi_env env, napi_callback_info cbinfo)
+    {
+        using var scope = new JSValueScope(JSValueScopeType.Callback);
+        return ((TracingJSRuntime)scope.Runtime).TraceCallback<JSPropertyDescriptor>(
+            scope, cbinfo, (propertyDescriptor) => new(
+                propertyDescriptor.Name,
+                propertyDescriptor.Setter!,
+                propertyDescriptor.Data,
+                propertyDescriptor.ModuleContext));
+    }
+
+    /// <summary>
+    /// Traces a callback function, method, getter, or setter, including args and return value.
+    /// (When tracing is enabled, this method replaces the normal InvokeCallback method.)
+    /// </summary>
+    public napi_value TraceCallback<TDescriptor>(
+        JSValueScope scope,
+        napi_callback_info cbinfo,
+        Func<TDescriptor, JSCallbackDescriptor> getCallbackDescriptor)
+    {
+        JSCallbackArgs.GetDataAndLength(scope, cbinfo, out object? dataObj, out int length);
+        TDescriptor data = (TDescriptor)(dataObj ??
+            throw new InvalidOperationException("Callback data is null."));
+        JSCallbackDescriptor descriptor = getCallbackDescriptor(data);
+
+        Span<napi_value> argsSpan = stackalloc napi_value[length];
+        JSCallbackArgs args = new(scope, cbinfo, argsSpan, descriptor.Data);
+
+        string[] argsStrings = new string[length];
+        for (int i = 0; i < length; i++)
+        {
+            argsStrings[i] = Format((napi_env)scope, (napi_value)args[i]);
+        }
+
+        TraceCall(argsStrings, descriptor.Name ?? "callback", ">>");
+
+        napi_value result;
+        try
+        {
+            result = (napi_value)descriptor.Callback(args);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex, descriptor.Name ?? "callback", "<<");
+            JSError.ThrowError(ex);
+            return napi_value.Null;
+        }
+
+        TraceReturn(
+            napi_status.napi_ok,
+            [Format((napi_env)scope, result)],
+            descriptor.Name ?? "callback",
+            "<<");
+        return result;
+    }
+
+    #endregion
 
     public override napi_status GetVersion(napi_env env, out uint result)
     {
@@ -317,17 +477,46 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value value = default;
         napi_status status = TraceCall(
-            new[] { Format(env, script) },
+            [Format(env, script)],
             () => (_runtime.RunScript(env, script, out value), Format(env, value)));
+        result = value;
+        return status;
+    }
+
+    public override napi_status AddFinalizer(
+        napi_env env,
+        napi_value value,
+        nint finalizeData,
+        napi_finalize finalizeCallback,
+        nint finalizeHint,
+        out napi_ref result)
+    {
+        napi_ref valueRef = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.AddFinalizer(
+                env, value, finalizeData, finalizeCallback, finalizeHint, out valueRef),
+                Format(env, valueRef)));
+        result = valueRef;
+        return status;
+    }
+
+    public override napi_status AdjustExternalMemory(
+        napi_env env,
+        long changeInBytes,
+        out long result)
+    {
+        long value = default;
+        napi_status status = TraceCall(
+            [changeInBytes.ToString()],
+            () => (_runtime.AdjustExternalMemory(env, changeInBytes, out value), value.ToString()));
         result = value;
         return status;
     }
 
     #region Instance data
 
-    public override napi_status GetInstanceData(
-        napi_env env,
-        out nint result)
+    public override napi_status GetInstanceData(napi_env env, out nint result)
     {
         nint value = default;
         napi_status status = TraceCall(
@@ -338,13 +527,10 @@ public class TracingJSRuntime : JSRuntime
     }
 
     public override napi_status SetInstanceData(
-        napi_env env,
-        nint data,
-        napi_finalize finalize_cb,
-        nint finalize_hint)
+        napi_env env, nint data, napi_finalize finalize_cb, nint finalize_hint)
     {
         napi_status status = TraceCall(
-            new[] { Format(data) },
+            [Format(data)],
             () => _runtime.SetInstanceData(env, data, finalize_cb, finalize_hint));
         return status;
     }
@@ -354,56 +540,44 @@ public class TracingJSRuntime : JSRuntime
     #region Error handling
 
     public override napi_status CreateError(
-        napi_env env,
-        napi_value code,
-        napi_value msg,
-        out napi_value result)
+        napi_env env, napi_value code, napi_value msg, out napi_value result)
     {
         napi_value value = default;
         napi_status status = TraceCall(
-            new[] { Format(env, code), Format(env, msg) },
+            [Format(env, code), Format(env, msg)],
             () => (_runtime.CreateError(env, code, msg, out value), Format(env, value)));
         result = value;
         return status;
     }
 
     public override napi_status CreateTypeError(
-        napi_env env,
-        napi_value code,
-        napi_value msg,
-        out napi_value result)
+        napi_env env, napi_value code, napi_value msg, out napi_value result)
     {
         napi_value value = default;
         napi_status status = TraceCall(
-            new[] { Format(env, code), Format(env, msg) },
+            [Format(env, code), Format(env, msg)],
             () => (_runtime.CreateTypeError(env, code, msg, out value), Format(env, value)));
         result = value;
         return status;
     }
 
     public override napi_status CreateRangeError(
-        napi_env env,
-        napi_value code,
-        napi_value msg,
-        out napi_value result)
+        napi_env env, napi_value code, napi_value msg, out napi_value result)
     {
         napi_value value = default;
         napi_status status = TraceCall(
-            new[] { Format(env, code), Format(env, msg) },
+            [Format(env, code), Format(env, msg)],
             () => (_runtime.CreateRangeError(env, code, msg, out value), Format(env, value)));
         result = value;
         return status;
     }
 
     public override napi_status CreateSyntaxError(
-        napi_env env,
-        napi_value code,
-        napi_value msg,
-        out napi_value result)
+        napi_env env, napi_value code, napi_value msg, out napi_value result)
     {
         napi_value value = default;
         napi_status status = TraceCall(
-            new[] { Format(env, code), Format(env, msg) },
+            [Format(env, code), Format(env, msg)],
             () => (_runtime.CreateSyntaxError(env, code, msg, out value), Format(env, value)));
         result = value;
         return status;
@@ -412,37 +586,36 @@ public class TracingJSRuntime : JSRuntime
     public override napi_status Throw(napi_env env, napi_value error)
     {
         return TraceCall(
-            new[] { Format(env, error) },
+            [Format(env, error)],
             () => _runtime.Throw(env, error));
     }
     public override napi_status ThrowError(napi_env env, string? code, string msg)
     {
         return TraceCall(
-            new[] { Format(code), Format(msg) },
+            [Format(code), Format(msg)],
             () => _runtime.ThrowError(env, code, msg));
     }
 
     public override napi_status ThrowTypeError(napi_env env, string? code, string msg)
     {
         return TraceCall(
-            new[] { Format(code), Format(msg) },
+            [Format(code), Format(msg)],
             () => _runtime.ThrowTypeError(env, code, msg));
     }
 
     public override napi_status ThrowRangeError(napi_env env, string? code, string msg)
     {
         return TraceCall(
-            new[] { Format(code), Format(msg) },
+            [Format(code), Format(msg)],
             () => _runtime.ThrowRangeError(env, code, msg));
     }
 
     public override napi_status ThrowSyntaxError(napi_env env, string? code, string msg)
     {
         return TraceCall(
-            new[] { Format(code), Format(msg) },
+            [Format(code), Format(msg)],
             () => _runtime.ThrowSyntaxError(env, code, msg));
     }
-
 
     public override napi_status IsExceptionPending(napi_env env, out bool result)
     {
@@ -455,13 +628,14 @@ public class TracingJSRuntime : JSRuntime
     }
 
     public override unsafe napi_status GetLastErrorInfo(
-        napi_env env, out napi_extended_error_info result)
+        napi_env env, out napi_extended_error_info? result)
     {
-        napi_extended_error_info value = default;
+        napi_extended_error_info? value = default;
         napi_status status = TraceCall(
             Array.Empty<string>(),
-            () => (_runtime.GetLastErrorInfo(env, out value), Format(value.error_message == null ?
-                null : Marshal.PtrToStringAnsi((nint)value.error_message))));
+            () => (_runtime.GetLastErrorInfo(env, out value), Format(
+                value == null || value.Value.error_message == null ?
+                null : Marshal.PtrToStringAnsi((nint)value.Value.error_message))));
         result = value;
         return status;
     }
@@ -485,7 +659,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_valuetype valueType = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetValueType(env, value, out valueType),
                 valueType.ToString().Substring(5)));
         result = valueType;
@@ -496,7 +670,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool isValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.IsDate(env, value, out isValue), Format(isValue)));
         result = isValue;
         return status;
@@ -506,7 +680,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool isValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.IsPromise(env, value, out isValue), Format(isValue)));
         result = isValue;
         return status;
@@ -516,7 +690,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool isValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.IsError(env, value, out isValue), Format(isValue)));
         result = isValue;
         return status;
@@ -526,7 +700,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool isValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.IsArray(env, value, out isValue), Format(isValue)));
         result = isValue;
         return status;
@@ -536,7 +710,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool isValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.IsArrayBuffer(env, value, out isValue), Format(isValue)));
         result = isValue;
         return status;
@@ -547,7 +721,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool isValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.IsDetachedArrayBuffer(env, value, out isValue), Format(isValue)));
         result = isValue;
         return status;
@@ -557,7 +731,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool isValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.IsTypedArray(env, value, out isValue), Format(isValue)));
         result = isValue;
         return status;
@@ -567,7 +741,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool isValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.IsDataView(env, value, out isValue), Format(isValue)));
         result = isValue;
         return status;
@@ -581,7 +755,7 @@ public class TracingJSRuntime : JSRuntime
     {
         double resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetValueDouble(env, value, out resultValue), resultValue.ToString()));
         result = resultValue;
         return status;
@@ -591,7 +765,7 @@ public class TracingJSRuntime : JSRuntime
     {
         int resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetValueInt32(env, value, out resultValue), resultValue.ToString()));
         result = resultValue;
         return status;
@@ -601,7 +775,7 @@ public class TracingJSRuntime : JSRuntime
     {
         uint resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetValueUInt32(env, value, out resultValue), resultValue.ToString()));
         result = resultValue;
         return status;
@@ -611,9 +785,58 @@ public class TracingJSRuntime : JSRuntime
     {
         long resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetValueInt64(env, value, out resultValue), resultValue.ToString()));
         result = resultValue;
+        return status;
+    }
+
+    public override napi_status GetValueBigInt64(
+        napi_env env, napi_value value, out long result, out bool lossless)
+    {
+        long resultValue = default;
+        bool losslessValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.GetValueBigInt64(env, value, out resultValue, out losslessValue),
+                [resultValue.ToString(), losslessValue.ToString()]));
+        result = resultValue;
+        lossless = losslessValue;
+        return status;
+    }
+
+    public override napi_status GetValueBigInt64(
+        napi_env env, napi_value value, out ulong result, out bool lossless)
+    {
+        ulong resultValue = default;
+        bool losslessValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.GetValueBigInt64(env, value, out resultValue, out losslessValue),
+                [resultValue.ToString(), losslessValue.ToString()]));
+        result = resultValue;
+        lossless = losslessValue;
+        return status;
+    }
+
+    public override napi_status GetValueBigInt(
+        napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result)
+    {
+        // The combined TraceCall() can't be used with Span<T>.
+        TraceCall([Format(env, value)]);
+
+        napi_status status;
+        try
+        {
+            status = _runtime.GetValueBigInt(env, value, out sign, words, out result);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+
+        TraceReturn(status, [sign.ToString(), result.ToString()]);
         return status;
     }
 
@@ -621,7 +844,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetValueBool(env, value, out resultValue), Format(resultValue)));
         result = resultValue;
         return status;
@@ -631,7 +854,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value value, Span<byte> buf, out int result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(new[] { Format(env, value) });
+        TraceCall([Format(env, value)]);
 
         napi_status status;
         try
@@ -646,9 +869,9 @@ public class TracingJSRuntime : JSRuntime
 
         TraceReturn(
             status,
-            buf.Length == 0 ? new[] { result.ToString() } : new[]
+            buf.Length == 0 ? [result.ToString()] : new[]
             {
-                Format(Encoding.UTF8.GetString(buf.ToArray())),
+                Format(Encoding.UTF8.GetString(buf.Slice(0, buf.Length - 1).ToArray())),
                 result.ToString(),
             });
         return status;
@@ -658,7 +881,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value value, Span<char> buf, out int result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(new[] { Format(env, value) });
+        TraceCall([Format(env, value)]);
 
         napi_status status;
         try
@@ -673,9 +896,9 @@ public class TracingJSRuntime : JSRuntime
 
         TraceReturn(
             status,
-            buf.Length == 0 ? new[] { result.ToString() } : new[]
+            buf.Length == 0 ? [result.ToString()] : new[]
             {
-                Format(new string(buf.ToArray())),
+                Format(new string(buf.Slice(0, buf.Length - 1).ToArray())),
                 result.ToString(),
             });
         return status;
@@ -685,7 +908,7 @@ public class TracingJSRuntime : JSRuntime
     {
         double resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetValueDate(env, value, out resultValue), resultValue.ToString()));
         result = resultValue;
         return status;
@@ -695,7 +918,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value value = default;
         napi_status status = TraceCall(
-            new[] { Format(name) },
+            [Format(name)],
             () => (_runtime.GetSymbolFor(env, name, out value), Format(env, value)));
         result = value;
         return status;
@@ -705,9 +928,97 @@ public class TracingJSRuntime : JSRuntime
     {
         int resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetArrayLength(env, value, out resultValue), resultValue.ToString()));
         result = resultValue;
+        return status;
+    }
+
+    public override napi_status GetArrayBufferInfo(
+        napi_env env, napi_value value, out nint data,
+        out nuint length)
+    {
+        nint resultData = default;
+        nuint resultLength = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.GetArrayBufferInfo(env, value, out resultData, out resultLength),
+                [resultData.ToString(), resultLength.ToString()]));
+        data = resultData;
+        length = resultLength;
+        return status;
+    }
+
+    public override napi_status GetTypedArrayInfo(
+        napi_env env,
+        napi_value value,
+        out napi_typedarray_type type,
+        out nuint byteLength,
+        out nint data,
+        out napi_value arraybuffer,
+        out nuint offset)
+    {
+        napi_typedarray_type resultType = default;
+        nuint resultByteLength = default;
+        nint resultData = default;
+        napi_value resultArrayBuffer = default;
+        nuint resultOffset = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.GetTypedArrayInfo(
+                env,
+                value,
+                out resultType,
+                out resultByteLength,
+                out resultData,
+                out resultArrayBuffer,
+                out resultOffset),
+                [
+                    resultType.ToString(),
+                    resultByteLength.ToString(),
+                    resultData.ToString(),
+                    Format(env, resultArrayBuffer),
+                    resultOffset.ToString(),
+                ]));
+        type = resultType;
+        byteLength = resultByteLength;
+        data = resultData;
+        arraybuffer = resultArrayBuffer;
+        offset = resultOffset;
+        return status;
+    }
+
+    public override napi_status GetDataViewInfo(
+        napi_env env,
+        napi_value value,
+        out nuint byteLength,
+        out nint data,
+        out napi_value arraybuffer,
+        out nuint offset)
+    {
+        nuint resultByteLength = default;
+        nint resultData = default;
+        napi_value resultArrayBuffer = default;
+        nuint resultOffset = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.GetDataViewInfo(
+                env,
+                value,
+                out resultByteLength,
+                out resultData,
+                out resultArrayBuffer,
+                out resultOffset),
+                [
+                    resultByteLength.ToString(),
+                    resultData.ToString(),
+                    Format(env, resultArrayBuffer),
+                    resultOffset.ToString(),
+                ]));
+        byteLength = resultByteLength;
+        data = resultData;
+        arraybuffer = resultArrayBuffer;
+        offset = resultOffset;
         return status;
     }
 
@@ -716,7 +1027,7 @@ public class TracingJSRuntime : JSRuntime
     {
         nint resultData = default;
         napi_status status = TraceCall(
-            new[] { Format(env, arraybuffer) },
+            [Format(env, arraybuffer)],
             () => _runtime.GetValueArrayBuffer(env, arraybuffer, out resultData));
         data = resultData;
         return status;
@@ -735,7 +1046,7 @@ public class TracingJSRuntime : JSRuntime
         napi_value resultValue = default;
         int resultOffset = default;
         napi_status status = TraceCall(
-            new[] { Format(env, typedarray) },
+            [Format(env, typedarray)],
             () => (_runtime.GetValueTypedArray(
                 env,
                 typedarray,
@@ -766,7 +1077,7 @@ public class TracingJSRuntime : JSRuntime
         napi_value resultValue = default;
         int resultOffset = default;
         napi_status status = TraceCall(
-            new[] { Format(env, dataview) },
+            [Format(env, dataview)],
             () => (_runtime.GetValueDataView(
                 env,
                 dataview,
@@ -787,7 +1098,7 @@ public class TracingJSRuntime : JSRuntime
     {
         nint resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value) },
+            [Format(env, value)],
             () => (_runtime.GetValueExternal(env, value, out resultValue), Format(resultValue)));
         result = resultValue;
         return status;
@@ -798,7 +1109,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, lhs), Format(env, rhs) },
+            [Format(env, lhs), Format(env, rhs)],
             () => (_runtime.StrictEquals(env, lhs, rhs, out resultValue), Format(resultValue)));
         result = resultValue;
         return status;
@@ -842,7 +1153,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(value) },
+            [Format(value)],
             () => (_runtime.GetBoolean(env, value, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -852,7 +1163,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { value.ToString() },
+            [value.ToString()],
             () => (_runtime.CreateNumber(env, value, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -862,7 +1173,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { value.ToString() },
+            [value.ToString()],
             () => (_runtime.CreateNumber(env, value, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -872,7 +1183,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { value.ToString() },
+            [value.ToString()],
             () => (_runtime.CreateNumber(env, value, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -882,9 +1193,53 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { value.ToString() },
+            [value.ToString()],
             () => (_runtime.CreateNumber(env, value, out resultValue), Format(env, resultValue)));
         result = resultValue;
+        return status;
+    }
+
+    public override napi_status CreateBigInt(napi_env env, long value, out napi_value result)
+    {
+        napi_value resultValue = default;
+        napi_status status = TraceCall(
+            [value.ToString()],
+            () => (_runtime.CreateBigInt(env, value, out resultValue), Format(env, resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status CreateBigInt(napi_env env, ulong value, out napi_value result)
+    {
+        napi_value resultValue = default;
+        napi_status status = TraceCall(
+            [value.ToString()],
+            () => (_runtime.CreateBigInt(env, value, out resultValue), Format(env, resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status CreateBigInt(
+        napi_env env,
+        int sign,
+        ReadOnlySpan<ulong> words,
+        out napi_value result)
+    {
+        // The combined TraceCall() can't be used with Span<T>.
+        TraceCall([sign.ToString(), $"[{words.Length}]"]);
+
+        napi_status status;
+        try
+        {
+            status = _runtime.CreateBigInt(env, sign, words, out result);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+
+        TraceReturn(status, [Format(env, result)]);
         return status;
     }
 
@@ -892,7 +1247,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, ReadOnlySpan<byte> utf8Str, out napi_value result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(new[] { Format(Encoding.UTF8.GetString(utf8Str.ToArray())) });
+        TraceCall([Format(Encoding.UTF8.GetString(utf8Str.ToArray()))]);
 
         napi_status status;
         try
@@ -905,7 +1260,7 @@ public class TracingJSRuntime : JSRuntime
             throw;
         }
 
-        TraceReturn(status, new[] { Format(env, result) });
+        TraceReturn(status, [Format(env, result)]);
         return status;
     }
 
@@ -913,7 +1268,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, ReadOnlySpan<char> utf16Str, out napi_value result)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(new[] { Format(new string(utf16Str.ToArray())) });
+        TraceCall([Format(new string(utf16Str.ToArray()))]);
 
         napi_status status;
         try
@@ -926,7 +1281,7 @@ public class TracingJSRuntime : JSRuntime
             throw;
         }
 
-        TraceReturn(status, new[] { Format(env, result) });
+        TraceReturn(status, [Format(env, result)]);
         return status;
     }
 
@@ -934,7 +1289,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { time.ToString() },
+            [time.ToString()],
             () => (_runtime.CreateNumber(env, time, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -945,7 +1300,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, description) },
+            [Format(env, description)],
             () => (_runtime.CreateSymbol(env, description, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -975,7 +1330,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { length.ToString() },
+            [length.ToString()],
             () => (_runtime.CreateArray(env, length, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -990,7 +1345,7 @@ public class TracingJSRuntime : JSRuntime
         nint resultData = default;
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { byte_length.ToString() },
+            [byte_length.ToString()],
             () => (_runtime.CreateArrayBuffer(env, byte_length, out resultData, out resultValue),
                 Format(env, resultValue)));
         data = resultData;
@@ -1008,7 +1363,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { "external:" + byte_length },
+            ["external:" + byte_length],
             () => (_runtime.CreateArrayBuffer(
                 env, external_data, byte_length, finalize_cb, finalize_hint, out resultValue),
                 Format(env, resultValue)));
@@ -1019,7 +1374,7 @@ public class TracingJSRuntime : JSRuntime
     public override napi_status DetachArrayBuffer(napi_env env, napi_value arraybuffer)
     {
         return TraceCall(
-            new[] { Format(env, arraybuffer) },
+            [Format(env, arraybuffer)],
             () => _runtime.DetachArrayBuffer(env, arraybuffer));
     }
 
@@ -1078,7 +1433,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(data) },
+            [Format(data)],
             () => (_runtime.CreateExternal(
                 env, data, finalize_cb, finalize_hint, out resultValue),
                 Format(env, resultValue)));
@@ -1086,16 +1441,35 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-    public override napi_status CreateFunction(
+    public override unsafe napi_status CreateFunction(
        napi_env env,
        string? name,
        napi_callback cb,
        nint data,
        out napi_value result)
     {
+        if (cb == new napi_callback(JSNativeApi.s_invokeJSCallback))
+        {
+            cb = new napi_callback(s_traceFunctionCallback);
+        }
+        else if (cb == new napi_callback(JSNativeApi.s_invokeJSMethod))
+        {
+            cb = new napi_callback(s_traceMethodCallback);
+        }
+        else if (cb == new napi_callback(JSNativeApi.s_invokeJSGetter))
+        {
+            cb = new napi_callback(s_traceGetterCallback);
+        }
+        else if (cb == new napi_callback(JSNativeApi.s_invokeJSSetter))
+        {
+            cb = new napi_callback(s_traceSetterCallback);
+        }
+        
+        // No-Context callbacks are not traced.
+
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(name), Format(data) },
+            [Format(name), Format(data)],
             () => (_runtime.CreateFunction(env, name, cb, data, out resultValue),
                 Format(env, resultValue)));
         result = resultValue;
@@ -1120,7 +1494,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_deferred deferred, napi_value resolution)
     {
         return TraceCall(
-            new[] { Format(env, resolution) },
+            [Format(env, resolution)],
             () => _runtime.ResolveDeferred(env, deferred, resolution));
     }
 
@@ -1128,7 +1502,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_deferred deferred, napi_value rejection)
     {
         return TraceCall(
-            new[] { Format(env, rejection) },
+            [Format(env, rejection)],
             () => _runtime.RejectDeferred(env, deferred, rejection));
     }
 
@@ -1136,7 +1510,53 @@ public class TracingJSRuntime : JSRuntime
 
     #region Value coercion
 
-    // TODO
+    public override napi_status CoerceToBool(
+        napi_env env, napi_value value, out napi_value result)
+    {
+        napi_value resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.CoerceToBool(env, value, out resultValue),
+                Format(env, resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status CoerceToNumber(
+        napi_env env, napi_value value, out napi_value result)
+    {
+        napi_value resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.CoerceToNumber(env, value, out resultValue),
+                Format(env, resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status CoerceToObject(
+        napi_env env, napi_value value, out napi_value result)
+    {
+        napi_value resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.CoerceToObject(env, value, out resultValue),
+                Format(env, resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status CoerceToString(
+        napi_env env, napi_value value, out napi_value result)
+    {
+        napi_value resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.CoerceToString(env, value, out resultValue),
+                Format(env, resultValue)));
+        result = resultValue;
+        return status;
+    }
 
     #endregion
 
@@ -1155,13 +1575,12 @@ public class TracingJSRuntime : JSRuntime
     public override napi_status CloseHandleScope(napi_env env, napi_handle_scope scope)
     {
         return TraceCall(
-            new[] { Format(scope) },
+            [Format(scope)],
             () => _runtime.CloseHandleScope(env, scope));
     }
 
     public override napi_status OpenEscapableHandleScope(
-        napi_env env,
-        out napi_escapable_handle_scope result)
+        napi_env env, out napi_escapable_handle_scope result)
     {
         napi_escapable_handle_scope resultScope = default;
         napi_status status = TraceCall(
@@ -1175,7 +1594,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_escapable_handle_scope scope)
     {
         return TraceCall(
-            new[] { Format(scope) },
+            [Format(scope)],
             () => _runtime.CloseEscapableHandleScope(env, scope));
     }
 
@@ -1187,7 +1606,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(scope), Format(env, escapee) },
+            [Format(scope), Format(env, escapee)],
             () => (_runtime.EscapeHandle(env, scope, escapee, out resultValue),
                 Format(env, resultValue)));
         result = resultValue;
@@ -1199,15 +1618,12 @@ public class TracingJSRuntime : JSRuntime
     #region References
 
     public override napi_status CreateReference(
-        napi_env env,
-        napi_value value,
-        uint initial_refcount,
-        out napi_ref result)
+        napi_env env, napi_value value, uint initialRefcount, out napi_ref result)
     {
         napi_ref resultRef = default;
         napi_status status = TraceCall(
-            new[] { Format(env, value), initial_refcount.ToString() },
-            () => (_runtime.CreateReference(env, value, initial_refcount, out resultRef),
+            [Format(env, value), initialRefcount.ToString()],
+            () => (_runtime.CreateReference(env, value, initialRefcount, out resultRef),
                 Format(env, resultRef)));
         result = resultRef;
         return status;
@@ -1216,7 +1632,7 @@ public class TracingJSRuntime : JSRuntime
     public override napi_status DeleteReference(napi_env env, napi_ref @ref)
     {
         return TraceCall(
-            new[] { Format(env, @ref) },
+            [Format(env, @ref)],
             () => _runtime.DeleteReference(env, @ref));
     }
 
@@ -1224,7 +1640,7 @@ public class TracingJSRuntime : JSRuntime
     {
         uint resultCount = default;
         napi_status status = TraceCall(
-            new[] { Format(env, @ref) },
+            [Format(env, @ref)],
             () => (_runtime.RefReference(env, @ref, out resultCount), resultCount.ToString()));
         result = resultCount;
         return status;
@@ -1234,7 +1650,7 @@ public class TracingJSRuntime : JSRuntime
     {
         uint resultCount = default;
         napi_status status = TraceCall(
-            new[] { Format(env, @ref) },
+            [Format(env, @ref)],
             () => (_runtime.UnrefReference(env, @ref, out resultCount), resultCount.ToString()));
         result = resultCount;
         return status;
@@ -1245,7 +1661,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { $"@{@ref:X16}" },
+            new[] { Format(env, @ref) },
             () => (_runtime.GetReferenceValue(env, @ref, out resultValue),
                 Format(env, resultValue)));
         result = resultValue;
@@ -1278,35 +1694,29 @@ public class TracingJSRuntime : JSRuntime
             throw;
         }
 
-        TraceReturn(status, new[] { Format(env, result) });
+        TraceReturn(status, [Format(env, result)]);
         return status;
     }
 
     public override napi_status GetCallbackInfo(
-        napi_env env,
-        napi_callback_info cbinfo,
-        out int argc,
-        out nint data)
+        napi_env env, napi_callback_info cbinfo, out int argc, out nint data)
     {
         int resultCount = default;
         nint resultData = default;
         napi_status status = TraceCall(
-            new[] { $"{cbinfo.Handle:X16}" },
+            [Format(cbinfo)],
             () => (_runtime.GetCallbackInfo(env, cbinfo, out resultCount, out resultData),
-                new[] { resultCount.ToString(), Format(resultData) }));
+                [resultCount.ToString(), Format(resultData)]));
         argc = resultCount;
         data = resultData;
         return status;
     }
 
     public override napi_status GetCallbackArgs(
-        napi_env env,
-        napi_callback_info cbinfo,
-        Span<napi_value> args,
-        out napi_value this_arg)
+        napi_env env, napi_callback_info cbinfo, Span<napi_value> args, out napi_value this_arg)
     {
         // The combined TraceCall() can't be used with Span<T>.
-        TraceCall(new[] { $"{cbinfo.Handle:X16}", $"[{args.Length}]" });
+        TraceCall([Format(cbinfo), $"[{args.Length}]"]);
 
         napi_status status;
         try
@@ -1324,6 +1734,18 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
+    public override napi_status GetNewTarget(
+        napi_env env, napi_callback_info cbinfo, out napi_value result)
+    {
+        napi_value resultValue = default;
+        napi_status status = TraceCall(
+            [Format(cbinfo)],
+            () => (_runtime.GetNewTarget(env, cbinfo, out resultValue),
+                Format(env, resultValue)));
+        result = resultValue;
+        return status;
+    }
+
     #endregion
 
     #region Object properties
@@ -1333,7 +1755,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), Format(env, key) },
+            [Format(env, js_object), Format(env, key)],
             () => (_runtime.HasProperty(env, js_object, key, out resultValue),
                 Format(resultValue)));
         result = resultValue;
@@ -1345,7 +1767,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), Format(env, key) },
+            [Format(env, js_object), Format(env, key)],
             () => (_runtime.HasOwnProperty(env, js_object, key, out resultValue),
                 Format(resultValue)));
         result = resultValue;
@@ -1357,7 +1779,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), Format(env, key) },
+            [Format(env, js_object), Format(env, key)],
             () => (_runtime.GetProperty(env, js_object, key, out resultValue),
                 Format(env, resultValue)));
         result = resultValue;
@@ -1368,7 +1790,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value js_object, napi_value key, napi_value value)
     {
         return TraceCall(
-            new[] { Format(env, js_object), Format(env, key), Format(env, value) },
+            [Format(env, js_object), Format(env, key), Format(env, value)],
             () => _runtime.SetProperty(env, js_object, key, value));
     }
 
@@ -1377,7 +1799,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), Format(env, key) },
+            [Format(env, js_object), Format(env, key)],
             () => (_runtime.DeleteProperty(env, js_object, key, out resultValue),
                 Format(resultValue)));
         result = resultValue;
@@ -1388,7 +1810,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value js_object, ReadOnlySpan<byte> utf8name, out bool result)
     {
         TraceCall(
-            new[] { Format(env, js_object), Format(Encoding.UTF8.GetString(utf8name.ToArray())) });
+            [Format(env, js_object), Format(Encoding.UTF8.GetString(utf8name.ToArray()))]);
 
         napi_status status;
         try
@@ -1401,7 +1823,7 @@ public class TracingJSRuntime : JSRuntime
             throw;
         }
 
-        TraceReturn(status, new[] { Format(result) });
+        TraceReturn(status, [Format(result)]);
         return status;
     }
 
@@ -1409,7 +1831,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value js_object, ReadOnlySpan<byte> utf8name, out napi_value result)
     {
         TraceCall(
-            new[] { Format(env, js_object), Format(Encoding.UTF8.GetString(utf8name.ToArray())) });
+            [Format(env, js_object), Format(Encoding.UTF8.GetString(utf8name.ToArray()))]);
 
         napi_status status;
         try
@@ -1422,7 +1844,7 @@ public class TracingJSRuntime : JSRuntime
             throw;
         }
 
-        TraceReturn(status, new[] { Format(env, result) });
+        TraceReturn(status, [Format(env, result)]);
         return status;
     }
 
@@ -1456,7 +1878,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), index.ToString() },
+            [Format(env, js_object), index.ToString()],
             () => (_runtime.HasElement(env, js_object, index, out resultValue),
                 Format(resultValue)));
         result = resultValue;
@@ -1468,7 +1890,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), index.ToString() },
+            [Format(env, js_object), index.ToString()],
             () => (_runtime.GetElement(env, js_object, index, out resultValue),
                 Format(env, resultValue)));
         result = resultValue;
@@ -1479,7 +1901,7 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, napi_value js_object, uint index, napi_value value)
     {
         return TraceCall(
-            new[] { Format(env, js_object), index.ToString(), Format(env, value) },
+            [Format(env, js_object), index.ToString(), Format(env, value)],
             () => _runtime.SetElement(env, js_object, index, value));
     }
 
@@ -1488,7 +1910,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), index.ToString() },
+            [Format(env, js_object), index.ToString()],
             () => (_runtime.DeleteElement(env, js_object, index, out resultValue),
                 Format(resultValue)));
         result = resultValue;
@@ -1500,13 +1922,11 @@ public class TracingJSRuntime : JSRuntime
     #region Property and class definition
 
     public override napi_status GetPropertyNames(
-        napi_env env,
-        napi_value js_object,
-        out napi_value result)
+        napi_env env, napi_value js_object, out napi_value result)
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object) },
+            [Format(env, js_object)],
             () => (_runtime.GetPropertyNames(env, js_object, out resultValue),
                 Format(env, resultValue)));
         result = resultValue;
@@ -1537,10 +1957,22 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
+    public override napi_status Freeze(napi_env env, napi_value value)
+    {
+        return TraceCall(
+            [Format(env, value)],
+            () => _runtime.Freeze(env, value));
+    }
+
+    public override napi_status Seal(napi_env env, napi_value value)
+    {
+        return TraceCall(
+            [Format(env, value)],
+            () => _runtime.Seal(env, value));
+    }
+
     public override napi_status DefineProperties(
-        napi_env env,
-        napi_value js_object,
-        ReadOnlySpan<napi_property_descriptor> properties)
+        napi_env env, napi_value js_object, ReadOnlySpan<napi_property_descriptor> properties)
     {
         // The combined TraceCall() can't be used with Span<T>.
         TraceCall(new[]
@@ -1592,7 +2024,7 @@ public class TracingJSRuntime : JSRuntime
             throw;
         }
 
-        TraceReturn(status, new[] { Format(env, result) });
+        TraceReturn(status, [Format(env, result)]);
         return status;
     }
 
@@ -1603,7 +2035,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object) },
+            [Format(env, js_object)],
             () => (_runtime.GetPrototype(env, js_object, out resultValue),
                 Format(env, resultValue)));
         result = resultValue;
@@ -1631,7 +2063,7 @@ public class TracingJSRuntime : JSRuntime
             throw;
         }
 
-        TraceReturn(status, new[] { Format(env, result) });
+        TraceReturn(status, [Format(env, result)]);
         return status;
     }
 
@@ -1643,7 +2075,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), Format(env, constructor) },
+            [Format(env, js_object), Format(env, constructor)],
             () => (_runtime.InstanceOf(env, js_object, constructor, out resultValue),
                 Format(resultValue)));
         result = resultValue;
@@ -1660,7 +2092,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_ref resultRef = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object), Format(native_object) },
+            [Format(env, js_object), Format(native_object)],
             () => (_runtime.Wrap(
                 env, js_object, native_object, finalize_cb, finalize_hint, out resultRef),
                 Format(env, resultRef)));
@@ -1672,7 +2104,7 @@ public class TracingJSRuntime : JSRuntime
     {
         nint resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object) },
+            [Format(env, js_object)],
             () => (_runtime.Unwrap(env, js_object, out resultValue), Format(resultValue)));
         result = resultValue;
         return status;
@@ -1682,8 +2114,529 @@ public class TracingJSRuntime : JSRuntime
     {
         nint resultValue = default;
         napi_status status = TraceCall(
-            new[] { Format(env, js_object) },
+            [Format(env, js_object)],
             () => (_runtime.RemoveWrap(env, js_object, out resultValue), Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status SetObjectTypeTag(
+        napi_env env, napi_value value, Guid typeTag)
+    {
+        napi_status status = TraceCall(
+            [Format(env, value), typeTag.ToString()],
+            () => _runtime.SetObjectTypeTag(env, value, typeTag));
+        return status;
+    }
+
+    public override napi_status CheckObjectTypeTag(
+        napi_env env, napi_value value, Guid typeTag, out bool result)
+    {
+        bool resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value), typeTag.ToString()],
+            () => (_runtime.CheckObjectTypeTag(env, value, typeTag, out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    #endregion
+
+    #region Thread-safe functions
+
+    public override napi_status CreateThreadSafeFunction(
+        napi_env env,
+        napi_value func,
+        napi_value asyncResource,
+        napi_value asyncResourceName,
+        int maxQueueSize,
+        int initialThreadCount,
+        nint threadFinalizeData,
+        napi_finalize threadFinalizeCallback,
+        nint context,
+        napi_threadsafe_function_call_js callJSCallback,
+        out napi_threadsafe_function result)
+    {
+        napi_threadsafe_function resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, func)],
+            () => (_runtime.CreateThreadSafeFunction(
+                env,
+                func,
+                asyncResource,
+                asyncResourceName,
+                maxQueueSize,
+                initialThreadCount,
+                threadFinalizeData,
+                threadFinalizeCallback,
+                context,
+                callJSCallback,
+                out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status CallThreadSafeFunction(
+        napi_threadsafe_function func,
+        nint data,
+        napi_threadsafe_function_call_mode isBlocking)
+    {
+        return TraceCall(
+            [Format(func), Format(data), isBlocking.ToString().Substring(10)],
+            () => _runtime.CallThreadSafeFunction(func, data, isBlocking));
+    }
+
+    public override napi_status GetThreadSafeFunctionContext(
+        napi_threadsafe_function func,
+        out nint result)
+    {
+        nint resultValue = default;
+        napi_status status = TraceCall(
+            [Format(func)],
+            () => (_runtime.GetThreadSafeFunctionContext(func, out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status AcquireThreadSafeFunction(napi_threadsafe_function func)
+    {
+        return TraceCall(
+            [Format(func)],
+            () => _runtime.AcquireThreadSafeFunction(func));
+    }
+
+    public override napi_status ReleaseThreadSafeFunction(
+        napi_threadsafe_function func,
+        napi_threadsafe_function_release_mode mode)
+    {
+        return TraceCall(
+            [Format(func), mode.ToString().Substring(10)],
+            () => _runtime.ReleaseThreadSafeFunction(func, mode));
+    }
+
+    public override napi_status RefThreadSafeFunction(napi_env env, napi_threadsafe_function func)
+    {
+        return TraceCall(
+            [Format(func)],
+            () => _runtime.RefThreadSafeFunction(env, func));
+    }
+
+    public override napi_status UnrefThreadSafeFunction(napi_env env, napi_threadsafe_function func)
+    {
+        return TraceCall(
+            [Format(func)],
+            () => _runtime.UnrefThreadSafeFunction(env, func));
+    }
+
+    #endregion
+
+    #region Async work
+
+    public override napi_status AsyncInit(
+        napi_env env,
+        napi_value asyncResource,
+        napi_value asyncResourceName,
+        out napi_async_context result)
+    {
+        napi_async_context resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, asyncResource)],
+            () => (_runtime.AsyncInit(
+                env,
+                asyncResource,
+                asyncResourceName,
+                out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status AsyncDestroy(napi_env env, napi_async_context asyncContext)
+    {
+        return TraceCall(
+            [Format(asyncContext)],
+            () => _runtime.AsyncDestroy(env, asyncContext));
+    }
+
+    public override napi_status CreateAsyncWork(
+        napi_env env,
+        napi_value asyncResource,
+        napi_value asyncResourceName,
+        napi_async_execute_callback execute,
+        napi_async_complete_callback complete,
+        nint data, out napi_async_work result)
+    {
+        napi_async_work resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, asyncResource)],
+            () => (_runtime.CreateAsyncWork(
+                env,
+                asyncResource,
+                asyncResourceName,
+                execute,
+                complete,
+                data,
+                out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status QueueAsyncWork(napi_env env, napi_async_work work)
+    {
+        return TraceCall(
+            [Format(work)],
+            () => _runtime.QueueAsyncWork(env, work));
+    }
+
+    public override napi_status DeleteAsyncWork(napi_env env, napi_async_work work)
+    {
+        return TraceCall(
+            [Format(work)],
+            () => _runtime.DeleteAsyncWork(env, work));
+    }
+
+    public override napi_status CancelAsyncWork(napi_env env, napi_async_work work)
+    {
+        return TraceCall(
+            [Format(work)],
+            () => _runtime.CancelAsyncWork(env, work));
+    }
+
+    public override napi_status MakeCallback(
+        napi_env env,
+        napi_async_context asyncContext,
+        napi_value recv,
+        napi_value func,
+        Span<napi_value> args,
+        out napi_value result)
+    {
+        // The combined TraceCall() can't be used with Span<T>.
+        TraceCall(new[] { Format(asyncContext), Format(env, recv), Format(env, func) }.Concat(
+            args.ToArray().Select((a) => Format(env, a))));
+
+        napi_status status;
+        try
+        {
+            status = _runtime.MakeCallback(env, asyncContext, recv, func, args, out result);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+
+        TraceReturn(status, [Format(env, result)]);
+        return status;
+    }
+
+    public override napi_status OpenCallbackScope(
+        napi_env env,
+        napi_value resourceObject,
+        napi_async_context asyncContext,
+        out napi_callback_scope result)
+    {
+        napi_callback_scope resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, resourceObject), Format(asyncContext)],
+            () => (_runtime.OpenCallbackScope(
+                env,
+                resourceObject,
+                asyncContext,
+                out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status CloseCallbackScope(napi_env env, napi_callback_scope scope)
+    {
+        return TraceCall(
+            [Format(scope)],
+            () => _runtime.CloseCallbackScope(env, scope));
+    }
+
+    #endregion
+
+    #region Cleanup hooks
+
+    public override napi_status AddAsyncCleanupHook(
+        napi_env env,
+        napi_async_cleanup_hook hook,
+        nint arg,
+        out napi_async_cleanup_hook_handle result)
+    {
+        napi_async_cleanup_hook_handle resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env)],
+            () => (_runtime.AddAsyncCleanupHook(
+                env,
+                hook,
+                arg,
+                out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status RemoveAsyncCleanupHook(
+        napi_async_cleanup_hook_handle removeHandle)
+    {
+        return TraceCall(
+            [Format(removeHandle)],
+            () => _runtime.RemoveAsyncCleanupHook(removeHandle));
+    }
+
+    public override napi_status AddEnvCleanupHook(
+        napi_env env,
+        napi_cleanup_hook callback,
+        nint userData)
+    {
+        return TraceCall(
+            [Format(env)],
+            () => _runtime.AddEnvCleanupHook(env, callback, userData));
+    }
+
+    public override napi_status RemoveEnvCleanupHook(
+        napi_env env,
+        napi_cleanup_hook callback,
+        nint userData)
+    {
+        return TraceCall(
+            [Format(env)],
+            () => _runtime.RemoveEnvCleanupHook(env, callback, userData));
+    }
+
+    #endregion
+
+    #region Buffers
+
+    public override napi_status IsBuffer(napi_env env, napi_value value, out bool result)
+    {
+        bool resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.IsBuffer(env, value, out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status CreateBuffer(napi_env env, Span<byte> data, out napi_value result)
+    {
+        // The combined TraceCall() can't be used with Span<T>.
+        TraceCall([$"[{data.Length}]"]);
+
+        napi_status status;
+        try
+        {
+            status = _runtime.CreateBuffer(env, data, out result);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+
+        TraceReturn(status, [Format(env, result)]);
+        return status;
+    }
+
+    public override napi_status CreateBufferCopy(
+        napi_env env, ReadOnlySpan<byte> data, out nint resultData, out napi_value result)
+    {
+        // The combined TraceCall() can't be used with Span<T>.
+        TraceCall([$"[{data.Length}]"]);
+
+        napi_status status;
+        try
+        {
+            status = _runtime.CreateBufferCopy(env, data, out resultData, out result);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+
+        TraceReturn(status, [Format(resultData), Format(env, result)]);
+        return status;
+    }
+
+    public override napi_status CreateExternalBuffer(
+        napi_env env,
+        Span<byte> data,
+        napi_finalize finalizeCallback,
+        nint finalizeHint,
+        out napi_value result)
+    {
+        // The combined TraceCall() can't be used with Span<T>.
+        TraceCall([$"[{data.Length}]"]);
+
+        napi_status status;
+        try
+        {
+            status = _runtime.CreateExternalBuffer(
+                env, data, finalizeCallback, finalizeHint, out result);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+
+        TraceReturn(status, [Format(env, result)]);
+        return status;
+    }
+
+    public override napi_status GetBufferInfo(
+        napi_env env, napi_value value, out nint data, out nuint length)
+    {
+        nint dataValue = default;
+        nuint lengthValue = default;
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.GetBufferInfo(env, value, out dataValue, out lengthValue),
+                [dataValue.ToString(), lengthValue.ToString()]));
+        data = dataValue;
+        length = lengthValue;
+        return status;
+    }
+
+    #endregion
+
+    #region Misc Node.js functions
+
+    [DoesNotReturn]
+    public override void FatalError(string location, string message)
+    {
+        TraceCall([location, message]);
+        _runtime.FatalError(location, message);
+    }
+
+    public override napi_status FatalException(napi_env env, napi_value err)
+    {
+        return TraceCall(
+            [Format(env, err)],
+            () => _runtime.FatalException(env, err));
+    }
+
+    public override napi_status GetUVEventLoop(napi_env env, out uv_loop_t result)
+    {
+        uv_loop_t resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env)],
+            () => (_runtime.GetUVEventLoop(env, out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override void RegisterModule(ref napi_module module)
+    {
+        TraceCall(Array.Empty<string>());
+
+        try
+        {
+            _runtime.RegisterModule(ref module);
+
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+        
+        TraceReturn(napi_status.napi_ok);
+    }
+
+    public override napi_status GetModuleFileName(napi_env env, out string result)
+    {
+        string resultValue = default!;
+        napi_status status = TraceCall(
+            Array.Empty<string>(),
+            () => (_runtime.GetModuleFileName(env, out resultValue), resultValue));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status GetNodeVersion(napi_env env, out napi_node_version result)
+    {
+        napi_node_version resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env)],
+            () => _runtime.GetNodeVersion(env, out resultValue));
+        result = resultValue;
+        return status;
+    }
+
+    #endregion
+
+    #region Embedding
+
+    public override napi_status CreatePlatform(
+        string[]? args, string[]? execArgs, Action<string>? errorHandler, out napi_platform result)
+    {
+        napi_platform resultValue = default;
+        napi_status status = TraceCall(
+            [
+                $"[{string.Join(", ", args ?? Array.Empty<string>())}]",
+                $"[{string.Join(", ", execArgs ?? Array.Empty<string>())}]",
+            ],
+            () => (_runtime.CreatePlatform(args, execArgs, errorHandler, out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status DestroyPlatform(napi_platform platform)
+    {
+        return TraceCall(
+            [Format(platform)],
+            () => _runtime.DestroyPlatform(platform));
+    }
+
+    public override napi_status CreateEnvironment(
+        napi_platform platform,
+        Action<string>? errorHandler,
+        string? mainScript,
+        out napi_env result)
+    {
+        napi_env resultValue = default;
+        napi_status status = TraceCall(
+            [Format(platform), Format(mainScript)],
+            () => (_runtime.CreateEnvironment(platform, errorHandler, mainScript, out resultValue),
+                Format(resultValue)));
+        result = resultValue;
+        return status;
+    }
+
+    public override napi_status DestroyEnvironment(napi_env env, out int exitCode)
+    {
+        int exitCodeValue = default;
+        napi_status status = TraceCall(
+            [Format(env)],
+            () => (_runtime.DestroyEnvironment(env, out exitCodeValue),
+                exitCodeValue.ToString()));
+        exitCode = exitCodeValue;
+        return status;
+    }
+
+    public override napi_status RunEnvironment(napi_env env)
+    {
+        return TraceCall([Format(env)], () => _runtime.RunEnvironment(env));
+    }
+
+    public override napi_status AwaitPromise(
+        napi_env env, napi_value promise, out napi_value result)
+    {
+        napi_value resultValue = default;
+        napi_status status = TraceCall(
+            [Format(env, promise)],
+            () => (_runtime.AwaitPromise(env, promise, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
     }

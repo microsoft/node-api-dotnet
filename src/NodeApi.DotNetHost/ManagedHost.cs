@@ -3,17 +3,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using System.Threading;
 using Microsoft.JavaScript.NodeApi.Interop;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+using Microsoft.JavaScript.NodeApi.Runtime;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
+#if !NET7_0_OR_GREATER
+using NativeLibrary = Microsoft.JavaScript.NodeApi.Runtime.NativeLibrary;
+#endif
 
 
 #if !NETFRAMEWORK
@@ -47,6 +52,8 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// assembly can be loaded at a time.
     /// </remarks>
     private string? _loadingPath;
+
+    private JSValueScope? _rootScope;
 
     /// <summary>
     /// Strong reference to the JS object that is the exports for this module.
@@ -203,22 +210,19 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         Trace($"    .NET Runtime version: {Environment.Version}");
 #endif
 
-#if DEBUG
-        if (Environment.GetEnvironmentVariable("DEBUG_NODE_API_RUNTIME") != null)
-        {
-            System.Diagnostics.Debugger.Launch();
-        }
-#endif
+        AttachDebugger();
 
-        using JSValueScope scope = new(JSValueScopeType.Root, env);
+        JSRuntime runtime = new NodejsRuntime();
 
         if (Environment.GetEnvironmentVariable("TRACE_NODE_API_RUNTIME") != null)
         {
             TraceSource trace = new(typeof(JSValue).Namespace!);
             trace.Switch.Level = SourceLevels.All;
             trace.Listeners.Add(new JSConsoleTraceListener());
-            JSNativeApi.EnableTracing(trace);
+            runtime = new TracingJSRuntime(runtime, trace);
         }
+
+        JSValueScope scope = new(JSValueScopeType.Root, env, runtime);
 
         try
         {
@@ -232,6 +236,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             }
 
             ManagedHost host = new(exportsObject);
+            host._rootScope = scope;
 
             Trace("< ManagedHost.InitializeModule()");
         }
@@ -597,6 +602,9 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     {
         if (disposing)
         {
+            _rootScope?.Dispose();
+            _rootScope = null;
+
 #if NETFRAMEWORK
             AppDomain.CurrentDomain.AssemblyResolve -= OnResolvingAssembly;
 #else
@@ -627,5 +635,71 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             string? format,
             params object?[]? args)
         => WriteLine(string.Format(format ?? string.Empty, args ?? Array.Empty<object>()));
+    }
+
+    [Conditional("DEBUG")]
+    private static void AttachDebugger()
+    {
+        string? debugValue = Environment.GetEnvironmentVariable("DEBUG_NODE_API_RUNTIME");
+        if (string.Equals(debugValue, "VS", StringComparison.OrdinalIgnoreCase))
+        {
+            // Launch the Visual Studio debugger.
+            Debugger.Launch();
+        }
+        else if (!string.IsNullOrEmpty(debugValue))
+        {
+            Process currentProcess = Process.GetCurrentProcess();
+            string processName = currentProcess.ProcessName;
+            int processId = currentProcess.Id;
+            Console.WriteLine("###################### DEBUG ######################");
+            Console.WriteLine($"Process \"{processName}\" ({processId}) is waiting for debugger.");
+
+            int waitSeconds = 20;
+            string waitingMessage = "Press any key to continue without debugging... ";
+
+            if (!Console.IsOutputRedirected)
+            {
+                Console.Write(waitingMessage + $"({waitSeconds})");
+            }
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            int remainingSeconds = waitSeconds;
+            while (!Debugger.IsAttached)
+            {
+                if (Console.KeyAvailable)
+                {
+                    Console.ReadKey(true);
+                    Console.WriteLine();
+                    return;
+                }
+                else if (stopwatch.Elapsed > TimeSpan.FromSeconds(waitSeconds))
+                {
+                    Console.WriteLine(
+                        $"Debugger did not attach after {waitSeconds} seconds. Continuing.");
+                    return;
+                }
+
+                Thread.Sleep(100);
+
+                if (remainingSeconds > waitSeconds - (int)stopwatch.Elapsed.TotalSeconds)
+                {
+                    remainingSeconds = waitSeconds - (int)stopwatch.Elapsed.TotalSeconds;
+
+                    if (!Console.IsOutputRedirected)
+                    {
+                        Console.CursorLeft = waitingMessage.Length;
+                        Console.Write($"({remainingSeconds:D2})");
+                    }
+                }
+            }
+
+            if (!Console.IsOutputRedirected)
+            {
+                Console.CursorLeft = waitingMessage.Length;
+                Console.WriteLine("    ");
+            }
+
+            Debugger.Break();
+        }
     }
 }

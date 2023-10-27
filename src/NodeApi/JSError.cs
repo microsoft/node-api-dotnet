@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -19,28 +19,29 @@ internal record struct JSErrorInfo(string? Message, napi_status Status)
 {
     public static unsafe JSErrorInfo GetLastErrorInfo()
     {
-        napi_get_last_error_info(
-            (napi_env)JSValueScope.Current,
-            out nint errorInfoHandle).ThrowIfFailed();
-        var errorInfo = (napi_extended_error_info*)errorInfoHandle;
+        JSValueScope currentScope = JSValueScope.Current;
+        currentScope.Runtime.GetLastErrorInfo(
+            (napi_env)currentScope,
+            out napi_extended_error_info? errorInfo).ThrowIfFailed();
         if (errorInfo == null)
         {
             return new JSErrorInfo(null, napi_status.napi_ok);
         }
 
-        if (errorInfo->error_message != null)
+        if (errorInfo.Value.error_message != null)
         {
 #if NETFRAMEWORK
-            string message = PtrToStringUTF8(errorInfo->error_message)!;
+            string message = PtrToStringUTF8(errorInfo.Value.error_message)!;
 #else
-            string message = Marshal.PtrToStringUTF8((nint)errorInfo->error_message)!;
+            string message = Marshal.PtrToStringUTF8((nint)errorInfo.Value.error_message)!;
 #endif
-            return new JSErrorInfo(message, errorInfo->error_code);
+            return new JSErrorInfo(message, errorInfo.Value.error_code);
         }
 
-        return new JSErrorInfo(null, errorInfo->error_code);
+        return new JSErrorInfo(null, errorInfo.Value.error_code);
     }
 
+#if NETFRAMEWORK
     private static unsafe string? PtrToStringUTF8(byte* ptr)
     {
         if (ptr == null) return null;
@@ -48,6 +49,7 @@ internal record struct JSErrorInfo(string? Message, napi_status Status)
         while (ptr[length] != 0) length++;
         return Encoding.UTF8.GetString(ptr, length);
     }
+#endif
 }
 
 public struct JSError
@@ -202,7 +204,8 @@ public struct JSError
         if (IsExceptionPending())
             throw new JSException(new JSError());
 
-        napi_status status = napi_throw((napi_env)JSValueScope.Current, (napi_value)Value);
+        napi_status status = scope.Runtime.Throw(
+            (napi_env)JSValueScope.Current, (napi_value)Value);
         if (status == napi_status.napi_ok)
             return;
 
@@ -261,7 +264,8 @@ public struct JSError
                 JSPropertyDescriptor.ForValue("__jsStack", jsStack));
         }
 
-        napi_status status = napi_throw((napi_env)JSValueScope.Current, (napi_value)error);
+        napi_status status = error.Scope.Runtime.Throw(
+            (napi_env)JSValueScope.Current, (napi_value)error);
 
         if (status != napi_status.napi_ok && status != napi_status.napi_pending_exception)
         {
@@ -305,7 +309,8 @@ public struct JSError
                              [CallerMemberName] string memberName = "",
                              [CallerFilePath] string sourceFilePath = "",
                              [CallerLineNumber] int sourceLineNumber = 0)
-        => napi_fatal_error($"{memberName} at {sourceFilePath}:{sourceLineNumber}", message);
+        => JSValueScope.CurrentRuntime.FatalError(
+            $"{memberName} at {sourceFilePath}:{sourceLineNumber}", message);
 
     private static JSReference CreateErrorReference(JSValue error)
     {
@@ -321,7 +326,7 @@ public struct JSError
         // Wrap error value
         JSValue wrappedErrorObj = JSValue.CreateObject();
         wrappedErrorObj.DefineProperties(
-            new JSPropertyDescriptor((JSValue)ErrorWrapValue, value: error));
+            new JSPropertyDescriptor(ErrorWrapValue, value: error));
 
         return new JSReference(wrappedErrorObj);
     }

@@ -32,13 +32,11 @@ function test (binding) {
 
   testDeleteProperty(binding.object.deletePropertyWithNapiValue);
   testDeleteProperty(binding.object.deletePropertyWithNapiWrapperValue);
-  testDeleteProperty(binding.object.deletePropertyWithLatin1StyleString);
   testDeleteProperty(binding.object.deletePropertyWithUtf8StyleString);
   testDeleteProperty(binding.object.deletePropertyWithCSharpStyleString);
 
   testShouldThrowErrorIfKeyIsInvalid(binding.object.deletePropertyWithNapiValue);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.deletePropertyWithNapiWrapperValue);
-  testShouldThrowErrorIfKeyIsInvalid(binding.object.deletePropertyWithLatin1StyleString);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.deletePropertyWithUtf8StyleString);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.deletePropertyWithCSharpStyleString);
 }

@@ -25,9 +25,9 @@ public class TestBasicTypesArray : TestHelper, ITestObject
 
     public JSObject Init() => new()
     {
-        Method(CreateArray, nameof(CreateArray)),
-        Method(GetLength, nameof(GetLength)),
-        Method(Get, nameof(Get)),
-        Method(Set, nameof(Set)),
+        Method(CreateArray),
+        Method(GetLength),
+        Method(Get),
+        Method(Set),
     };
 }

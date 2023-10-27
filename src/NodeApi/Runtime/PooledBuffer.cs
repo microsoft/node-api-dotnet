@@ -2,9 +2,9 @@ using System;
 using System.Buffers;
 using System.Text;
 
-namespace Microsoft.JavaScript.NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Runtime;
 
-public struct PooledBuffer : IDisposable
+internal struct PooledBuffer : IDisposable
 {
     private ArrayPool<byte>? _pool;
     public static readonly PooledBuffer Empty = new(null, Array.Empty<byte>(), 0);

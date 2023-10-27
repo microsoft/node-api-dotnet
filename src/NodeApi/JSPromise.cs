@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -284,14 +284,15 @@ public readonly struct JSPromise : IEquatable<JSValue>
         public readonly void Resolve(JSValue resolution)
         {
             // _handle becomes invalid after this call
-            napi_resolve_deferred((napi_env)JSValueScope.Current, _handle, (napi_value)resolution)
+            JSValueScope.CurrentRuntime.ResolveDeferred(
+                (napi_env)JSValueScope.Current, _handle, (napi_value)resolution)
                 .ThrowIfFailed();
         }
 
         public readonly void Reject(JSError rejection)
         {
             // _handle becomes invalid after this call
-            napi_reject_deferred(
+            JSValueScope.CurrentRuntime.RejectDeferred(
                 (napi_env)JSValueScope.Current, _handle, (napi_value)rejection.Value)
                 .ThrowIfFailed();
         }

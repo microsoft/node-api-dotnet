@@ -3,7 +3,7 @@
 
 using System;
 using System.Runtime.InteropServices;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -31,7 +31,7 @@ public readonly ref struct JSCallbackArgs
         object? data = null)
     {
         napi_env env = (napi_env)scope;
-        JSNativeApi.CurrentRuntime.GetCallbackArgs(env, callbackInfo, args, out napi_value thisArg)
+        scope.Runtime.GetCallbackArgs(env, callbackInfo, args, out napi_value thisArg)
             .ThrowIfFailed();
         Scope = scope;
         _thisArg = thisArg;
@@ -50,12 +50,12 @@ public readonly ref struct JSCallbackArgs
     public object? Data { get; }
 
     internal static void GetDataAndLength(
-        napi_env env,
+        JSValueScope scope,
         napi_callback_info callbackInfo,
         out object? data,
         out int length)
     {
-        JSNativeApi.CurrentRuntime.GetCallbackInfo(env, callbackInfo, out length, out nint data_ptr)
+        scope.Runtime.GetCallbackInfo((napi_env)scope, callbackInfo, out length, out nint data_ptr)
             .ThrowIfFailed();
         data = data_ptr != 0 ? GCHandle.FromIntPtr(data_ptr).Target : null;
     }

@@ -23,7 +23,7 @@ public partial class TestObjectFreezeSeal : TestHelper, ITestObject
 
     public JSObject Init() => new()
     {
-        Method(Freeze, nameof(Freeze)),
-        Method(Seal, nameof(Seal)),
+        Method(Freeze),
+        Method(Seal),
     };
 }

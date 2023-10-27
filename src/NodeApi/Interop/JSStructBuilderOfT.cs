@@ -102,7 +102,7 @@ public class JSStructBuilder<T> where T : struct
         // Note this does not use Wrap() because structs are passed by value.
         JSValue classObject = JSNativeApi.DefineClass(
             StructName,
-            new JSCallbackDescriptor((args) => args.ThisArg),
+            new JSCallbackDescriptor(StructName, (args) => args.ThisArg),
             Properties.ToArray());
 
         // The class object wraps the Type, so it can be easily converted when passed

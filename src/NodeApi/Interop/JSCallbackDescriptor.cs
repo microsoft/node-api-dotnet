@@ -19,6 +19,11 @@ public readonly struct JSCallbackDescriptor
     internal JSModuleContext? ModuleContext { get; }
 
     /// <summary>
+    /// Gets the name of the callback, for debugging purposes.
+    /// </summary>
+    public string? Name { get; }
+
+    /// <summary>
     /// Gets the callback that handles invocations from JavaScript.
     /// </summary>
     public JSCallback Callback { get; }
@@ -30,15 +35,27 @@ public readonly struct JSCallbackDescriptor
     public object? Data { get; }
 
     public JSCallbackDescriptor(JSCallback callback, object? data = null)
-        : this(callback, data, JSValueScope.Current.ModuleContext)
+        : this(null, callback, data, JSValueScope.Current.ModuleContext)
+    {
+    }
+
+    public JSCallbackDescriptor(string? name, JSCallback callback, object? data = null)
+        : this(name, callback, data, JSValueScope.Current.ModuleContext)
     {
     }
 
     internal JSCallbackDescriptor(JSCallback callback, object? data, JSModuleContext? moduleContext)
+        : this(null, callback, data, moduleContext)
     {
-        ModuleContext = moduleContext;
+    }
+
+    internal JSCallbackDescriptor(
+        string? name, JSCallback callback, object? data, JSModuleContext? moduleContext)
+    {
+        Name = name;
         Callback = callback ?? throw new ArgumentNullException(nameof(callback));
         Data = data;
+        ModuleContext = moduleContext;
     }
 
     public static implicit operator JSCallbackDescriptor(JSCallback callback) => new(callback);

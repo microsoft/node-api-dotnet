@@ -3,12 +3,10 @@
 
 using System;
 using System.Runtime.InteropServices;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
-#if !NET7_0_OR_GREATER
-using NativeLibrary = Microsoft.JavaScript.NodeApi.NativeLibrary;
-#endif
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
+
+using static JSRuntime;
 
 /// <summary>
 /// Manages a Node.js platform instance, provided by `libnode`.
@@ -46,9 +44,10 @@ public sealed class NodejsPlatform : IDisposable
         }
 
         nint libnodeHandle = NativeLibrary.Load(libnodePath);
-        JSNativeApi.Interop.Initialize(libnodeHandle);
+        Runtime = new NodejsRuntime(libnodeHandle);
 
-        _platform = JSNativeApi.CreatePlatform(args, execArgs, (error) => Console.WriteLine(error));
+        Runtime.CreatePlatform(args, execArgs, (error) => Console.WriteLine(error), out _platform)
+            .ThrowIfFailed();
         Current = this;
     }
 
@@ -56,6 +55,8 @@ public sealed class NodejsPlatform : IDisposable
     /// Gets the Node.js platform instance for the current process, or null if not initialized.
     /// </summary>
     public static NodejsPlatform? Current { get; private set; }
+
+    public JSRuntime Runtime { get; }
 
     /// <summary>
     /// Gets a value indicating whether the current platform has been disposed.
@@ -71,7 +72,7 @@ public sealed class NodejsPlatform : IDisposable
         if (IsDisposed) return;
         IsDisposed = true;
 
-        JSNativeApi.DestroyPlatform(_platform);
+        Runtime.DestroyPlatform(_platform);
     }
 
     /// <summary>

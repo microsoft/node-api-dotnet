@@ -14,7 +14,11 @@ public readonly struct JSPropertyDescriptor
     /// </summary>
     internal JSModuleContext? ModuleContext { get; init; }
 
-    public JSValue Name { get; }
+    // Either Name or NameValue should be non-null.
+    // NameValue supports non-string property names like symbols.
+    public string? Name { get; }
+    public JSValue? NameValue { get; }
+
     public JSCallback? Method { get; }
     public JSCallback? Getter { get; }
     public JSCallback? Setter { get; }
@@ -23,7 +27,7 @@ public readonly struct JSPropertyDescriptor
     public object? Data { get; }
 
     public JSPropertyDescriptor(
-        JSValue name,
+        string name,
         JSCallback? method = null,
         JSCallback? getter = null,
         JSCallback? setter = null,
@@ -42,8 +46,28 @@ public readonly struct JSPropertyDescriptor
         Data = data;
     }
 
-    public static JSPropertyDescriptor Accessor(
+    public JSPropertyDescriptor(
         JSValue name,
+        JSCallback? method = null,
+        JSCallback? getter = null,
+        JSCallback? setter = null,
+        JSValue? value = null,
+        JSPropertyAttributes attributes = JSPropertyAttributes.Default,
+        object? data = null)
+    {
+        ModuleContext = JSValueScope.Current.ModuleContext;
+
+        NameValue = name;
+        Method = method;
+        Getter = getter;
+        Setter = setter;
+        Value = value;
+        Attributes = attributes;
+        Data = data;
+    }
+
+    public static JSPropertyDescriptor Accessor(
+        string name,
         JSCallback? getter = null,
         JSCallback? setter = null,
         JSPropertyAttributes attributes = JSPropertyAttributes.Default,
@@ -58,7 +82,7 @@ public readonly struct JSPropertyDescriptor
     }
 
     public static JSPropertyDescriptor ForValue(
-        JSValue name,
+        string name,
         JSValue value,
         JSPropertyAttributes attributes = JSPropertyAttributes.Default,
         object? data = null)
@@ -67,7 +91,7 @@ public readonly struct JSPropertyDescriptor
     }
 
     public static JSPropertyDescriptor Function(
-        JSValue name,
+        string name,
         JSCallback method,
         JSPropertyAttributes attributes = JSPropertyAttributes.Default,
         object? data = null)

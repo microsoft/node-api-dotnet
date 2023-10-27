@@ -10,7 +10,7 @@ using BenchmarkDotNet.Running;
 using Microsoft.JavaScript.NodeApi.DotNetHost;
 using Microsoft.JavaScript.NodeApi.Interop;
 using Microsoft.JavaScript.NodeApi.Runtime;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
 namespace Microsoft.JavaScript.NodeApi.Bench;
@@ -87,10 +87,11 @@ public abstract class Benchmarks
 
         // This setup avoids using NodejsEnvironment so benchmarks can run on the same thread.
         // NodejsEnvironment creates a separate thread that would slow down the micro-benchmarks.
-        _env = JSNativeApi.CreateEnvironment(platform, (error) => Console.WriteLine(error), null);
+        platform.Runtime.CreateEnvironment(platform, Console.WriteLine, null, out _env)
+            .ThrowIfFailed();
 
         // The new scope instance saves itself as the thread-local JSValueScope.Current.
-        JSValueScope scope = new(JSValueScopeType.Root, _env);
+        JSValueScope scope = new(JSValueScopeType.Root, _env, platform.Runtime);
 
         // Create some JS values that will be used by the benchmarks.
 

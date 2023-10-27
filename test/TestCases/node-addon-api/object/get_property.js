@@ -31,7 +31,6 @@ function test(binding) {
   const nativeFunctions = [
     binding.object.getPropertyWithNapiValue,
     binding.object.getPropertyWithNapiWrapperValue,
-    binding.object.getPropertyWithLatin1StyleString,
     binding.object.getPropertyWithUtf8StyleString,
     binding.object.getPropertyWithCSharpStyleString
   ];

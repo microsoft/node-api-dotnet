@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
+
+using static NodejsRuntime;
 
 /// <summary>
 /// Abstract base class for a JavaScript runtime.
@@ -34,14 +36,27 @@ namespace Microsoft.JavaScript.NodeApi.Runtime;
 /// <see cref="NotSupportedException"/>. This makes it easier to create runtime classes
 /// (or test mocks) that implement only part of the API surface.
 /// </remarks>
-public abstract class JSRuntime
+public abstract partial class JSRuntime
 {
     private static NotSupportedException NS([CallerMemberName] string name = "")
         => new($"The {name} method is not supported by the current JS runtime.");
 
+    public abstract bool IsAvailable(string functionName);
+
     public virtual napi_status GetVersion(napi_env env, out uint result) => throw NS();
 
     public virtual napi_status RunScript(napi_env env, napi_value script, out napi_value result) => throw NS();
+
+    public virtual napi_status AddFinalizer(
+        napi_env env,
+        napi_value value,
+        nint finalizeData,
+        napi_finalize finalizeCallback,
+        nint finalizeHint,
+        out napi_ref result) => throw NS();
+
+    public virtual napi_status AdjustExternalMemory(
+        napi_env env, long changeInBytes, out long result) => throw NS();
 
     #region Instance data
 
@@ -82,7 +97,7 @@ public abstract class JSRuntime
     public virtual napi_status ThrowSyntaxError(napi_env env, string? code, string msg) => throw NS();
 
     public virtual napi_status IsExceptionPending(napi_env env, out bool result) => throw NS();
-    public virtual napi_status GetLastErrorInfo(napi_env env, out napi_extended_error_info result) => throw NS();
+    public virtual napi_status GetLastErrorInfo(napi_env env, out napi_extended_error_info? result) => throw NS();
     public virtual napi_status GetAndClearLastException(napi_env env, out napi_value result) => throw NS();
 
     #endregion
@@ -107,12 +122,32 @@ public abstract class JSRuntime
     public virtual napi_status GetValueInt32(napi_env env, napi_value value, out int result) => throw NS();
     public virtual napi_status GetValueUInt32(napi_env env, napi_value value, out uint result) => throw NS();
     public virtual napi_status GetValueInt64(napi_env env, napi_value value, out long result) => throw NS();
+    public virtual napi_status GetValueBigInt64(napi_env env, napi_value value, out long result, out bool lossless) => throw NS();
+    public virtual napi_status GetValueBigInt64(napi_env env, napi_value value, out ulong result, out bool lossless) => throw NS();
+    public virtual napi_status GetValueBigInt(napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result) => throw NS();
     public virtual napi_status GetValueBool(napi_env env, napi_value value, out bool result) => throw NS();
     public virtual napi_status GetValueStringUtf8(napi_env env, napi_value value, Span<byte> buf, out int result) => throw NS();
     public virtual napi_status GetValueStringUtf16(napi_env env, napi_value value, Span<char> buf, out int result) => throw NS();
     public virtual napi_status GetValueDate(napi_env env, napi_value value, out double result) => throw NS();
     public virtual napi_status GetSymbolFor(napi_env env, string name, out napi_value result) => throw NS();
     public virtual napi_status GetArrayLength(napi_env env, napi_value value, out int result) => throw NS();
+    public virtual napi_status GetArrayBufferInfo(
+        napi_env env, napi_value value, out nint data, out nuint length) => throw NS();
+    public virtual napi_status GetTypedArrayInfo(
+        napi_env env,
+        napi_value value,
+        out napi_typedarray_type type,
+        out nuint byteLength,
+        out nint data,
+        out napi_value arraybuffer,
+        out nuint offset) => throw NS();
+    public virtual napi_status GetDataViewInfo(
+        napi_env env,
+        napi_value value,
+        out nuint byteLength,
+        out nint data,
+        out napi_value arraybuffer,
+        out nuint offset) => throw NS();
     public virtual napi_status GetValueArrayBuffer(napi_env env, napi_value arraybuffer, out nint data) => throw NS();
     public virtual napi_status GetValueTypedArray(
         napi_env env,
@@ -143,6 +178,9 @@ public abstract class JSRuntime
     public virtual napi_status CreateNumber(napi_env env, int value, out napi_value result) => throw NS();
     public virtual napi_status CreateNumber(napi_env env, uint value, out napi_value result) => throw NS();
     public virtual napi_status CreateNumber(napi_env env, long value, out napi_value result) => throw NS();
+    public virtual napi_status CreateBigInt(napi_env env, long value, out napi_value result) => throw NS();
+    public virtual napi_status CreateBigInt(napi_env env, ulong value, out napi_value result) => throw NS();
+    public virtual napi_status CreateBigInt(napi_env env, int sign, ReadOnlySpan<ulong> words, out napi_value result) => throw NS();
     public virtual napi_status CreateString(napi_env env, ReadOnlySpan<byte> utf8Str, out napi_value result) => throw NS();
     public virtual napi_status CreateString(napi_env env, ReadOnlySpan<char> utf16Str, out napi_value result) => throw NS();
     public virtual napi_status CreateDate(napi_env env, double time, out napi_value result) => throw NS();
@@ -196,7 +234,10 @@ public abstract class JSRuntime
 
     #region Value coercion
 
-    // TODO
+    public virtual napi_status CoerceToBool(napi_env env, napi_value value, out napi_value result) => throw NS();
+    public virtual napi_status CoerceToNumber(napi_env env, napi_value value, out napi_value result) => throw NS();
+    public virtual napi_status CoerceToObject(napi_env env, napi_value value, out napi_value result) => throw NS();
+    public virtual napi_status CoerceToString(napi_env env, napi_value value, out napi_value result) => throw NS();
 
     #endregion
 
@@ -221,7 +262,7 @@ public abstract class JSRuntime
     public virtual napi_status CreateReference(
         napi_env env,
         napi_value value,
-        uint initial_refcount,
+        uint initialRefcount,
         out napi_ref result) => throw NS();
     public virtual napi_status DeleteReference(napi_env env, napi_ref @ref) => throw NS();
     public virtual napi_status RefReference(napi_env env, napi_ref @ref, out uint result) => throw NS();
@@ -248,6 +289,10 @@ public abstract class JSRuntime
         napi_callback_info cbinfo,
         Span<napi_value> args,
         out napi_value this_arg) => throw NS();
+    public virtual napi_status GetNewTarget(
+        napi_env env,
+        napi_callback_info cbinfo,
+        out napi_value result) => throw NS();
 
     #endregion
 
@@ -295,6 +340,8 @@ public abstract class JSRuntime
         napi_key_filter key_filter,
         napi_key_conversion key_conversion,
         out napi_value result) => throw NS();
+    public virtual napi_status Freeze(napi_env env, napi_value value) => throw NS();
+    public virtual napi_status Seal(napi_env env, napi_value value) => throw NS();
     public virtual napi_status DefineProperties(
         napi_env env,
         napi_value js_object,
@@ -331,6 +378,145 @@ public abstract class JSRuntime
         out napi_ref result) => throw NS();
     public virtual napi_status Unwrap(napi_env env, napi_value js_object, out nint result) => throw NS();
     public virtual napi_status RemoveWrap(napi_env env, napi_value js_object, out nint result) => throw NS();
+    public virtual napi_status SetObjectTypeTag(
+        napi_env env, napi_value value, Guid typeTag) => throw NS();
+    public virtual napi_status CheckObjectTypeTag(
+        napi_env env, napi_value value, Guid typeTag, out bool result) => throw NS();
+
+    #endregion
+
+    #region Thread-safe functions
+
+    public virtual napi_status CreateThreadSafeFunction(
+        napi_env env,
+        napi_value func,
+        napi_value asyncResource,
+        napi_value asyncResourceName,
+        int maxQueueSize,
+        int initialThreadCount,
+        nint threadFinalizeData,
+        napi_finalize threadFinalizeCallback,
+        nint context,
+        napi_threadsafe_function_call_js callJSCallback,
+        out napi_threadsafe_function result) => throw NS();
+    public virtual napi_status CallThreadSafeFunction(
+        napi_threadsafe_function func,
+        nint data,
+        napi_threadsafe_function_call_mode isBlocking) => throw NS();
+    public virtual napi_status GetThreadSafeFunctionContext(
+        napi_threadsafe_function func,
+        out nint result) => throw NS();
+    public virtual napi_status AcquireThreadSafeFunction(napi_threadsafe_function func) => throw NS();
+    public virtual napi_status ReleaseThreadSafeFunction(
+        napi_threadsafe_function func,
+        napi_threadsafe_function_release_mode mode) => throw NS();
+    public virtual napi_status RefThreadSafeFunction(napi_env env, napi_threadsafe_function func) => throw NS();
+    public virtual napi_status UnrefThreadSafeFunction(napi_env env, napi_threadsafe_function func) => throw NS();
+
+    #endregion
+
+    #region Async work
+
+    public virtual napi_status AsyncInit(
+        napi_env env,
+        napi_value asyncResource,
+        napi_value asyncResourceName,
+        out napi_async_context result) => throw NS();
+    public virtual napi_status AsyncDestroy(napi_env env, napi_async_context asyncContext) => throw NS();
+    public virtual napi_status CreateAsyncWork(
+        napi_env env,
+        napi_value asyncResource,
+        napi_value asyncResourceName,
+        napi_async_execute_callback execute,
+        napi_async_complete_callback complete,
+        nint data,
+        out napi_async_work result) => throw NS();
+    public virtual napi_status QueueAsyncWork(napi_env env, napi_async_work work) => throw NS();
+    public virtual napi_status DeleteAsyncWork(napi_env env, napi_async_work work) => throw NS();
+    public virtual napi_status CancelAsyncWork(napi_env env, napi_async_work work) => throw NS();
+
+    public virtual napi_status MakeCallback(
+        napi_env env,
+        napi_async_context asyncContext,
+        napi_value recv,
+        napi_value func,
+        Span<napi_value> args,
+        out napi_value result) => throw NS();
+    public virtual napi_status OpenCallbackScope(
+        napi_env env,
+        napi_value resourceObject,
+        napi_async_context asyncContext,
+        out napi_callback_scope result) => throw NS();
+    public virtual napi_status CloseCallbackScope(napi_env env, napi_callback_scope scope) => throw NS();
+
+    #endregion
+
+    #region Cleanup hooks
+
+    public virtual napi_status AddAsyncCleanupHook(
+        napi_env env,
+        napi_async_cleanup_hook hook,
+        nint arg,
+        out napi_async_cleanup_hook_handle result) => throw NS();
+    public virtual napi_status RemoveAsyncCleanupHook(napi_async_cleanup_hook_handle removeHandle) => throw NS();
+    public virtual napi_status AddEnvCleanupHook(napi_env env, napi_cleanup_hook func, nint arg) => throw NS();
+    public virtual napi_status RemoveEnvCleanupHook(napi_env env, napi_cleanup_hook func, nint arg) => throw NS();
+
+    #endregion
+
+    #region Buffers
+
+    public virtual napi_status IsBuffer(napi_env env, napi_value value, out bool result) => throw NS();
+    public virtual napi_status CreateBuffer(napi_env env, Span<byte> data, out napi_value result) => throw NS();
+    public virtual napi_status CreateBufferCopy(
+        napi_env env,
+        ReadOnlySpan<byte> data,
+        out nint resultData,
+        out napi_value result) => throw NS();
+    public virtual napi_status CreateExternalBuffer(
+        napi_env env,
+        Span<byte> data,
+        napi_finalize finalizeCallback,
+        nint finalizeHint,
+        out napi_value result) => throw NS();
+    public virtual napi_status GetBufferInfo(
+        napi_env env,
+        napi_value value,
+        out nint data,
+        out nuint length) => throw NS();
+
+    #endregion
+
+    #region Misc Node.js functions
+
+    [DoesNotReturn]
+    public virtual void FatalError(string location, string message) => throw NS();
+    public virtual napi_status FatalException(napi_env env, napi_value err) => throw NS();
+    
+    public virtual napi_status GetUVEventLoop(napi_env env, out uv_loop_t result) => throw NS();
+
+    public virtual void RegisterModule(ref napi_module module) => throw NS();
+    public virtual napi_status GetModuleFileName(napi_env env, out string result) => throw NS();
+    public virtual napi_status GetNodeVersion(napi_env env, out napi_node_version result) => throw NS();
+
+    #endregion
+
+    #region Embedding
+
+    public virtual napi_status CreatePlatform(
+        string[]? args,
+        string[]? execArgs,
+        Action<string>? errorHandler,
+        out napi_platform result) => throw NS();
+    public virtual napi_status DestroyPlatform(napi_platform platform) => throw NS();
+    public virtual napi_status CreateEnvironment(
+        napi_platform platform,
+        Action<string>? errorHandler,
+        string? mainScript,
+        out napi_env result) => throw NS();
+    public virtual napi_status DestroyEnvironment(napi_env env, out int exitCode) => throw NS();
+    public virtual napi_status RunEnvironment(napi_env env) => throw NS();
+    public virtual napi_status AwaitPromise(napi_env env, napi_value promise, out napi_value result) => throw NS();
 
     #endregion
 }

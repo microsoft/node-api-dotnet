@@ -22,14 +22,12 @@ function test(binding) {
 
   testSetProperty(binding.object.setPropertyWithNapiValue);
   testSetProperty(binding.object.setPropertyWithNapiWrapperValue);
-  testSetProperty(binding.object.setPropertyWithLatin1StyleString);
   testSetProperty(binding.object.setPropertyWithUtf8StyleString);
   testSetProperty(binding.object.setPropertyWithCSharpStyleString);
   testSetProperty(binding.object.setPropertyWithUInt32, 12);
 
   testShouldThrowErrorIfKeyIsInvalid(binding.object.setPropertyWithNapiValue);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.setPropertyWithNapiWrapperValue);
-  testShouldThrowErrorIfKeyIsInvalid(binding.object.setPropertyWithLatin1StyleString);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.setPropertyWithUtf8StyleString);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.setPropertyWithCSharpStyleString);
 }

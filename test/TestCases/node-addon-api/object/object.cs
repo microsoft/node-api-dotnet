@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Microsoft.JavaScript.NodeApi;
 
 namespace Microsoft.JavaScript.NodeApiTest;
@@ -106,7 +105,7 @@ public partial class TestObject : TestHelper, ITestObject
         JSValue obj = args[0];
         JSValue name = args[1];
         JSValue value = args[2];
-        obj.DefineProperties(JSPropertyDescriptor.ForValue(name, value));
+        obj.DefineProperties(new JSPropertyDescriptor(name, null, null, null, value));
         return JSValue.Undefined;
     }
 
@@ -122,7 +121,7 @@ public partial class TestObject : TestHelper, ITestObject
         obj["0.0f"] = 0.0f;
         obj["0.0"] = 0.0;
         obj["-1"] = -1;
-        obj["foo2"] = new ReadOnlySpan<byte>(new byte[] { (byte)'f', (byte)'o', (byte)'o' });
+        obj["foo2"] = new ReadOnlySpan<byte>([(byte)'f', (byte)'o', (byte)'o']);
         obj["foo4"] = "foo";
         obj["circular"] = obj;
         obj["circular2"] = obj;
@@ -161,61 +160,54 @@ public partial class TestObject : TestHelper, ITestObject
         return obj.InstanceOf(constructor);
     }
 
-    public JSObject Init() => new()
-    {
-        Method(GetPropertyNames, nameof(GetPropertyNames)),
-        Method(DefineProperties, nameof(DefineProperties)),
-        Method(DefineValueProperty, nameof(DefineValueProperty)),
+    public JSObject Init() =>
+    [
+        Method(GetPropertyNames),
+        Method(DefineProperties),
+        Method(DefineValueProperty),
 
-        Method(GetPropertyWithNapiValue, nameof(GetPropertyWithNapiValue)),
-        Method(GetPropertyWithNapiWrapperValue, nameof(GetPropertyWithNapiWrapperValue)),
-        Method(GetPropertyWithLatin1StyleString, nameof(GetPropertyWithLatin1StyleString)),
-        Method(GetPropertyWithUtf8StyleString, nameof(GetPropertyWithUtf8StyleString)),
-        Method(GetPropertyWithCSharpStyleString, nameof(GetPropertyWithCSharpStyleString)),
-        Method(GetPropertyWithUInt32, nameof(GetPropertyWithUInt32)),
+        Method(GetPropertyWithNapiValue),
+        Method(GetPropertyWithNapiWrapperValue),
+        Method(GetPropertyWithUtf8StyleString),
+        Method(GetPropertyWithCSharpStyleString),
+        Method(GetPropertyWithUInt32),
 
-        Method(SetPropertyWithNapiValue, nameof(SetPropertyWithNapiValue)),
-        Method(SetPropertyWithNapiWrapperValue, nameof(SetPropertyWithNapiWrapperValue)),
-        Method(SetPropertyWithLatin1StyleString, nameof(SetPropertyWithLatin1StyleString)),
-        Method(SetPropertyWithUtf8StyleString, nameof(SetPropertyWithUtf8StyleString)),
-        Method(SetPropertyWithCSharpStyleString, nameof(SetPropertyWithCSharpStyleString)),
-        Method(SetPropertyWithUInt32, nameof(SetPropertyWithUInt32)),
+        Method(SetPropertyWithNapiValue),
+        Method(SetPropertyWithNapiWrapperValue),
+        Method(SetPropertyWithUtf8StyleString),
+        Method(SetPropertyWithCSharpStyleString),
+        Method(SetPropertyWithUInt32),
 
-        Method(DeletePropertyWithNapiValue, nameof(DeletePropertyWithNapiValue)),
-        Method(DeletePropertyWithNapiWrapperValue, nameof(DeletePropertyWithNapiWrapperValue)),
-        Method(DeletePropertyWithLatin1StyleString, nameof(DeletePropertyWithLatin1StyleString)),
-        Method(DeletePropertyWithUtf8StyleString, nameof(DeletePropertyWithUtf8StyleString)),
-        Method(DeletePropertyWithCSharpStyleString, nameof(DeletePropertyWithCSharpStyleString)),
-        Method(DeletePropertyWithUInt32, nameof(DeletePropertyWithUInt32)),
+        Method(DeletePropertyWithNapiValue),
+        Method(DeletePropertyWithNapiWrapperValue),
+        Method(DeletePropertyWithUtf8StyleString),
+        Method(DeletePropertyWithCSharpStyleString),
+        Method(DeletePropertyWithUInt32),
 
-        Method(HasOwnPropertyWithNapiValue, nameof(HasOwnPropertyWithNapiValue)),
-        Method(HasOwnPropertyWithNapiWrapperValue, nameof(HasOwnPropertyWithNapiWrapperValue)),
-        Method(HasOwnPropertyWithLatin1StyleString, nameof(HasOwnPropertyWithLatin1StyleString)),
-        Method(HasOwnPropertyWithUtf8StyleString, nameof(HasOwnPropertyWithUtf8StyleString)),
-        Method(HasOwnPropertyWithCSharpStyleString, nameof(HasOwnPropertyWithCSharpStyleString)),
+        Method(HasOwnPropertyWithNapiValue),
+        Method(HasOwnPropertyWithNapiWrapperValue),
+        Method(HasOwnPropertyWithUtf8StyleString),
+        Method(HasOwnPropertyWithCSharpStyleString),
 
-        Method(HasPropertyWithNapiValue, nameof(HasPropertyWithNapiValue)),
-        Method(HasPropertyWithNapiWrapperValue, nameof(HasPropertyWithNapiWrapperValue)),
-        Method(HasPropertyWithLatin1StyleString, nameof(HasPropertyWithLatin1StyleString)),
-        Method(HasPropertyWithUtf8StyleString, nameof(HasPropertyWithUtf8StyleString)),
-        Method(HasPropertyWithCSharpStyleString, nameof(HasPropertyWithCSharpStyleString)),
-        Method(HasPropertyWithUInt32, nameof(HasPropertyWithUInt32)),
+        Method(HasPropertyWithNapiValue),
+        Method(HasPropertyWithNapiWrapperValue),
+        Method(HasPropertyWithUtf8StyleString),
+        Method(HasPropertyWithCSharpStyleString),
+        Method(HasPropertyWithUInt32),
 
-        Method(CreateObjectUsingMagic, nameof(CreateObjectUsingMagic)),
-        Method(Sum, nameof(Sum)),
-        Method(Increment, nameof(Increment)),
+        Method(CreateObjectUsingMagic),
+        Method(Sum),
+        Method(Increment),
 
-        Method(AddFinalizer, nameof(AddFinalizer)),
+        Method(AddFinalizer),
 
-        Method(InstanceOf, nameof(InstanceOf)),
+        Method(InstanceOf),
 
-        Method(SubscriptGetWithLatin1StyleString, nameof(SubscriptGetWithLatin1StyleString)),
-        Method(SubscriptGetWithUtf8StyleString, nameof(SubscriptGetWithUtf8StyleString)),
-        Method(SubscriptGetWithCSharpStyleString, nameof(SubscriptGetWithCSharpStyleString)),
-        Method(SubscriptGetAtIndex, nameof(SubscriptGetAtIndex)),
-        Method(SubscriptSetWithLatin1StyleString, nameof(SubscriptSetWithLatin1StyleString)),
-        Method(SubscriptSetWithUtf8StyleString, nameof(SubscriptSetWithUtf8StyleString)),
-        Method(SubscriptSetWithCSharpStyleString, nameof(SubscriptSetWithCSharpStyleString)),
-        Method(SubscriptSetAtIndex, nameof(SubscriptSetAtIndex)),
-    };
+        Method(SubscriptGetWithUtf8StyleString),
+        Method(SubscriptGetWithCSharpStyleString),
+        Method(SubscriptGetAtIndex),
+        Method(SubscriptSetWithUtf8StyleString),
+        Method(SubscriptSetWithCSharpStyleString),
+        Method(SubscriptSetAtIndex),
+    ];
 }

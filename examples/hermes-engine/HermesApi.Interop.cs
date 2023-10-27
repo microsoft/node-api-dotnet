@@ -6,18 +6,19 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
 using Microsoft.JavaScript.NodeApi;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using static Hermes.Example.HermesApi.Interop;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Hermes.Example;
 
 public static class HermesApi
 {
-    public static void Load(string hermesEnginePath)
+    public static JSRuntime Load(string hermesEnginePath)
     {
         nint hermesLib = NativeLibrary.Load(hermesEnginePath);
         Interop.Initialize(hermesLib);
-        JSNativeApi.Interop.Initialize(hermesLib);
+        return new NodejsRuntime(hermesLib);
     }
 
     public static void ThrowIfFailed(

@@ -522,7 +522,11 @@ internal class JSMapReadOnlyDictionary<TKey, TValue> :
 
     public bool ContainsKey(TKey key) => (bool)Value.CallMethod("has", KeyToJS(key));
 
+#if NETFRAMEWORK
+    public bool TryGetValue(TKey key, out TValue value)
+#else
     public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+#endif
     {
         JSValue jsValue = Value.CallMethod("get", KeyToJS(key));
         if (jsValue.IsUndefined())

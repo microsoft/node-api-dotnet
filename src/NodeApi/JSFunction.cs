@@ -24,7 +24,7 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// <summary>
     /// Creates a new unnamed JS function with a callback and optional callback data.
     /// </summary>
-    public JSFunction(JSCallback callback, object? callbackData)
+    public JSFunction(JSCallback callback, object? callbackData = null)
         : this(JSValue.CreateFunction(name: null, callback, callbackData))
     {
     }
@@ -148,7 +148,7 @@ public readonly struct JSFunction : IEquatable<JSValue>
     /// <summary>
     /// Creates a new named JS function with a callback and optional callback data.
     /// </summary>
-    public JSFunction(string name, JSCallback callback, object? callbackData)
+    public JSFunction(string name, JSCallback callback, object? callbackData = null)
         : this(JSValue.CreateFunction(name, callback, callbackData))
     {
     }

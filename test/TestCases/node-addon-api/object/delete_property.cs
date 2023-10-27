@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.JavaScript.NodeApi;
+using Microsoft.JavaScript.NodeApi.Runtime;
 
 namespace Microsoft.JavaScript.NodeApiTest;
 
@@ -11,7 +12,7 @@ public partial class TestObject
     {
         JSValue obj = args[0];
         JSValue key = args[1];
-        return obj.DeleteProperty((JSNativeApi.Interop.napi_value)key);
+        return obj.DeleteProperty((JSRuntime.napi_value)key);
     }
 
     private static JSValue DeletePropertyWithNapiWrapperValue(JSCallbackArgs args)
@@ -19,13 +20,6 @@ public partial class TestObject
         JSValue obj = args[0];
         JSValue key = args[1];
         return obj.DeleteProperty(key);
-    }
-
-    private static JSValue DeletePropertyWithLatin1StyleString(JSCallbackArgs args)
-    {
-        JSValue obj = args[0];
-        JSValue key = args[1];
-        return obj.DeleteProperty(JSValue.CreateStringLatin1(key.GetValueStringLatin1()));
     }
 
     private static JSValue DeletePropertyWithUtf8StyleString(JSCallbackArgs args)
