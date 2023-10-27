@@ -2212,7 +2212,7 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Convert(
-                        Expression.New(typeof(JSArray).GetInstanceConstructor(Array.Empty<Type>())),
+                        Expression.New(typeof(JSArray).GetInstanceConstructor([])),
                         typeof(JSValue)),
                 };
             }
@@ -2280,7 +2280,7 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Convert(
-                        Expression.New(typeof(JSArray).GetInstanceConstructor(Array.Empty<Type>())),
+                        Expression.New(typeof(JSArray).GetInstanceConstructor([])),
                         typeof(JSValue)),
                 };
             }

@@ -48,16 +48,15 @@ public class TracingJSRuntime : JSRuntime
     public const int ExceptionTrace = 2;
 
     private readonly JSRuntime _runtime;
-    private readonly TraceSource _trace;
     private bool _formatting;
 
     public TracingJSRuntime(JSRuntime runtime, TraceSource trace)
     {
         _runtime = runtime;
-        _trace = trace;
+        Trace = trace;
     }
 
-    public TraceSource Trace => _trace;
+    public TraceSource Trace { get; }
 
     public override bool IsAvailable(string functionName) => _runtime.IsAvailable(functionName);
 
@@ -79,7 +78,7 @@ public class TracingJSRuntime : JSRuntime
 
     private string GetValueString(napi_env env, napi_value value)
     {
-        if (_runtime.GetValueStringUtf16(env, value, Span<char>.Empty, out int length) ==
+        if (_runtime.GetValueStringUtf16(env, value, [], out int length) ==
             napi_status.napi_ok)
         {
             string elipses = string.Empty;
@@ -232,7 +231,12 @@ public class TracingJSRuntime : JSRuntime
     {
         if (value?.Length > 32)
         {
+
+#if NETFRAMEWORK
             value = value.Substring(0, 32) + "...";
+#else
+            value = string.Concat(value.AsSpan(0, 32), "...");
+#endif
         }
 
         return value == null ? "null" : $"\"{value}\"";
@@ -255,7 +259,7 @@ public class TracingJSRuntime : JSRuntime
         if (_formatting) return; // Prevent tracing while formatting.
 
         // The env arg is not traced; would it be helpful?
-        _trace.TraceEvent(
+        Trace.TraceEvent(
             TraceEventType.Information,
             CallTrace,
             "{0} {1}({2})",
@@ -272,7 +276,7 @@ public class TracingJSRuntime : JSRuntime
     {
         if (_formatting) return; // Prevent tracing while formatting.
 
-        _trace.TraceEvent(
+        Trace.TraceEvent(
             status == napi_status.napi_ok ? TraceEventType.Information : TraceEventType.Warning,
             ReturnTrace,
             "{0} {1}({2})",
@@ -289,7 +293,7 @@ public class TracingJSRuntime : JSRuntime
     {
         if (_formatting) return; // Prevent tracing while formatting.
 
-        _trace.TraceEvent(
+        Trace.TraceEvent(
             TraceEventType.Error,
             ExceptionTrace,
             "{0} {1}({2}: {3})",
@@ -1464,7 +1468,7 @@ public class TracingJSRuntime : JSRuntime
         {
             cb = new napi_callback(s_traceSetterCallback);
         }
-        
+
         // No-Context callbacks are not traced.
 
         napi_value resultValue = default;
@@ -2549,7 +2553,7 @@ public class TracingJSRuntime : JSRuntime
             TraceException(ex);
             throw;
         }
-        
+
         TraceReturn(napi_status.napi_ok);
     }
 
@@ -2583,8 +2587,8 @@ public class TracingJSRuntime : JSRuntime
         napi_platform resultValue = default;
         napi_status status = TraceCall(
             [
-                $"[{string.Join(", ", args ?? Array.Empty<string>())}]",
-                $"[{string.Join(", ", execArgs ?? Array.Empty<string>())}]",
+                $"[{string.Join(", ", args ?? [])}]",
+                $"[{string.Join(", ", execArgs ?? [])}]",
             ],
             () => (_runtime.CreatePlatform(args, execArgs, errorHandler, out resultValue),
                 Format(resultValue)));

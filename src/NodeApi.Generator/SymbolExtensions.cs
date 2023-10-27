@@ -265,7 +265,7 @@ internal static class SymbolExtensions
 
         if (typeSymbol.TypeParameters.Length > 0)
         {
-            genericTypeParameters ??= Array.Empty<Type>();
+            genericTypeParameters ??= [];
             genericTypeParameters = typeBuilder.DefineGenericParameters(
                 typeSymbol.TypeParameters.Select((p) => p.Name).ToArray());
         }

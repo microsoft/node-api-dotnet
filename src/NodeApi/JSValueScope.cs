@@ -120,11 +120,8 @@ public sealed class JSValueScope : IDisposable
                     throw new ArgumentNullException(nameof(env), "An environment is required.");
             }
 
-            if (runtime == null)
-            {
-                runtime = _parentScope?.Runtime ??
+            runtime ??= _parentScope?.Runtime ??
                     throw new ArgumentNullException(nameof(runtime), "A runtime is required.");
-            }
 
             _parentScope = null;
             _env = env;

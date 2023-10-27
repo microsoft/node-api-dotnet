@@ -176,14 +176,14 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-        fixed (byte* code_ptr = &codeBuffer.Pin())
-        fixed (byte* msg_ptr = &codeBuffer.Pin())
-        {
-            return Import(ref napi_throw_error)(
-                env,
-                (nint)code_ptr,
-                (nint)msg_ptr);
-        }
+            fixed (byte* code_ptr = &codeBuffer.Pin())
+            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            {
+                return Import(ref napi_throw_error)(
+                    env,
+                    (nint)code_ptr,
+                    (nint)msg_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, nint, napi_status> napi_throw_type_error;
@@ -192,14 +192,14 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-        fixed (byte* code_ptr = &codeBuffer.Pin())
-        fixed (byte* msg_ptr = &codeBuffer.Pin())
-        {
-            return Import(ref napi_throw_type_error)(
-                env,
-                (nint)code_ptr,
-                (nint)msg_ptr);
-        }
+            fixed (byte* code_ptr = &codeBuffer.Pin())
+            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            {
+                return Import(ref napi_throw_type_error)(
+                    env,
+                    (nint)code_ptr,
+                    (nint)msg_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, nint, napi_status>
@@ -209,15 +209,15 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-        fixed (byte* code_ptr = &codeBuffer.Pin())
-        fixed (byte* msg_ptr = &codeBuffer.Pin())
+            fixed (byte* code_ptr = &codeBuffer.Pin())
+            fixed (byte* msg_ptr = &codeBuffer.Pin())
 
-        {
-            return Import(ref napi_throw_range_error)(
-                env,
-                (nint)code_ptr,
-                (nint)msg_ptr);
-        }
+            {
+                return Import(ref napi_throw_range_error)(
+                    env,
+                    (nint)code_ptr,
+                    (nint)msg_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, nint, napi_status>
@@ -227,14 +227,14 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-        fixed (byte* code_ptr = &codeBuffer.Pin())
-        fixed (byte* msg_ptr = &codeBuffer.Pin())
-        {
-            return Import(ref node_api_throw_syntax_error)(
-                env,
-                (nint)code_ptr,
-                (nint)msg_ptr);
-        }
+            fixed (byte* code_ptr = &codeBuffer.Pin())
+            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            {
+                return Import(ref node_api_throw_syntax_error)(
+                    env,
+                    (nint)code_ptr,
+                    (nint)msg_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, nint, napi_status> napi_is_exception_pending;
@@ -540,15 +540,15 @@ public unsafe partial class NodejsRuntime
     {
         result = default;
         using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
-        fixed (byte* name_ptr = &nameBuffer.Pin())
-        fixed (napi_value* result_ptr = &result)
-        {
-            return Import(ref node_api_symbol_for)(
-                env,
-                (nint)name_ptr,
-                (nuint)nameBuffer.Length,
-                (nint)result_ptr);
-        }
+            fixed (byte* name_ptr = &nameBuffer.Pin())
+            fixed (napi_value* result_ptr = &result)
+            {
+                return Import(ref node_api_symbol_for)(
+                    env,
+                    (nint)name_ptr,
+                    (nuint)nameBuffer.Length,
+                    (nint)result_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, napi_status>
@@ -1565,28 +1565,28 @@ public unsafe partial class NodejsRuntime
     {
         result = default;
         using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
-        fixed (byte* name_ptr = &nameBuffer.Pin())
-        fixed (napi_property_descriptor* properties_ptr = &properties.GetPinnableReference())
-        fixed (napi_value* result_ptr = &result)
-        {
-            // This function has more parameters than others; there is no generic Call method.
-            if (napi_define_class == null)
+            fixed (byte* name_ptr = &nameBuffer.Pin())
+            fixed (napi_property_descriptor* properties_ptr = &properties.GetPinnableReference())
+            fixed (napi_value* result_ptr = &result)
             {
-                napi_define_class = (delegate* unmanaged[Cdecl]<
-                    napi_env, nint, nuint, napi_callback, nint, nuint, nint, nint, napi_status>)
-                    Import(nameof(napi_define_class));
-            }
+                // This function has more parameters than others; there is no generic Call method.
+                if (napi_define_class == null)
+                {
+                    napi_define_class = (delegate* unmanaged[Cdecl]<
+                        napi_env, nint, nuint, napi_callback, nint, nuint, nint, nint, napi_status>)
+                        Import(nameof(napi_define_class));
+                }
 
-            return napi_define_class(
-                env,
-                (nint)name_ptr,
-                (nuint)nameBuffer.Length,
-                constructor,
-                data,
-                (nuint)properties.Length,
-                (nint)properties_ptr,
-                (nint)result_ptr);
-        }
+                return napi_define_class(
+                    env,
+                    (nint)name_ptr,
+                    (nuint)nameBuffer.Length,
+                    constructor,
+                    data,
+                    (nuint)properties.Length,
+                    (nint)properties_ptr,
+                    (nint)result_ptr);
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, napi_status> napi_get_prototype;

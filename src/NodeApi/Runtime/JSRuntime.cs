@@ -492,7 +492,7 @@ public abstract partial class JSRuntime
     [DoesNotReturn]
     public virtual void FatalError(string location, string message) => throw NS();
     public virtual napi_status FatalException(napi_env env, napi_value err) => throw NS();
-    
+
     public virtual napi_status GetUVEventLoop(napi_env env, out uv_loop_t result) => throw NS();
 
     public virtual void RegisterModule(ref napi_module module) => throw NS();

@@ -358,7 +358,7 @@ public unsafe partial class NodejsRuntime
     {
         return Import(ref napi_remove_env_cleanup_hook)(env, func, arg);
     }
-    
+
     #endregion
 
     #region Buffers
@@ -463,27 +463,27 @@ public unsafe partial class NodejsRuntime
     private delegate* unmanaged[Cdecl]<nint, nuint, nint, nuint, void>
         napi_fatal_error;
 
-   [DoesNotReturn]
-   public override void FatalError(string location, string message)
-   {
+    [DoesNotReturn]
+    public override void FatalError(string location, string message)
+    {
         using (PooledBuffer locationBuffer = PooledBuffer.FromStringUtf8(location))
         using (PooledBuffer messageBuffer = PooledBuffer.FromStringUtf8(message))
-        fixed (byte* location_ptr = &locationBuffer.Pin())
-        fixed (byte* message_ptr = &messageBuffer.Pin())
-        {
-            if (napi_fatal_error == null)
+            fixed (byte* location_ptr = &locationBuffer.Pin())
+            fixed (byte* message_ptr = &messageBuffer.Pin())
             {
-                napi_fatal_error = (delegate* unmanaged[Cdecl]<nint, nuint, nint, nuint, void>)
-                    Import(nameof(napi_fatal_error));
-            }
+                if (napi_fatal_error == null)
+                {
+                    napi_fatal_error = (delegate* unmanaged[Cdecl]<nint, nuint, nint, nuint, void>)
+                        Import(nameof(napi_fatal_error));
+                }
 
-            napi_fatal_error(
-                (nint)location_ptr,
-                (nuint)locationBuffer.Length,
-                (nint)message_ptr,
-                (nuint)messageBuffer.Length);
-            throw new Exception("napi_fatal_error() returned.");
-        }
+                napi_fatal_error(
+                    (nint)location_ptr,
+                    (nuint)locationBuffer.Length,
+                    (nint)message_ptr,
+                    (nuint)messageBuffer.Length);
+                throw new Exception("napi_fatal_error() returned.");
+            }
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, napi_status>

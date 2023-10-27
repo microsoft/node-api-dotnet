@@ -235,8 +235,10 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
                 JSRuntimeContext.Current.Require = require;
             }
 
-            ManagedHost host = new(exportsObject);
-            host._rootScope = scope;
+            ManagedHost host = new(exportsObject)
+            {
+                _rootScope = scope
+            };
 
             Trace("< ManagedHost.InitializeModule()");
         }
@@ -542,7 +544,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
                 continue;
             }
 
-            string[] namespaceParts = type.Namespace?.Split('.') ?? Array.Empty<string>();
+            string[] namespaceParts = type.Namespace?.Split('.') ?? [];
             if (namespaceParts.Length == 0)
             {
                 Trace($"    Skipping un-namespaced type: {type.Name}");
@@ -634,7 +636,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             int id,
             string? format,
             params object?[]? args)
-        => WriteLine(string.Format(format ?? string.Empty, args ?? Array.Empty<object>()));
+        => WriteLine(string.Format(format ?? string.Empty, args ?? []));
     }
 
     [Conditional("DEBUG")]

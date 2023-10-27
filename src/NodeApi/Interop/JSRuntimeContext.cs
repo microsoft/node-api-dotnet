@@ -701,8 +701,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// by <see cref="AllocGCHandle(object)" />, or was already freed.</exception>
     internal static void FreeGCHandle(GCHandle handle, napi_env env)
     {
-        JSRuntimeContext? runtimeContext = GetInstanceData(env) as JSRuntimeContext;
-        if (runtimeContext != null)
+        if (GetInstanceData(env) is JSRuntimeContext runtimeContext)
         {
             runtimeContext.FreeGCHandle(handle);
         }

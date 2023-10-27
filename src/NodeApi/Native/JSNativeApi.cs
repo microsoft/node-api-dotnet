@@ -102,7 +102,7 @@ public static partial class JSNativeApi
         if (buffer.IsEmpty)
         {
             return thisValue.Runtime.GetValueStringUtf8(
-                Env, (napi_value)thisValue, Span<byte>.Empty, out int result)
+                Env, (napi_value)thisValue, [], out int result)
                 .ThrowIfFailed(result);
         }
 
@@ -113,7 +113,7 @@ public static partial class JSNativeApi
 
     public static byte[] GetValueStringUtf8(this JSValue value)
     {
-        int length = GetValueStringUtf8(value, Span<byte>.Empty);
+        int length = GetValueStringUtf8(value, []);
         byte[] result = new byte[length + 1];
         GetValueStringUtf8(value, new Span<byte>(result));
         // Remove the zero terminating character
@@ -126,7 +126,7 @@ public static partial class JSNativeApi
         if (buffer.IsEmpty)
         {
             return thisValue.Runtime.GetValueStringUtf16(
-                Env, (napi_value)thisValue, Span<char>.Empty, out int result)
+                Env, (napi_value)thisValue, [], out int result)
                 .ThrowIfFailed(result);
         }
 
@@ -137,7 +137,7 @@ public static partial class JSNativeApi
 
     public static char[] GetValueStringUtf16AsCharArray(this JSValue value)
     {
-        int length = GetValueStringUtf16(value, Span<char>.Empty);
+        int length = GetValueStringUtf16(value, []);
         char[] result = new char[length + 1];
         GetValueStringUtf16(value, new Span<char>(result));
         // Remove the zero terminating character
@@ -316,7 +316,7 @@ public static partial class JSNativeApi
 
     public static unsafe JSValue CallAsConstructor(this JSValue thisValue)
         => thisValue.Runtime.NewInstance(
-            Env, (napi_value)thisValue, Span<napi_value>.Empty, out napi_value result)
+            Env, (napi_value)thisValue, [], out napi_value result)
                 .ThrowIfFailed(result);
 
     public static unsafe JSValue CallAsConstructor(this JSValue thisValue, JSValue arg0)
@@ -754,14 +754,13 @@ public static partial class JSNativeApi
         this JSValue thisValue, Action finalize, out JSReference finalizerRef)
     {
         GCHandle finalizeHandle = JSRuntimeContext.Current.AllocGCHandle(finalize);
-        napi_ref reference;
         thisValue.Runtime.AddFinalizer(
             Env,
             (napi_value)thisValue,
             (nint)finalizeHandle,
             new napi_finalize(s_callFinalizeAction),
             default,
-            out reference).ThrowIfFailed();
+            out napi_ref reference).ThrowIfFailed();
         finalizerRef = new JSReference(reference, isWeak: true);
     }
 
@@ -784,7 +783,7 @@ public static partial class JSNativeApi
     public static unsafe ulong[] GetValueBigIntWords(this JSValue thisValue, out int signBit)
     {
         thisValue.Runtime.GetValueBigInt(
-            Env, (napi_value)thisValue, out signBit, Span<ulong>.Empty, out nuint wordCount)
+            Env, (napi_value)thisValue, out _, [], out nuint wordCount)
                 .ThrowIfFailed();
         ulong[] words = new ulong[wordCount];
         thisValue.Runtime.GetValueBigInt(

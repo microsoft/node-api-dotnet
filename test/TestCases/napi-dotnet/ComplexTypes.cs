@@ -26,7 +26,7 @@ public static class ComplexTypes
 
     public static ClassObject? NullableClassObject { get; set; }
 
-    public static string[] StringArray { get; set; } = Array.Empty<string>();
+    public static string[] StringArray { get; set; } = [];
 
     public static Memory<uint> UIntArray { get; set; }
 

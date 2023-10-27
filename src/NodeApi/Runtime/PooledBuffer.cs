@@ -7,7 +7,7 @@ namespace Microsoft.JavaScript.NodeApi.Runtime;
 internal struct PooledBuffer : IDisposable
 {
     private ArrayPool<byte>? _pool;
-    public static readonly PooledBuffer Empty = new(null, Array.Empty<byte>(), 0);
+    public static readonly PooledBuffer Empty = new(null, [], 0);
 
     public PooledBuffer(ArrayPool<byte> pool, int length)
         : this(pool, pool.Rent(length), length) { }
