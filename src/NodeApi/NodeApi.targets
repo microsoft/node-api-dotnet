@@ -5,13 +5,37 @@
     Condition=" '$(PublishNodeModule)' == 'true' "
   >
     <!-- Rename the native library (and its symbols file) to have a .node extension. -->
+    <!-- Put them in a rid-specific subdirectory to support publishing for multiple platforms. -->
+
+    <MakeDir Directories="$(PublishDir)$(RuntimeIdentifier)" />
+
     <Move SourceFiles="$(PublishDir)$(TargetName)$(NativeBinaryExt)"
-      DestinationFiles="$(PublishDir)$(TargetName).node" />
+      DestinationFiles="$(PublishDir)$(RuntimeIdentifier)/$(TargetName).node" />
     <Move Condition="Exists('$(PublishDir)$(TargetName).pdb')"
       SourceFiles="$(PublishDir)$(TargetName).pdb"
-      DestinationFiles="$(PublishDir)$(TargetName).node.pdb" />
+      DestinationFiles="$(PublishDir)$(RuntimeIdentifier)/$(TargetName).node.pdb" />
     <Move Condition="Exists('$(PublishDir)$(TargetName).so.dbg')"
       SourceFiles="$(PublishDir)$(TargetName).so.dbg"
-      DestinationFiles="$(PublishDir)$(TargetName).node.dbg" />
+      DestinationFiles="$(PublishDir)$(RuntimeIdentifier)/$(TargetName).node.dbg" />
+
+    <!-- Add a non-rid-specific JS file that redirects to the rid-specific binary. -->
+    <!-- (The rid code is copied from node-api-dotnet/init.js.) -->
+    <WriteLinesToFile File="$(PublishDir)$(TargetName).js" Overwrite="true" Lines=";
+const ridPlatform =
+  process.platform === 'win32' ? 'win' :
+  process.platform === 'darwin' ? 'osx' :
+  process.platform;
+const ridArch = process.arch === 'ia32' ? 'x86' : process.arch;
+const rid = `${ridPlatform}-${ridArch}`;
+module.exports = require(`./${rid}/$(TargetName).node`);
+      " />
+  </Target>
+
+  <Target Name="PackNpmPackage"
+    AfterTargets="RenameToDotNode"
+    BeforeTargets="PublishManagedAssembly"
+    Condition=" '$(PackNpmPackage)' == 'true' "
+  >
+    <Exec Command="npm pack --pack-destination=&quot;$(PackageOutputPath)&quot;" />
   </Target>
 </Project>

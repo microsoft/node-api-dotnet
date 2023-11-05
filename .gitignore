@@ -1,6 +1,7 @@
 out/
 bin/
 obj/
+pkg/
 
 *.suo
 *.user

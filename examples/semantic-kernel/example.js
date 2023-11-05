@@ -4,12 +4,13 @@
 // @ts-check
 
 import dotnet from 'node-api-dotnet';
+import './bin/Microsoft.Extensions.Logging.Abstractions.js';
 import './bin/Microsoft.SemanticKernel.Core.js';
 import './bin/Microsoft.SemanticKernel.Functions.Semantic.js';
 import './bin/Microsoft.SemanticKernel.Connectors.AI.OpenAI.js';
 
-const SK = dotnet.Microsoft.SemanticKernel;
 const Logging = dotnet.Microsoft.Extensions.Logging;
+const SK = dotnet.Microsoft.SemanticKernel;
 
 /** @type {dotnet.Microsoft.Extensions.Logging.ILogger} */
 const logger = {

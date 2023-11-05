@@ -6,7 +6,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PublishAot>true</PublishAot>
     <PublishNodeModule>true</PublishNodeModule>
-    <PublishDir>bin</PublishDir>
+    <PublishDir>bin</PublishDir><!-- Publish the .node binary to this location. -->
+    <PackNpmPackage>true</PackNpmPackage>
+    <PackageOutputPath>pkg</PackageOutputPath><!-- Publish the npm .tgz packge to this location.-->
   </PropertyGroup>
 
   <ItemGroup>

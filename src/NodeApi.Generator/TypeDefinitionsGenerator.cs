@@ -280,6 +280,10 @@ dotnet.load(assemblyName);
         _autoCamelCase = autoCamelCase ?? !_exportAll;
 
         s++;
+
+        // Declare this types as members of the 'node-api-dotnet' module.
+        // This causes types across multiple .NET assemblies to be merged into
+        // a shared .NET namespace hierarchy.
         s += "declare module 'node-api-dotnet' {";
 
         foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
@@ -315,6 +319,14 @@ dotnet.load(assemblyName);
             }
             s.Insert(importsIndex, insertBuilder.ToString());
         }
+
+        // Re-export this module's types in a module that matches the assembly name.
+        // This supports AOT when the module is directly imported by name instead of
+        // importing via the .NET host.
+        s++;
+        s += $"declare module '{_assembly.GetName().Name}' {{";
+        s += "export * from 'node-api-dotnet';";
+        s += "}";
 
         return s;
     }

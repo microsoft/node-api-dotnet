@@ -3,5 +3,8 @@
   "type": "module",
   "dependencies": {
     "node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.10"
   }
 }
