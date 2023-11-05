@@ -36,7 +36,7 @@ internal static class TypeExtensions
 
     public static object CreateInstance(
         this Type type, Type[]? types = null, object?[]? args = null)
-        => type.GetInstanceConstructor(types ?? Array.Empty<Type>()).Invoke(args);
+        => type.GetInstanceConstructor(types ?? []).Invoke(args);
 
     public static ConstructorInfo GetInstanceConstructor(this Type type, Type[] types)
         => type.GetConstructor(types) ??

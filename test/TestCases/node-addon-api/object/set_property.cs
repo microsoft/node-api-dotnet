@@ -3,6 +3,7 @@
 
 using System;
 using Microsoft.JavaScript.NodeApi;
+using Microsoft.JavaScript.NodeApi.Runtime;
 
 namespace Microsoft.JavaScript.NodeApiTest;
 
@@ -13,7 +14,7 @@ public partial class TestObject
         JSValue obj = args[0];
         JSValue key = args[1];
         JSValue value = args[2];
-        obj.SetProperty((JSNativeApi.Interop.napi_value)key, value);
+        obj.SetProperty((JSRuntime.napi_value)key, value);
         return JSValue.Undefined;
     }
 
@@ -23,15 +24,6 @@ public partial class TestObject
         JSValue key = args[1];
         JSValue value = args[2];
         obj.SetProperty(key, value);
-        return JSValue.Undefined;
-    }
-
-    private static JSValue SetPropertyWithLatin1StyleString(JSCallbackArgs args)
-    {
-        JSValue obj = args[0];
-        JSValue key = args[1];
-        JSValue value = args[2];
-        obj.SetProperty(JSValue.CreateStringLatin1(key.GetValueStringLatin1()), value);
         return JSValue.Undefined;
     }
 

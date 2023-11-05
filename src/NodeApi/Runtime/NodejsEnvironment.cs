@@ -6,9 +6,10 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
 
-namespace Microsoft.JavaScript.NodeApi.Runtimes;
+namespace Microsoft.JavaScript.NodeApi.Runtime;
+
+using static JSRuntime;
 
 /// <summary>
 /// A Node.js runtime environment with a dedicated main execution thread.
@@ -39,11 +40,14 @@ public sealed class NodejsEnvironment : IDisposable
 
         _thread = new(() =>
         {
-            napi_env env = JSNativeApi.CreateEnvironment(
-                (napi_platform)platform, (error) => Console.WriteLine(error), mainScript);
+            platform.Runtime.CreateEnvironment(
+                (napi_platform)platform,
+                (error) => Console.WriteLine(error),
+                mainScript,
+                out napi_env env).ThrowIfFailed();
 
             // The new scope instance saves itself as the thread-local JSValueScope.Current.
-            scope = new JSValueScope(JSValueScopeType.Root, env);
+            scope = new JSValueScope(JSValueScopeType.Root, env, platform.Runtime);
             syncContext = scope.RuntimeContext.SynchronizationContext;
 
             // The require() function is available as a global in this context.
@@ -52,10 +56,12 @@ public sealed class NodejsEnvironment : IDisposable
             loadedEvent.Set();
 
             // Run the JS event loop until disposal completes the completion source.
-            JSNativeApi.AwaitPromise(_completion.Task.AsPromise());
+            platform.Runtime.AwaitPromise(
+                env, (napi_value)(JSValue)_completion.Task.AsPromise(), out _).ThrowIfFailed();
 
             syncContext.Dispose();
-            ExitCode = JSNativeApi.DestroyEnvironment(env);
+            platform.Runtime.DestroyEnvironment(env, out int exitCode).ThrowIfFailed();
+            ExitCode = exitCode;
         });
         _thread.Start();
 

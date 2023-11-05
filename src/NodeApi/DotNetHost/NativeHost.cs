@@ -7,9 +7,10 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.DotNetHost.HostFxr;
 using static Microsoft.JavaScript.NodeApi.DotNetHost.MSCorEE;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
@@ -47,11 +48,10 @@ internal unsafe partial class NativeHost : IDisposable
     {
         Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
 
-        using JSValueScope scope = new(JSValueScopeType.NoContext, env);
+        JSRuntime runtime = new NodejsRuntime();
+        using JSValueScope scope = new(JSValueScopeType.NoContext, env, runtime);
         try
         {
-            JSNativeApi.Interop.Initialize();
-
             NativeHost host = new();
 
             // Do not use JSModuleBuilder here because it relies on having a current context.
@@ -65,7 +65,7 @@ internal unsafe partial class NativeHost : IDisposable
         {
             string message = $"Failed to load CLR native host module: {ex}";
             Trace(message);
-            napi_throw(env, (napi_value)JSValue.CreateError(null, (JSValue)message));
+            runtime.Throw(env, (napi_value)JSValue.CreateError(null, (JSValue)message));
         }
 
         Trace("< NativeHost.InitializeModule()");

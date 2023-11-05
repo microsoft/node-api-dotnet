@@ -3,8 +3,9 @@
 
 using Microsoft.JavaScript.NodeApi;
 using Microsoft.JavaScript.NodeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using static Hermes.Example.HermesApi.Interop;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Hermes.Example;
 
@@ -26,10 +27,10 @@ public sealed class HermesRuntime : IDisposable
     private HermesRuntime(JSDispatcherQueue dispatcherQueue)
     {
         _dispatcherQueue = dispatcherQueue;
-        HermesApi.Load("hermes.dll");
+        JSRuntime runtime = HermesApi.Load("hermes.dll");
         using HermesConfig tempConfig = new();
         hermes_create_runtime((hermes_config)tempConfig, out _runtime).ThrowIfFailed();
-        _rootScope = new JSValueScope(JSValueScopeType.Root, (napi_env)this);
+        _rootScope = new JSValueScope(JSValueScopeType.Root, (napi_env)this, runtime);
         CreatePolyfills();
     }
 
@@ -103,21 +104,21 @@ public sealed class HermesRuntime : IDisposable
         JSValue global = JSValue.Global;
         global["global"] = global;
 
-        global["setImmediate"] = (JSCallback)(args =>
+        global["setImmediate"] = new JSFunction("setImmediate", args =>
         {
             JSValue immediateCallback = AsFunction(args, 0);
             int taskId = AddImmediateTask(immediateCallback);
             return taskId;
         });
 
-        global["clearImmediate"] = (JSCallback)(args =>
+        global["clearImmediate"] = new JSFunction("clearImmediate", args =>
         {
             int taskId = AsInt32(args, 0);
             RemoveImmediateTask(taskId);
             return default;
         });
 
-        global["setTimeout"] = (JSCallback)(args =>
+        global["setTimeout"] = new JSFunction("setTimeout", args =>
         {
             JSValue timeoutCallback = AsFunction(args, 0);
             int delayInMs = AsInt32(args, 1);
@@ -125,7 +126,7 @@ public sealed class HermesRuntime : IDisposable
             return taskId;
         });
 
-        global["clearTimeout"] = (JSCallback)(args =>
+        global["clearTimeout"] = new JSFunction("clearTimeout", args =>
         {
             int taskId = AsInt32(args, 0);
             RemoveTimerTask(taskId);
@@ -133,7 +134,7 @@ public sealed class HermesRuntime : IDisposable
         });
 
         var console = new JSObject();
-        console["log"] = (JSCallback)(args =>
+        console["log"] = new JSFunction("log", args =>
         {
             Console.WriteLine((string)args[0].CoerceToString());
             return default;

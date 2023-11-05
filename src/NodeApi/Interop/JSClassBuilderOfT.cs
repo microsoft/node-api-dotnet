@@ -23,18 +23,18 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
 
     public JSClassBuilder(string className, Constructor constructorCallback)
         : this(className, new JSCallbackDescriptor(
-            (args) => JSValue.CreateExternal(constructorCallback())))
+            className, (args) => JSValue.CreateExternal(constructorCallback())))
     {
     }
 
     public JSClassBuilder(string className, ConstructorWithArgs constructorCallback)
         : this(className, new JSCallbackDescriptor(
-            (args) => JSValue.CreateExternal(constructorCallback(args))))
+            className, (args) => JSValue.CreateExternal(constructorCallback(args))))
     {
     }
 
     public JSClassBuilder(string className, JSCallback constructorCallback)
-        : this(className, new JSCallbackDescriptor(constructorCallback))
+        : this(className, new JSCallbackDescriptor(className, constructorCallback))
     {
     }
 
@@ -90,6 +90,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             classObject = JSNativeApi.DefineClass(
                 ClassName,
                 new JSCallbackDescriptor(
+                    ClassName,
                     (args) =>
                     {
                         JSValue instance;
@@ -182,7 +183,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
 
         JSValue obj = JSNativeApi.DefineClass(
             ClassName,
-            new JSCallbackDescriptor((args) =>
+            new JSCallbackDescriptor(ClassName, (args) =>
             {
                 if (args.Length != 1 || !args[0].IsExternal())
                 {
@@ -232,7 +233,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
         {
             if (property.Value.HasValue)
             {
-                obj[property.Value!.Value] = property.Name;
+                obj[property.Value!.Value] = property.NameValue ?? (JSValue)property.Name!;
             }
         }
 

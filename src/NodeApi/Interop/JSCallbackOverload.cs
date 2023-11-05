@@ -3,7 +3,7 @@
 
 using System;
 using System.Collections.Generic;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 

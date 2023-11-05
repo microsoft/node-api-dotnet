@@ -44,6 +44,7 @@ public partial class NodeStream
         return JSNativeApi.DefineClass(
             className,
             new JSCallbackDescriptor(
+                className,
                 (args) =>
                 {
                     JSValue instance;

@@ -4,7 +4,9 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using Microsoft.JavaScript.NodeApi.Runtime;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
+using static Microsoft.JavaScript.NodeApi.Runtime.NodejsRuntime;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
@@ -14,22 +16,21 @@ public delegate void JSThreadSafeFinalizeCallback(object? functionContext);
 
 public class JSThreadSafeFunction
 {
-    private napi_threadsafe_function _tsfn;
+    private readonly JSRuntime _runtime;
+    private readonly napi_threadsafe_function _tsfn;
     private int _refCount = 1;
 
     public static explicit operator napi_threadsafe_function(JSThreadSafeFunction function) => function._tsfn;
     public static implicit operator JSThreadSafeFunction(napi_threadsafe_function tsfn) => new(tsfn);
 
-    private JSThreadSafeFunction(napi_threadsafe_function tsfn) => _tsfn = tsfn;
+    private JSThreadSafeFunction(napi_threadsafe_function tsfn)
+    {
+        _runtime = JSValueScope.Current.Runtime;
+        _tsfn = tsfn;
+    }
 
     public static bool IsAvailable
-    {
-        get
-        {
-            nint funcHandle = 0;
-            return TryGetExport(ref funcHandle, "napi_create_threadsafe_function");
-        }
-    }
+        => JSValueScope.Current.Runtime.IsAvailable("napi_create_threadsafe_function");
 
     // This API may only be called from the main thread.
     public unsafe JSThreadSafeFunction(int maxQueueSize,
@@ -41,19 +42,21 @@ public class JSThreadSafeFunction
                                 object? functionContext = null,
                                 JSThreadSafeCallback? jsCaller = null)
     {
+        _runtime = JSValueScope.Current.Runtime;
+
         FunctionData functionData = new(functionContext, finalize, jsCaller);
 
         // Do not use AllocGCHandle() because we're calling from another thread.
         GCHandle functionDataHandle = GCHandle.Alloc(functionData);
 
-        napi_status status = napi_create_threadsafe_function(
+        napi_status status = _runtime.CreateThreadSafeFunction(
                                  (napi_env)JSValueScope.Current,
                                  (napi_value)jsFunction,
                                  (napi_value)(JSValue?)asyncResource,
                                  (napi_value)asyncResourceName,
-                                 (nuint)maxQueueSize,
-                                 (nuint)initialThreadCount,
-                                 thread_finalize_data: default,
+                                 maxQueueSize,
+                                 initialThreadCount,
+                                 threadFinalizeData: default,
                                  new napi_finalize(s_finalizeFunctionData),
                                  (nint)functionDataHandle,
                                  (jsCaller != null)
@@ -62,7 +65,7 @@ public class JSThreadSafeFunction
                                  out _tsfn);
         if (status != napi_status.napi_ok)
         {
-            JSRuntimeContext.FreeGCHandle(functionDataHandle);
+            functionDataHandle.Free();
             status.ThrowIfFailed();
         }
     }
@@ -71,7 +74,7 @@ public class JSThreadSafeFunction
     // This API may be called from any thread.
     public object? GetFunctionContext()
     {
-        napi_get_threadsafe_function_context(_tsfn, out nint handle).ThrowIfFailed();
+        _runtime.GetThreadSafeFunctionContext(_tsfn, out nint handle).ThrowIfFailed();
         FunctionData functionData = (FunctionData)GCHandle.FromIntPtr(handle).Target!;
         return functionData.FunctionContext;
     }
@@ -131,7 +134,7 @@ public class JSThreadSafeFunction
         {
             if (++_refCount == 1)
             {
-                napi_ref_threadsafe_function((napi_env)JSValueScope.Current, _tsfn).ThrowIfFailed();
+                _runtime.RefThreadSafeFunction((napi_env)JSValueScope.Current, _tsfn).ThrowIfFailed();
             }
         }
     }
@@ -143,7 +146,7 @@ public class JSThreadSafeFunction
         {
             if (--_refCount == 0)
             {
-                napi_unref_threadsafe_function((napi_env)JSValueScope.Current, _tsfn); //TODO: .ThrowIfFailed();
+                _runtime.UnrefThreadSafeFunction((napi_env)JSValueScope.Current, _tsfn); //TODO: .ThrowIfFailed();
             }
         }
     }
@@ -151,19 +154,21 @@ public class JSThreadSafeFunction
     // This API may be called from any thread.
     public napi_status Acquire()
     {
-        return napi_acquire_threadsafe_function(_tsfn);
+        return _runtime.AcquireThreadSafeFunction(_tsfn);
     }
 
     // This API may be called from any thread.
     public napi_status Release()
     {
-        return napi_release_threadsafe_function(_tsfn, napi_threadsafe_function_release_mode.napi_tsfn_release);
+        return _runtime.ReleaseThreadSafeFunction(
+            _tsfn, napi_threadsafe_function_release_mode.napi_tsfn_release);
     }
 
     // This API may be called from any thread.
     public napi_status Abort()
     {
-        return napi_release_threadsafe_function(_tsfn, napi_threadsafe_function_release_mode.napi_tsfn_abort);
+        return _runtime.ReleaseThreadSafeFunction(
+            _tsfn, napi_threadsafe_function_release_mode.napi_tsfn_abort);
     }
 
     private static bool NonBlockingCall(napi_status status)
@@ -183,7 +188,8 @@ public class JSThreadSafeFunction
     {
         // Do not use AllocGCHandle() because we're calling from another thread.
         GCHandle callbackOrDataHandle = GCHandle.Alloc(callbackOrData);
-        napi_status status = napi_call_threadsafe_function(_tsfn, (nint)callbackOrDataHandle, mode);
+        napi_status status = _runtime.CallThreadSafeFunction(
+            _tsfn, (nint)callbackOrDataHandle, mode);
         if (status != napi_status.napi_ok)
         {
             // Do not use FreeGCHandle() - the handle was allocated on a different thread.

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0-windows10.0.22000.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
-    <OutputType>WinExe</OutputType><!-- TODO: Change back to WinExe -->
+    <OutputType>WinExe</OutputType>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
 
     <!-- WinUI 3 -->
@@ -24,7 +24,7 @@
     <Platform Condition=" '$(Platform)' == 'AnyCPU' ">x64</Platform>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishProfile>win10-$(Platform).pubxml</PublishProfile>
-    <RuntimeIdentifiers>win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="CollabEditBox.xaml" />
@@ -50,8 +50,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.2.*-*" />
-    <PackageReference Include="Microsoft.JavaScript.NodeApi.DotNetHost" Version="0.2.*-*" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.4.*-*" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.DotNetHost" Version="0.4.*-*" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.755" />
     <Manifest Include="$(ApplicationManifest)" />

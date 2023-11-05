@@ -7,7 +7,7 @@
 
 using System;
 
-namespace Microsoft.JavaScript.NodeApi
+namespace System.Diagnostics.CodeAnalysis
 {
     [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
     internal class NotNullWhenAttribute : Attribute
@@ -35,7 +35,10 @@ namespace Microsoft.JavaScript.NodeApi
         public DoesNotReturnIfAttribute(bool parameterValue) { ParameterValue = parameterValue; }
         public bool ParameterValue { get; }
     }
+}
 
+namespace System
+{
     [AttributeUsage(AttributeTargets.Method, Inherited = false)]
     public sealed class UnmanagedCallersOnlyAttribute : Attribute
     {
@@ -48,6 +51,17 @@ namespace System.Runtime.CompilerServices
 {
     public sealed class IsExternalInit
     {
+    }
+
+    [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
+    public sealed class CallerArgumentExpressionAttribute : Attribute
+    {
+        public CallerArgumentExpressionAttribute(string parameterName)
+        {
+            ParameterName = parameterName;
+        }
+
+        public string ParameterName { get; }
     }
 }
 

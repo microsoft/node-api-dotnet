@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 using SysNativeLibrary = System.Runtime.InteropServices.NativeLibrary;
 #endif
 
-namespace Microsoft.JavaScript.NodeApi;
+namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 /// <summary>
 /// Provides APIs for managing native libraries.

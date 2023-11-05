@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using static Microsoft.JavaScript.NodeApi.Interop.JSCollectionProxies;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi;
-using napi_env = Microsoft.JavaScript.NodeApi.JSNativeApi.Interop.napi_env;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
@@ -122,8 +122,6 @@ public sealed class JSRuntimeContext : IDisposable
 
     public JSRuntimeContext(napi_env env)
     {
-        JSNativeApi.Interop.Initialize();
-
         _env = env;
         SetInstanceData(env, this);
         SynchronizationContext = JSSynchronizationContext.Create();
@@ -651,59 +649,65 @@ public sealed class JSRuntimeContext : IDisposable
 #endif
 
     /// <summary>
-    /// Allocates a GC handle and tracks the allocation on the current runtime context. Call this
+    /// Allocates a GC handle and tracks the allocation on this runtime context. Call this
     /// method instead of <see cref="GCHandle.Alloc(object?)" /> to track handle allocations.
     /// </summary>
-    internal static GCHandle AllocGCHandle(object value)
+    internal GCHandle AllocGCHandle(object value)
     {
         GCHandle handle = GCHandle.Alloc(value);
 
-        JSRuntimeContext? currentContext = JSValueScope.CurrentRuntimeContext;
-        if (currentContext is not null)
-        {
-            Interlocked.Increment(ref currentContext._gcHandleCount);
+        Interlocked.Increment(ref _gcHandleCount);
 
 #if DEBUG
-            string targetType = value?.GetType().Name ?? "null";
-            Debug.WriteLine($"Allocating GC handle {(nint)handle:X16}: {targetType}");
-            currentContext.GCHandleMap[(nint)handle] = new GCHandleInfo
-            {
-                Value = value,
-                AllocationStackTrace = new StackTrace(skipFrames: 1),
-            };
+        string targetType = value?.GetType().Name ?? "null";
+        Debug.WriteLine($"Allocating GC handle {(nint)handle:X16}: {targetType}");
+        GCHandleMap[(nint)handle] = new GCHandleInfo
+        {
+            Value = value,
+            AllocationStackTrace = new StackTrace(skipFrames: 1),
+        };
 #endif
-        }
-
         return handle;
     }
 
     /// <summary>
-    /// Frees a GC handle previously allocated via <see cref="AllocGCHandle(object)" />.
+    /// Frees a GC handle previously allocated via <see cref="AllocGCHandle(object)" />
+    /// and tracked on this runtime context.
     /// </summary>
     /// <exception cref="InvalidOperationException">The handle was not previously allocated
     /// by <see cref="AllocGCHandle(object)" />, or was already freed.</exception>
-    internal static void FreeGCHandle(GCHandle handle)
+    internal void FreeGCHandle(GCHandle handle)
     {
-        JSRuntimeContext? currentContext = JSValueScope.CurrentRuntimeContext;
-        if (currentContext is not null)
-        {
-            Interlocked.Decrement(ref currentContext._gcHandleCount);
+        Interlocked.Decrement(ref _gcHandleCount);
 
 #if DEBUG
-            string targetType = handle.Target?.GetType().Name ?? "null";
-            Debug.WriteLine($"Freeing GC handle {(nint)handle:X16}: {targetType}");
-
-            // JSRuntimeContext is not in the map because its constructor calls SetInstanceData()
-            // before it can be assigned to the root JSValueScope.
-            if (!currentContext.GCHandleMap.Remove((nint)handle) &&
-                handle.Target is not JSRuntimeContext)
-            {
-                throw new InvalidOperationException(
-                    $"Freed GC handle to {targetType} was not in the handle map.");
-            }
-#endif
+        string targetType = handle.Target?.GetType().Name ?? "null";
+        Debug.WriteLine($"Freeing GC handle {(nint)handle:X16}: {targetType}");
+        if (!GCHandleMap.Remove((nint)handle))
+        {
+            throw new InvalidOperationException(
+                $"Freed GC handle to {targetType} was not in the handle map.");
         }
+#endif
 
         handle.Free();
+    }
+
+    /// <summary>
+    /// Frees a GC handle previously allocated via <see cref="AllocGCHandle(object)" />
+    /// and tracked on the runtime context obtained from environment instance data.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The handle was not previously allocated
+    /// by <see cref="AllocGCHandle(object)" />, or was already freed.</exception>
+    internal static void FreeGCHandle(GCHandle handle, napi_env env)
+    {
+        if (GetInstanceData(env) is JSRuntimeContext runtimeContext)
+        {
+            runtimeContext.FreeGCHandle(handle);
+        }
+        else
+        {
+            handle.Free();
+        }
     }
 }

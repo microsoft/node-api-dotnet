@@ -15,7 +15,7 @@ public class TestBasicTypesBoolean : TestHelper, ITestObject
 
     public JSObject Init() => new()
     {
-        Method(CreateBoolean, nameof(CreateBoolean)),
-        Method(CreateBooleanFromPrimitive, nameof(CreateBooleanFromPrimitive)),
+        Method(CreateBoolean),
+        Method(CreateBooleanFromPrimitive),
     };
 }

@@ -4,7 +4,8 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.JavaScript.NodeApi.Interop;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;
+using static Microsoft.JavaScript.NodeApi.JSNativeApi;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -30,7 +31,7 @@ public class JSReference : IDisposable
     public bool IsWeak { get; private set; }
 
     public JSReference(JSValue value, bool isWeak = false)
-        : this(napi_create_reference(
+        : this(value.Runtime.CreateReference(
                   (napi_env)JSValueScope.Current,
                   (napi_value)value,
                   isWeak ? 0u : 1u,
@@ -50,7 +51,7 @@ public class JSReference : IDisposable
     public static bool TryCreateReference(
         JSValue value, bool isWeak, [NotNullWhen(true)] out JSReference? result)
     {
-        napi_status status = napi_create_reference(
+        napi_status status = value.Runtime.CreateReference(
                   (napi_env)JSValueScope.Current,
                   (napi_value)value,
                   isWeak ? 0u : 1u,
@@ -80,7 +81,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (!IsWeak)
         {
-            napi_reference_unref(_env, _handle, default).ThrowIfFailed();
+            JSValueScope.CurrentRuntime.UnrefReference(_env, _handle, out _).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -89,7 +90,7 @@ public class JSReference : IDisposable
         ThrowIfDisposed();
         if (IsWeak)
         {
-            napi_reference_ref(_env, _handle, default).ThrowIfFailed();
+            JSValueScope.CurrentRuntime.RefReference(_env, _handle, out _).ThrowIfFailed();
             IsWeak = true;
         }
     }
@@ -97,7 +98,8 @@ public class JSReference : IDisposable
     public JSValue? GetValue()
     {
         ThrowIfDisposed();
-        napi_get_reference_value(_env, _handle, out napi_value result).ThrowIfFailed();
+        JSValueScope.CurrentRuntime.GetReferenceValue(_env, _handle, out napi_value result)
+            .ThrowIfFailed();
         return result;
     }
 
@@ -192,12 +194,13 @@ public class JSReference : IDisposable
             // as the native host. In that case the reference must be disposed from the JS thread.
             if (SynchronizationContext == null)
             {
-                napi_delete_reference(_env, handle).ThrowIfFailed();
+                JSValueScope.CurrentRuntime.DeleteReference(_env, handle).ThrowIfFailed();
             }
             else
             {
                 SynchronizationContext.Post(
-                    () => napi_delete_reference(_env, handle).ThrowIfFailed(), allowSync: true);
+                    () => JSValueScope.CurrentRuntime.DeleteReference(
+                        _env, handle).ThrowIfFailed(), allowSync: true);
             }
         }
     }

@@ -16,7 +16,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
-using Microsoft.JavaScript.NodeApi.Runtimes;
+using Microsoft.JavaScript.NodeApi.Runtime;
 
 namespace Microsoft.JavaScript.NodeApi.Examples;
 

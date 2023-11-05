@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.JavaScript.NodeApi;
+using Microsoft.JavaScript.NodeApi.Runtime;
 
 namespace Microsoft.JavaScript.NodeApiTest;
 
@@ -11,7 +12,7 @@ public partial class TestObject
     {
         JSValue obj = args[0];
         JSValue key = args[1];
-        return obj.HasProperty((JSNativeApi.Interop.napi_value)key);
+        return obj.HasProperty((JSRuntime.napi_value)key);
     }
 
     private static JSValue HasPropertyWithNapiWrapperValue(JSCallbackArgs args)
@@ -19,13 +20,6 @@ public partial class TestObject
         JSValue obj = args[0];
         JSValue key = args[1];
         return obj.HasProperty(key);
-    }
-
-    private static JSValue HasPropertyWithLatin1StyleString(JSCallbackArgs args)
-    {
-        JSValue obj = args[0];
-        JSValue key = args[1];
-        return obj.HasProperty(JSValue.CreateStringLatin1(key.GetValueStringLatin1()));
     }
 
     private static JSValue HasPropertyWithUtf8StyleString(JSCallbackArgs args)

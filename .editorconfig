@@ -156,6 +156,16 @@ csharp_space_between_square_brackets = false
 dotnet_diagnostic.CA1510.severity = none
 dotnet_diagnostic.CA1513.severity = none
 
+dotnet_diagnostic.IDE0290.severity = none # Use primary constructor
+dotnet_diagnostic.IDE0065.severity = none # Using directives must be placed outside of namespace
+
+# Collection initialization can be simplified.
+# This relies on implicit conversions in ways that are sometimes undesirable.
+dotnet_diagnostic.IDE0028.severity = none # new Dictionary<K,V>() => []  (and other collections)
+dotnet_diagnostic.IDE0300.severity = none # new[] { a, b } -> [a, b]  (breaks some attributes)
+dotnet_diagnostic.IDE0302.severity = none # stackalloc T[N] { a, b } -> [a, b]
+dotnet_diagnostic.IDE0305.severity = none # collection.ToArray() -> [..collection]
+
 # License header
 file_header_template = Copyright (c) Microsoft Corporation.\nLicensed under the MIT License.
 

@@ -275,7 +275,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "using System.CodeDom.Compiler;";
         s += "using System.Runtime.InteropServices;";
         s += "using Microsoft.JavaScript.NodeApi.Interop;";
-        s += "using static Microsoft.JavaScript.NodeApi.JSNativeApi.Interop;";
+        s += "using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;";
         s++;
         s += "#pragma warning disable CS1591 // Do not warn about missing doc comments in generated code.";
         s++;
@@ -299,7 +299,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // The main initialization entrypoint is called by the `ManagedHost`, and by the unmanaged entrypoint.
         s += $"public static napi_value {ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += "{";
-        s += "using var scope = new JSValueScope(JSValueScopeType.Module, env);";
+        s += "var scope = new JSValueScope(JSValueScopeType.Module, env);";
         s += "try";
         s += "{";
         s += "JSRuntimeContext context = scope.RuntimeContext;";
@@ -333,11 +333,15 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             s += "return (napi_value)exportsValue;";
         }
 
+        // The module scope is not disposed before a successful return. It becomes the parent
+        // of callback scopes, allowing the JS runtime instance to be inherited.
+
         s += "}";
         s += "catch (System.Exception ex)";
         s += "{";
         s += "System.Console.Error.WriteLine($\"Failed to export module: {ex}\");";
         s += "JSError.ThrowError(ex);";
+        s += "scope.Dispose();";
         s += "return exports;";
         s += "}";
         s += "}";

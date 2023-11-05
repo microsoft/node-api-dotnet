@@ -26,19 +26,19 @@ public class TestBasicTypesNumber : TestHelper, ITestObject
 
     public JSObject Init() => new()
     {
-        Method(ToInt32, nameof(ToInt32)),
-        Method(ToUInt32, nameof(ToUInt32)),
-        Method(ToInt64, nameof(ToInt64)),
-        Method(ToFloat, nameof(ToFloat)),
-        Method(ToDouble, nameof(ToDouble)),
-        Method(MinFloat, nameof(MinFloat)),
-        Method(MaxFloat, nameof(MaxFloat)),
-        Method(MinDouble, nameof(MinDouble)),
-        Method(MaxDouble, nameof(MaxDouble)),
-        Method(OperatorInt32, nameof(OperatorInt32)),
-        Method(OperatorUInt32, nameof(OperatorUInt32)),
-        Method(OperatorInt64, nameof(OperatorInt64)),
-        Method(OperatorFloat, nameof(OperatorFloat)),
-        Method(OperatorDouble, nameof(OperatorDouble)),
+        Method(ToInt32),
+        Method(ToUInt32),
+        Method(ToInt64),
+        Method(ToFloat),
+        Method(ToDouble),
+        Method(MinFloat),
+        Method(MaxFloat),
+        Method(MinDouble),
+        Method(MaxDouble),
+        Method(OperatorInt32),
+        Method(OperatorUInt32),
+        Method(OperatorInt64),
+        Method(OperatorFloat),
+        Method(OperatorDouble),
     };
 }

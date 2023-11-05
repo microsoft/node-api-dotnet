@@ -4,7 +4,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using Microsoft.JavaScript.NodeApi.Runtimes;
+using Microsoft.JavaScript.NodeApi.Runtime;
 
 namespace Microsoft.JavaScript.NodeApi.Examples;
 

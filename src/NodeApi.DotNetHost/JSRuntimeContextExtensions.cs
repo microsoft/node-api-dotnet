@@ -3,7 +3,7 @@
 
 using System;
 using Microsoft.JavaScript.NodeApi.Interop;
-using Microsoft.JavaScript.NodeApi.Runtimes;
+using Microsoft.JavaScript.NodeApi.Runtime;
 
 namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 

@@ -156,11 +156,11 @@ internal static class JSCollectionProxies
             IEnumerator<T> enumerator = enumerable.GetEnumerator();
             JSObject iterator = new();
             iterator.DefineProperties(
-                JSPropertyDescriptor.Function(JSSymbol.Iterator, (args) =>
+                new JSPropertyDescriptor(JSSymbol.Iterator, (args) =>
                 {
                     // The iterator is also iterable.
                     return args.ThisArg;
-                }, JSPropertyAttributes.DefaultProperty),
+                }, null, null, null, JSPropertyAttributes.DefaultProperty),
                 JSPropertyDescriptor.Function("next", (args) =>
                 {
                     JSObject nextResult = new();
@@ -201,11 +201,11 @@ internal static class JSCollectionProxies
             IAsyncEnumerator<T> enumerator = enumerable.GetAsyncEnumerator();
             JSObject iterator = new();
             iterator.DefineProperties(
-                JSPropertyDescriptor.Function(JSSymbol.AsyncIterator, (args) =>
+                new JSPropertyDescriptor(JSSymbol.AsyncIterator, (args) =>
                 {
                     // The iterator is also iterable.
                     return args.ThisArg;
-                }, JSPropertyAttributes.DefaultProperty),
+                }, null, null, null, JSPropertyAttributes.DefaultProperty),
                 JSPropertyDescriptor.Function("next", (args) =>
                 {
                     return enumerator.MoveNextAsync().AsPromise((result) =>

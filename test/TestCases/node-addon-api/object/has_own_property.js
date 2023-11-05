@@ -27,13 +27,11 @@ function test (binding) {
 
   testHasOwnProperty(binding.object.hasOwnPropertyWithNapiValue);
   testHasOwnProperty(binding.object.hasOwnPropertyWithNapiWrapperValue);
-  testHasOwnProperty(binding.object.hasOwnPropertyWithLatin1StyleString);
   testHasOwnProperty(binding.object.hasOwnPropertyWithUtf8StyleString);
   testHasOwnProperty(binding.object.hasOwnPropertyWithCSharpStyleString);
 
   testShouldThrowErrorIfKeyIsInvalid(binding.object.hasOwnPropertyWithNapiValue);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.hasOwnPropertyWithNapiWrapperValue);
-  testShouldThrowErrorIfKeyIsInvalid(binding.object.hasOwnPropertyWithLatin1StyleString);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.hasOwnPropertyWithUtf8StyleString);
   testShouldThrowErrorIfKeyIsInvalid(binding.object.hasOwnPropertyWithCSharpStyleString);
 }

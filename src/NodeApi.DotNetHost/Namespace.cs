@@ -32,7 +32,7 @@ internal class Namespace
         _export = export;
         JSProxy proxy = new(new JSObject(), CreateProxyHandler());
         _valueReference = new JSReference(proxy);
-        _tostringReference = new JSReference(new JSFunction(() => ToString()));
+        _tostringReference = new JSReference(new JSFunction("toString", () => ToString()));
     }
 
     /// <summary>
