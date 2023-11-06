@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- False is the default, but this overrides the True value in the project root. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

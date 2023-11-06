@@ -2,13 +2,21 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+
+    <!-- The C# xmldoc file is converted to comments in the generated TS type definitions. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- `dotnet publish` will produce node module files in $(PublishDir), with
+      .node native AOT binary files under $(RuntimeIdentifier) subdirectories. -->
     <PublishAot>true</PublishAot>
     <PublishNodeModule>true</PublishNodeModule>
-    <PublishDir>bin</PublishDir><!-- Publish the .node binary to this location. -->
+    <PublishDir>bin</PublishDir>
+    <PublishMultiPlatformNodeModule>true</PublishMultiPlatformNodeModule>
+
+    <!-- `dotnet publish` will produce an npm package in the $(PackageOutputPath) directory. -->
+    <!-- `package.json` is required in the project directory; `.npmignore` is also recommended. -->
     <PackNpmPackage>true</PackNpmPackage>
-    <PackageOutputPath>pkg</PackageOutputPath><!-- Publish the npm .tgz packge to this location.-->
+    <PackageOutputPath>pkg</PackageOutputPath>
   </PropertyGroup>
 
   <ItemGroup>

@@ -4,7 +4,6 @@
     <TargetFramework>net8.0-windows10.0.22000.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
     <OutputType>WinExe</OutputType>
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
 
     <!-- WinUI 3 -->
     <UseWinUI>true</UseWinUI>
