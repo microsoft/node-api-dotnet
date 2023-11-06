@@ -1,0 +1,6 @@
+# When packaging, ignore everything except the .node binaries, scripts, and type definitions.
+# (Readme and license files are always included implictly.)
+*
+!/bin/**/*.node
+!/bin/*.js
+!/bin/*.d.ts

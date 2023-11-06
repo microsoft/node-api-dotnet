@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0-windows</TargetFramework>
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <RestorePackagesPath>$(MSBuildThisFileDirectory)/pkg</RestorePackagesPath>
     <OutDir>bin</OutDir>
     <NodeApiAssemblyJSModuleType>esm</NodeApiAssemblyJSModuleType>

@@ -9,6 +9,13 @@
 //  - ...
 module.exports = initialize;
 
+const ridPlatform =
+  process.platform === 'win32' ? 'win' :
+  process.platform === 'darwin' ? 'osx' :
+  process.platform;
+const ridArch = process.arch === 'ia32' ? 'x86' : process.arch;
+const rid = `${ridPlatform}-${ridArch}`;
+
 /**
  * Initializes the Node API .NET host.
  * @param {string} targetFramework Minimum requested .NET version. Must be one of the target
@@ -18,29 +25,9 @@ module.exports = initialize;
  */
 function initialize(targetFramework) {
   const assemblyName = 'Microsoft.JavaScript.NodeApi';
-  const runtimeIdentifier = getRuntimeIdentifier();
-  const nativeHostPath = __dirname + `/${runtimeIdentifier}/${assemblyName}.node`;
+  const nativeHostPath = __dirname + `/${rid}/${assemblyName}.node`;
   const managedHostPath = __dirname + `/${targetFramework}/${assemblyName}.DotNetHost.dll`
 
   const nativeHost = require(nativeHostPath);
   return nativeHost.initialize(targetFramework, managedHostPath, require);
-}
-
-function getRuntimeIdentifier() {
-  function getRuntimePlatformIdentifier() {
-    switch (process.platform) {
-      case 'win32': return 'win'
-      case 'darwin': return 'osx'
-      default: return process.platform;
-    }
-  }
-
-  function getRuntimeArchIdentifier() {
-    switch (process.arch) {
-      case 'ia32': return 'x86'
-      default: return process.arch
-    }
-  }
-
-  return `${getRuntimePlatformIdentifier()}-${getRuntimeArchIdentifier()}`;
 }

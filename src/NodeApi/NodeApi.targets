@@ -4,14 +4,43 @@
     BeforeTargets="PublishManagedAssembly"
     Condition=" '$(PublishNodeModule)' == 'true' "
   >
-    <!-- Rename the native library (and its symbols file) to have a .node extension. -->
+    <!-- If publishing a node module for for multiple platforms, use an rid-specific subdir. -->
+    <PropertyGroup>
+      <PublishNodeModuleDir  Condition=" '$(PublishMultiPlatformNodeModule)' != 'true' ">$(PublishDir)</PublishNodeModuleDir>
+      <PublishNodeModuleDir  Condition=" '$(PublishMultiPlatformNodeModule)' == 'true' ">$(PublishDir)$(RuntimeIdentifier)/</PublishNodeModuleDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(PublishNodeModuleDir)" />
+
+    <!-- Rename/move the native library (and its symbols file) to have a .node extension. -->
     <Move SourceFiles="$(PublishDir)$(TargetName)$(NativeBinaryExt)"
-      DestinationFiles="$(PublishDir)$(TargetName).node" />
+      DestinationFiles="$(PublishNodeModuleDir)$(TargetName).node" />
     <Move Condition="Exists('$(PublishDir)$(TargetName).pdb')"
       SourceFiles="$(PublishDir)$(TargetName).pdb"
-      DestinationFiles="$(PublishDir)$(TargetName).node.pdb" />
+      DestinationFiles="$(PublishNodeModuleDir)$(TargetName).node.pdb" />
     <Move Condition="Exists('$(PublishDir)$(TargetName).so.dbg')"
       SourceFiles="$(PublishDir)$(TargetName).so.dbg"
-      DestinationFiles="$(PublishDir)$(TargetName).node.dbg" />
+      DestinationFiles="$(PublishNodeModuleDir)$(TargetName).node.dbg" />
+
+    <!-- Add a non-rid-specific JS file that redirects to the rid-specific binary. -->
+    <!-- (The rid code is the same as node-api-dotnet/init.js.) -->
+    <WriteLinesToFile Condition=" '$(PublishMultiPlatformNodeModule)' == 'true' "
+      File="$(PublishDir)$(TargetName).js" Overwrite="true" Lines=";
+const ridPlatform =
+  process.platform === 'win32' ? 'win' :
+  process.platform === 'darwin' ? 'osx' :
+  process.platform;
+const ridArch = process.arch === 'ia32' ? 'x86' : process.arch;
+const rid = `${ridPlatform}-${ridArch}`;
+module.exports = require(`./${rid}/$(TargetName).node`);
+      " />
+  </Target>
+
+  <Target Name="PackNpmPackage"
+    AfterTargets="RenameToDotNode"
+    BeforeTargets="PublishManagedAssembly"
+    Condition=" '$(PackNpmPackage)' == 'true' "
+  >
+    <MakeDir Directories="$(PackageOutputPath)" />
+    <Exec Command="npm pack --pack-destination=&quot;$(PackageOutputPath)&quot;" />
   </Target>
 </Project>

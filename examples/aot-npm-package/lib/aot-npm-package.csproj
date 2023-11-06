@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+
+    <!-- The C# xmldoc file is converted to comments in the generated TS type definitions. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- `dotnet publish` will produce node module files in $(PublishDir), with
+      .node native AOT binary files under $(RuntimeIdentifier) subdirectories. -->
+    <PublishAot>true</PublishAot>
+    <PublishNodeModule>true</PublishNodeModule>
+    <PublishDir>bin</PublishDir>
+    <PublishMultiPlatformNodeModule>true</PublishMultiPlatformNodeModule>
+
+    <!-- `dotnet publish` will produce an npm package in the $(PackageOutputPath) directory. -->
+    <!-- `package.json` is required in the project directory; `.npmignore` is also recommended. -->
+    <PackNpmPackage>true</PackNpmPackage>
+    <PackageOutputPath>pkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.4.*-*" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*-*" />
+  </ItemGroup>
+
+</Project>

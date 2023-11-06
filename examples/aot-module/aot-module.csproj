@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PublishAot>true</PublishAot>
     <PublishNodeModule>true</PublishNodeModule>
@@ -10,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.2.*-*" PrivateAssets="none" />
-    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.2.*-*" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.4.*-*" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*-*" />
   </ItemGroup>
 
 </Project>

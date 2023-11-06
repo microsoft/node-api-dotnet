@@ -1,0 +1,15 @@
+{
+  "name": "aot-npm-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Example Node.js app that references an npm-packaged C# Native AOT node module",
+  "license": "MIT",
+  "author": "Microsoft",
+  "repository": "github:microsoft/node-api-dotnet",
+  "main": "./example.js",
+  "scripts": {
+  },
+  "dependencies": {
+    "aot-npm-package": "file:../lib/pkg/aot-npm-package-0.1.6.tgz"
+  }
+}
