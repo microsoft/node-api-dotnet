@@ -37,7 +37,7 @@ While some limited solutions exist, there are opportunities to do better in many
 ---
 ## Primary .NET / JS Interop scenarios
 - Dynamically invoke .NET APIs from JS.
-- Develop Node.js addon modules in C#.
+- Develop Node.js addon modules in C# (runtime-dependent or Native AOT).
 - Host a JS runtime within a .NET app and call JS APIs from .NET.
 - Develop React Native apps and extensions in C# with JS interop.
 
@@ -220,18 +220,19 @@ Numbers are _microseconds_. "Warm" is an average of 10000 .NET -> JS calls (pass
 
 ---
 ## Project status
- - Available for early experimentation
+ - Currently in public preview
    - Send feedback, bug reports to [microsoft/node-api-dotnet/issues](https://github.com/microsoft/node-api-dotnet/issues)
    - Help prioritize areas for improvement.
    - Contribute PRs!
  - Current limitations may block some advanced interop scenarios.
- - NOT production ready
 
 ---
 ## Roadmap
 Major development areas:
- - More marshalling: events, generics, ...
+ - Add support for extension methods, .NET events, better overload resolution
+ - Custom marshalling
  - API review / refinement
  - More test coverage
+ - Explore interop with WinRT, WASM
 
 Project backlog: https://github.com/orgs/microsoft/projects/779
