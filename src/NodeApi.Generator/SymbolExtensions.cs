@@ -352,7 +352,7 @@ internal static class SymbolExtensions
             if (memberSymbol is IMethodSymbol constructorSymbol &&
                 constructorSymbol.MethodKind == MethodKind.Constructor)
             {
-                BuildSymbolicConstructor(typeBuilder, constructorSymbol);
+                BuildSymbolicConstructor(typeBuilder, constructorSymbol, genericTypeParameters);
             }
             else if (memberSymbol is IMethodSymbol methodSymbol &&
                 (methodSymbol.MethodKind == MethodKind.Ordinary ||
@@ -391,14 +391,17 @@ internal static class SymbolExtensions
     }
 
     private static ConstructorBuilder BuildSymbolicConstructor(
-        TypeBuilder typeBuilder, IMethodSymbol constructorSymbol)
+        TypeBuilder typeBuilder,
+        IMethodSymbol constructorSymbol,
+        Type[]? genericTypeParameters)
     {
         bool isDelegateConstructor = typeBuilder.BaseType == typeof(MulticastDelegate);
         ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
             MethodAttributes.Public | (isDelegateConstructor ?
                 MethodAttributes.RTSpecialName | MethodAttributes.HideBySig : default),
             CallingConventions.HasThis,
-            constructorSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
+            constructorSymbol.Parameters.Select(
+                (p) => p.Type.AsType(genericTypeParameters)).ToArray());
 
         IReadOnlyList<IParameterSymbol> parameters = constructorSymbol.Parameters;
         for (int i = 0; i < parameters.Count; i++)
