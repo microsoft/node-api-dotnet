@@ -10,8 +10,8 @@ Interop is high-performance and supports TypeScript type-definitions generation,
 it is compatible with any Node.js version (without recompiling) or other JavaScript runtime that
 supports Node API.
 
-:warning: _**Status: In Development** - Core functionality works, but many things are incomplete,
-and it isn't yet all packaged up nicely in a way that can be easily consumed._
+:warning: _**Status: Public Preview** - Most functionality works well, though there are some known
+limitations around the edges, and there may still be minor breaking API changes._
 
 [Instructions for getting started are below.](#getting-started)
 

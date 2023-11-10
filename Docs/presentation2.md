@@ -184,6 +184,21 @@ new JSFunction("greeter", (JSValue person) =>
  - .NET class can implement a TS interface
 
 ---
+## Generics
+The JavaScript runtime lacks generics support;
+  TypeScript generics are compile-time only!
+
+.NET generic types and methods are projected to JS via special `$` functions that accept type args:
+```JavaScript
+System.Enum.Parse$(System.DayOfWeek)('Tuesday'); // Call generic method
+System.Comparer$(System.DateTime).Create();      // Call static method on generic class
+const TaskCompletionSourceOfDate = System.TaskCompletionSource$(System.DateTime);
+new TaskCompletionSourceOfDate();                // Create instance of generic class
+```
+
+... except for generic collections, which are projected using TS generics: `IDictionary<string, int>` -> `Map<string, number>`
+
+---
 ## .NET Native AOT
  - AOT C# code uses .NET hosting APIs to load .NET in-proc.
    - .NET 6+: `hostfxr`

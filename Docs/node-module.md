@@ -3,7 +3,7 @@
 For a minimal example of this scenario, see
 [../examples/dotnet-module/](../examples/dotnet-module/).
 
-1. Create a .NET Class library project that targets .NET 6 or later.
+1. Create a .NET Class library project that targets .NET 6 or later. (.NET 8 for AOT.)
     ```
     mkdir ExampleModule
     cd ExampleModule
@@ -20,13 +20,11 @@ For a minimal example of this scenario, see
     [build them from source](../README-DEV.md).<br>Then add the `out/pkg` directory as a local
     package source in your `NuGet.config`.
 
-    **Important**: Edit the project file so that both package reference elements include `PrivateAssets="all"`, and the generator reference includes `OutputItemType="Analyzer" ReferenceOutputAssembly="false"`:
+    Afterward you should have the two references in your project file:
     ```xml
     <ItemGroup>
-      <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.2.*-*"
-        PrivateAssets="all" />
-      <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.2.*-*"
-        PrivateAssets="all" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+      <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.4.*-*" />
+      <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*-*" />
     </ItemGroup>
     ```
 
