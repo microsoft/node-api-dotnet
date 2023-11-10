@@ -20,7 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.4.*-*" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.4.*-*" />
     <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*-*" />
   </ItemGroup>
 
