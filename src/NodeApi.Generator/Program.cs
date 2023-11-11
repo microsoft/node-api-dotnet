@@ -6,12 +6,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Microsoft.JavaScript.NodeApi.Generator;
 
 // This warning is safe to suppress because this code is not part of the analyzer,
 // though it is part of the same assembly.
-#pragma warning disable RS1035 // Do not use APIs banned for analyzers
+#pragma warning disable RS1035 // Do not use file I/O APIs banned for analyzers
 
 /// <summary>
 /// Command-line interface for the Node API TS type-definitions generator tool.
@@ -34,29 +35,23 @@ public static class Program
 
     public static int Main(string[] args)
     {
-
-#if DEBUG
-        if (Environment.GetEnvironmentVariable("DEBUG_NODE_API_GENERATOR") != null)
-        {
-            System.Diagnostics.Debugger.Launch();
-        }
-#endif
+        DebugHelper.AttachDebugger("DEBUG_NODE_API_GENERATOR");
 
         if (!ParseArgs(args))
         {
-            Console.WriteLine("Usage: node-api-dotnet-generator [options...]");
-            Console.WriteLine();
-            Console.WriteLine("  -a --asssembly  Path to input assembly (required)");
-            Console.WriteLine("  -f --framework  Target framework of system assemblies " +
-                "(optional)");
-            Console.WriteLine("  -p --pack       Targeting pack (optional, multiple)");
-            Console.WriteLine("  -r --reference  Path to reference assembly " +
-                "(optional, multiple)");
-            Console.WriteLine("  -t --typedefs   Path to output type definitions file (required)");
-            Console.WriteLine("  -m --module     Generate JS loader module(s) alongside typedefs" +
-                "(optional)");
-            Console.WriteLine("                  Valid values are 'commonjs' or 'esm'");
-            Console.WriteLine("  --nowarn        Suppress warnings");
+            Console.WriteLine("""
+                Usage: node-api-dotnet-generator [options...]
+                  -a --asssembly  Path to input assembly (required)
+                  -f --framework  Target framework of system assemblies (optional)
+                  -p --pack       Targeting pack (optional, multiple)
+                  -r --reference  Path to reference assembly (optional, multiple)
+                  -t --typedefs   Path to output type definitions file (required)
+                  -m --module     Generate JS loader module(s) alongside typedefs (optional)
+                                  Valid values are 'commonjs' or 'esm'
+                  --nowarn        Suppress warnings
+                  -? -h --help    Show this help message
+                  @<file>         Read response file for more options
+                """);
             return 1;
         }
 
@@ -105,6 +100,11 @@ public static class Program
 
     private static bool ParseArgs(string[] args)
     {
+        if (!MergeArgsFromResponseFiles(ref args))
+        {
+            return false;
+        }
+
         string? targetFramework = null;
         List<string> targetingPacks = new();
 
@@ -179,6 +179,11 @@ public static class Program
                     s_suppressWarnings = true;
                     break;
 
+                case "-?":
+                case "-h":
+                case "--help":
+                    return false;
+
                 default:
                     Console.Error.WriteLine("Unrecognized argument: " + args[i]);
                     return false;
@@ -226,6 +231,80 @@ public static class Program
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Reads a response file indicated by an `@` prefix, in the same format as csc:
+    /// https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-options/miscellaneous#responsefiles
+    /// </summary>
+    private static bool MergeArgsFromResponseFiles(ref string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i].StartsWith('-') && args[i] != "--nowarn")
+            {
+                // Skip over argument values.
+                i++;
+                continue;
+            }
+
+            if (args[i].StartsWith('@'))
+            {
+                string responseFilePath = args[i].Substring(1);
+                if (!File.Exists(responseFilePath))
+                {
+                    Console.Error.WriteLine("Response file not found: " + responseFilePath);
+                    return false;
+                }
+
+                // Read response file lines, ignoring blank lines and comments.
+                string[] responseFileLines = File.ReadAllLines(responseFilePath)
+                    .Select((line) => line.Trim())
+                    .Where((line) => !string.IsNullOrEmpty(line) && !line.StartsWith('#'))
+                    .ToArray();
+
+                // Split lines into arguments, handling quotes.
+                string[] responseFileArgs = responseFileLines.SelectMany(SplitWithQuotes).ToArray();
+
+                // Insert response file args into the args array.
+                args = args.Take(i)
+                    .Concat(responseFileArgs)
+                    .Concat(args.Skip(i + 1)).ToArray();
+                i += responseFileArgs.Length;
+            }
+        }
+
+        return true;
+    }
+
+    private static IEnumerable<string> SplitWithQuotes(string line)
+    {
+        StringBuilder s = new();
+        bool inQuotes = false;
+        foreach (char c in line)
+        {
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (c == ' ' && !inQuotes)
+            {
+                if (s.Length > 0)
+                {
+                    yield return s.ToString();
+                    s.Clear();
+                }
+            }
+            else
+            {
+                s.Append(c);
+            }
+        }
+
+        if (s.Length > 0)
+        {
+            yield return s.ToString();
+        }
     }
 
     private static void ResolveSystemAssemblies(
@@ -344,5 +423,3 @@ public static class Program
             $"net{frameworkVersion.Major}.{frameworkVersion.Minor}";
     }
 }
-
-#pragma warning restore RS1035

@@ -40,18 +40,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
     public void Initialize(GeneratorInitializationContext context)
     {
-#if DEBUG
-#pragma warning disable RS1035 // The symbol 'Environment' is banned for use by analyzers.
-        // Note source generators are not covered by normal debugging,
+        // Note source generators cannot be directly launched in a debugger,
         // because the generator runs at build time, not at application run-time.
         // Set the environment variable to trigger debugging at build time.
-
-        if (Environment.GetEnvironmentVariable("DEBUG_NODE_API_GENERATOR") != null)
-        {
-            System.Diagnostics.Debugger.Launch();
-        }
-#pragma warning restore RS1035
-#endif
+        DebugHelper.AttachDebugger("DEBUG_NODE_API_GENERATOR");
     }
 
     public void Execute(GeneratorExecutionContext context)

@@ -11,7 +11,6 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading;
 using Microsoft.JavaScript.NodeApi.Interop;
 using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
@@ -210,7 +209,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         Trace($"    .NET Runtime version: {Environment.Version}");
 #endif
 
-        AttachDebugger();
+        DebugHelper.AttachDebugger("DEBUG_NODE_API_RUNTIME");
 
         JSRuntime runtime = new NodejsRuntime();
 
@@ -637,71 +636,5 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             string? format,
             params object?[]? args)
         => WriteLine(string.Format(format ?? string.Empty, args ?? []));
-    }
-
-    [Conditional("DEBUG")]
-    private static void AttachDebugger()
-    {
-        string? debugValue = Environment.GetEnvironmentVariable("DEBUG_NODE_API_RUNTIME");
-        if (string.Equals(debugValue, "VS", StringComparison.OrdinalIgnoreCase))
-        {
-            // Launch the Visual Studio debugger.
-            Debugger.Launch();
-        }
-        else if (!string.IsNullOrEmpty(debugValue))
-        {
-            Process currentProcess = Process.GetCurrentProcess();
-            string processName = currentProcess.ProcessName;
-            int processId = currentProcess.Id;
-            Console.WriteLine("###################### DEBUG ######################");
-            Console.WriteLine($"Process \"{processName}\" ({processId}) is waiting for debugger.");
-
-            int waitSeconds = 20;
-            string waitingMessage = "Press any key to continue without debugging... ";
-
-            if (!Console.IsOutputRedirected)
-            {
-                Console.Write(waitingMessage + $"({waitSeconds})");
-            }
-
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            int remainingSeconds = waitSeconds;
-            while (!Debugger.IsAttached)
-            {
-                if (Console.KeyAvailable)
-                {
-                    Console.ReadKey(true);
-                    Console.WriteLine();
-                    return;
-                }
-                else if (stopwatch.Elapsed > TimeSpan.FromSeconds(waitSeconds))
-                {
-                    Console.WriteLine(
-                        $"Debugger did not attach after {waitSeconds} seconds. Continuing.");
-                    return;
-                }
-
-                Thread.Sleep(100);
-
-                if (remainingSeconds > waitSeconds - (int)stopwatch.Elapsed.TotalSeconds)
-                {
-                    remainingSeconds = waitSeconds - (int)stopwatch.Elapsed.TotalSeconds;
-
-                    if (!Console.IsOutputRedirected)
-                    {
-                        Console.CursorLeft = waitingMessage.Length;
-                        Console.Write($"({remainingSeconds:D2})");
-                    }
-                }
-            }
-
-            if (!Console.IsOutputRedirected)
-            {
-                Console.CursorLeft = waitingMessage.Length;
-                Console.WriteLine("    ");
-            }
-
-            Debugger.Break();
-        }
     }
 }
