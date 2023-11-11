@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../NodeApi.DotNetHost/DebugHelper.cs" Link="DebugHelper.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Package the generator and dependencies in the analyzer directory of the nuget package -->
     <!-- Use the .NET 6 targeted assembly as the analyzer for broader compatibility. (There's no difference in functionality.) -->
     <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\$(AssemblyName).dll" />

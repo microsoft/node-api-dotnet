@@ -31,7 +31,20 @@
     Outputs="$(TargetDir)$(NodeApiTypeDefinitionsFileName)"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetPath)') "
   >
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; --assembly &quot;$(TargetPath)&quot; --packs &quot;@(TargetingPack)&quot; --reference &quot;@(ReferencePathWithRefAssemblies)&quot; --typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
+    <PropertyGroup>
+      <NodeApiGeneratorResponseFile>$(IntermediateOutputPath)$(NodeApiGeneratorAssemblyName).rsp</NodeApiGeneratorResponseFile>
+      <_NodeApiGeneratorTargetingPacks>@(TargetingPack, '%3B')</_NodeApiGeneratorTargetingPacks>
+      <_NodeApiGeneratorAssemblyReferences>@(ReferencePathWithRefAssemblies, '%3B')</_NodeApiGeneratorAssemblyReferences>
+    </PropertyGroup>
+
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--assembly &quot;$(TargetPath)&quot;" Overwrite="true" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--packs &quot;$(_NodeApiGeneratorTargetingPacks)&quot;" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--reference &quot;$(_NodeApiGeneratorAssemblyReferences)&quot;" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot;" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="$(NodeApiTypeDefinitionsGeneratorOptions)" />
+
+    <!-- Run the generator using args from the response file. Note the '@' indicates the response file NOT an MSBuild item-list. -->
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; &quot;@$(NodeApiGeneratorResponseFile)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
 
@@ -101,7 +114,20 @@
       <_NodeApiAllTypeDefs Include="@(NodeApiSystemReferenceAssembly->'$(TargetDir)%(Identity).d.ts')" />
     </ItemGroup>
 
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; $(_SuppressTSGenerationWarnings) --assemblies &quot;@(_NodeApiAllReferenceAssemblies)&quot; --packs &quot;@(TargetingPack)&quot; --typedefs &quot;@(_NodeApiAllTypeDefs)&quot; $(NodeApiTypeDefinitionsGeneratorOptions)"
+    <PropertyGroup>
+      <NodeApiGeneratorResponseFile>$(IntermediateOutputPath)$(NodeApiGeneratorAssemblyName).rsp</NodeApiGeneratorResponseFile>
+      <_NodeApiGeneratorTargetingPacks>@(TargetingPack, '%3B')</_NodeApiGeneratorTargetingPacks>
+      <_NodeApiGeneratorAssemblyReferences>@(_NodeApiAllReferenceAssemblies, '%3B')</_NodeApiGeneratorAssemblyReferences>
+      <_NodeApiGeneratorTypeDefs>@(_NodeApiAllTypeDefs, '%3B')</_NodeApiGeneratorTypeDefs>
+    </PropertyGroup>
+
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--assemblies &quot;$(_NodeApiGeneratorAssemblyReferences)&quot;" Overwrite="true" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--packs &quot;$(_NodeApiGeneratorTargetingPacks)&quot;" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--typedefs &quot;$(_NodeApiGeneratorTypeDefs)&quot;" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="$(NodeApiTypeDefinitionsGeneratorOptions)" />
+
+    <!-- Run the generator using args from the response file. Note the '@' indicates the response file NOT an MSBuild item-list. -->
+    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; &quot;@$(NodeApiGeneratorResponseFile)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
 
