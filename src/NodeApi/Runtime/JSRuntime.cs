@@ -41,7 +41,7 @@ public abstract partial class JSRuntime
     private static NotSupportedException NS([CallerMemberName] string name = "")
         => new($"The {name} method is not supported by the current JS runtime.");
 
-    public abstract bool IsAvailable(string functionName);
+    public virtual bool IsAvailable(string functionName) => true;
 
     public virtual napi_status GetVersion(napi_env env, out uint result) => throw NS();
 
@@ -66,8 +66,8 @@ public abstract partial class JSRuntime
     public virtual napi_status SetInstanceData(
         napi_env env,
         nint data,
-        napi_finalize finalize_cb,
-        nint finalize_hint) => throw NS();
+        napi_finalize finalizeCallback,
+        nint finalizeHint) => throw NS();
 
     #endregion
 

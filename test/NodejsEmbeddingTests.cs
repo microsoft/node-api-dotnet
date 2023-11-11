@@ -4,7 +4,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.JavaScript.NodeApi.Runtime;
 using Xunit;
@@ -20,11 +19,22 @@ public class NodejsEmbeddingTests
     internal static NodejsPlatform? NodejsPlatform { get; } =
         File.Exists(LibnodePath) ? new(LibnodePath, args: new[] { "node", "--expose-gc" }) : null;
 
+    internal static NodejsEnvironment CreateNodejsEnvironment()
+    {
+        Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
+        return NodejsPlatform.CreateEnvironment();
+    }
+
+    internal static void RunInNodejsEnvironment(Action action)
+    {
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        nodejs.SynchronizationContext.Run(action);
+    }
+
     [SkippableFact]
     public void NodejsStart()
     {
-        Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        using NodejsEnvironment nodejs = NodejsPlatform.CreateEnvironment();
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
 
         nodejs.SynchronizationContext.Run(() =>
         {
@@ -39,8 +49,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void NodejsCallFunction()
     {
-        Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        using NodejsEnvironment nodejs = NodejsPlatform.CreateEnvironment();
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
 
         nodejs.SynchronizationContext.Run(() =>
         {
@@ -55,8 +64,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void NodejsUnhandledRejection()
     {
-        Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        using NodejsEnvironment nodejs = NodejsPlatform.CreateEnvironment();
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
 
         string? errorMessage = null;
         nodejs.UnhandledPromiseRejection += (_, e) =>
@@ -78,8 +86,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void NodejsErrorPropagation()
     {
-        Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        using NodejsEnvironment nodejs = NodejsPlatform.CreateEnvironment();
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
 
         string? exceptionMessage = null;
         string? exceptionStack = null;

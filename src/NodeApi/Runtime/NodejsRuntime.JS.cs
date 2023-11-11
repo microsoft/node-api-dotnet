@@ -91,10 +91,10 @@ public unsafe partial class NodejsRuntime
     public override napi_status SetInstanceData(
         napi_env env,
         nint data,
-        napi_finalize finalize_cb,
-        nint finalize_hint)
+        napi_finalize finalizeCallback,
+        nint finalizeHint)
     {
-        return Import(ref napi_set_instance_data)(env, data, finalize_cb, finalize_hint);
+        return Import(ref napi_set_instance_data)(env, data, finalizeCallback, finalizeHint);
     }
 
     #endregion

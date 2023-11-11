@@ -7,7 +7,7 @@ namespace Microsoft.JavaScript.NodeApi;
 
 /// <summary>
 /// An exception that was caused by an error thrown by JavaScript code or
-/// interactions with the JavaScript engine.
+/// interactions with JavaScript objects.
 /// </summary>
 public class JSException : Exception
 {

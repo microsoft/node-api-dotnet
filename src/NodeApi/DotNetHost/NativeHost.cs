@@ -23,10 +23,12 @@ internal unsafe partial class NativeHost : IDisposable
     private static readonly string s_managedHostTypeName =
         typeof(NativeHost).Namespace + ".ManagedHost";
 
+    private static JSRuntime? s_jsRuntime;
     private string? _targetFramework;
     private string? _managedHostPath;
     private ICLRRuntimeHost* _runtimeHost;
     private hostfxr_handle _hostContextHandle;
+    private readonly JSValueScope _hostScope;
     private JSReference? _exports;
 
     public static bool IsTracingEnabled { get; } =
@@ -48,15 +50,18 @@ internal unsafe partial class NativeHost : IDisposable
     {
         Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
 
-        JSRuntime runtime = new NodejsRuntime();
-        using JSValueScope scope = new(JSValueScopeType.NoContext, env, runtime);
+        s_jsRuntime ??= new NodejsRuntime();
+
+        // The native host JSValueScope is not disposed after a successful initialization. It
+        // becomes the parent of callback scopes, allowing the JS runtime instance to be inherited.
+        JSValueScope hostScope = new(JSValueScopeType.NoContext, env, s_jsRuntime);
         try
         {
-            NativeHost host = new();
+            NativeHost host = new(hostScope);
 
             // Do not use JSModuleBuilder here because it relies on having a current context.
             // But the context will be set by the managed host.
-            new JSValue(exports, scope).DefineProperties(
+            new JSValue(exports, hostScope).DefineProperties(
                 // The package index.js will invoke the initialize method with the path to
                 // the managed host assembly.
                 JSPropertyDescriptor.Function("initialize", host.InitializeManagedHost));
@@ -65,7 +70,8 @@ internal unsafe partial class NativeHost : IDisposable
         {
             string message = $"Failed to load CLR native host module: {ex}";
             Trace(message);
-            runtime.Throw(env, (napi_value)JSValue.CreateError(null, (JSValue)message));
+            s_jsRuntime.Throw(env, (napi_value)JSValue.CreateError(null, (JSValue)message));
+            hostScope.Dispose();
         }
 
         Trace("< NativeHost.InitializeModule()");
@@ -73,8 +79,9 @@ internal unsafe partial class NativeHost : IDisposable
         return exports;
     }
 
-    public NativeHost()
+    private NativeHost(JSValueScope hostScope)
     {
+        _hostScope = hostScope;
     }
 
     /// <summary>

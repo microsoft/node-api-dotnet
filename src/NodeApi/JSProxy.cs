@@ -72,7 +72,7 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
     /// <exception cref="InvalidOperationException">The proxy is not revocable.</exception>
     public void Revoke()
     {
-        if (!_revoke.Handle.HasValue)
+        if (_revoke == default)
         {
             throw new InvalidOperationException("Proxy is not revokable.");
         }

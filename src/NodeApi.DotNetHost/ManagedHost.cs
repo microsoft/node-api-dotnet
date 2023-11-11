@@ -393,14 +393,15 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             }
         }
 
+        JSValueScope scope = JSValueScope.Current;
         JSValue exports = JSValue.CreateObject();
 
         var result = (napi_value?)initializeMethod.Invoke(
-            null, new object[] { (napi_env)JSValueScope.Current, (napi_value)exports });
+            null, new object[] { (napi_env)scope, (napi_value)exports });
 
         if (result != null && result.Value != default)
         {
-            exports = new JSValue(result.Value);
+            exports = new JSValue(result.Value, scope);
         }
 
         if (exports.IsObject())
