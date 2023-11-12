@@ -38,7 +38,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
     public GeneratorExecutionContext Context { get; protected set; }
 
+#pragma warning disable IDE0060 // Unused parameter
     public void Initialize(GeneratorInitializationContext context)
+#pragma warning restore IDE0060
     {
         // Note source generators cannot be directly launched in a debugger,
         // because the generator runs at build time, not at application run-time.
