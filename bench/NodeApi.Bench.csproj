@@ -9,6 +9,7 @@
     <IsPublishable>false</IsPublishable>
     <NoWarn>MSB3270</NoWarn><!-- Processor architecture mismatch bewteen "MSIL" and ... -->
     <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

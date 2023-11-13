@@ -165,29 +165,20 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public static unsafe JSValue CreateStringUtf8(ReadOnlySpan<byte> value)
     {
-        fixed (byte* spanPtr = value)
-        {
-            return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value, out napi_value result)
-                .ThrowIfFailed(result);
-        }
+        return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
     public static unsafe JSValue CreateStringUtf16(ReadOnlySpan<char> value)
     {
-        fixed (char* spanPtr = value)
-        {
-            return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value, out napi_value result)
-                .ThrowIfFailed(result);
-        }
+        return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value, out napi_value result)
+            .ThrowIfFailed(result);
     }
 
     public static unsafe JSValue CreateStringUtf16(string value)
     {
-        fixed (char* spanPtr = value)
-        {
-            return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value.AsSpan(), out napi_value result)
-                .ThrowIfFailed(result);
-        }
+        return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value.AsSpan(), out napi_value result)
+            .ThrowIfFailed(result);
     }
 
     public static JSValue CreateSymbol(JSValue description)
