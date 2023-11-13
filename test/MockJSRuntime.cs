@@ -82,6 +82,19 @@ internal class MockJSRuntime : JSRuntime
         return napi_ok;
     }
 
+    public override napi_status CreateString(
+        napi_env env, ReadOnlySpan<char> utf16Str, out napi_value result)
+    {
+        nint handle = ++s_handleCounter;
+        _values.Add(handle, new MockJSValue
+        {
+            ValueType = napi_valuetype.napi_string,
+            Value = utf16Str.ToString(),
+        });
+        result = new napi_value(handle);
+        return napi_ok;
+    }
+
     public override napi_status CreateObject(
         napi_env env, out napi_value result)
     {

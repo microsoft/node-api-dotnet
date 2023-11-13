@@ -27,6 +27,15 @@ public readonly struct JSValue : IEquatable<JSValue>
     public JSValue() { }
 
     /// <summary>
+    /// Creates a new instance of <see cref="JSValue" /> from a handle in the current scope.
+    /// </summary>
+    /// <remarks>
+    /// WARNING: A JS value handle is a pointer to a location in memory, so an invalid handle here
+    /// may cause an attempt to access an invalid memory location.
+    /// </remarks>
+    public JSValue(napi_value handle) : this(handle, JSValueScope.Current) { }
+
+    /// <summary>
     /// Creates a new instance of <see cref="JSValue" /> from a handle in the specified scope.
     /// </summary>
     /// <exception cref="ArgumentNullException">Thrown when the scope is null (unless the handle
@@ -42,10 +51,28 @@ public readonly struct JSValue : IEquatable<JSValue>
         _scope = scope;
     }
 
-    public napi_value Handle => _handle.Handle != default ? _handle : Undefined._handle;
+    public napi_value Handle
+    {
+        get
+        {
+            if (_scope == null)
+            {
+                // If the scope is null, this is an empty (uninitialized) instance.
+                // Implicitly convert to the JS `undefined` value.
+                return Undefined._handle;
+            }
 
-    public static implicit operator JSValue(napi_value handle) => new(handle, JSValueScope.Current);
-    public static implicit operator JSValue?(napi_value handle) => handle.Handle != default ? new(handle, JSValueScope.Current) : default;
+            // Ensure the scope is valid and on the current thread (environment).
+            _scope.CheckDisposed();
+            _scope.CheckThreadAccess();
+
+            // The handle must be non-null when the scope is non-null.
+            return _handle;
+        }
+    }
+
+    public static implicit operator JSValue(napi_value handle) => new(handle);
+    public static implicit operator JSValue?(napi_value handle) => handle.Handle != default ? new(handle) : default;
     public static explicit operator napi_value(JSValue value) => value.Handle;
     public static explicit operator napi_value(JSValue? value) => value?.Handle ?? default;
 
@@ -204,7 +231,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         JSValueScope currentScope = JSValueScope.Current;
         GCHandle valueHandle = currentScope.RuntimeContext.AllocGCHandle(value);
         return JSValueScope.CurrentRuntime.CreateExternal(
-            CurrentEnv,
+            (napi_env)currentScope,
             (nint)valueHandle,
             new napi_finalize(s_finalizeGCHandle),
             currentScope.RuntimeContextHandle,

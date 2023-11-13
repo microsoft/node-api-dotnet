@@ -368,7 +368,7 @@ public sealed class JSValueScope : IDisposable
     /// Checks that this scope has not been closed (disposed).
     /// </summary>
     /// <exception cref="JSValueScopeClosedException">The scope is closed.</exception>
-    private void CheckDisposed()
+    internal void CheckDisposed()
     {
         if (IsDisposed)
         {
@@ -382,7 +382,7 @@ public sealed class JSValueScope : IDisposable
     /// </summary>
     /// <exception cref="JSInvalidScopeException">The scope cannot be accessed from the current
     /// thread.</exception>
-    private void CheckThreadAccess()
+    internal void CheckThreadAccess()
     {
         if (s_currentScope?._env != _env)
         {

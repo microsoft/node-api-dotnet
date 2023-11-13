@@ -296,6 +296,31 @@ public class JSValueScopeTests
     }
 
     [Fact]
+    public void AccessPropertyKeyFromClosedScope()
+    {
+        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+
+        JSValue objectValue = JSValue.CreateObject();
+        JSValue propertyKey;
+
+        JSValueScope handleScope;
+        using (handleScope = new(JSValueScopeType.Handle))
+        {
+            propertyKey = "test";
+            Assert.True(propertyKey.IsString());
+        }
+
+        // The property key scope was closed so it's not valid to use as a method argument.
+        Assert.True(handleScope.IsDisposed);
+        JSValueScopeClosedException ex = Assert.Throws<JSValueScopeClosedException>(
+            () => objectValue[propertyKey]);
+        Assert.Equal(handleScope, ex.Scope);
+
+        // The object value scope was not closed so it's still valid.
+        Assert.True(objectValue.IsObject());
+    }
+
+    [Fact]
     public void CreateValueFromDifferentThread()
     {
         using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
