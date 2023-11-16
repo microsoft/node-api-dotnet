@@ -245,8 +245,7 @@ public sealed class JSValueScope : IDisposable
                 // Module scopes may be created without a parent scope (for AOT modules).
                 if (scopeType != JSValueScopeType.Module)
                 {
-                    throw new JSInvalidThreadAccessException(
-                        currentScope: null,
+                    throw new InvalidOperationException(
                         $"A {scopeType} scope cannot be created without a parent scope.");
                 }
 
@@ -260,8 +259,7 @@ public sealed class JSValueScope : IDisposable
             {
                 // This should never happen because disposing a scope removes it from
                 // s_currentScope (which is used to initialize _parentScope above).
-                throw new JSInvalidThreadAccessException(
-                    currentScope: s_currentScope, "Parent scope is disposed.");
+                throw new InvalidOperationException("Parent scope is disposed.");
             }
             else if (scopeType == JSValueScopeType.Callback &&
                 _parentScope.ScopeType != JSValueScopeType.Callback &&
@@ -269,8 +267,7 @@ public sealed class JSValueScope : IDisposable
                 _parentScope.ScopeType != JSValueScopeType.Root &&
                 _parentScope.ScopeType != JSValueScopeType.NoContext)
             {
-                throw new JSInvalidThreadAccessException(
-                    currentScope: s_currentScope,
+                throw new InvalidOperationException(
                     $"A Callback scope must be created within a Root, Module, or Callback scope. " +
                     $"Current scope: {scopeType}");
             }
