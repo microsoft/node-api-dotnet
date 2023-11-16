@@ -54,7 +54,7 @@ public class JSReferenceTests
         // Run in a new thread which will not have any current scope.
         Task.Run(() =>
         {
-            Assert.Throws<JSInvalidScopeException>(() => reference.GetValue());
+            Assert.Throws<JSInvalidThreadAccessException>(() => reference.GetValue());
         }).Wait();
     }
 
@@ -70,7 +70,7 @@ public class JSReferenceTests
         Task.Run(() =>
         {
             using JSValueScope rootScope2 = TestScope(JSValueScopeType.Root);
-            Assert.Throws<JSInvalidScopeException>(() => reference.GetValue());
+            Assert.Throws<JSInvalidThreadAccessException>(() => reference.GetValue());
         }).Wait();
     }
 }

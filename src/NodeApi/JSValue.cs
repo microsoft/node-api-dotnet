@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Microsoft.JavaScript.NodeApi.Interop;
 using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi;
+using static Microsoft.JavaScript.NodeApi.JSValueScope;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
@@ -51,6 +52,13 @@ public readonly struct JSValue : IEquatable<JSValue>
         _scope = scope;
     }
 
+    /// <summary>
+    /// Gets the value handle, or throws an exception if the value scope is disposed or
+    /// access from the current thread is invalid.
+    /// </summary>
+    /// <exception cref="JSValueScopeClosedException">The scope has been closed.</exception>
+    /// <exception cref="JSInvalidThreadAccessException">The scope is not valid on the current
+    /// thread.</exception>
     public napi_value Handle
     {
         get
@@ -63,8 +71,8 @@ public readonly struct JSValue : IEquatable<JSValue>
             }
 
             // Ensure the scope is valid and on the current thread (environment).
-            _scope.CheckDisposed();
-            _scope.CheckThreadAccess();
+            _scope.ThrowIfDisposed();
+            _scope.ThrowIfInvalidThreadAccess();
 
             // The handle must be non-null when the scope is non-null.
             return _handle;
@@ -77,26 +85,23 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static explicit operator napi_value(JSValue? value) => value?.Handle ?? default;
 
     /// <summary>
-    /// Gets the environment handle for the current <see cref="JSValue" /> instance.
+    /// Gets the environment handle for the value's scope without checking whether the scope
+    /// is disposed or whether access from the current thread is valid. WARNING: This must only
+    /// be used to avoid redundant handle checks when there is another (checked) access to
+    /// <see cref="Handle" /> for the same call.
     /// </summary>
-    internal napi_env Env => (napi_env)Scope;
-
-    /// <summary>
-    /// Gets the environment handle for the current thread scope. For use only in static methods;
-    /// for instance methods use <see cref="Env" /> instead.
-    /// </summary>
-    internal static napi_env CurrentEnv => (napi_env)JSValueScope.Current;
+    internal napi_env UncheckedEnvironmentHandle => Scope.UncheckedEnvironmentHandle;
 
     public static JSValue Undefined
-        => JSValueScope.CurrentRuntime.GetUndefined(CurrentEnv, out napi_value result).ThrowIfFailed(result);
+        => CurrentRuntime.GetUndefined(CurrentEnvironmentHandle, out napi_value result).ThrowIfFailed(result);
     public static JSValue Null
-        => JSValueScope.CurrentRuntime.GetNull(CurrentEnv, out napi_value result).ThrowIfFailed(result);
+        => CurrentRuntime.GetNull(CurrentEnvironmentHandle, out napi_value result).ThrowIfFailed(result);
     public static JSValue Global
-        => JSValueScope.CurrentRuntime.GetGlobal(CurrentEnv, out napi_value result).ThrowIfFailed(result);
+        => CurrentRuntime.GetGlobal(CurrentEnvironmentHandle, out napi_value result).ThrowIfFailed(result);
     public static JSValue True => GetBoolean(true);
     public static JSValue False => GetBoolean(false);
     public static JSValue GetBoolean(bool value)
-        => JSValueScope.CurrentRuntime.GetBoolean(CurrentEnv, value, out napi_value result).ThrowIfFailed(result);
+        => CurrentRuntime.GetBoolean(CurrentEnvironmentHandle, value, out napi_value result).ThrowIfFailed(result);
 
     public JSObject Properties => (JSObject)this;
 
@@ -121,38 +126,38 @@ public readonly struct JSValue : IEquatable<JSValue>
     }
 
     public static JSValue CreateObject()
-        => JSValueScope.CurrentRuntime.CreateObject(CurrentEnv, out napi_value result)
+        => CurrentRuntime.CreateObject(CurrentEnvironmentHandle, out napi_value result)
         .ThrowIfFailed(result);
 
     public static JSValue CreateArray()
-        => JSValueScope.CurrentRuntime.CreateArray(CurrentEnv, out napi_value result)
+        => CurrentRuntime.CreateArray(CurrentEnvironmentHandle, out napi_value result)
         .ThrowIfFailed(result);
 
     public static JSValue CreateArray(int length)
-        => JSValueScope.CurrentRuntime.CreateArray(CurrentEnv, length, out napi_value result)
+        => CurrentRuntime.CreateArray(CurrentEnvironmentHandle, length, out napi_value result)
         .ThrowIfFailed(result);
 
     public static JSValue CreateNumber(double value)
-        => JSValueScope.CurrentRuntime.CreateNumber(CurrentEnv, value, out napi_value result)
+        => CurrentRuntime.CreateNumber(CurrentEnvironmentHandle, value, out napi_value result)
         .ThrowIfFailed(result);
 
     public static JSValue CreateNumber(int value)
-        => JSValueScope.CurrentRuntime.CreateNumber(CurrentEnv, value, out napi_value result)
+        => CurrentRuntime.CreateNumber(CurrentEnvironmentHandle, value, out napi_value result)
         .ThrowIfFailed(result);
 
     public static JSValue CreateNumber(uint value)
-        => JSValueScope.CurrentRuntime.CreateNumber(CurrentEnv, value, out napi_value result)
+        => CurrentRuntime.CreateNumber(CurrentEnvironmentHandle, value, out napi_value result)
         .ThrowIfFailed(result);
 
     public static JSValue CreateNumber(long value)
-        => JSValueScope.CurrentRuntime.CreateNumber(CurrentEnv, value, out napi_value result)
+        => CurrentRuntime.CreateNumber(CurrentEnvironmentHandle, value, out napi_value result)
         .ThrowIfFailed(result);
 
     public static unsafe JSValue CreateStringUtf8(ReadOnlySpan<byte> value)
     {
         fixed (byte* spanPtr = value)
         {
-            return JSValueScope.CurrentRuntime.CreateString(CurrentEnv, value, out napi_value result)
+            return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value, out napi_value result)
                 .ThrowIfFailed(result);
         }
     }
@@ -161,7 +166,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
         fixed (char* spanPtr = value)
         {
-            return JSValueScope.CurrentRuntime.CreateString(CurrentEnv, value, out napi_value result)
+            return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value, out napi_value result)
                 .ThrowIfFailed(result);
         }
     }
@@ -170,18 +175,18 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
         fixed (char* spanPtr = value)
         {
-            return JSValueScope.CurrentRuntime.CreateString(CurrentEnv, value.AsSpan(), out napi_value result)
+            return CurrentRuntime.CreateString(CurrentEnvironmentHandle, value.AsSpan(), out napi_value result)
                 .ThrowIfFailed(result);
         }
     }
 
     public static JSValue CreateSymbol(JSValue description)
-        => JSValueScope.CurrentRuntime.CreateSymbol(
-            CurrentEnv, (napi_value)description, out napi_value result).ThrowIfFailed(result);
+        => CurrentRuntime.CreateSymbol(
+            CurrentEnvironmentHandle, (napi_value)description, out napi_value result).ThrowIfFailed(result);
 
     public static JSValue SymbolFor(string name)
     {
-        return JSValueScope.CurrentRuntime.GetSymbolFor(CurrentEnv, name, out napi_value result)
+        return CurrentRuntime.GetSymbolFor(CurrentEnvironmentHandle, name, out napi_value result)
             .ThrowIfFailed(result);
     }
 
@@ -190,8 +195,8 @@ public readonly struct JSValue : IEquatable<JSValue>
         napi_callback callback,
         nint data)
     {
-        return JSValueScope.CurrentRuntime.CreateFunction(
-            CurrentEnv, name, callback, data, out napi_value result)
+        return CurrentRuntime.CreateFunction(
+            CurrentEnvironmentHandle, name, callback, data, out napi_value result)
             .ThrowIfFailed(result);
     }
 
@@ -211,26 +216,26 @@ public readonly struct JSValue : IEquatable<JSValue>
     }
 
     public static JSValue CreateError(JSValue? code, JSValue message)
-        => JSValueScope.CurrentRuntime.CreateError(CurrentEnv, (napi_value)code, (napi_value)message,
+        => CurrentRuntime.CreateError(CurrentEnvironmentHandle, (napi_value)code, (napi_value)message,
             out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateTypeError(JSValue? code, JSValue message)
-        => JSValueScope.CurrentRuntime.CreateTypeError(CurrentEnv, (napi_value)code, (napi_value)message,
+        => CurrentRuntime.CreateTypeError(CurrentEnvironmentHandle, (napi_value)code, (napi_value)message,
             out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateRangeError(JSValue? code, JSValue message)
-        => JSValueScope.CurrentRuntime.CreateRangeError(CurrentEnv, (napi_value)code, (napi_value)message,
+        => CurrentRuntime.CreateRangeError(CurrentEnvironmentHandle, (napi_value)code, (napi_value)message,
             out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateSyntaxError(JSValue? code, JSValue message)
-        => JSValueScope.CurrentRuntime.CreateSyntaxError(CurrentEnv, (napi_value)code, (napi_value)message,
+        => CurrentRuntime.CreateSyntaxError(CurrentEnvironmentHandle, (napi_value)code, (napi_value)message,
             out napi_value result).ThrowIfFailed(result);
 
     public static unsafe JSValue CreateExternal(object value)
     {
         JSValueScope currentScope = JSValueScope.Current;
         GCHandle valueHandle = currentScope.RuntimeContext.AllocGCHandle(value);
-        return JSValueScope.CurrentRuntime.CreateExternal(
+        return CurrentRuntime.CreateExternal(
             (napi_env)currentScope,
             (nint)valueHandle,
             new napi_finalize(s_finalizeGCHandle),
@@ -241,14 +246,14 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public static unsafe JSValue CreateArrayBuffer(int byteLength)
     {
-        JSValueScope.CurrentRuntime.CreateArrayBuffer(CurrentEnv, byteLength, out nint _, out napi_value result)
+        CurrentRuntime.CreateArrayBuffer(CurrentEnvironmentHandle, byteLength, out nint _, out napi_value result)
             .ThrowIfFailed();
         return result;
     }
 
     public static unsafe JSValue CreateArrayBuffer(ReadOnlySpan<byte> data)
     {
-        JSValueScope.CurrentRuntime.CreateArrayBuffer(CurrentEnv, data.Length, out nint buffer, out napi_value result)
+        CurrentRuntime.CreateArrayBuffer(CurrentEnvironmentHandle, data.Length, out nint buffer, out napi_value result)
             .ThrowIfFailed();
         data.CopyTo(new Span<byte>((void*)buffer, data.Length));
         return result;
@@ -258,8 +263,8 @@ public readonly struct JSValue : IEquatable<JSValue>
         Memory<T> memory, object? external = null) where T : struct
     {
         var pinnedMemory = new PinnedMemory<T>(memory, external);
-        return JSValueScope.CurrentRuntime.CreateArrayBuffer(
-            CurrentEnv,
+        return CurrentRuntime.CreateArrayBuffer(
+            CurrentEnvironmentHandle,
             (nint)pinnedMemory.Pointer,
             pinnedMemory.Length,
             // We pass object to finalize as a hint parameter
@@ -270,14 +275,14 @@ public readonly struct JSValue : IEquatable<JSValue>
     }
 
     public static JSValue CreateDataView(int length, JSValue arrayBuffer, int byteOffset)
-        => JSValueScope.CurrentRuntime.CreateDataView(
-            CurrentEnv, length, (napi_value)arrayBuffer, byteOffset, out napi_value result)
+        => CurrentRuntime.CreateDataView(
+            CurrentEnvironmentHandle, length, (napi_value)arrayBuffer, byteOffset, out napi_value result)
             .ThrowIfFailed(result);
 
     public static JSValue CreateTypedArray(
         JSTypedArrayType type, int length, JSValue arrayBuffer, int byteOffset)
-        => JSValueScope.CurrentRuntime.CreateTypedArray(
-            CurrentEnv,
+        => CurrentRuntime.CreateTypedArray(
+            CurrentEnvironmentHandle,
             (napi_typedarray_type)type,
             length,
             (napi_value)arrayBuffer,
@@ -287,24 +292,24 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public static JSValue CreatePromise(out JSPromise.Deferred deferred)
     {
-        JSValueScope.CurrentRuntime.CreatePromise(CurrentEnv, out napi_deferred deferred_, out napi_value promise)
+        CurrentRuntime.CreatePromise(CurrentEnvironmentHandle, out napi_deferred deferred_, out napi_value promise)
             .ThrowIfFailed();
         deferred = new JSPromise.Deferred(deferred_);
         return promise;
     }
 
     public static JSValue CreateDate(double time)
-        => JSValueScope.CurrentRuntime.CreateDate(CurrentEnv, time, out napi_value result).ThrowIfFailed(result);
+        => CurrentRuntime.CreateDate(CurrentEnvironmentHandle, time, out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateBigInt(long value)
-        => JSValueScope.CurrentRuntime.CreateBigInt(CurrentEnv, value, out napi_value result).ThrowIfFailed(result);
+        => CurrentRuntime.CreateBigInt(CurrentEnvironmentHandle, value, out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateBigInt(ulong value)
-        => JSValueScope.CurrentRuntime.CreateBigInt(CurrentEnv, value, out napi_value result).ThrowIfFailed(result);
+        => CurrentRuntime.CreateBigInt(CurrentEnvironmentHandle, value, out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateBigInt(int signBit, ReadOnlySpan<ulong> words)
     {
-        return JSValueScope.CurrentRuntime.CreateBigInt(CurrentEnv, signBit, words, out napi_value result)
+        return CurrentRuntime.CreateBigInt(CurrentEnvironmentHandle, signBit, words, out napi_value result)
             .ThrowIfFailed(result);
     }
 

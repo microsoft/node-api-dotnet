@@ -49,6 +49,27 @@ public class JSReference : IDisposable
         IsWeak = isWeak;
     }
 
+    /// <summary>
+    /// Gets the value handle, or throws an exception if access from the current thread is invalid.
+    /// </summary>
+    /// <exception cref="JSInvalidThreadAccessException">Access to the reference is not valid on
+    /// the current thread.</exception>
+    public napi_ref Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            ThrowIfInvalidThreadAccess();
+            return _handle;
+        }
+    }
+
+    public static explicit operator napi_ref(JSReference reference)
+    {
+        if (reference is null) throw new ArgumentNullException(nameof(reference));
+        return reference.Handle;
+    }
+
     public static bool TryCreateReference(
         JSValue value, bool isWeak, [NotNullWhen(true)] out JSReference? result)
     {
@@ -81,15 +102,14 @@ public class JSReference : IDisposable
     {
         get
         {
-            CheckDisposed();
-            CheckThreadAccess();
+            ThrowIfDisposed();
+            ThrowIfInvalidThreadAccess();
             return _env;
         }
     }
 
     public void MakeWeak()
     {
-        CheckDisposed();
         if (!IsWeak)
         {
             JSValueScope.CurrentRuntime.UnrefReference(Env, _handle, out _).ThrowIfFailed();
@@ -98,17 +118,15 @@ public class JSReference : IDisposable
     }
     public void MakeStrong()
     {
-        CheckDisposed();
         if (IsWeak)
         {
             JSValueScope.CurrentRuntime.RefReference(Env, _handle, out _).ThrowIfFailed();
-            IsWeak = true;
+            IsWeak = false;
         }
     }
 
     public JSValue? GetValue()
     {
-        CheckDisposed();
         JSValueScope.CurrentRuntime.GetReferenceValue(Env, _handle, out napi_value result)
             .ThrowIfFailed();
         return result;
@@ -172,11 +190,9 @@ public class JSReference : IDisposable
         }
     }
 
-    public static explicit operator napi_ref(JSReference value) => value._handle;
-
     public bool IsDisposed { get; private set; }
 
-    private void CheckDisposed()
+    private void ThrowIfDisposed()
     {
         if (IsDisposed)
         {
@@ -188,9 +204,9 @@ public class JSReference : IDisposable
     /// Checks that the current thread is the thread that is running the JavaScript environment
     /// that this reference was created in.
     /// </summary>
-    /// <exception cref="JSInvalidScopeException">The reference cannot be accessed from the current
-    /// thread.</exception>
-    private void CheckThreadAccess()
+    /// <exception cref="JSInvalidThreadAccessException">The reference cannot be accessed from the
+    /// current thread.</exception>
+    private void ThrowIfInvalidThreadAccess()
     {
         JSValueScope currentScope = JSValueScope.Current;
         if ((napi_env)currentScope != _env)
@@ -201,8 +217,8 @@ public class JSReference : IDisposable
                 $"#{threadId}" : $"#{threadId} \"{threadName}\"";
             string message = "The JS reference cannot be accessed from the current thread.\n" +
                 $"Current thread: {threadDescription}. " +
-                $"Consider using {nameof(JSSynchronizationContext)} to switch to the JS thread.";
-            throw new JSInvalidScopeException(currentScope, message);
+                $"Consider using the synchronization context to switch to the JS thread.";
+            throw new JSInvalidThreadAccessException(currentScope, message);
         }
     }
 
@@ -221,19 +237,18 @@ public class JSReference : IDisposable
         if (!IsDisposed)
         {
             IsDisposed = true;
-            napi_ref handle = _handle; // To capture in lambda
 
             // The context may be null if the reference was created from a "no-context" scope such
             // as the native host. In that case the reference must be disposed from the JS thread.
             if (_context == null)
             {
-                JSValueScope.CurrentRuntime.DeleteReference(_env, handle).ThrowIfFailed();
+                JSValueScope.CurrentRuntime.DeleteReference(_env, _handle).ThrowIfFailed();
             }
             else
             {
                 _context.SynchronizationContext.Post(
                     () => _context.Runtime.DeleteReference(
-                        _env, handle).ThrowIfFailed(), allowSync: true);
+                        _env, _handle).ThrowIfFailed(), allowSync: true);
             }
         }
     }

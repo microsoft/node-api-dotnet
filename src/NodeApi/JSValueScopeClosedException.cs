@@ -27,7 +27,8 @@ public class JSValueScopeClosedException : ObjectDisposedException
     private static string GetMessage(JSValueScope scope)
     {
         return $"The JS value scope of type {scope.ScopeType} was closed.\n" +
-            "Values created within the scope are no longer available after their scope is " +
-            "closed. Consider using an escapable scope to promote a value to the parent scope.";
+            "Values created within a scope are no longer available after their scope is " +
+            "closed. Consider using an escapable scope to promote a value to the parent scope, " +
+            "or a reference to make a value available to a future callback scope.";
     }
 }

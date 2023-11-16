@@ -14,7 +14,7 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// <remarks>
 /// All JavaScript values are bound to the thread that runs the JS environment and can only be
 /// accessed from the same thread. Attempts to access a JavaScript value from a different thread
-/// will throw <see cref="JSInvalidScopeException" />.
+/// will throw <see cref="JSInvalidThreadAccessException" />.
 /// <para/>
 /// Use of <see cref="Task.ConfigureAwait(bool)"/> with <c>continueOnCapturedContext:false</c>
 /// can prevent execution from returning to the JS thread, though it isn't necessarily a problem

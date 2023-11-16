@@ -71,7 +71,9 @@ public enum JSValueScopeType
 public sealed class JSValueScope : IDisposable
 {
     private readonly JSValueScope? _parentScope;
+#pragma warning disable IDE0032 // Use auto property
     private readonly napi_env _env;
+#pragma warning restore IDE0032
     private readonly SynchronizationContext? _previousSyncContext;
     private readonly nint _scopeHandle;
 
@@ -82,10 +84,51 @@ public sealed class JSValueScope : IDisposable
     /// <summary>
     /// Gets the current JS value scope.
     /// </summary>
-    /// <exception cref="JSInvalidScopeException">No scope was established for the current
+    /// <exception cref="JSInvalidThreadAccessException">No scope was established for the current
     /// thread.</exception>
     public static JSValueScope Current => s_currentScope ??
-        throw new JSInvalidScopeException(currentScope: null);
+        throw new JSInvalidThreadAccessException(currentScope: null);
+
+    /// <summary>
+    /// Gets the envionment handle for the scope, or throws an exception if the scope is
+    /// disposed or access from the current thread is invalid.
+    /// </summary>
+    /// <exception cref="JSValueScopeClosedException">The scope has been closed.</exception>
+    /// <exception cref="JSInvalidThreadAccessException">The scope is not valid on the current
+    /// thread.</exception>
+    public napi_env EnvironmentHandle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            ThrowIfInvalidThreadAccess();
+            return _env;
+        }
+    }
+
+    public static explicit operator napi_env(JSValueScope scope)
+    {
+        if (scope is null) throw new ArgumentNullException(nameof(scope));
+        return scope.EnvironmentHandle;
+    }
+
+    /// <summary>
+    /// Gets the environment handle without checking whether the scope is disposed or
+    /// whether access from the current thread is valid. WARNING: This must only be used
+    /// to avoid redundant handle checks when there is another (checked) access to
+    /// <see cref="EnvironmentHandle" /> for the same call.
+    /// </summary>
+    internal napi_env UncheckedEnvironmentHandle => _env;
+
+    /// <summary>
+    /// Gets the environment handle for the current thread scope, or throws an exception if
+    /// there is no environment for the current thread. For use only with static operations
+    /// not related to any <see cref="JSValue" />; for value operations use
+    /// <see cref="JSValue.UncheckedEnvironmentHandle" /> instead.
+    /// </summary>
+    /// <exception cref="JSInvalidThreadAccessException">No scope was established for the current
+    /// thread.</exception>
+    internal static napi_env CurrentEnvironmentHandle => Current.EnvironmentHandle;
 
     internal int ThreadId { get; }
 
@@ -135,8 +178,7 @@ public sealed class JSValueScope : IDisposable
             _parentScope = s_currentScope;
             if (_parentScope != null && _parentScope.ScopeType != JSValueScopeType.NoContext)
             {
-                throw new JSInvalidScopeException(
-                    currentScope: s_currentScope,
+                throw new InvalidOperationException(
                     "A NoContext scope cannot be created within another type of scope.");
             }
 
@@ -167,8 +209,7 @@ public sealed class JSValueScope : IDisposable
                 }
                 else
                 {
-                    throw new JSInvalidScopeException(
-                        currentScope: s_currentScope,
+                    throw new InvalidOperationException(
                         $"A Root scope cannot be created within another scope.");
                 }
             }
@@ -204,7 +245,7 @@ public sealed class JSValueScope : IDisposable
                 // Module scopes may be created without a parent scope (for AOT modules).
                 if (scopeType != JSValueScopeType.Module)
                 {
-                    throw new JSInvalidScopeException(
+                    throw new JSInvalidThreadAccessException(
                         currentScope: null,
                         $"A {scopeType} scope cannot be created without a parent scope.");
                 }
@@ -219,7 +260,7 @@ public sealed class JSValueScope : IDisposable
             {
                 // This should never happen because disposing a scope removes it from
                 // s_currentScope (which is used to initialize _parentScope above).
-                throw new JSInvalidScopeException(
+                throw new JSInvalidThreadAccessException(
                     currentScope: s_currentScope, "Parent scope is disposed.");
             }
             else if (scopeType == JSValueScopeType.Callback &&
@@ -228,7 +269,7 @@ public sealed class JSValueScope : IDisposable
                 _parentScope.ScopeType != JSValueScopeType.Root &&
                 _parentScope.ScopeType != JSValueScopeType.NoContext)
             {
-                throw new JSInvalidScopeException(
+                throw new JSInvalidThreadAccessException(
                     currentScope: s_currentScope,
                     $"A Callback scope must be created within a Root, Module, or Callback scope. " +
                     $"Current scope: {scopeType}");
@@ -247,7 +288,7 @@ public sealed class JSValueScope : IDisposable
             }
             else
             {
-                _parentScope.CheckThreadAccess();
+                _parentScope.ThrowIfInvalidThreadAccess();
                 _env = _parentScope._env;
                 ThreadId = _parentScope.ThreadId;
                 Runtime = _parentScope.Runtime;
@@ -257,8 +298,7 @@ public sealed class JSValueScope : IDisposable
             {
                 if (_parentScope?.ModuleContext != null)
                 {
-                    throw new JSInvalidScopeException(
-                        currentScope: s_currentScope, "Module scope cannot be nested.");
+                    throw new InvalidOperationException("Module scope cannot be nested.");
                 }
 
                 ModuleContext = new JSModuleContext();
@@ -326,7 +366,7 @@ public sealed class JSValueScope : IDisposable
 
         if (ScopeType != JSValueScopeType.NoContext)
         {
-            napi_env env = (napi_env)RuntimeContext;
+            napi_env env = RuntimeContext.EnvironmentHandle;
 
             switch (ScopeType)
             {
@@ -368,7 +408,7 @@ public sealed class JSValueScope : IDisposable
     /// Checks that this scope has not been closed (disposed).
     /// </summary>
     /// <exception cref="JSValueScopeClosedException">The scope is closed.</exception>
-    internal void CheckDisposed()
+    internal void ThrowIfDisposed()
     {
         if (IsDisposed)
         {
@@ -380,21 +420,13 @@ public sealed class JSValueScope : IDisposable
     /// Checks that the current thread is the thread that is running the JavaScript environment
     /// that this scope is in.
     /// </summary>
-    /// <exception cref="JSInvalidScopeException">The scope cannot be accessed from the current
+    /// <exception cref="JSInvalidThreadAccessException">The scope cannot be accessed from the current
     /// thread.</exception>
-    internal void CheckThreadAccess()
+    internal void ThrowIfInvalidThreadAccess()
     {
         if (s_currentScope?._env != _env)
         {
-            throw new JSInvalidScopeException(currentScope: s_currentScope, targetScope: this);
+            throw new JSInvalidThreadAccessException(currentScope: s_currentScope, targetScope: this);
         }
-    }
-
-    public static explicit operator napi_env(JSValueScope scope)
-    {
-        if (scope is null) throw new ArgumentNullException(nameof(scope));
-        scope.CheckDisposed();
-        scope.CheckThreadAccess();
-        return scope!._env;
     }
 }

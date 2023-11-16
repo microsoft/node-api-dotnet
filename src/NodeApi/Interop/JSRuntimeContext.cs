@@ -104,13 +104,30 @@ public sealed class JSRuntimeContext : IDisposable
 
     private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
 
-    public bool IsDisposed { get; private set; }
+    internal napi_env EnvironmentHandle
+    {
+        get
+        {
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(JSRuntimeContext));
+            }
 
-    public static explicit operator napi_env(JSRuntimeContext context) => context?._env ??
-        throw new ArgumentNullException(nameof(context));
+            return _env;
+        }
+    }
+
+    public static explicit operator napi_env(JSRuntimeContext context)
+    {
+        if (context is null) throw new ArgumentNullException(nameof(context));
+        return context.EnvironmentHandle;
+    }
+
     public static explicit operator JSRuntimeContext(napi_env env)
         => GetInstanceData(env) as JSRuntimeContext
            ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
+
+    public bool IsDisposed { get; private set; }
 
     /// <summary>
     /// Gets the current runtime context.
@@ -128,6 +145,8 @@ public sealed class JSRuntimeContext : IDisposable
         JSRuntime runtime,
         JSSynchronizationContext? synchronizationContext = null)
     {
+        if (env.IsNull) throw new ArgumentNullException(nameof(env));
+
         _env = env;
         Runtime = runtime;
         SetInstanceData(env, this);

@@ -18,13 +18,13 @@ namespace Microsoft.JavaScript.NodeApi;
 /// is still valid (not disposed).
 /// </remarks>
 /// <seealso cref="JSSynchronizationContext"/>
-public class JSInvalidScopeException : InvalidOperationException
+public class JSInvalidThreadAccessException : InvalidOperationException
 {
     /// <summary>
-    /// Creates a new instance of <see cref="JSInvalidScopeException" /> with a 
+    /// Creates a new instance of <see cref="JSInvalidThreadAccessException" /> with a
     /// current scope and message.
     /// </summary>
-    public JSInvalidScopeException(
+    public JSInvalidThreadAccessException(
         JSValueScope? currentScope,
         string? message = null)
         : this(currentScope, targetScope: null, message)
@@ -32,10 +32,10 @@ public class JSInvalidScopeException : InvalidOperationException
     }
 
     /// <summary>
-    /// Creates a new instance of <see cref="JSInvalidScopeException" /> with current
+    /// Creates a new instance of <see cref="JSInvalidThreadAccessException" /> with current
     /// and target scopes and a message.
     /// </summary>
-    public JSInvalidScopeException(
+    public JSInvalidThreadAccessException(
         JSValueScope? currentScope,
         JSValueScope? targetScope,
         string? message = null)
@@ -49,13 +49,13 @@ public class JSInvalidScopeException : InvalidOperationException
     /// Gets the scope associated with the current thread (<see cref="JSValueScope.Current" />)
     /// when the exception was thrown, or null if there was no scope for the thread.
     /// </summary>
-    public JSValueScope? CurrentScope { get; internal set; }
+    public JSValueScope? CurrentScope { get; }
 
     /// <summary>
     /// Gets the scope of the value (<see cref="JSValue.Scope" />) that was being accessed when
     /// the exception was thrown, or null if a static operation was attempted.
     /// </summary>
-    public JSValueScope? TargetScope { get; internal set; }
+    public JSValueScope? TargetScope { get; }
 
     private static string GetMessage(JSValueScope? currentScope, JSValueScope? targetScope)
     {
