@@ -5,9 +5,10 @@
 
 import dotnet from 'node-api-dotnet';
 import './bin/Microsoft.Extensions.Logging.Abstractions.js';
+import './bin/Microsoft.SemanticKernel.Abstractions.js';
 import './bin/Microsoft.SemanticKernel.Core.js';
-import './bin/Microsoft.SemanticKernel.Functions.Semantic.js';
 import './bin/Microsoft.SemanticKernel.Connectors.AI.OpenAI.js';
+import './bin/Microsoft.SemanticKernel.TemplateEngine.Basic.js';
 
 const Logging = dotnet.Microsoft.Extensions.Logging;
 const SK = dotnet.Microsoft.SemanticKernel;
@@ -27,16 +28,20 @@ const loggerFactory = {
   dispose() {}
 };
 
+let kernelBuilder = new SK.KernelBuilder();
+kernelBuilder.WithLoggerFactory(loggerFactory);
+
 // The JS marshaller does not yet support extension methods.
-const kernelBuilder = SK.OpenAIKernelBuilderExtensions.WithAzureChatCompletionService(
-  SK.Kernel.Builder.WithLoggerFactory(loggerFactory),
+SK.OpenAIKernelBuilderExtensions.WithAzureOpenAIChatCompletionService(
+  kernelBuilder,
   process.env['OPENAI_DEPLOYMENT'] || '',
   process.env['OPENAI_ENDPOINT'] || '',
   process.env['OPENAI_KEY'] || '',
 );
+
 const kernel = kernelBuilder.Build();
 
-const skPrompt = `{{$input}}
+const prompt = `{{$input}}
 
 Give me the TLDR in 10 words.
 `;
@@ -52,11 +57,15 @@ such orders would conflict with the First Law.
 does not conflict with the First or Second Law.
 `;
 
+const requestSettings = new SK.Connectors.AI.OpenAI.OpenAIRequestSettings();
+requestSettings.MaxTokens = 100;
+
 // The JS marshaller does not yet support extension methods.
-const summaryFunction = SK.KernelSemanticFunctionExtensions
-  .CreateSemanticFunction(kernel, skPrompt);
+const summaryFunction = SK.OpenAIKernelExtensions
+  .CreateSemanticFunction(kernel, prompt, requestSettings);
 
 const summary = await SK.SKFunctionExtensions.InvokeAsync(
   summaryFunction, textToSummarize, kernel);
 
+console.log();
 console.log(summary.toString());

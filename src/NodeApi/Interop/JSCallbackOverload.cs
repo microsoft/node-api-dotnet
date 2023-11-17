@@ -169,9 +169,12 @@ public readonly struct JSCallbackOverload
                 bool isMatch = true;
                 for (int i = 0; i < argsCount; i++)
                 {
-                    if (!IsArgumentTypeMatch(argTypes[i], overload.ParameterTypes[i]))
+                    Type parameterType = overload.ParameterTypes[i];
+                    isMatch = parameterType.IsArray ?
+                        argTypes[i] == JSValueType.Object && args[i].IsArray() :
+                        IsArgumentTypeMatch(argTypes[i], overload.ParameterTypes[i]);
+                    if (!isMatch)
                     {
-                        isMatch = false;
                         break;
                     }
                 }
