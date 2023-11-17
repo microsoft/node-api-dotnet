@@ -25,11 +25,12 @@ public readonly struct JSValue : IEquatable<JSValue>
     /// Creates an empty instance of <see cref="JSValue" />, which implicitly converts to
     /// <see cref="JSValue.Undefined" /> when used in any scope.
     /// </summary>
-    public JSValue() { }
+    public JSValue() : this(default, null) { }
 
     /// <summary>
     /// Creates a new instance of <see cref="JSValue" /> from a handle in the current scope.
     /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown when the handle is null.</exception>
     /// <remarks>
     /// WARNING: A JS value handle is a pointer to a location in memory, so an invalid handle here
     /// may cause an attempt to access an invalid memory location.
@@ -39,15 +40,24 @@ public readonly struct JSValue : IEquatable<JSValue>
     /// <summary>
     /// Creates a new instance of <see cref="JSValue" /> from a handle in the specified scope.
     /// </summary>
-    /// <exception cref="ArgumentNullException">Thrown when the scope is null (unless the handle
-    /// is also null).</exception>
+    /// <exception cref="ArgumentNullException">Thrown when either the handle or scope is null
+    /// (unless they are both null then this becomse an empty value that implicitly converts
+    /// to <see cref="JSValue.Undefined"/>).</exception>
     /// <remarks>
     /// WARNING: A JS value handle is a pointer to a location in memory, so an invalid handle here
     /// may cause an attempt to access an invalid memory location.
     /// </remarks>
     public JSValue(napi_value handle, JSValueScope? scope)
     {
-        if (!handle.IsNull && scope is null) throw new ArgumentNullException(nameof(scope));
+        if (scope is null)
+        {
+            if (!handle.IsNull) throw new ArgumentNullException(nameof(scope));
+        }
+        else
+        {
+            if (handle.IsNull) throw new ArgumentNullException(nameof(handle));
+        }
+
         _handle = handle;
         _scope = scope;
     }
