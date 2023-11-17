@@ -2565,7 +2565,7 @@ public class JSMarshaller
         foreach (PropertyInfo property in toType.GetProperties(
             BindingFlags.Public | BindingFlags.Instance))
         {
-            if (property.SetMethod == null || property.SetMethod.GetParameters().Length > 0)
+            if (property.SetMethod == null || property.SetMethod.GetParameters().Length > 1)
             {
                 // Skip indexed properties, where the setter takes one or more parameters. 
                 continue;
