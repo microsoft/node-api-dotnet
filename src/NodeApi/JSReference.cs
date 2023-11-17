@@ -43,9 +43,12 @@ public class JSReference : IDisposable
 
     public JSReference(napi_ref handle, bool isWeak = false)
     {
+        JSValueScope currentScope = JSValueScope.Current;
+
+        // Thread access to the env will be checked on reference handle use.
+        _env = currentScope.UncheckedEnvironmentHandle;
         _handle = handle;
-        _env = (napi_env)JSValueScope.Current;
-        _context = JSRuntimeContext.Current;
+        _context = currentScope.RuntimeContext;
         IsWeak = isWeak;
     }
 
@@ -242,6 +245,7 @@ public class JSReference : IDisposable
             // as the native host. In that case the reference must be disposed from the JS thread.
             if (_context == null)
             {
+                ThrowIfInvalidThreadAccess();
                 JSValueScope.CurrentRuntime.DeleteReference(_env, _handle).ThrowIfFailed();
             }
             else
