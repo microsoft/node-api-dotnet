@@ -210,7 +210,7 @@ public sealed class JSValueScope : IDisposable
                 else
                 {
                     throw new InvalidOperationException(
-                        $"A Root scope cannot be created within another scope.");
+                        "A Root scope cannot be created within another scope.");
                 }
             }
 
