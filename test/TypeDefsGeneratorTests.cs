@@ -46,16 +46,18 @@ public class TypeDefsGeneratorTests
     [Fact]
     public void GenerateSimpleInterface()
     {
-        // NOTE: String literals in these tests use TABS for indendation!
-        Assert.Equal(@"
-/** interface */
-export interface SimpleInterface {
-	/** property */
-	TestProperty: string;
+        // NOTE: String literals in these tests use TABS for indentation!
+        Assert.Equal("""
 
-	/** method */
-	TestMethod(): string;
-}",
+            /** interface */
+            export interface SimpleInterface {
+            	/** property */
+            	TestProperty: string;
+
+            	/** method */
+            	TestMethod(): string;
+            }
+            """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(SimpleInterface), new Dictionary<string, string>
         {
             ["T:SimpleInterface"] = "interface",
@@ -73,18 +75,20 @@ export interface SimpleInterface {
     [Fact]
     public void GenerateSimpleClass()
     {
-        Assert.Equal(@"
-/** class */
-export class SimpleClass {
-	/** constructor */
-	constructor();
+        Assert.Equal("""
 
-	/** property */
-	TestProperty: string;
+            /** class */
+            export class SimpleClass {
+            	/** constructor */
+            	constructor();
 
-	/** method */
-	TestMethod(): string;
-}",
+            	/** property */
+            	TestProperty: string;
+
+            	/** method */
+            	TestMethod(): string;
+            }
+            """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(SimpleClass), new Dictionary<string, string>
         {
             ["T:SimpleClass"] = "class",
@@ -117,9 +121,11 @@ export class SimpleClass {
     [Fact]
     public void GenerateSimpleDelegate()
     {
-        Assert.Equal(@"
-/** delegate */
-export interface SimpleDelegate { (arg: string): void; }",
+        Assert.Equal("""
+
+            /** delegate */
+            export interface SimpleDelegate { (arg: string): void; }
+            """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(SimpleDelegate), new Dictionary<string, string>
         {
             ["T:SimpleDelegate"] = "delegate",
@@ -135,15 +141,17 @@ export interface SimpleDelegate { (arg: string): void; }",
     [Fact]
     public void GenerateEnum()
     {
-        Assert.Equal(@"
-/** enum */
-export enum TestEnum {
-	/** zero */
-	Zero = 0,
+        Assert.Equal("""
 
-	/** one */
-	One = 1,
-}",
+            /** enum */
+            export enum TestEnum {
+            	/** zero */
+            	Zero = 0,
+
+            	/** one */
+            	One = 1,
+            }
+            """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(TestEnum), new Dictionary<string, string>
         {
             ["T:TestEnum"] = "enum",
@@ -161,22 +169,24 @@ export enum TestEnum {
     [Fact]
     public void GenerateGenericInterface()
     {
-        Assert.Equal(@"
-/** [Generic type factory] generic-interface */
-export function GenericInterface$(T: IType<any>): GenericInterface$$1<any>;
+        Assert.Equal("""
 
-/** generic-interface */
-export interface GenericInterface$$1<T> {
-}
+            /** [Generic type factory] generic-interface */
+            export function GenericInterface$(T: IType<any>): GenericInterface$$1<any>;
 
-/** generic-interface */
-export interface GenericInterface$1<T> {
-	/** instance-property */
-	TestProperty: T;
+            /** generic-interface */
+            export interface GenericInterface$$1<T> {
+            }
 
-	/** instance-method */
-	TestMethod(value: T): T;
-}",
+            /** generic-interface */
+            export interface GenericInterface$1<T> {
+            	/** instance-property */
+            	TestProperty: T;
+
+            	/** instance-method */
+            	TestMethod(value: T): T;
+            }
+            """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(GenericInterface<>), new Dictionary<string, string>
         {
             ["T:GenericInterface`1"] = "generic-interface",
@@ -197,30 +207,32 @@ export interface GenericInterface$1<T> {
     [Fact]
     public void GenerateGenericClass()
     {
-        Assert.Equal(@"
-/** [Generic type factory] generic-class */
-export function GenericClass$(T: IType<any>): GenericClass$$1<any>;
+        Assert.Equal("""
 
-/** generic-class */
-export interface GenericClass$$1<T> {
-	/** constructor */
-	new(value: T): GenericClass$1<T>;
+            /** [Generic type factory] generic-class */
+            export function GenericClass$(T: IType<any>): GenericClass$$1<any>;
 
-	/** static-property */
-	TestStaticProperty: T;
+            /** generic-class */
+            export interface GenericClass$$1<T> {
+            	/** constructor */
+            	new(value: T): GenericClass$1<T>;
 
-	/** static-method */
-	TestStaticMethod(value: T): T;
-}
+            	/** static-property */
+            	TestStaticProperty: T;
 
-/** generic-class */
-export interface GenericClass$1<T> {
-	/** instance-property */
-	TestProperty: T;
+            	/** static-method */
+            	TestStaticMethod(value: T): T;
+            }
 
-	/** instance-method */
-	TestMethod(value: T): T;
-}",
+            /** generic-class */
+            export interface GenericClass$1<T> {
+            	/** instance-property */
+            	TestProperty: T;
+
+            	/** instance-method */
+            	TestMethod(value: T): T;
+            }
+            """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(GenericClass<>), new Dictionary<string, string>
         {
             ["T:GenericClass`1"] = "generic-class",
@@ -237,17 +249,19 @@ export interface GenericClass$1<T> {
     [Fact]
     public void GenerateGenericDelegate()
     {
-        Assert.Equal(@"
-/** [Generic type factory] generic-delegate */
-export function GenericDelegate$(T: IType<any>): GenericDelegate$$1<any>;
+        Assert.Equal("""
 
-/** generic-delegate */
-export interface GenericDelegate$$1<T> {
-	new(func: (arg: T) => T): GenericDelegate$1<T>;
-}
+            /** [Generic type factory] generic-delegate */
+            export function GenericDelegate$(T: IType<any>): GenericDelegate$$1<any>;
 
-/** generic-delegate */
-export interface GenericDelegate$1<T> { (arg: T): T; }",
+            /** generic-delegate */
+            export interface GenericDelegate$$1<T> {
+            	new(func: (arg: T) => T): GenericDelegate$1<T>;
+            }
+
+            /** generic-delegate */
+            export interface GenericDelegate$1<T> { (arg: T): T; }
+            """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(GenericDelegate<>), new Dictionary<string, string>
         {
             ["T:GenericDelegate`1"] = "generic-delegate",
