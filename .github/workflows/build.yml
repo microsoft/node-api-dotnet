@@ -100,6 +100,7 @@ jobs:
         name: test-logs-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.configuration }}
         path: |
           out/obj/${{ matrix.configuration }}/**/*.log
+          out/obj/${{ matrix.configuration }}/**/*.rsp
           out/test/**/*.trx
 
     - name: Check formatting

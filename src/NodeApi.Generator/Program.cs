@@ -281,17 +281,20 @@ public static class Program
     {
         StringBuilder s = new();
         bool inQuotes = false;
+        bool foundQuotes = false;
         foreach (char c in line)
         {
             if (c == '"')
             {
                 inQuotes = !inQuotes;
+                foundQuotes = true;
             }
             else if (c == ' ' && !inQuotes)
             {
-                if (s.Length > 0)
+                if (s.Length > 0 || foundQuotes)
                 {
                     yield return s.ToString();
+                    foundQuotes = false;
                     s.Clear();
                 }
             }
@@ -301,7 +304,7 @@ public static class Program
             }
         }
 
-        if (s.Length > 0)
+        if (s.Length > 0 || foundQuotes)
         {
             yield return s.ToString();
         }
@@ -344,7 +347,7 @@ public static class Program
         {
             if (targetingPacks.Count == 0)
             {
-                // If no targeting packs were specified, use the deafult targeting pack for .NET.
+                // If no targeting packs were specified, use the default targeting pack for .NET.
                 targetingPacks.Add("Microsoft.NETCore.App");
             }
 
