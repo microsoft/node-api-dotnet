@@ -65,7 +65,49 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
     /// </summary>
     public unsafe JSTypedArray(Memory<T> data)
     {
-        // Check if this Memory is already owned by a JS TypedArray value.
+        JSValue? value = GetJSValueForMemory(data);
+        if (value is not null)
+        {
+            _value = value.Value;
+        }
+        else
+        {
+            // The Memory was NOT created from a JS TypedArray. Most likely it was allocated
+            // directly or via a .NET array or string.
+
+            JSValue arrayBuffer = data.Length > 0 ?
+                JSValue.CreateExternalArrayBuffer(data) : JSValue.CreateArrayBuffer(0);
+            _value = JSValue.CreateTypedArray(ArrayType, data.Length, arrayBuffer, 0);
+        }
+    }
+
+    /// <summary>
+    /// Creates a typed-array over read-memory, without copying. Only valid for memory
+    /// which was previously marshalled from a JS typed-array to .NET.
+    /// </summary>
+    /// <exception cref="NotSupportedException">The memory is external to JS.</exception>
+    public unsafe JSTypedArray(ReadOnlyMemory<T> data)
+    {
+        JSValue? value = GetJSValueForMemory(data);
+        if (value is not null)
+        {
+            _value = value.Value;
+        }
+        else
+        {
+            // Consider copying the memory?
+            throw new NotSupportedException(
+                "Read-only memory cannot be transferred from .NET to JS.");
+        }
+    }
+
+    /// <summary>
+    /// Checks if this Memory is already owned by a JS TypedArray value, and if so
+    /// returns that JS value.
+    /// </summary>
+    /// <returns>The JS value, or null if the memory is external to JS.</returns>
+    private static unsafe JSValue? GetJSValueForMemory(ReadOnlyMemory<T> data)
+    {
         // This assumes the owner object of a Memory struct is stored as a reference in the
         // first (private) field of the struct. If the Memory internal structure ever changes
         // (in a future major version of the .NET Runtime), this unsafe code could crash.
@@ -83,24 +125,19 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
             void* memoryLengthPointer = (byte*)memoryIndexPointer + Unsafe.SizeOf<int>();
             int length = Unsafe.Read<int>(memoryLengthPointer);
 
-            _value = manager.JSValue;
-            int valueLength = _value.GetTypedArrayLength(out _);
+            JSValue value = manager.JSValue;
+            int valueLength = value.GetTypedArrayLength(out _);
 
             if (index != 0 || length != valueLength)
             {
                 // The Memory was sliced, so get an equivalent slice of the JS TypedArray.
-                _value = _value.CallMethod("slice", index, index + length);
+                value = value.CallMethod("slice", index, index + length);
             }
-        }
-        else
-        {
-            // The Memory was NOT created from a JS TypedArray. Most likely it was allocated
-            // directly or via a .NET array or string.
 
-            JSValue arrayBuffer = data.Length > 0 ?
-                JSValue.CreateExternalArrayBuffer(data) : JSValue.CreateArrayBuffer(0);
-            _value = JSValue.CreateTypedArray(ArrayType, data.Length, arrayBuffer, 0);
+            return value;
         }
+
+        return null;
     }
 
     /// <summary>

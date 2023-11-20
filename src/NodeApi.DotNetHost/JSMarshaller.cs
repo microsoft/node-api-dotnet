@@ -2166,7 +2166,8 @@ public class JSMarshaller
             Type[]? genericArguments = fromType.IsGenericType ?
                 fromType.GetGenericArguments() : null;
 
-            if (genericTypeDefinition == typeof(Memory<>))
+            if (genericTypeDefinition == typeof(Memory<>) ||
+                genericTypeDefinition == typeof(ReadOnlyMemory<>))
             {
                 Type elementType = fromType.GenericTypeArguments[0];
                 if (!IsTypedArrayType(elementType))
@@ -2564,8 +2565,9 @@ public class JSMarshaller
         foreach (PropertyInfo property in toType.GetProperties(
             BindingFlags.Public | BindingFlags.Instance))
         {
-            if (property.SetMethod == null)
+            if (property.SetMethod == null || property.SetMethod.GetParameters().Length > 1)
             {
+                // Skip indexed properties, where the setter takes one or more parameters. 
                 continue;
             }
 
@@ -2616,6 +2618,12 @@ public class JSMarshaller
         foreach (PropertyInfo property in fromType.GetProperties(
             BindingFlags.Public | BindingFlags.Instance))
         {
+            if (property.GetMethod == null || property.GetMethod.GetParameters().Length > 0)
+            {
+                // Skip indexed properties, where the getter takes one or more parameters. 
+                continue;
+            }
+
             Expression propertyName = Expression.Constant(ToCamelCase(property.Name));
             yield return Expression.Assign(
                 Expression.Property(jsValueVariable, s_valueItem, propertyName),
