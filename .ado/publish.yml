@@ -61,8 +61,7 @@ jobs:
           displayName: Install .NET SDK using global.json
           inputs:
             packageType: sdk
-            useGlobalJson: false # Switch to true and remove explicit version after .NET 8 release
-            version: 8.0.x
+            useGlobalJson: true
             includePreviewVersions: true
 
         - script: env
@@ -135,8 +134,7 @@ jobs:
         displayName: Install .NET SDK using global.json
         inputs:
           packageType: sdk
-          useGlobalJson: false # Switch to true and remove explicit version after .NET 8 release
-          version: 8.0.x
+          useGlobalJson: true
           includePreviewVersions: true
 
       - script: env
