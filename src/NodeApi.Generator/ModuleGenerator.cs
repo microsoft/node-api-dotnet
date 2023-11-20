@@ -38,7 +38,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
     public GeneratorExecutionContext Context { get; protected set; }
 
-    public void Initialize(GeneratorInitializationContext context)
+    public void Initialize(GeneratorInitializationContext _ /*context*/)
     {
         // Note source generators cannot be directly launched in a debugger,
         // because the generator runs at build time, not at application run-time.
