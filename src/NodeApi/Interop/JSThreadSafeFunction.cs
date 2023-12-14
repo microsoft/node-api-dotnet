@@ -235,7 +235,7 @@ public class JSThreadSafeFunction
 
         try
         {
-            using JSValueScope scope = new(JSValueScopeType.Callback, env);
+            using JSValueScope scope = new(JSValueScopeType.Callback, env, runtime: null);
 
             object? callbackData = null;
             if (data != default)
@@ -267,7 +267,7 @@ public class JSThreadSafeFunction
 
         try
         {
-            using JSValueScope scope = new(JSValueScopeType.Callback, env);
+            using JSValueScope scope = new(JSValueScopeType.Callback, env, runtime: null);
 
             if (data != default)
             {
@@ -299,6 +299,9 @@ public class JSThreadSafeFunction
         }
         catch (Exception ex)
         {
+#if DEBUG
+            Console.Error.WriteLine(ex);
+#endif
             JSError.Fatal(ex.Message);
         }
     }

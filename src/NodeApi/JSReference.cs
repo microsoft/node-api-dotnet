@@ -3,6 +3,7 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using Microsoft.JavaScript.NodeApi.Interop;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
@@ -42,10 +43,34 @@ public class JSReference : IDisposable
 
     public JSReference(napi_ref handle, bool isWeak = false)
     {
+        JSValueScope currentScope = JSValueScope.Current;
+
+        // Thread access to the env will be checked on reference handle use.
+        _env = currentScope.UncheckedEnvironmentHandle;
         _handle = handle;
-        _env = (napi_env)JSValueScope.Current;
-        _context = JSRuntimeContext.Current;
+        _context = currentScope.RuntimeContext;
         IsWeak = isWeak;
+    }
+
+    /// <summary>
+    /// Gets the value handle, or throws an exception if access from the current thread is invalid.
+    /// </summary>
+    /// <exception cref="JSInvalidThreadAccessException">Access to the reference is not valid on
+    /// the current thread.</exception>
+    public napi_ref Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            ThrowIfInvalidThreadAccess();
+            return _handle;
+        }
+    }
+
+    public static explicit operator napi_ref(JSReference reference)
+    {
+        if (reference is null) throw new ArgumentNullException(nameof(reference));
+        return reference.Handle;
     }
 
     public static bool TryCreateReference(
@@ -76,29 +101,36 @@ public class JSReference : IDisposable
     /// </remarks>
     public JSSynchronizationContext? SynchronizationContext => _context?.SynchronizationContext;
 
+    private napi_env Env
+    {
+        get
+        {
+            ThrowIfDisposed();
+            ThrowIfInvalidThreadAccess();
+            return _env;
+        }
+    }
+
     public void MakeWeak()
     {
-        ThrowIfDisposed();
         if (!IsWeak)
         {
-            JSValueScope.CurrentRuntime.UnrefReference(_env, _handle, out _).ThrowIfFailed();
+            JSValueScope.CurrentRuntime.UnrefReference(Env, _handle, out _).ThrowIfFailed();
             IsWeak = true;
         }
     }
     public void MakeStrong()
     {
-        ThrowIfDisposed();
         if (IsWeak)
         {
-            JSValueScope.CurrentRuntime.RefReference(_env, _handle, out _).ThrowIfFailed();
-            IsWeak = true;
+            JSValueScope.CurrentRuntime.RefReference(Env, _handle, out _).ThrowIfFailed();
+            IsWeak = false;
         }
     }
 
     public JSValue? GetValue()
     {
-        ThrowIfDisposed();
-        JSValueScope.CurrentRuntime.GetReferenceValue(_env, _handle, out napi_value result)
+        JSValueScope.CurrentRuntime.GetReferenceValue(Env, _handle, out napi_value result)
             .ThrowIfFailed();
         return result;
     }
@@ -161,8 +193,6 @@ public class JSReference : IDisposable
         }
     }
 
-    public static explicit operator napi_ref(JSReference value) => value._handle;
-
     public bool IsDisposed { get; private set; }
 
     private void ThrowIfDisposed()
@@ -170,6 +200,28 @@ public class JSReference : IDisposable
         if (IsDisposed)
         {
             throw new ObjectDisposedException(nameof(JSReference));
+        }
+    }
+
+    /// <summary>
+    /// Checks that the current thread is the thread that is running the JavaScript environment
+    /// that this reference was created in.
+    /// </summary>
+    /// <exception cref="JSInvalidThreadAccessException">The reference cannot be accessed from the
+    /// current thread.</exception>
+    private void ThrowIfInvalidThreadAccess()
+    {
+        JSValueScope currentScope = JSValueScope.Current;
+        if ((napi_env)currentScope != _env)
+        {
+            int threadId = Environment.CurrentManagedThreadId;
+            string? threadName = Thread.CurrentThread.Name;
+            string threadDescription = string.IsNullOrEmpty(threadName) ?
+                $"#{threadId}" : $"#{threadId} \"{threadName}\"";
+            string message = "The JS reference cannot be accessed from the current thread.\n" +
+                $"Current thread: {threadDescription}. " +
+                $"Consider using the synchronization context to switch to the JS thread.";
+            throw new JSInvalidThreadAccessException(currentScope, message);
         }
     }
 
@@ -188,19 +240,19 @@ public class JSReference : IDisposable
         if (!IsDisposed)
         {
             IsDisposed = true;
-            napi_ref handle = _handle; // To capture in lambda
 
             // The context may be null if the reference was created from a "no-context" scope such
             // as the native host. In that case the reference must be disposed from the JS thread.
-            if (SynchronizationContext == null)
+            if (_context == null)
             {
-                JSValueScope.CurrentRuntime.DeleteReference(_env, handle).ThrowIfFailed();
+                ThrowIfInvalidThreadAccess();
+                JSValueScope.CurrentRuntime.DeleteReference(_env, _handle).ThrowIfFailed();
             }
             else
             {
-                SynchronizationContext.Post(
-                    () => JSValueScope.CurrentRuntime.DeleteReference(
-                        _env, handle).ThrowIfFailed(), allowSync: true);
+                _context.SynchronizationContext.Post(
+                    () => _context.Runtime.DeleteReference(
+                        _env, _handle).ThrowIfFailed(), allowSync: true);
             }
         }
     }

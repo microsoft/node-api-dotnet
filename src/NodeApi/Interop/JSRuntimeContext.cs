@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.Interop.JSCollectionProxies;
 using static Microsoft.JavaScript.NodeApi.JSNativeApi;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
@@ -103,13 +104,30 @@ public sealed class JSRuntimeContext : IDisposable
 
     private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
 
-    public bool IsDisposed { get; private set; }
+    internal napi_env EnvironmentHandle
+    {
+        get
+        {
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(JSRuntimeContext));
+            }
 
-    public static explicit operator napi_env(JSRuntimeContext context) => context?._env ??
-        throw new ArgumentNullException(nameof(context));
+            return _env;
+        }
+    }
+
+    public static explicit operator napi_env(JSRuntimeContext context)
+    {
+        if (context is null) throw new ArgumentNullException(nameof(context));
+        return context.EnvironmentHandle;
+    }
+
     public static explicit operator JSRuntimeContext(napi_env env)
         => GetInstanceData(env) as JSRuntimeContext
            ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
+
+    public bool IsDisposed { get; private set; }
 
     /// <summary>
     /// Gets the current runtime context.
@@ -118,13 +136,21 @@ public sealed class JSRuntimeContext : IDisposable
     /// thread.</exception>
     public static JSRuntimeContext Current => JSValueScope.Current.RuntimeContext;
 
+    public JSRuntime Runtime { get; }
+
     public JSSynchronizationContext SynchronizationContext { get; }
 
-    public JSRuntimeContext(napi_env env)
+    internal JSRuntimeContext(
+        napi_env env,
+        JSRuntime runtime,
+        JSSynchronizationContext? synchronizationContext = null)
     {
+        if (env.IsNull) throw new ArgumentNullException(nameof(env));
+
         _env = env;
+        Runtime = runtime;
         SetInstanceData(env, this);
-        SynchronizationContext = JSSynchronizationContext.Create();
+        SynchronizationContext = synchronizationContext ?? JSSynchronizationContext.Create();
     }
 
     /// <summary>
@@ -691,23 +717,5 @@ public sealed class JSRuntimeContext : IDisposable
 #endif
 
         handle.Free();
-    }
-
-    /// <summary>
-    /// Frees a GC handle previously allocated via <see cref="AllocGCHandle(object)" />
-    /// and tracked on the runtime context obtained from environment instance data.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">The handle was not previously allocated
-    /// by <see cref="AllocGCHandle(object)" />, or was already freed.</exception>
-    internal static void FreeGCHandle(GCHandle handle, napi_env env)
-    {
-        if (GetInstanceData(env) is JSRuntimeContext runtimeContext)
-        {
-            runtimeContext.FreeGCHandle(handle);
-        }
-        else
-        {
-            handle.Free();
-        }
     }
 }

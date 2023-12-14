@@ -282,6 +282,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += $"public static class {ModuleInitializerClassName}";
         s += "{";
 
+        // The module scope is not disposed after a successful initialization. It becomes
+        // the parent of callback scopes, allowing the JS runtime instance to be inherited.
+        s += "private static JSValueScope _moduleScope;";
+
         // The unmanaged entrypoint is used only when the AOT-compiled module is loaded.
         s += "#if !NETFRAMEWORK";
         s += $"[UnmanagedCallersOnly(EntryPoint = \"{ModuleRegisterFunctionName}\")]";
@@ -293,11 +297,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // The main initialization entrypoint is called by the `ManagedHost`, and by the unmanaged entrypoint.
         s += $"public static napi_value {ModuleInitializeMethodName}(napi_env env, napi_value exports)";
         s += "{";
-        s += "var scope = new JSValueScope(JSValueScopeType.Module, env);";
+        s += "_moduleScope = new JSValueScope(JSValueScopeType.Module, env, runtime: default);";
         s += "try";
         s += "{";
-        s += "JSRuntimeContext context = scope.RuntimeContext;";
-        s += "JSValue exportsValue = new(exports, scope);";
+        s += "JSRuntimeContext context = _moduleScope.RuntimeContext;";
+        s += "JSValue exportsValue = new(exports, _moduleScope);";
         s++;
 
         if (moduleInitializer is IMethodSymbol moduleInitializerMethod)
@@ -327,15 +331,12 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             s += "return (napi_value)exportsValue;";
         }
 
-        // The module scope is not disposed before a successful return. It becomes the parent
-        // of callback scopes, allowing the JS runtime instance to be inherited.
-
         s += "}";
         s += "catch (System.Exception ex)";
         s += "{";
         s += "System.Console.Error.WriteLine($\"Failed to export module: {ex}\");";
         s += "JSError.ThrowError(ex);";
-        s += "scope.Dispose();";
+        s += "_moduleScope.Dispose();";
         s += "return exports;";
         s += "}";
         s += "}";

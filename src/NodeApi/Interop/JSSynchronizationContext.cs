@@ -7,6 +7,25 @@ using System.Threading.Tasks;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
+/// <summary>
+/// Manages the synchronization context for a JavaScript environment, allowing callbacks and
+/// asynchronous continuations to be invoked on the JavaScript thread that runs the environment.
+/// </summary>
+/// <remarks>
+/// All JavaScript values are bound to the thread that runs the JS environment and can only be
+/// accessed from the same thread. Attempts to access a JavaScript value from a different thread
+/// will throw <see cref="JSInvalidThreadAccessException" />.
+/// <para/>
+/// Use of <see cref="Task.ConfigureAwait(bool)"/> with <c>continueOnCapturedContext:false</c>
+/// can prevent execution from returning to the JS thread, though it isn't necessarily a problem
+/// as long as there is a top-level continuation that uses <c>continueOnCapturedContext:true</c>
+/// (the default) to return to the JS thread.
+/// <para/>
+/// Code that makes explicit use of .NET threads or thread pools may need to capture the
+/// <see cref="JSSynchronizationContext.Current" /> context (before switching off the JS thread)
+/// and hold it for later use to call back to JS via <see cref="JSSynchronizationContext.Post"/>,
+/// <see cref="JSSynchronizationContext.Run"/>, or <see cref="JSSynchronizationContext.RunAsync"/>.
+/// </remarks>
 public abstract class JSSynchronizationContext : SynchronizationContext, IDisposable
 {
     public bool IsDisposed { get; private set; }
@@ -224,7 +243,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
     }
 }
 
-public sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
+internal sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
 {
     private readonly JSThreadSafeFunction _tsfn;
 
@@ -233,7 +252,7 @@ public sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
         _tsfn = new JSThreadSafeFunction(
             maxQueueSize: 0,
             initialThreadCount: 1,
-            asyncResourceName: (JSValue)"SynchronizationContext");
+            asyncResourceName: (JSValue)nameof(JSSynchronizationContext));
 
         // Unref TSFN to indicate that this TSFN is not preventing Node.JS shutdown.
         _tsfn.Unref();
@@ -295,7 +314,7 @@ public sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
     }
 }
 
-public sealed class JSDispatcherSynchronizationContext : JSSynchronizationContext
+internal sealed class JSDispatcherSynchronizationContext : JSSynchronizationContext
 {
     private readonly JSDispatcherQueue _queue;
 
