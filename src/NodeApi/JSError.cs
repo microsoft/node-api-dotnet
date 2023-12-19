@@ -71,10 +71,10 @@ public struct JSError
         JSErrorInfo errorInfo = JSErrorInfo.GetLastErrorInfo();
 
         // A pending JS exception takes precedence over any internal error status.
-        if (IsExceptionPending())
+        if (JSValue.IsExceptionPending())
         {
             _message = null;
-            _errorRef = CreateErrorReference(GetAndClearLastException());
+            _errorRef = CreateErrorReference(JSValue.GetAndClearLastException());
             return;
         }
 
@@ -201,7 +201,7 @@ public struct JSError
 
         using var scope = new JSValueScope(JSValueScopeType.Handle);
 
-        if (IsExceptionPending())
+        if (JSValue.IsExceptionPending())
             throw new JSException(new JSError());
 
         napi_status status = scope.Runtime.Throw(
@@ -359,7 +359,7 @@ public struct JSError
     }
 }
 
-public static partial class JSNativeApi
+public static class JSNativeApi
 {
     public static void FatalIfFailed([DoesNotReturnIf(true)] this napi_status status,
                                      string? message = null,

@@ -20,7 +20,7 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// </summary>
 /// <remarks>
 /// A <see cref="JSRuntimeContext"/> instance is constructed when the .NET Node API managed host is
-/// loaded, and disposed when the host is unloaded. (For AOT there is no "host" compnoent, so each
+/// loaded, and disposed when the host is unloaded. (For AOT there is no "host" component, so each
 /// AOT module has a context that matches the module lifetime.) The context tracks several kinds
 /// of JS references used internally by this assembly, so that the references can be re-used for
 /// the lifetime of the host and disposed when the context is disposed.
@@ -124,7 +124,7 @@ public sealed class JSRuntimeContext : IDisposable
     }
 
     public static explicit operator JSRuntimeContext(napi_env env)
-        => GetInstanceData(env) as JSRuntimeContext
+        => JSValue.GetInstanceData(env) as JSRuntimeContext
            ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
 
     public bool IsDisposed { get; private set; }
@@ -149,7 +149,7 @@ public sealed class JSRuntimeContext : IDisposable
 
         _env = env;
         Runtime = runtime;
-        SetInstanceData(env, this);
+        JSValue.SetInstanceData(env, this);
         SynchronizationContext = synchronizationContext ?? JSSynchronizationContext.Create();
     }
 
@@ -260,7 +260,7 @@ public sealed class JSRuntimeContext : IDisposable
         // The reference returned by Wrap() is weak (refcount=0), which is good:
         // if the JS object is released then the reference will fail to resolve, and
         // GetOrCreateObjectWrapper() will create a new JS wrapper if requested.
-        JSNativeApi.Wrap(wrapper, obj, out JSReference wrapperWeakRef);
+        wrapper.Wrap(obj, out JSReference wrapperWeakRef);
 
         _objectMap.AddOrUpdate(
             obj,
@@ -558,7 +558,7 @@ public sealed class JSRuntimeContext : IDisposable
             throw new InvalidOperationException("Failed to resolve struct constructor reference.");
         }
 
-        return JSNativeApi.CallAsConstructor(constructorFunction.Value);
+        return constructorFunction.Value.CallAsConstructor();
     }
 
     /// <summary>

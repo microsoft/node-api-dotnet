@@ -38,7 +38,7 @@ public class NodejsEmbeddingTests
 
         nodejs.SynchronizationContext.Run(() =>
         {
-            JSValue result = JSNativeApi.RunScript("require('node:path').join('a', 'b')");
+            JSValue result = JSValue.RunScript("require('node:path').join('a', 'b')");
             Assert.Equal(Path.Combine("a", "b"), (string)result);
         });
 
@@ -53,7 +53,7 @@ public class NodejsEmbeddingTests
 
         nodejs.SynchronizationContext.Run(() =>
         {
-            JSFunction func = (JSFunction)JSNativeApi.RunScript("function jsFunction() { }; jsFunction");
+            JSFunction func = (JSFunction)JSValue.RunScript("function jsFunction() { }; jsFunction");
             func.CallAsStatic();
         });
 
@@ -74,7 +74,7 @@ public class NodejsEmbeddingTests
 
         nodejs.SynchronizationContext.Run(() =>
         {
-            JSNativeApi.RunScript("new Promise((resolve, reject) => reject(new Error('test')))");
+            JSValue.RunScript("new Promise((resolve, reject) => reject(new Error('test')))");
         });
 
         // The unhandled rejection event is not synchronous. Wait for it.
@@ -95,7 +95,7 @@ public class NodejsEmbeddingTests
         {
             try
             {
-                JSNativeApi.RunScript(
+                JSValue.RunScript(
                     "function throwError() { throw new Error('test'); }\n" +
                     "throwError();");
             }

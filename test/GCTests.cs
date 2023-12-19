@@ -36,7 +36,7 @@ public class GCTests
             classBuilder.AddMethod("method", (x) => (args) => DotnetClass.Method());
             JSObject dotnetClass = (JSObject)classBuilder.DefineClass();
 
-            JSFunction jsCreateInstanceFunction = (JSFunction)JSNativeApi.RunScript(
+            JSFunction jsCreateInstanceFunction = (JSFunction)JSValue.RunScript(
                 "function jsCreateInstanceFunction(Class) { new Class() }; " +
                 "jsCreateInstanceFunction");
 

@@ -406,7 +406,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         if (exports.IsObject())
         {
-            exportsRef = JSNativeApi.CreateReference(exports);
+            exportsRef = exports.CreateReference();
             _loadedModules.Add(assemblyFilePath, exportsRef);
         }
 

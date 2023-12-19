@@ -1452,19 +1452,19 @@ public class TracingJSRuntime : JSRuntime
        nint data,
        out napi_value result)
     {
-        if (cb == new napi_callback(JSNativeApi.s_invokeJSCallback))
+        if (cb == new napi_callback(JSValue.s_invokeJSCallback))
         {
             cb = new napi_callback(s_traceFunctionCallback);
         }
-        else if (cb == new napi_callback(JSNativeApi.s_invokeJSMethod))
+        else if (cb == new napi_callback(JSValue.s_invokeJSMethod))
         {
             cb = new napi_callback(s_traceMethodCallback);
         }
-        else if (cb == new napi_callback(JSNativeApi.s_invokeJSGetter))
+        else if (cb == new napi_callback(JSValue.s_invokeJSGetter))
         {
             cb = new napi_callback(s_traceGetterCallback);
         }
-        else if (cb == new napi_callback(JSNativeApi.s_invokeJSSetter))
+        else if (cb == new napi_callback(JSValue.s_invokeJSSetter))
         {
             cb = new napi_callback(s_traceSetterCallback);
         }

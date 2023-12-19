@@ -41,7 +41,7 @@ public partial class NodeStream
             // TODO: Consider implementing writev() ?
         }).ToArray();
 
-        return JSNativeApi.DefineClass(
+        return JSValue.DefineClass(
             className,
             new JSCallbackDescriptor(
                 className,
@@ -258,7 +258,7 @@ public partial class NodeStream
         }
         catch (Exception ex)
         {
-            bool isExceptionPending5 = JSNativeApi.IsExceptionPending();
+            bool isExceptionPending5 = JSValue.IsExceptionPending();
             try
             {
                 callback = callbackReference.GetValue()!.Value;

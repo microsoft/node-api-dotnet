@@ -3,6 +3,7 @@
 
 namespace Microsoft.JavaScript.NodeApi;
 
+// Matches to napi_valuetype
 public enum JSValueType : int
 {
     Undefined,
