@@ -1396,7 +1396,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     /// <summary>
     /// Compares two JS values using JS "strict" equality.
     /// </summary>
-    public bool Equals(JSValue other) => this.StrictEquals(other);
+    public bool Equals(JSValue other) => StrictEquals(other);
 
     public override bool Equals([NotNullWhen(true)] object? obj)
     {
@@ -1427,7 +1427,7 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     private JSRuntime GetRuntime(out napi_env env)
     {
-        JSValueScope scope = _scope ?? throw new ArgumentNullException(nameof(scope));
+        JSValueScope scope = _scope ?? throw new JSInvalidThreadAccessException(null);
         scope.ThrowIfDisposed();
         scope.ThrowIfInvalidThreadAccess();
         env = scope.UncheckedEnvironmentHandle;
