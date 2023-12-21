@@ -385,8 +385,23 @@ public readonly struct JSValue : IEquatable<JSValue>
         return result;
     }
 
-    //TODO: (vmoroz) improve
-    public string GetValueStringUtf16() => new(GetValueStringUtf16AsCharArray());
+    public unsafe string GetValueStringUtf16()
+    {
+#if NETFRAMEWORK
+        return new string(GetValueStringUtf16AsCharArray());
+#else
+        JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
+        runtime.GetValueStringUtf16(env, handle, [], out int length).ThrowIfFailed();
+        return string.Create(length, runtime, (span, runtime) =>
+        {
+            fixed (void* ptr = span)
+            {
+                runtime.GetValueStringUtf16(
+                    env, handle, new Span<char>(ptr, span.Length + 1), out _).ThrowIfFailed();
+            }
+        });
+#endif
+    }
 
     public JSValue CoerceToBoolean() => GetRuntime(out napi_env env, out napi_value handle)
         .CoerceToBool(env, handle, out napi_value result).ThrowIfFailed(result);
