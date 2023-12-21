@@ -702,9 +702,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             handle,
             (nint)valueHandle,
             new napi_finalize(s_finalizeGCHandle),
-            _scope!.RuntimeContextHandle,
-            // TODO: (vmoroz) add override without out parameter.
-            out _).ThrowIfFailed();
+            _scope!.RuntimeContextHandle).ThrowIfFailed();
         return this;
     }
 

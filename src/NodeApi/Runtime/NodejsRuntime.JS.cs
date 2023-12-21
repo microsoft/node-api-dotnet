@@ -5,8 +5,6 @@ using System;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
-using static JSNativeApi;
-
 // Imports Node.js native APIs defined in js_native_api.h
 public unsafe partial class NodejsRuntime
 {
@@ -1649,12 +1647,25 @@ public unsafe partial class NodejsRuntime
         nint finalize_hint,
         out napi_ref result)
     {
+        // The wrapper reference must be deleted by user code.
         result = default;
         fixed (napi_ref* result_ptr = &result)
         {
             return Import(ref napi_wrap)(
                 env, js_object, native_object, finalize_cb, finalize_hint, (nint)result_ptr);
         }
+    }
+
+    public override napi_status Wrap(
+        napi_env env,
+        napi_value js_object,
+        nint native_object,
+        napi_finalize finalize_cb,
+        nint finalize_hint)
+    {
+        // The wrapper reference is deleted by Node.js.
+        return Import(ref napi_wrap)(
+            env, js_object, native_object, finalize_cb, finalize_hint, default);
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, napi_status> napi_unwrap;

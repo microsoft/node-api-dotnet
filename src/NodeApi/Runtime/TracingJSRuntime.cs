@@ -2104,6 +2104,19 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
+    public override napi_status Wrap(
+        napi_env env,
+        napi_value js_object,
+        nint native_object,
+        napi_finalize finalize_cb,
+        nint finalize_hint)
+    {
+        napi_status status = TraceCall(
+            [Format(env, js_object), Format(native_object)],
+            () => _runtime.Wrap(env, js_object, native_object, finalize_cb, finalize_hint));
+        return status;
+    }
+
     public override napi_status Unwrap(napi_env env, napi_value js_object, out nint result)
     {
         nint resultValue = default;

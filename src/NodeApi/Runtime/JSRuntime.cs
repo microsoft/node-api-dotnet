@@ -376,6 +376,14 @@ public abstract partial class JSRuntime
         napi_finalize finalize_cb,
         nint finalize_hint,
         out napi_ref result) => throw NS();
+
+    public virtual napi_status Wrap(
+        napi_env env,
+        napi_value js_object,
+        nint native_object,
+        napi_finalize finalize_cb,
+        nint finalize_hint) => throw NS();
+
     public virtual napi_status Unwrap(napi_env env, napi_value js_object, out nint result) => throw NS();
     public virtual napi_status RemoveWrap(napi_env env, napi_value js_object, out nint result) => throw NS();
     public virtual napi_status SetObjectTypeTag(
