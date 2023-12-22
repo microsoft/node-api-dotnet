@@ -505,6 +505,20 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
+    public override napi_status AddFinalizer(
+        napi_env env,
+        napi_value value,
+        nint finalizeData,
+        napi_finalize finalizeCallback,
+        nint finalizeHint)
+    {
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.AddFinalizer(
+                env, value, finalizeData, finalizeCallback, finalizeHint)));
+        return status;
+    }
+
     public override napi_status AdjustExternalMemory(
         napi_env env,
         long changeInBytes,

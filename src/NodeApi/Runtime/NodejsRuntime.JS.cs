@@ -46,12 +46,25 @@ public unsafe partial class NodejsRuntime
         nint finalizeHint,
         out napi_ref result)
     {
+        // Finalizer reference must be deleted by calling code.
         result = default;
         fixed (napi_ref* result_ptr = &result)
         {
             return Import(ref napi_add_finalizer)(
                 env, value, finalizeData, finalizeCallback, finalizeHint, (nint)result_ptr);
         }
+    }
+
+    public override napi_status AddFinalizer(
+        napi_env env,
+        napi_value value,
+        nint finalizeData,
+        napi_finalize finalizeCallback,
+        nint finalizeHint)
+    {
+        // Finalizer reference is deleted automatically when the GC collects the value.
+        return Import(ref napi_add_finalizer)(
+            env, value, finalizeData, finalizeCallback, finalizeHint, default);
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, long, nint, napi_status>

@@ -959,9 +959,7 @@ public readonly struct JSValue : IEquatable<JSValue>
             handle,
             (nint)finalizeHandle,
             new napi_finalize(s_callFinalizeAction),
-            _scope!.RuntimeContextHandle,
-            // TODO: (vmoroz) add override without out parameter.
-            out _).ThrowIfFailed();
+            _scope!.RuntimeContextHandle).ThrowIfFailed();
     }
 
     public unsafe void AddFinalizer(Action finalize, out JSReference finalizerRef)
@@ -1432,9 +1430,7 @@ public readonly struct JSValue : IEquatable<JSValue>
                 handle,
                 finalizeData,
                 new napi_finalize(s_finalizeGCHandle),
-                //TODO: (vmoroz) improve it
-                Scope.RuntimeContextHandle,
-                out _).ThrowIfFailed();
+                Scope.RuntimeContextHandle).ThrowIfFailed();
         }
     }
 

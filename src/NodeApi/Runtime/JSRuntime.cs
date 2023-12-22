@@ -55,6 +55,13 @@ public abstract partial class JSRuntime
         nint finalizeHint,
         out napi_ref result) => throw NS();
 
+    public virtual napi_status AddFinalizer(
+        napi_env env,
+        napi_value value,
+        nint finalizeData,
+        napi_finalize finalizeCallback,
+        nint finalizeHint) => throw NS();
+
     public virtual napi_status AdjustExternalMemory(
         napi_env env, long changeInBytes, out long result) => throw NS();
 
