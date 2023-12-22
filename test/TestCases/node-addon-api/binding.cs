@@ -18,6 +18,7 @@ public class Binding
     public JSValue BasicTypesBoolean => GetOrCreate<TestBasicTypesBoolean>();
     public JSValue BasicTypesNumber => GetOrCreate<TestBasicTypesNumber>();
     public JSValue BasicTypesValue => GetOrCreate<TestBasicTypesValue>();
+    public JSValue BigInt => GetOrCreate<TestBigInt>();
     public JSValue Object => GetOrCreate<TestObject>();
     public JSValue ObjectFreezeSeal => GetOrCreate<TestObjectFreezeSeal>();
 

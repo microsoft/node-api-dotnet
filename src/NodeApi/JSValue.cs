@@ -5,6 +5,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.JavaScript.NodeApi.Interop;
@@ -301,6 +302,58 @@ public readonly struct JSValue : IEquatable<JSValue>
         => GetCurrentRuntime(out napi_env env)
             .CreateBigInt(env, signBit, words, out napi_value result).ThrowIfFailed(result);
 
+    public static unsafe JSValue CreateBigInt(BigInteger value)
+    {
+        // .Net Framework 4.7.2 does not support Span-related methods for BigInteger.
+        int sign = value.Sign == -1 ? 1 : 0;
+        if (value.Sign == -1)
+        {
+            value = -value;
+        }
+#if !NETFRAMEWORK
+        int byteCount = value.GetByteCount(isUnsigned: true);
+#else
+        byte[] bytes = value.ToByteArray();
+        int byteCount = bytes.Length;
+#endif
+        int wordCount = (byteCount + sizeof(ulong) - 1) / sizeof(ulong);
+        Span<byte> byteSpan = stackalloc byte[wordCount * sizeof(ulong)];
+#if !NETFRAMEWORK
+        if (!value.TryWriteBytes(byteSpan, out int bytesWritten, isUnsigned: true))
+        {
+            throw new Exception("Cannot write BigInteger bytes");
+        }
+#endif
+        fixed (byte* bytePtr = byteSpan)
+        {
+#if NETFRAMEWORK
+            Marshal.Copy(bytes, 0, (nint)bytePtr, bytes.Length);
+#endif
+            ReadOnlySpan<ulong> words = new(bytePtr, wordCount);
+            return CreateBigInt(sign, words);
+        }
+    }
+
+    public unsafe BigInteger ToBigInteger()
+    {
+        JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
+        runtime.GetBigIntWordCount(env, handle, out nuint wordCount).ThrowIfFailed();
+        Span<ulong> words = stackalloc ulong[(int)(wordCount > 0 ? wordCount : 1)];
+        int byteCount = (int)wordCount * sizeof(ulong);
+        runtime.GetBigIntWords(env, handle, out int sign, words, out _).ThrowIfFailed();
+        fixed (ulong* wordPtr = words)
+        {
+#if !NETFRAMEWORK
+            BigInteger result = new(new ReadOnlySpan<byte>(wordPtr, byteCount), isUnsigned: true);
+#else
+            byte[] bytes = new byte[byteCount];
+            Marshal.Copy((nint)wordPtr, bytes, 0, byteCount);
+            BigInteger result = new(bytes);
+#endif
+            return sign == 1 ? -result : result;
+        }
+    }
+
     public JSValueType TypeOf() => _handle.IsNull
         ? JSValueType.Undefined
         : GetRuntime(out napi_env env).GetValueType(env, _handle, out napi_valuetype result)
@@ -337,6 +390,8 @@ public readonly struct JSValue : IEquatable<JSValue>
     public bool IsExternal() => TypeOf() == JSValueType.External;
 
     public bool IsBigInt() => TypeOf() == JSValueType.BigInt;
+
+    public JSBigInt? AsJSBigInt() => IsBigInt() ? JSBigInt.CreateUnchecked(this) : default;
 
     public double GetValueDouble() => GetRuntime(out napi_env env, out napi_value handle)
         .GetValueDouble(env, handle, out double result).ThrowIfFailed(result);
@@ -976,21 +1031,41 @@ public readonly struct JSValue : IEquatable<JSValue>
         finalizerRef = new JSReference(reference, isWeak: true);
     }
 
-    public long GetValueBigIntInt64(out bool isLossless)
+    public long ToInt64BigInt(out bool isLossless)
         => GetRuntime(out napi_env env, out napi_value handle)
             .GetValueBigInt64(env, handle, out long result, out isLossless).ThrowIfFailed(result);
 
-    public ulong GetValueBigIntUInt64(out bool isLossless)
+    public ulong ToUInt64BigInt(out bool isLossless)
         => GetRuntime(out napi_env env, out napi_value handle)
             .GetValueBigInt64(env, handle, out ulong result, out isLossless).ThrowIfFailed(result);
 
-    public unsafe ulong[] GetValueBigIntWords(out int signBit)
+    public int GetBigIntWordCount()
+        => (int)GetRuntime(out napi_env env, out napi_value handle)
+            .GetBigIntWordCount(env, handle, out nuint result).ThrowIfFailed(result);
+
+    public void GetBigIntWords(Span<ulong> destination, out int sign, out int wordCount)
+    {
+        GetRuntime(out napi_env env, out napi_value handle)
+            .GetBigIntWords(env, handle, out sign, destination, out nuint wordCountResult)
+            .ThrowIfFailed();
+        wordCount = (int)wordCountResult;
+    }
+
+    public ulong[] GetBigIntWords(out int sign)
     {
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
-        runtime.GetValueBigInt(env, handle, out _, [], out nuint wordCount).ThrowIfFailed();
-        ulong[] words = new ulong[wordCount];
-        runtime.GetValueBigInt(env, handle, out signBit, words.AsSpan(), out _).ThrowIfFailed();
-        return words;
+        runtime.GetBigIntWordCount(env, handle, out nuint wordCount).ThrowIfFailed();
+        if (wordCount > 0)
+        {
+            ulong[] words = new ulong[(int)wordCount];
+            runtime.GetBigIntWords(env, handle, out sign, words.AsSpan(), out _).ThrowIfFailed();
+            return words;
+        }
+        else
+        {
+            sign = 0;
+            return [];
+        }
     }
 
     public JSValue GetAllPropertyNames(
@@ -1467,7 +1542,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         return runtime;
     }
 
-    private static JSRuntime GetCurrentRuntime(out napi_env env)
+    internal static JSRuntime GetCurrentRuntime(out napi_env env)
     {
         JSValueScope scope = Current;
         env = scope.UncheckedEnvironmentHandle;

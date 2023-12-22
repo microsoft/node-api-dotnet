@@ -2,13 +2,11 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
@@ -273,6 +271,30 @@ public struct JSError
                 $"Failed to throw JS Error. Status: {status}\n{exception.Message}");
         }
     }
+
+    public static void ThrowError(string message)
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code: null, message);
+
+    public static void ThrowError(string code, string message)
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code, message);
+
+    public static void ThrowTypeError(string message)
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code: null, message);
+
+    public static void ThrowTypeError(string code, string message)
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code, message);
+
+    public static void ThrowRangeError(string message)
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code: null, message);
+
+    public static void ThrowRangeError(string code, string message)
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code, message);
+
+    public static void ThrowSyntaxError(string message)
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code: null, message);
+
+    public static void ThrowSyntaxError(string code, string message)
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code, message);
 
     /// <summary>
     /// Gets a JS error stack trace that also includes a .NET stack trace,

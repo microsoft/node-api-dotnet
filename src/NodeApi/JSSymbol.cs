@@ -10,6 +10,7 @@ public readonly struct JSSymbol : IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
+    //TODO: [vmoroz] This is a bug. we must never use static variables for JSReference or JSValue
     private static readonly Lazy<JSReference> s_iteratorSymbol =
         new(() => new JSReference(JSValue.Global["Symbol"]["iterator"]));
     private static readonly Lazy<JSReference> s_asyncIteratorSymbol =

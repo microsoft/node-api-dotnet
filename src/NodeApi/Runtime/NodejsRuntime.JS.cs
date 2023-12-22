@@ -479,13 +479,24 @@ public unsafe partial class NodejsRuntime
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, nint, nint, napi_status>
         napi_get_value_bigint_words;
 
-    public override napi_status GetValueBigInt(
+    public override napi_status GetBigIntWordCount(napi_env env, napi_value value, out nuint result)
+    {
+        result = 0;
+        fixed (nuint* result_ptr = &result)
+        {
+            // sign and words pointers must be null when we just want to get the length.
+            return Import(ref napi_get_value_bigint_words)(
+                env, value, default, (nint)result_ptr, default);
+        }
+    }
+
+    public override napi_status GetBigIntWords(
         napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result)
     {
         sign = default;
         result = (nuint)words.Length;
         fixed (int* sign_ptr = &sign)
-        fixed (ulong* words_ptr = &words.GetPinnableReference())
+        fixed (ulong* words_ptr = words)
         fixed (nuint* result_ptr = &result)
         {
             return Import(ref napi_get_value_bigint_words)(
@@ -817,7 +828,11 @@ public unsafe partial class NodejsRuntime
         napi_env env, int sign, ReadOnlySpan<ulong> words, out napi_value result)
     {
         result = default;
-        fixed (ulong* words_ptr = &words.GetPinnableReference())
+        if (words.Length == 0)
+        {
+            words = [0];
+        }
+        fixed (ulong* words_ptr = words)
         fixed (napi_value* result_ptr = &result)
         {
             return Import(ref napi_create_bigint_words)(

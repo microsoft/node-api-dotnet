@@ -837,7 +837,28 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-    public override napi_status GetValueBigInt(
+    public override napi_status GetBigIntWordCount(
+        napi_env env, napi_value value, out nuint result)
+    {
+        // The combined TraceCall() can't be used with Span<T>.
+        TraceCall([Format(env, value)]);
+
+        napi_status status;
+        try
+        {
+            status = _runtime.GetBigIntWordCount(env, value, out result);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+
+        TraceReturn(status, [result.ToString()]);
+        return status;
+    }
+
+    public override napi_status GetBigIntWords(
         napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result)
     {
         // The combined TraceCall() can't be used with Span<T>.
@@ -846,7 +867,7 @@ public class TracingJSRuntime : JSRuntime
         napi_status status;
         try
         {
-            status = _runtime.GetValueBigInt(env, value, out sign, words, out result);
+            status = _runtime.GetBigIntWords(env, value, out sign, words, out result);
         }
         catch (Exception ex)
         {

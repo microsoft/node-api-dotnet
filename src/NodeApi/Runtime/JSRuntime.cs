@@ -131,7 +131,8 @@ public abstract partial class JSRuntime
     public virtual napi_status GetValueInt64(napi_env env, napi_value value, out long result) => throw NS();
     public virtual napi_status GetValueBigInt64(napi_env env, napi_value value, out long result, out bool lossless) => throw NS();
     public virtual napi_status GetValueBigInt64(napi_env env, napi_value value, out ulong result, out bool lossless) => throw NS();
-    public virtual napi_status GetValueBigInt(napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result) => throw NS();
+    public virtual napi_status GetBigIntWordCount(napi_env env, napi_value value, out nuint result) => throw NS();
+    public virtual napi_status GetBigIntWords(napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result) => throw NS();
     public virtual napi_status GetValueBool(napi_env env, napi_value value, out bool result) => throw NS();
     public virtual napi_status GetValueStringUtf8(napi_env env, napi_value value, Span<byte> buf, out int result) => throw NS();
     public virtual napi_status GetValueStringUtf16(napi_env env, napi_value value, Span<char> buf, out int result) => throw NS();
