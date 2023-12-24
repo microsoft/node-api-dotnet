@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-
 namespace Microsoft.JavaScript.NodeApi.TestCases;
 
 public static class ModuleExports

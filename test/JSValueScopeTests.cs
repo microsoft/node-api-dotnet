@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;

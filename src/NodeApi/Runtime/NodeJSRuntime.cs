@@ -7,9 +7,6 @@ using System.Security;
 using System.Text;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
-
-using static JSNativeApi;
-
 // This part of the class includes the constructor and private helper methods.
 // See the other parts of this class for the actual imported APIs.
 [SuppressUnmanagedCodeSecurity]

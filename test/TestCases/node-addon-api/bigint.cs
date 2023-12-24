@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Diagnostics;
 using System.Numerics;
 using Microsoft.JavaScript.NodeApi;
 
@@ -10,7 +9,6 @@ namespace Microsoft.JavaScript.NodeApiTest;
 
 public class TestBigInt : TestHelper, ITestObject
 {
-
     private static JSValue IsLossless(JSCallbackArgs args)
     {
         JSBigInt big = (JSBigInt)args[0];
