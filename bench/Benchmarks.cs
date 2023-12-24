@@ -51,6 +51,7 @@ public abstract class Benchmarks
         "libnode" + GetSharedLibraryExtension());
 
     private napi_env _env;
+    private JSValue _jsString;
     private JSFunction _jsFunction;
     private JSFunction _jsFunctionWithArgs;
     private JSFunction _jsFunctionWithCallback;
@@ -95,6 +96,7 @@ public abstract class Benchmarks
 
         // Create some JS values that will be used by the benchmarks.
 
+        _jsString = JSValue.RunScript("'Hello Node-API .Net!'");
         _jsFunction = (JSFunction)JSValue.RunScript("function jsFunction() { }; jsFunction");
         _jsFunctionWithArgs = (JSFunction)JSValue.RunScript(
             "function jsFunctionWithArgs(a, b, c) { }; jsFunctionWithArgs");
@@ -144,6 +146,18 @@ public abstract class Benchmarks
     private static JSValueScope NewJSScope() => new(JSValueScopeType.Callback);
 
     // Benchmarks in the base class run in both CLR and AOT environments.
+
+    [Benchmark]
+    public void JSValueToString()
+    {
+        _jsString.GetValueStringUtf16();
+    }
+
+    [Benchmark]
+    public void JSValueToStringAsCharArray()
+    {
+        new string(_jsString.GetValueStringUtf16AsCharArray());
+    }
 
     [Benchmark]
     public void CallJSFunction()
