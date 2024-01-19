@@ -136,7 +136,7 @@ dotnet.load(assemblyName);
     {
         // Create a metadata load context that includes a resolver for system assemblies,
         // referenced assemblies, referenced assemblies, and the target assembly.
-        var allReferenceAssemblyPaths = MergeSystemReferenceAssemblies(
+        IEnumerable<string> allReferenceAssemblyPaths = MergeSystemReferenceAssemblies(
             referenceAssemblyPaths, systemReferenceAssemblyDirectories);
         PathAssemblyResolver assemblyResolver = new(
             allReferenceAssemblyPaths.Append(assemblyPath));
@@ -228,19 +228,19 @@ dotnet.load(assemblyName);
         IEnumerable<string> systemReferenceAssemblyDirectories)
     {
         // Resolve all assemblies in all the system reference assembly directories.
-        var systemAssemblyPaths = systemReferenceAssemblyDirectories
+        IEnumerable<string> systemAssemblyPaths = systemReferenceAssemblyDirectories
             .SelectMany((d) => Directory.GetFiles(d, "*.dll"));
 
         // Concatenate system reference assemblies with project (nuget) reference assemblies.
-        var allAssemblyPaths = new[] { typeof(object).Assembly.Location }
+        IEnumerable<string> allAssemblyPaths = new[] { typeof(object).Assembly.Location }
             .Concat(systemAssemblyPaths)
             .Concat(referenceAssemblyPaths);
 
         // Select the latest version of each referenced assembly.
         // First group by assembly name, then pick the highest version in each group.
-        var assembliesByVersion = allAssemblyPaths.Concat(referenceAssemblyPaths)
+        IEnumerable<IGrouping<string, string>> assembliesByVersion = allAssemblyPaths.Concat(referenceAssemblyPaths)
             .GroupBy(a => Path.GetFileNameWithoutExtension(a).ToLowerInvariant());
-        var mergedAssemblyPaths = assembliesByVersion.Select(
+        IEnumerable<string> mergedAssemblyPaths = assembliesByVersion.Select(
             (g) => g.OrderByDescending((a) => InferReferenceAssemblyVersionFromPath(a)).First());
         return mergedAssemblyPaths;
     }
@@ -252,16 +252,16 @@ dotnet.load(assemblyName);
 
         // Infer the version from a system reference assembly path such as
         // dotnet\packs\Microsoft.NETCore.App.Ref\<version>\ref\net6.0\AssemblyName.dll
-        var refIndex = pathParts.IndexOf("ref");
-        if (refIndex > 0 && Version.TryParse(pathParts[refIndex - 1], out var refVersion))
+        int refIndex = pathParts.IndexOf("ref");
+        if (refIndex > 0 && Version.TryParse(pathParts[refIndex - 1], out Version? refVersion))
         {
             return refVersion;
         }
 
         // Infer the version from a nuget package assembly reference path such as
         // <packageName>\<version>\lib\net6.0\AssemblyName.dll
-        var libIndex = pathParts.IndexOf("lib");
-        if (libIndex > 0 && Version.TryParse(pathParts[libIndex - 1], out var libVersion))
+        int libIndex = pathParts.IndexOf("lib");
+        if (libIndex > 0 && Version.TryParse(pathParts[libIndex - 1], out Version? libVersion))
         {
             return libVersion;
         }

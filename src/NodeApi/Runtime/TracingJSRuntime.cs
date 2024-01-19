@@ -2000,7 +2000,7 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-    public unsafe override napi_status DefineClass(
+    public override unsafe napi_status DefineClass(
         napi_env env,
         string name,
         napi_callback constructor,
