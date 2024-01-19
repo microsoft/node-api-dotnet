@@ -997,7 +997,7 @@ import { Duplex } from 'stream';
 
         // Exclude methods that have pointer parameters because they can't be marshalled to JS.
         if (method.GetParameters().Any((p) => p.ParameterType.IsPointer) ||
-            (method as MethodInfo)?.ReturnParameter.ParameterType.IsPointer == true)
+            method is MethodInfo { ReturnParameter.ParameterType.IsPointer: true })
         {
             return true;
         }
@@ -1548,7 +1548,7 @@ import { Duplex } from 'stream';
 
         if (string.IsNullOrEmpty(remarks) && summary.Length < 83 && summary.IndexOf('\n') < 0)
         {
-            s += $"/** {summary.Replace(nonBreakingSpace, ' ')} */";
+            s += $"/** {summary.Replace(NonBreakingSpace, ' ')} */";
         }
         else
         {
@@ -1599,7 +1599,7 @@ import { Duplex } from 'stream';
 
                 // Use a non-breaking space char to prevent wrapping from breaking the link.
                 // It will be replaced with by a regular space char in the final output.
-                return $"{{@link {target}}}".Replace(' ', nonBreakingSpace);
+                return $"{{@link {target}}}".Replace(' ', NonBreakingSpace);
             }
             else if (element.Name == "see" && element.Attribute("langword") != null)
             {
