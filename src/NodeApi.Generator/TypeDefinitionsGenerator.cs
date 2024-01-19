@@ -975,7 +975,7 @@ import { Duplex } from 'stream';
     private static bool IsExcludedMember(MethodBase method)
     {
         // Exclude "special" methods like property get/set and event add/remove.
-        if (method.IsSpecialName)
+        if (method is MethodInfo && method.IsSpecialName)
         {
             return true;
         }
@@ -1613,7 +1613,11 @@ import { Duplex } from 'stream';
             }
             else
             {
-                return string.Join(" ", element.Nodes().Select(FormatDocText));
+                return string.Join(" ", element.Nodes().Select(FormatDocText))
+                    .Replace("} ,", "},")
+                    .Replace("} .", "}.")
+                    .Replace("` ,", "`,")
+                    .Replace("` .", "`.");
             }
         }
 
