@@ -24,6 +24,8 @@ public abstract class SourceGenerator
 
     private static readonly Regex s_paragraphBreakRegex = new(@" *\<para */\> *");
 
+    protected const char NonBreakingSpace = (char)0xA0;
+
     public enum DiagnosticId
     {
         NoExports = 1000,
@@ -193,11 +195,11 @@ public abstract class SourceGenerator
                     }
                 }
 
-                yield return comment.Substring(0, i).TrimEnd();
+                yield return comment.Substring(0, i).TrimEnd().Replace(NonBreakingSpace, ' ');
                 comment = comment.Substring(i + 1);
             }
 
-            yield return comment.TrimEnd();
+            yield return comment.TrimEnd().Replace(NonBreakingSpace, ' ');
         }
     }
 }

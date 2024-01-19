@@ -17,13 +17,20 @@ namespace Microsoft.JavaScript.NodeApi.Test;
 public class TypeDefsGeneratorTests
 {
     private static TypeDefinitionsGenerator CreateTypeDefinitionsGenerator(
-        Dictionary<string, string> docs)
+        IEnumerable<KeyValuePair<string, string>> docs)
+    {
+        return CreateTypeDefinitionsGenerator(docs.Select((pair) =>
+            new KeyValuePair<string, XElement>(pair.Key, new XElement("summary", pair.Value))));
+    }
+
+    private static TypeDefinitionsGenerator CreateTypeDefinitionsGenerator(
+        IEnumerable<KeyValuePair<string, XElement>> docs)
     {
         string ns = typeof(TypeDefsGeneratorTests).FullName + "+";
         XDocument docsXml = new(new XElement("root", new XElement("members",
             docs.Select((pair) => new XElement("member",
                 new XAttribute("name", pair.Key.Insert(2, ns)),
-                new XElement("summary", pair.Value))))));
+                pair.Value)))));
         return new TypeDefinitionsGenerator(
             typeof(TypeDefsGeneratorTests).Assembly,
             assemblyDoc: docsXml,
@@ -31,10 +38,16 @@ public class TypeDefsGeneratorTests
             suppressWarnings: true);
     }
 
-    private string GenerateTypeDefinition(Type type, Dictionary<string, string> docs)
+    private string GenerateTypeDefinition(Type type, IDictionary<string, string> docs)
         => CreateTypeDefinitionsGenerator(docs).GenerateTypeDefinition(type).TrimEnd();
 
-    private string GenerateMemberDefinition(MemberInfo member, Dictionary<string, string> docs)
+    private string GenerateMemberDefinition(MemberInfo member, IDictionary<string, string> docs)
+        => CreateTypeDefinitionsGenerator(docs).GenerateMemberDefinition(member).TrimEnd();
+
+    private string GenerateTypeDefinition(Type type, IDictionary<string, XElement> docs)
+        => CreateTypeDefinitionsGenerator(docs).GenerateTypeDefinition(type).TrimEnd();
+
+    private string GenerateMemberDefinition(MemberInfo member, IDictionary<string, XElement> docs)
         => CreateTypeDefinitionsGenerator(docs).GenerateMemberDefinition(member).TrimEnd();
 
     private interface SimpleInterface
@@ -265,6 +278,27 @@ public class TypeDefsGeneratorTests
         GenerateTypeDefinition(typeof(GenericDelegate<>), new Dictionary<string, string>
         {
             ["T:GenericDelegate`1"] = "generic-delegate",
+        }));
+    }
+
+    [Fact]
+    public void GenerateJSDocLink()
+    {
+        Assert.Equal("""
+
+            /** Link to {@link SimpleClass}. */
+            export interface SimpleInterface {
+            	TestProperty: string;
+
+            	TestMethod(): string;
+            }
+            """.ReplaceLineEndings(),
+        GenerateTypeDefinition(typeof(SimpleInterface), new Dictionary<string, XElement>
+        {
+            ["T:SimpleInterface"] = new XElement("summary",
+                "Link to ",
+                new XElement("see", new XAttribute("cref", "SimpleClass")),
+                "."),
         }));
     }
 }
