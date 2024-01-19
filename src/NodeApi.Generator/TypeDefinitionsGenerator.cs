@@ -615,8 +615,11 @@ import { Duplex } from 'stream';
             foreach (ConstructorInfo constructor in type.GetConstructors(
                 BindingFlags.Public | BindingFlags.Instance))
             {
-                if (isFirstMember) isFirstMember = false; else s++;
-                ExportTypeMember(ref s, constructor);
+                if (!IsExcludedMember(constructor))
+                {
+                    if (isFirstMember) isFirstMember = false; else s++;
+                    ExportTypeMember(ref s, constructor);
+                }
             }
 
             if (type.IsClass)
@@ -624,14 +627,17 @@ import { Duplex } from 'stream';
                 foreach (PropertyInfo property in type.GetProperties(
                     BindingFlags.Public | BindingFlags.Static))
                 {
-                    if (isFirstMember) isFirstMember = false; else s++;
-                    ExportTypeMember(ref s, property);
+                    if (!IsExcludedMember(property))
+                    {
+                        if (isFirstMember) isFirstMember = false; else s++;
+                        ExportTypeMember(ref s, property);
+                    }
                 }
 
                 foreach (MethodInfo method in type.GetMethods(
                     BindingFlags.Public | BindingFlags.Static))
                 {
-                    if (!IsExcludedMethod(method))
+                    if (!IsExcludedMember(method))
                     {
                         if (isFirstMember) isFirstMember = false; else s++;
                         ExportTypeMember(ref s, method);
@@ -705,8 +711,11 @@ import { Duplex } from 'stream';
             foreach (ConstructorInfo constructor in type.GetConstructors(
                 BindingFlags.Public | BindingFlags.Instance))
             {
-                if (isFirstMember) isFirstMember = false; else s++;
-                ExportTypeMember(ref s, constructor);
+                if (!IsExcludedMember(constructor))
+                {
+                    if (isFirstMember) isFirstMember = false; else s++;
+                    ExportTypeMember(ref s, constructor);
+                }
             }
         }
 
@@ -717,8 +726,11 @@ import { Duplex } from 'stream';
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
-                if (isFirstMember) isFirstMember = false; else s++;
-                ExportTypeMember(ref s, property);
+                if (!IsExcludedMember(property))
+                {
+                    if (isFirstMember) isFirstMember = false; else s++;
+                    ExportTypeMember(ref s, property);
+                }
             }
 
             foreach (MethodInfo method in type.GetMethods(
@@ -726,7 +738,7 @@ import { Duplex } from 'stream';
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
-                if (!IsExcludedMethod(method))
+                if (!IsExcludedMember(method))
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, method);
@@ -746,11 +758,11 @@ import { Duplex } from 'stream';
 
     private static bool HasExplicitInterfaceImplementations(Type type, Type interfaceType)
     {
-        if (!type.IsClass)
+        if (type.IsInterface)
         {
-            if ((interfaceType.Name == nameof(IComparable) && type.IsInterface &&
+            if ((interfaceType.Name == nameof(IComparable) &&
                 type.GetInterfaces().Any((i) => i.Name == typeof(IComparable<>).Name)) ||
-                (interfaceType.Name == "ISpanFormattable" && type.IsInterface &&
+                (interfaceType.Name == "ISpanFormattable" &&
                 (type.Name == "INumberBase`1" ||
                 type.GetInterfaces().Any((i) => i.Name == "INumberBase`1"))))
             {
@@ -791,7 +803,7 @@ import { Duplex } from 'stream';
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
         {
             if (method.IsFinal && method.IsPrivate &&
-                method.Name.StartsWith(interfaceTypeName))
+                method.Name.StartsWith(interfaceTypeName + "."))
             {
                 return true;
             }
@@ -950,17 +962,47 @@ import { Duplex } from 'stream';
         }
     }
 
-    private static bool IsExcludedMethod(MethodInfo method)
+    private static bool IsExcludedMember(PropertyInfo property)
+    {
+        if (property.PropertyType.IsPointer)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsExcludedMember(MethodBase method)
     {
         // Exclude "special" methods like property get/set and event add/remove.
+        if (method.IsSpecialName)
+        {
+            return true;
+        }
+
         // Exclude old style Begin/End async methods, as they always have Task-based alternatives.
-        // Exclude instance methods declared by System.Object like ToString() and Equals().
-        return method.IsSpecialName ||
-            (method.Name.StartsWith("Begin") &&
-                method.ReturnType.FullName == typeof(IAsyncResult).FullName) ||
+        if ((method.Name.StartsWith("Begin") &&
+            (method as MethodInfo)?.ReturnType.FullName == typeof(IAsyncResult).FullName) ||
             (method.Name.StartsWith("End") && method.GetParameters().Length == 1 &&
-            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName) ||
-            (!method.IsStatic && method.DeclaringType!.FullName == "System.Object");
+            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName))
+        {
+            return true;
+        }
+
+        // Exclude instance methods declared by System.Object like ToString() and Equals().
+        if (!method.IsStatic && method.DeclaringType!.FullName == "System.Object")
+        {
+            return true;
+        }
+
+        // Exclude methods that have pointer parameters because they can't be marshalled to JS.
+        if (method.GetParameters().Any((p) => p.ParameterType.IsPointer) ||
+            (method as MethodInfo)?.ReturnParameter.ParameterType.IsPointer == true)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private void GenerateEnumDefinition(ref SourceBuilder s, Type type)
@@ -1506,7 +1548,7 @@ import { Duplex } from 'stream';
 
         if (string.IsNullOrEmpty(remarks) && summary.Length < 83 && summary.IndexOf('\n') < 0)
         {
-            s += $"/** {summary} */";
+            s += $"/** {summary.Replace(nonBreakingSpace, ' ')} */";
         }
         else
         {
@@ -1539,9 +1581,9 @@ import { Duplex } from 'stream';
 
         if (node is XElement element)
         {
-            if (element.Name == "see")
+            if (element.Name == "see" && element.Attribute("cref") != null)
             {
-                string target = element.Attribute("cref")?.Value?.ToString() ?? string.Empty;
+                string target = element.Attribute("cref")!.Value;
                 target = target.Substring(target.IndexOf(':') + 1);
 
                 int genericCountIndex = target.LastIndexOf('`');
@@ -1555,11 +1597,18 @@ import { Duplex } from 'stream';
                     target += $"<{new string(',', genericCount - 1)}>";
                 }
 
+                // Use a non-breaking space char to prevent wrapping from breaking the link.
+                // It will be replaced with by a regular space char in the final output.
+                return $"{{@link {target}}}".Replace(' ', nonBreakingSpace);
+            }
+            else if (element.Name == "see" && element.Attribute("langword") != null)
+            {
+                string target = element.Attribute("langword")!.Value;
                 return $"`{target}`";
             }
-            else if (element.Name == "paramref")
+            else if (element.Name == "paramref" && element.Attribute("name") != null)
             {
-                string target = element.Attribute("name")?.Value?.ToString() ?? string.Empty;
+                string target = element.Attribute("name")!.Value;
                 return $"`{target}`";
             }
             else
