@@ -796,7 +796,11 @@ import { Duplex } from 'stream';
         int genericMarkerIndex = methodNamePrefix.IndexOf('`');
         if (genericMarkerIndex >= 0)
         {
+#if NETFRAMEWORK
             methodNamePrefix = methodNamePrefix.Substring(0, genericMarkerIndex) + '<';
+#else
+            methodNamePrefix = string.Concat(methodNamePrefix.AsSpan(0, genericMarkerIndex), "<");
+#endif
         }
         else
         {
