@@ -611,6 +611,27 @@ public static partial class JSNativeApi
         return GCHandle.FromIntPtr(result).Target!;
     }
 
+    /// <summary>
+    /// Gets the .NET external value or primitive object value (string, boolean, or double)
+    /// for a JS value, or null if the JS value is not convertible to one of those types.
+    /// </summary>
+    /// <remarks>
+    /// This is useful when marshalling where a JS value must be converted to some .NET type,
+    /// but the target type is unknown (object).
+    /// </remarks>
+    public static unsafe object? GetValueExternalOrPrimitive(this JSValue thisValue)
+    {
+        return thisValue.TypeOf() switch
+        {
+            JSValueType.String => thisValue.GetValueStringUtf16(),
+            JSValueType.Boolean => thisValue.GetValueBool(),
+            JSValueType.Number => thisValue.GetValueDouble(),
+            JSValueType.External => thisValue.GetValueExternal(),
+            _ => null,
+        };
+
+    }
+
     public static JSReference CreateReference(this JSValue thisValue)
         => new(thisValue);
 

@@ -4,11 +4,12 @@
 // @ts-check
 
 import dotnet from 'node-api-dotnet';
+import './bin/System.Text.Encodings.Web.js';
+import './bin/Microsoft.Extensions.DependencyInjection.js';
 import './bin/Microsoft.Extensions.Logging.Abstractions.js';
 import './bin/Microsoft.SemanticKernel.Abstractions.js';
 import './bin/Microsoft.SemanticKernel.Core.js';
-import './bin/Microsoft.SemanticKernel.Connectors.AI.OpenAI.js';
-import './bin/Microsoft.SemanticKernel.TemplateEngine.Basic.js';
+import './bin/Microsoft.SemanticKernel.Connectors.OpenAI.js';
 
 const Logging = dotnet.Microsoft.Extensions.Logging;
 const SK = dotnet.Microsoft.SemanticKernel;
@@ -28,18 +29,22 @@ const loggerFactory = {
   dispose() {}
 };
 
-let kernelBuilder = new SK.KernelBuilder();
-kernelBuilder.WithLoggerFactory(loggerFactory);
+const kernelBuilder = SK.Kernel.CreateBuilder();
+//kernelBuilder.WithLoggerFactory(loggerFactory);
 
 // The JS marshaller does not yet support extension methods.
-SK.OpenAIKernelBuilderExtensions.WithAzureOpenAIChatCompletionService(
+SK.OpenAIServiceCollectionExtensions.AddAzureOpenAIChatCompletion(
   kernelBuilder,
   process.env['OPENAI_DEPLOYMENT'] || '',
   process.env['OPENAI_ENDPOINT'] || '',
   process.env['OPENAI_KEY'] || '',
+  // Include optional parameters to disambiguate the overload.
+  undefined,
+  undefined,
+  undefined,
 );
 
-const kernel = kernelBuilder.Build();
+const kernel = SK.KernelExtensions.Build(kernelBuilder);
 
 const prompt = `{{$input}}
 
@@ -57,15 +62,18 @@ such orders would conflict with the First Law.
 does not conflict with the First or Second Law.
 `;
 
-const requestSettings = new SK.Connectors.AI.OpenAI.OpenAIRequestSettings();
-requestSettings.MaxTokens = 100;
+const executionSettings = new SK.Connectors.OpenAI.OpenAIPromptExecutionSettings();
+executionSettings.MaxTokens = 100;
 
 // The JS marshaller does not yet support extension methods.
-const summaryFunction = SK.OpenAIKernelExtensions
-  .CreateSemanticFunction(kernel, prompt, requestSettings);
+const summaryFunction = SK.KernelExtensions.CreateFunctionFromPrompt(
+  kernel, prompt, executionSettings);
 
-const summary = await SK.SKFunctionExtensions.InvokeAsync(
-  summaryFunction, textToSummarize, kernel);
+const summarizeArguments = new Map();
+summarizeArguments.set('input', textToSummarize);
+
+const summary = await kernel.InvokeAsync(
+  summaryFunction, new SK.KernelArguments(summarizeArguments, undefined));
 
 console.log();
 console.log(summary.toString());

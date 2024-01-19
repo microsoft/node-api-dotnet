@@ -134,33 +134,25 @@ dotnet.load(assemblyName);
         bool isSystemAssembly = false,
         bool suppressWarnings = false)
     {
-        // Create a metadata load context that includes a resolver for .NET system assemblies
-        // along with the target assembly.
-
-        // Resolve all assemblies in all the system reference assembly directories.
-        string[] systemAssemblies = systemReferenceAssemblyDirectories
-            .SelectMany((d) => Directory.GetFiles(d, "*.dll"))
-            .ToArray();
-
-        // Drop reference assemblies that are already in any system ref assembly directories.
-        // (They would only support older framework versions.)
-        referenceAssemblyPaths = referenceAssemblyPaths.Where(
-            (r) => !systemAssemblies.Any((a) => Path.GetFileName(a).Equals(
-                Path.GetFileName(r), StringComparison.OrdinalIgnoreCase)));
-
+        // Create a metadata load context that includes a resolver for system assemblies,
+        // referenced assemblies, referenced assemblies, and the target assembly.
+        var allReferenceAssemblyPaths = MergeSystemReferenceAssemblies(
+            referenceAssemblyPaths, systemReferenceAssemblyDirectories);
         PathAssemblyResolver assemblyResolver = new(
-            new[] { typeof(object).Assembly.Location }
-            .Concat(systemAssemblies)
-            .Concat(referenceAssemblyPaths)
-            .Append(assemblyPath));
-        using MetadataLoadContext loadContext = new(
-            assemblyResolver, typeof(object).Assembly.GetName().Name);
+            allReferenceAssemblyPaths.Append(assemblyPath));
+        using MetadataLoadContext loadContext = new(assemblyResolver);
 
         Assembly assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
 
         Dictionary<string, Assembly> referenceAssemblies = new();
         foreach (string referenceAssemblyPath in referenceAssemblyPaths)
         {
+            if (!allReferenceAssemblyPaths.Contains(referenceAssemblyPath))
+            {
+                // The referenced assembly was replaced by a system assembly.
+                continue;
+            }
+
             Assembly referenceAssembly = loadContext.LoadFromAssemblyPath(referenceAssemblyPath);
             string referenceAssemblyName = referenceAssembly.GetName().Name!;
             referenceAssemblies.Add(referenceAssemblyName, referenceAssembly);
@@ -224,6 +216,59 @@ dotnet.load(assemblyName);
         {
             SymbolExtensions.Reset();
         }
+    }
+
+    /// <summary>
+    /// Finds system assemblies that may be referenced by project code, and resolves
+    /// conflicts between project-referenced assemblies and system assemblies by selecting the
+    /// highest version of each assembly.
+    /// </summary>
+    private static IEnumerable<string> MergeSystemReferenceAssemblies(
+        IEnumerable<string> referenceAssemblyPaths,
+        IEnumerable<string> systemReferenceAssemblyDirectories)
+    {
+        // Resolve all assemblies in all the system reference assembly directories.
+        var systemAssemblyPaths = systemReferenceAssemblyDirectories
+            .SelectMany((d) => Directory.GetFiles(d, "*.dll"));
+
+        // Concatenate system reference assemblies with project (nuget) reference assemblies.
+        var allAssemblyPaths = new[] { typeof(object).Assembly.Location }
+            .Concat(systemAssemblyPaths)
+            .Concat(referenceAssemblyPaths);
+
+        // Select the latest version of each referenced assembly.
+        // First group by assembly name, then pick the highest version in each group.
+        var assembliesByVersion = allAssemblyPaths.Concat(referenceAssemblyPaths)
+            .GroupBy(a => Path.GetFileNameWithoutExtension(a).ToLowerInvariant());
+        var mergedAssemblyPaths = assembliesByVersion.Select(
+            (g) => g.OrderByDescending((a) => InferReferenceAssemblyVersionFromPath(a)).First());
+        return mergedAssemblyPaths;
+    }
+
+    private static Version InferReferenceAssemblyVersionFromPath(string assemblyPath)
+    {
+        var pathParts = assemblyPath.Split(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToList();
+
+        // Infer the version from a system reference assembly path such as
+        // dotnet\packs\Microsoft.NETCore.App.Ref\<version>\ref\net6.0\AssemblyName.dll
+        var refIndex = pathParts.IndexOf("ref");
+        if (refIndex > 0 && Version.TryParse(pathParts[refIndex - 1], out var refVersion))
+        {
+            return refVersion;
+        }
+
+        // Infer the version from a nuget package assembly reference path such as
+        // <packageName>\<version>\lib\net6.0\AssemblyName.dll
+        var libIndex = pathParts.IndexOf("lib");
+        if (libIndex > 0 && Version.TryParse(pathParts[libIndex - 1], out var libVersion))
+        {
+            return libVersion;
+        }
+
+        // The version cannot be inferred from the path. The reference will still be used
+        // if it is the only one with that assembly name.
+        return new Version();
     }
 
     public TypeDefinitionsGenerator(
