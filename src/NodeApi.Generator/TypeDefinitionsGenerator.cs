@@ -789,21 +789,24 @@ import { Duplex } from 'stream';
             interfaceType = interfaceType.GetGenericTypeDefinition();
         }
 
-        // Get the interface type name with generic type parameters for matching.
+        // Get the interface type name prefix for matching the method name.
         // It would be more precise to match the generic type params also,
         // but also more complicated.
-        string interfaceTypeName = interfaceType.FullName!;
-        int genericMarkerIndex = interfaceTypeName.IndexOf('`');
+        string methodNamePrefix = interfaceType.FullName!;
+        int genericMarkerIndex = methodNamePrefix.IndexOf('`');
         if (genericMarkerIndex >= 0)
         {
-            interfaceTypeName = interfaceTypeName.Substring(0, genericMarkerIndex);
+            methodNamePrefix = methodNamePrefix.Substring(0, genericMarkerIndex) + '<';
+        }
+        else
+        {
+            methodNamePrefix += '.';
         }
 
         foreach (MethodInfo method in type.GetMethods(
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
         {
-            if (method.IsFinal && method.IsPrivate &&
-                method.Name.StartsWith(interfaceTypeName + "."))
+            if (method.IsFinal && method.IsPrivate && method.Name.StartsWith(methodNamePrefix))
             {
                 return true;
             }
