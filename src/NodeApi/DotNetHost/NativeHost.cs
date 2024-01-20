@@ -32,7 +32,7 @@ internal unsafe partial class NativeHost : IDisposable
     private JSReference? _exports;
 
     public static bool IsTracingEnabled { get; } =
-        Environment.GetEnvironmentVariable("TRACE_NODE_API_HOST") == "1";
+        Environment.GetEnvironmentVariable("NODE_API_TRACE_HOST") == "1";
 
     public static void Trace(string msg)
     {

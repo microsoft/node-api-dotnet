@@ -39,13 +39,17 @@ internal class TypeExporter
     /// Attempts to project a .NET type as a JS object.
     /// </summary>
     /// <param name="type">A type to export.</param>
+    /// <param name="deferMembers">True to delay exporting of all type members until each one is
+    /// accessed. If false, all type members are immediately exported, which may cascade to
+    /// exporting many additional types referenced by the members, including members that are
+    /// never actually used.</param>
     /// <returns>A strong reference to a JS object that represents the exported type, or null
     /// if the type could not be exported.</returns>
-    public JSReference? TryExportType(Type type)
+    public JSReference? TryExportType(Type type, bool deferMembers)
     {
         try
         {
-            return ExportType(type);
+            return ExportType(type, deferMembers);
         }
         catch (NotSupportedException ex)
         {
@@ -59,7 +63,7 @@ internal class TypeExporter
         }
     }
 
-    private JSReference ExportType(Type type)
+    private JSReference ExportType(Type type, bool deferMembers)
     {
         if (!IsSupportedType(type))
         {
@@ -71,7 +75,7 @@ internal class TypeExporter
         }
         else if (type.IsGenericTypeDefinition)
         {
-            return ExportGenericTypeDefinition(type);
+            return ExportGenericTypeDefinition(type, deferMembers);
         }
         else if (type.IsClass || type.IsInterface || type.IsValueType)
         {
@@ -83,7 +87,7 @@ internal class TypeExporter
             }
             else
             {
-                return ExportClass(type);
+                return ExportClass(type, deferMembers);
             }
         }
         else
@@ -92,10 +96,9 @@ internal class TypeExporter
         }
     }
 
-    private JSReference ExportClass(Type type)
+    private JSReference ExportClass(Type type, bool deferMembers)
     {
         string typeName = type.Name;
-        Trace($"### ExportClass({typeName}");
 
         if (_exportedTypes.TryGetValue(type, out JSReference? classObjectReference))
         {
@@ -123,32 +126,16 @@ internal class TypeExporter
             }
             else
             {
-                ConstructorInfo[] constructors =
-                    type.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(IsSupportedConstructor)
-                    .ToArray();
-                JSCallbackDescriptor constructorDescriptor;
-                if (constructors.Length == 1 &&
-                    !constructors[0].GetParameters().Any((p) => p.IsOptional))
-                {
-                    constructorDescriptor =
-                        _marshaller.BuildFromJSConstructorExpression(constructors[0]).Compile();
-                }
-                else
-                {
-                    // Multiple constructors or optional parameters require overload resolution.
-                    constructorDescriptor =
-                        _marshaller.BuildConstructorOverloadDescriptor(constructors);
-                }
-
+                JSCallbackDescriptor constructorDescriptor =
+                    CreateConstructorDescriptor(type, deferMembers);
                 classBuilder = classBuilderType.CreateInstance(
                     new[] { typeof(string), typeof(JSCallbackDescriptor) },
                     new object[] { type.Name, constructorDescriptor });
             }
 
-            ExportProperties(type, classBuilder);
-            ExportMethods(type, classBuilder);
-            ExportNestedTypes(type, classBuilder);
+            ExportProperties(type, classBuilder, deferMembers);
+            ExportMethods(type, classBuilder, deferMembers);
+            ExportNestedTypes(type, classBuilder, deferMembers);
 
             string defineMethodName = type.IsInterface ? "DefineInterface" :
                 isStatic ? "DefineStaticClass" : type.IsValueType ? "DefineStruct" : "DefineClass";
@@ -167,48 +154,57 @@ internal class TypeExporter
             throw;
         }
 
-        // Also export any types returned by properties or methods of this type, because
-        // they might otherwise not be referenced by JS before they are used.
-        ExportClassDependencies(type);
+        if (!deferMembers)
+        {
+            // Also export any types returned by properties or methods of this type, because
+            // they might otherwise not be referenced by JS before they are used.
+            ExportClassDependencies(type);
+        }
 
         Trace($"< {nameof(TypeExporter)}.ExportClass()");
         return classObjectReference;
     }
 
-    private void ExportClassDependencies(Type type)
+    private JSCallbackDescriptor CreateConstructorDescriptor(Type type, bool defer)
     {
-        void ExportTypeIfSupported(Type dependencyType)
-        {
-            if (dependencyType.IsArray || dependencyType.IsByRef)
-            {
-                ExportTypeIfSupported(dependencyType.GetElementType()!);
-                return;
-            }
-            else if (dependencyType.IsGenericType)
-            {
-                Type genericTypeDefinition = dependencyType.GetGenericTypeDefinition();
-                if (genericTypeDefinition == typeof(Nullable<>) ||
-                    genericTypeDefinition == typeof(Task<>) ||
-                    genericTypeDefinition.Namespace == typeof(IList<>).Namespace)
-                {
-                    foreach (Type typeArg in dependencyType.GetGenericArguments())
-                    {
-                        ExportTypeIfSupported(typeArg);
-                    }
-                    return;
-                }
-            }
+        ConstructorInfo[] constructors =
+            type.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+            .Where(IsSupportedConstructor)
+            .ToArray();
 
-            if (
-#if !NETFRAMEWORK // TODO: Find an alternative for .NET Framework.
-                !dependencyType.IsGenericTypeParameter &&
-                !dependencyType.IsGenericMethodParameter &&
-#endif
-                IsSupportedType(dependencyType))
+        JSCallbackDescriptor constructorDescriptor;
+        if (defer)
+        {
+            // Create a descriptor that does deferred loading and resolution of overloads.
+            // (It also handles the case when there is no overloading, only one constructor.)
+            constructorDescriptor = JSCallbackOverload.CreateDescriptor(type.Name, () =>
             {
-                TryExportType(dependencyType);
+                return _marshaller.GetConstructorOverloads(constructors);
+            });
+        }
+        else
+        {
+            if (constructors.Length == 1 &&
+                !constructors[0].GetParameters().Any((p) => p.IsOptional))
+            {
+                // No deferral and no overload resolution - use the single callback descriptor.
+                constructorDescriptor = new JSCallbackDescriptor(
+                    type.Name,
+                    _marshaller.BuildFromJSConstructorExpression(constructors[0]).Compile());
+            }
+            else
+            {
+                // Multiple constructors or optional parameters require overload resolution.
+                constructorDescriptor = JSCallbackOverload.CreateDescriptor(
+                    type.Name, _marshaller.GetConstructorOverloads(constructors));
             }
         }
+
+        return constructorDescriptor;
+    }
+
+    private void ExportClassDependencies(Type type)
+    {
 
         foreach (MemberInfo member in type.GetMembers
             (BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
@@ -216,14 +212,14 @@ internal class TypeExporter
             if (member is PropertyInfo property &&
                 !JSMarshaller.IsConvertedType(property.PropertyType))
             {
-                ExportTypeIfSupported(property.PropertyType);
+                ExportTypeIfSupported(property.PropertyType, deferMembers: false);
             }
 
             if (member is MethodInfo method &&
                 IsSupportedMethod(method) &&
                 !JSMarshaller.IsConvertedType(method.ReturnType))
             {
-                ExportTypeIfSupported(method.ReturnType);
+                ExportTypeIfSupported(method.ReturnType, deferMembers: false);
             }
 
             if (member is MethodInfo interfaceMethod && type.IsInterface)
@@ -232,15 +228,49 @@ internal class TypeExporter
                 // will be implemented by JS.
                 foreach (ParameterInfo interfaceMethodParameter in interfaceMethod.GetParameters())
                 {
-                    ExportTypeIfSupported(interfaceMethodParameter.ParameterType);
+                    ExportTypeIfSupported(
+                        interfaceMethodParameter.ParameterType, deferMembers: false);
                 }
 
-                ExportTypeIfSupported(interfaceMethod.ReturnType);
+                ExportTypeIfSupported(interfaceMethod.ReturnType, deferMembers: false);
             }
         }
     }
 
-    private void ExportProperties(Type type, object classBuilder)
+    private void ExportTypeIfSupported(Type dependencyType, bool deferMembers)
+    {
+        if (dependencyType.IsArray || dependencyType.IsByRef)
+        {
+            ExportTypeIfSupported(dependencyType.GetElementType()!, deferMembers);
+            return;
+        }
+        else if (dependencyType.IsGenericType)
+        {
+            Type genericTypeDefinition = dependencyType.GetGenericTypeDefinition();
+            if (genericTypeDefinition == typeof(Nullable<>) ||
+                genericTypeDefinition == typeof(Task<>) ||
+                genericTypeDefinition.Namespace == typeof(IList<>).Namespace)
+            {
+                foreach (Type typeArg in dependencyType.GetGenericArguments())
+                {
+                    ExportTypeIfSupported(typeArg, deferMembers);
+                }
+                return;
+            }
+        }
+
+        if (
+#if !NETFRAMEWORK // TODO: Find an alternative for .NET Framework.
+            !dependencyType.IsGenericTypeParameter &&
+            !dependencyType.IsGenericMethodParameter &&
+#endif
+            IsSupportedType(dependencyType))
+        {
+            TryExportType(dependencyType, deferMembers);
+        }
+    }
+
+    private void ExportProperties(Type type, object classBuilder, bool defer)
     {
         Type classBuilderType = classBuilder.GetType();
         MethodInfo? addValuePropertyMethod = classBuilderType.GetInstanceMethod(
@@ -297,20 +327,58 @@ internal class TypeExporter
                     propertyAttributes |= JSPropertyAttributes.Writable;
                 }
 
-                JSCallback? getterDelegate = null;
+                JSCallback? getterCallback = null;
                 if (property.GetMethod != null)
                 {
-                    LambdaExpression lambda =
-                        _marshaller.BuildFromJSPropertyGetExpression(property);
-                    getterDelegate = (JSCallback)lambda.Compile();
+                    if (defer)
+                    {
+                        // Set up a callback that defers generation of marshalling callbacks
+                        // for the property until the first time it is accessed.
+                        getterCallback = (args) =>
+                        {
+                            JSCallback getter =
+                                _marshaller.BuildFromJSPropertyGetExpression(property).Compile();
+                            JSCallback? setter = property.SetMethod == null ? null :
+                                _marshaller.BuildFromJSPropertySetExpression(property).Compile();
+                            args.ThisArg.DefineProperties(JSPropertyDescriptor.Accessor(
+                                property.Name, getter, setter, propertyAttributes));
+
+                            ExportTypeIfSupported(property.PropertyType, deferMembers: true);
+
+                            return getter(args);
+                        };
+                    }
+                    else
+                    {
+                        getterCallback = _marshaller.BuildFromJSPropertyGetExpression(property)
+                            .Compile();
+                    }
                 }
 
-                JSCallback? setterDelegate = null;
+                JSCallback? setterCallback = null;
                 if (property.SetMethod != null)
                 {
-                    LambdaExpression lambda =
-                        _marshaller.BuildFromJSPropertySetExpression(property);
-                    setterDelegate = (JSCallback)lambda.Compile();
+                    if (defer)
+                    {
+                        setterCallback = (args) =>
+                        {
+                            JSCallback? getter = property.GetMethod == null ? null :
+                                _marshaller.BuildFromJSPropertyGetExpression(property).Compile();
+                            JSCallback setter =
+                                _marshaller.BuildFromJSPropertySetExpression(property).Compile();
+                            args.ThisArg.DefineProperties(JSPropertyDescriptor.Accessor(
+                                property.Name, getter, setter, propertyAttributes));
+
+                            ExportTypeIfSupported(property.PropertyType, deferMembers: true);
+
+                            return setter(args);
+                        };
+                    }
+                    else
+                    {
+                        setterCallback = _marshaller.BuildFromJSPropertySetExpression(property)
+                            .Compile();
+                    }
                 }
 
                 addPropertyMethod.Invoke(
@@ -318,8 +386,8 @@ internal class TypeExporter
                     new object?[]
                     {
                         property.Name,
-                        getterDelegate,
-                        setterDelegate,
+                        getterCallback,
+                        setterCallback,
                         propertyAttributes,
                         null,
                     });
@@ -327,7 +395,7 @@ internal class TypeExporter
         }
     }
 
-    private void ExportMethods(Type type, object classBuilder)
+    private void ExportMethods(Type type, object classBuilder, bool defer)
     {
         Type classBuilderType = classBuilder.GetType();
         MethodInfo addMethodMethod = classBuilderType.GetInstanceMethod(
@@ -362,6 +430,8 @@ internal class TypeExporter
             {
                 Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}<>()");
 
+                // Exporting generic methods is always essentially deferred because the methods
+                // cannot be fully exported until the type parameter(s) are known.
                 MethodInfo[] genericMethods = methods.Where(
                     (m) => m.IsGenericMethodDefinition).ToArray();
                 ExportGenericMethodDefinition(classBuilder, genericMethods);
@@ -373,7 +443,7 @@ internal class TypeExporter
                 }
             }
 
-            JSCallbackDescriptor methodDescriptor = CreateMethodDescriptor(methods);
+            JSCallbackDescriptor methodDescriptor = CreateMethodDescriptor(methods, defer);
 
             addMethodMethod.Invoke(
                 classBuilder,
@@ -400,36 +470,47 @@ internal class TypeExporter
         }
     }
 
-    private JSCallbackDescriptor CreateMethodDescriptor(MethodInfo[] methods)
+    private JSCallbackDescriptor CreateMethodDescriptor(MethodInfo[] methods, bool defer)
     {
+        JSCallbackDescriptor methodDescriptor;
         string methodName = methods[0].Name;
         bool methodIsStatic = methods[0].IsStatic;
-        if (methods.Length == 1 &&
-            !methods[0].GetParameters().Any((p) => p.IsOptional))
-        {
-            MethodInfo method = methods[0];
-            Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}(" +
-                string.Join(", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
+        Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}()" +
+            (methods.Length > 1 ? " [" + methods.Length + "]" : string.Empty));
 
-            return _marshaller.BuildFromJSMethodExpression(method).Compile();
+        if (defer)
+        {
+            // Create a descriptor that does deferred loading and resolution of overloads.
+            // (It also handles the case when there is no overloading, only one method.)
+            methodDescriptor = JSCallbackOverload.CreateDescriptor(methodName, () =>
+            {
+                JSCallbackOverload[] overloads = _marshaller.GetMethodOverloads(methods);
+
+                ExportTypeIfSupported(methods[0].ReturnType, deferMembers: true);
+
+                return overloads;
+            });
         }
         else
         {
-            // Set up overload resolution for multiple methods or optional parmaeters.
-            Trace($"    {(methodIsStatic ? "static " : string.Empty)}{methodName}[" +
-                methods.Length + "]");
-            foreach (MethodInfo method in methods)
+            if (methods.Length == 1 &&
+                !methods[0].GetParameters().Any((p) => p.IsOptional))
             {
-                Trace($"        {methodName}(" + string.Join(
-                    ", ", method.GetParameters().Select((p) => p.ParameterType)) + ")");
-
+                // No deferral and no overload resolution - use the single callback descriptor.
+                methodDescriptor = _marshaller.BuildFromJSMethodExpression(methods[0]).Compile();
             }
-
-            return _marshaller.BuildMethodOverloadDescriptor(methods);
+            else
+            {
+                // Multiple overloads or optional parameters require overload resolution.
+                methodDescriptor = JSCallbackOverload.CreateDescriptor(
+                    methodName, _marshaller.GetMethodOverloads(methods));
+            }
         }
+        return methodDescriptor;
+
     }
 
-    private void ExportNestedTypes(Type type, object classBuilder)
+    private void ExportNestedTypes(Type type, object classBuilder, bool deferMembers)
     {
         Type classBuilderType = classBuilder.GetType();
         MethodInfo? addValuePropertyMethod = classBuilderType.GetInstanceMethod(
@@ -445,7 +526,7 @@ internal class TypeExporter
                 continue;
             }
 
-            JSReference? nestedTypeReference = TryExportType(nestedType);
+            JSReference? nestedTypeReference = TryExportType(nestedType, deferMembers);
             if (nestedTypeReference != null)
             {
                 addValuePropertyMethod.Invoke(
@@ -554,7 +635,7 @@ internal class TypeExporter
         return IsSupportedType(parameterType);
     }
 
-    private JSReference ExportGenericTypeDefinition(Type type)
+    private JSReference ExportGenericTypeDefinition(Type type, bool deferMembers)
     {
         // TODO: Support multiple generic types with same name and differing type arg counts.
 
@@ -565,7 +646,8 @@ internal class TypeExporter
 
         // A generic type definition is exported as a function that constructs the
         // specialized generic type.
-        JSFunction function = new(MakeGenericType, callbackData: type);
+        JSFunction function = new(
+            (args) => MakeGenericType(args, deferMembers), callbackData: type);
 
         // Override the type's toString() to return the formatted generic type name.
         ((JSValue)function).SetProperty("toString", new JSFunction(() => type.FormatName()));
@@ -581,7 +663,7 @@ internal class TypeExporter
     /// <param name="args">Type arguments passed as JS values.</param>
     /// <returns>A strong reference to a JS value that represents the specialized generic
     /// type.</returns>
-    private JSValue MakeGenericType(JSCallbackArgs args)
+    private JSValue MakeGenericType(JSCallbackArgs args, bool deferMembers)
     {
         Type genericTypeDefinition = args.Data as Type ??
             throw new ArgumentException("Missing generic type definition.");
@@ -607,7 +689,7 @@ internal class TypeExporter
                 ex);
         }
 
-        JSReference exportedTypeReference = ExportType(genericType);
+        JSReference exportedTypeReference = ExportType(genericType, deferMembers);
         return exportedTypeReference.GetValue()!.Value;
     }
 
@@ -673,7 +755,7 @@ internal class TypeExporter
                 ex);
         }
 
-        JSCallbackDescriptor descriptor = CreateMethodDescriptor(matchingMethods);
+        JSCallbackDescriptor descriptor = CreateMethodDescriptor(matchingMethods, defer: false);
         JSFunction function = new(descriptor.Callback, descriptor.Data);
 
         if (!args.ThisArg.IsUndefined())

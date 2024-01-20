@@ -53,12 +53,20 @@ with no CLR.
 ## Debugging
 With a debug build, the following environment variables trigger just-in-time debugging of the
 respective components:
- - `DEBUG_NODE_API_GENERATOR` - Debug the C# source-generator when it runs during the build.
- - `DEBUG_NODE_API_RUNTIME` - Debug the .NET runtime host when it is loaded by JavaScript. (Does
+ - `NODE_API_DEBUG_GENERATOR=1` - Debug the C# source-generator or TS type-definitions generator
+ when they runs during the build.
+ - `NODE_API_DEBUG_RUNTIME=1` - Debug the .NET runtime host when it is loaded by JavaScript. (Does
  not apply to AOT-compiled modules.)
+Setting either of these variables to `1` causes the program to print a message to the console
+at startup and wait for a debugger to attach. Set to the string `vs` to use the VS JIT
+Debug dialog instead (requires Windows and a Visual Studio installation).
 
-Also `TRACE_NODE_API_HOST` causes tracing information to be printed about the the process of
-loading the .NET host.
+## Tracing
+The following environment variables trigger verbose tracing to the console:
+ - `NODE_API_TRACE_HOST` - Trace messages about starting the native host and managed host and
+ dynanically exporting .NET types from the managed host to JS.
+ - `NODE_API_TRACE_RUNTIME` - Trace all calls and callbacks across the JS/.NET boundary.
+Tracing works with both debug and release builds.
 
 ## Check/fix formatting
 PR builds will fail if formatting does not comply with settings in `.editorconfig`.
