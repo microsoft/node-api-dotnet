@@ -35,6 +35,8 @@ public sealed class JSRuntimeContext : IDisposable
     /// </remarks>
     public const string GlobalObjectName = "node_api_dotnet";
 
+    private static IEqualityComparer<object> s_jsTranslationEqualityComparer = Interop.JSTranslationEqualityComparer.Instance;
+
     private readonly napi_env _env;
 
     // Track JS constructors and instance JS wrappers for exported classes, enabling
@@ -77,7 +79,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// the <see cref="object.Equals(object?)"/> method, JS can receive unpredictable
     /// object instance.
     /// </remarks>
-    private readonly ConcurrentDictionary<object, JSReference> _objectMap = new(ReferenceEqualityComparer.Instance);
+    private readonly ConcurrentDictionary<object, JSReference> _objectMap = new(JSTranslationEqualityComparer);
 
     /// <summary>
     /// Maps from exported struct types to (strong references to) JS constructors for classes
@@ -138,6 +140,24 @@ public sealed class JSRuntimeContext : IDisposable
     /// <exception cref="InvalidOperationException">No runtime context was set for the current
     /// thread.</exception>
     public static JSRuntimeContext Current => JSValueScope.Current.RuntimeContext;
+
+    /// <summary>
+    /// The equality comparer used to translate .NET objects to JS objects.
+    /// </summary>
+    /// <remarks>
+    /// This property allows for altering the behavior of the translation process from .NET objects to JS objects.
+    /// If certain types have equality members that block access to required instances, this property can be assigned
+    /// to a more suitable implementation. See the <see cref="Microsoft.JavaScript.NodeApi.Interop.JSTranslationEqualityComparer"/>
+    /// comparer for more details.
+    /// </remarks>
+    public static IEqualityComparer<object> JSTranslationEqualityComparer
+    {
+        get => s_jsTranslationEqualityComparer;
+        set
+        {
+            s_jsTranslationEqualityComparer = value ?? throw new ArgumentNullException(nameof(value));
+        }
+    }
 
     public JSRuntime Runtime { get; }
 
