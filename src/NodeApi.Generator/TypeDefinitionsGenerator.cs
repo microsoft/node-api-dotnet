@@ -133,33 +133,25 @@ dotnet.load(assemblyName);
         bool isSystemAssembly = false,
         bool suppressWarnings = false)
     {
-        // Create a metadata load context that includes a resolver for .NET system assemblies
-        // along with the target assembly.
-
-        // Resolve all assemblies in all the system reference assembly directories.
-        string[] systemAssemblies = systemReferenceAssemblyDirectories
-            .SelectMany((d) => Directory.GetFiles(d, "*.dll"))
-            .ToArray();
-
-        // Drop reference assemblies that are already in any system ref assembly directories.
-        // (They would only support older framework versions.)
-        referenceAssemblyPaths = referenceAssemblyPaths.Where(
-            (r) => !systemAssemblies.Any((a) => Path.GetFileName(a).Equals(
-                Path.GetFileName(r), StringComparison.OrdinalIgnoreCase)));
-
+        // Create a metadata load context that includes a resolver for system assemblies,
+        // referenced assemblies, referenced assemblies, and the target assembly.
+        IEnumerable<string> allReferenceAssemblyPaths = MergeSystemReferenceAssemblies(
+            referenceAssemblyPaths, systemReferenceAssemblyDirectories);
         PathAssemblyResolver assemblyResolver = new(
-            new[] { typeof(object).Assembly.Location }
-            .Concat(systemAssemblies)
-            .Concat(referenceAssemblyPaths)
-            .Append(assemblyPath));
-        using MetadataLoadContext loadContext = new(
-            assemblyResolver, typeof(object).Assembly.GetName().Name);
+            allReferenceAssemblyPaths.Append(assemblyPath));
+        using MetadataLoadContext loadContext = new(assemblyResolver);
 
         Assembly assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
 
         Dictionary<string, Assembly> referenceAssemblies = new();
         foreach (string referenceAssemblyPath in referenceAssemblyPaths)
         {
+            if (!allReferenceAssemblyPaths.Contains(referenceAssemblyPath))
+            {
+                // The referenced assembly was replaced by a system assembly.
+                continue;
+            }
+
             Assembly referenceAssembly = loadContext.LoadFromAssemblyPath(referenceAssemblyPath);
             string referenceAssemblyName = referenceAssembly.GetName().Name!;
             referenceAssemblies.Add(referenceAssemblyName, referenceAssembly);
@@ -223,6 +215,59 @@ dotnet.load(assemblyName);
         {
             SymbolExtensions.Reset();
         }
+    }
+
+    /// <summary>
+    /// Finds system assemblies that may be referenced by project code, and resolves
+    /// conflicts between project-referenced assemblies and system assemblies by selecting the
+    /// highest version of each assembly.
+    /// </summary>
+    private static IEnumerable<string> MergeSystemReferenceAssemblies(
+        IEnumerable<string> referenceAssemblyPaths,
+        IEnumerable<string> systemReferenceAssemblyDirectories)
+    {
+        // Resolve all assemblies in all the system reference assembly directories.
+        IEnumerable<string> systemAssemblyPaths = systemReferenceAssemblyDirectories
+            .SelectMany((d) => Directory.GetFiles(d, "*.dll"));
+
+        // Concatenate system reference assemblies with project (nuget) reference assemblies.
+        IEnumerable<string> allAssemblyPaths = new[] { typeof(object).Assembly.Location }
+            .Concat(systemAssemblyPaths)
+            .Concat(referenceAssemblyPaths);
+
+        // Select the latest version of each referenced assembly.
+        // First group by assembly name, then pick the highest version in each group.
+        IEnumerable<IGrouping<string, string>> assembliesByVersion = allAssemblyPaths.Concat(referenceAssemblyPaths)
+            .GroupBy(a => Path.GetFileNameWithoutExtension(a).ToLowerInvariant());
+        IEnumerable<string> mergedAssemblyPaths = assembliesByVersion.Select(
+            (g) => g.OrderByDescending((a) => InferReferenceAssemblyVersionFromPath(a)).First());
+        return mergedAssemblyPaths;
+    }
+
+    private static Version InferReferenceAssemblyVersionFromPath(string assemblyPath)
+    {
+        var pathParts = assemblyPath.Split(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToList();
+
+        // Infer the version from a system reference assembly path such as
+        // dotnet\packs\Microsoft.NETCore.App.Ref\<version>\ref\net6.0\AssemblyName.dll
+        int refIndex = pathParts.IndexOf("ref");
+        if (refIndex > 0 && Version.TryParse(pathParts[refIndex - 1], out Version? refVersion))
+        {
+            return refVersion;
+        }
+
+        // Infer the version from a nuget package assembly reference path such as
+        // <packageName>\<version>\lib\net6.0\AssemblyName.dll
+        int libIndex = pathParts.IndexOf("lib");
+        if (libIndex > 0 && Version.TryParse(pathParts[libIndex - 1], out Version? libVersion))
+        {
+            return libVersion;
+        }
+
+        // The version cannot be inferred from the path. The reference will still be used
+        // if it is the only one with that assembly name.
+        return new Version();
     }
 
     public TypeDefinitionsGenerator(
@@ -569,8 +614,11 @@ import { Duplex } from 'stream';
             foreach (ConstructorInfo constructor in type.GetConstructors(
                 BindingFlags.Public | BindingFlags.Instance))
             {
-                if (isFirstMember) isFirstMember = false; else s++;
-                ExportTypeMember(ref s, constructor);
+                if (!IsExcludedMember(constructor))
+                {
+                    if (isFirstMember) isFirstMember = false; else s++;
+                    ExportTypeMember(ref s, constructor);
+                }
             }
 
             if (type.IsClass)
@@ -578,14 +626,17 @@ import { Duplex } from 'stream';
                 foreach (PropertyInfo property in type.GetProperties(
                     BindingFlags.Public | BindingFlags.Static))
                 {
-                    if (isFirstMember) isFirstMember = false; else s++;
-                    ExportTypeMember(ref s, property);
+                    if (!IsExcludedMember(property))
+                    {
+                        if (isFirstMember) isFirstMember = false; else s++;
+                        ExportTypeMember(ref s, property);
+                    }
                 }
 
                 foreach (MethodInfo method in type.GetMethods(
                     BindingFlags.Public | BindingFlags.Static))
                 {
-                    if (!IsExcludedMethod(method))
+                    if (!IsExcludedMember(method))
                     {
                         if (isFirstMember) isFirstMember = false; else s++;
                         ExportTypeMember(ref s, method);
@@ -659,8 +710,11 @@ import { Duplex } from 'stream';
             foreach (ConstructorInfo constructor in type.GetConstructors(
                 BindingFlags.Public | BindingFlags.Instance))
             {
-                if (isFirstMember) isFirstMember = false; else s++;
-                ExportTypeMember(ref s, constructor);
+                if (!IsExcludedMember(constructor))
+                {
+                    if (isFirstMember) isFirstMember = false; else s++;
+                    ExportTypeMember(ref s, constructor);
+                }
             }
         }
 
@@ -671,8 +725,11 @@ import { Duplex } from 'stream';
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
-                if (isFirstMember) isFirstMember = false; else s++;
-                ExportTypeMember(ref s, property);
+                if (!IsExcludedMember(property))
+                {
+                    if (isFirstMember) isFirstMember = false; else s++;
+                    ExportTypeMember(ref s, property);
+                }
             }
 
             foreach (MethodInfo method in type.GetMethods(
@@ -680,7 +737,7 @@ import { Duplex } from 'stream';
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
-                if (!IsExcludedMethod(method))
+                if (!IsExcludedMember(method))
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, method);
@@ -700,11 +757,11 @@ import { Duplex } from 'stream';
 
     private static bool HasExplicitInterfaceImplementations(Type type, Type interfaceType)
     {
-        if (!type.IsClass)
+        if (type.IsInterface)
         {
-            if ((interfaceType.Name == nameof(IComparable) && type.IsInterface &&
+            if ((interfaceType.Name == nameof(IComparable) &&
                 type.GetInterfaces().Any((i) => i.Name == typeof(IComparable<>).Name)) ||
-                (interfaceType.Name == "ISpanFormattable" && type.IsInterface &&
+                (interfaceType.Name == "ISpanFormattable" &&
                 (type.Name == "INumberBase`1" ||
                 type.GetInterfaces().Any((i) => i.Name == "INumberBase`1"))))
             {
@@ -731,21 +788,28 @@ import { Duplex } from 'stream';
             interfaceType = interfaceType.GetGenericTypeDefinition();
         }
 
-        // Get the interface type name with generic type parameters for matching.
+        // Get the interface type name prefix for matching the method name.
         // It would be more precise to match the generic type params also,
         // but also more complicated.
-        string interfaceTypeName = interfaceType.FullName!;
-        int genericMarkerIndex = interfaceTypeName.IndexOf('`');
+        string methodNamePrefix = interfaceType.FullName!;
+        int genericMarkerIndex = methodNamePrefix.IndexOf('`');
         if (genericMarkerIndex >= 0)
         {
-            interfaceTypeName = interfaceTypeName.Substring(0, genericMarkerIndex);
+#if NETFRAMEWORK
+            methodNamePrefix = methodNamePrefix.Substring(0, genericMarkerIndex) + '<';
+#else
+            methodNamePrefix = string.Concat(methodNamePrefix.AsSpan(0, genericMarkerIndex), "<");
+#endif
+        }
+        else
+        {
+            methodNamePrefix += '.';
         }
 
         foreach (MethodInfo method in type.GetMethods(
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
         {
-            if (method.IsFinal && method.IsPrivate &&
-                method.Name.StartsWith(interfaceTypeName))
+            if (method.IsFinal && method.IsPrivate && method.Name.StartsWith(methodNamePrefix))
             {
                 return true;
             }
@@ -904,17 +968,47 @@ import { Duplex } from 'stream';
         }
     }
 
-    private static bool IsExcludedMethod(MethodInfo method)
+    private static bool IsExcludedMember(PropertyInfo property)
+    {
+        if (property.PropertyType.IsPointer)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsExcludedMember(MethodBase method)
     {
         // Exclude "special" methods like property get/set and event add/remove.
+        if (method is MethodInfo && method.IsSpecialName)
+        {
+            return true;
+        }
+
         // Exclude old style Begin/End async methods, as they always have Task-based alternatives.
-        // Exclude instance methods declared by System.Object like ToString() and Equals().
-        return method.IsSpecialName ||
-            (method.Name.StartsWith("Begin") &&
-                method.ReturnType.FullName == typeof(IAsyncResult).FullName) ||
+        if ((method.Name.StartsWith("Begin") &&
+            (method as MethodInfo)?.ReturnType.FullName == typeof(IAsyncResult).FullName) ||
             (method.Name.StartsWith("End") && method.GetParameters().Length == 1 &&
-            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName) ||
-            (!method.IsStatic && method.DeclaringType!.FullName == "System.Object");
+            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName))
+        {
+            return true;
+        }
+
+        // Exclude instance methods declared by System.Object like ToString() and Equals().
+        if (!method.IsStatic && method.DeclaringType!.FullName == "System.Object")
+        {
+            return true;
+        }
+
+        // Exclude methods that have pointer parameters because they can't be marshalled to JS.
+        if (method.GetParameters().Any((p) => p.ParameterType.IsPointer) ||
+            method is MethodInfo { ReturnParameter.ParameterType.IsPointer: true })
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private void GenerateEnumDefinition(ref SourceBuilder s, Type type)
@@ -1460,7 +1554,7 @@ import { Duplex } from 'stream';
 
         if (string.IsNullOrEmpty(remarks) && summary.Length < 83 && summary.IndexOf('\n') < 0)
         {
-            s += $"/** {summary} */";
+            s += $"/** {summary.Replace(NonBreakingSpace, ' ')} */";
         }
         else
         {
@@ -1493,9 +1587,9 @@ import { Duplex } from 'stream';
 
         if (node is XElement element)
         {
-            if (element.Name == "see")
+            if (element.Name == "see" && element.Attribute("cref") != null)
             {
-                string target = element.Attribute("cref")?.Value?.ToString() ?? string.Empty;
+                string target = element.Attribute("cref")!.Value;
                 target = target.Substring(target.IndexOf(':') + 1);
 
                 int genericCountIndex = target.LastIndexOf('`');
@@ -1509,16 +1603,27 @@ import { Duplex } from 'stream';
                     target += $"<{new string(',', genericCount - 1)}>";
                 }
 
+                // Use a non-breaking space char to prevent wrapping from breaking the link.
+                // It will be replaced with by a regular space char in the final output.
+                return $"{{@link {target}}}".Replace(' ', NonBreakingSpace);
+            }
+            else if (element.Name == "see" && element.Attribute("langword") != null)
+            {
+                string target = element.Attribute("langword")!.Value;
                 return $"`{target}`";
             }
-            else if (element.Name == "paramref")
+            else if (element.Name == "paramref" && element.Attribute("name") != null)
             {
-                string target = element.Attribute("name")?.Value?.ToString() ?? string.Empty;
+                string target = element.Attribute("name")!.Value;
                 return $"`{target}`";
             }
             else
             {
-                return string.Join(" ", element.Nodes().Select(FormatDocText));
+                return string.Join(" ", element.Nodes().Select(FormatDocText))
+                    .Replace("} ,", "},")
+                    .Replace("} .", "}.")
+                    .Replace("` ,", "`,")
+                    .Replace("` .", "`.");
             }
         }
 

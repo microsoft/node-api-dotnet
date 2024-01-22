@@ -359,7 +359,7 @@ public class JSMarshaller
 
         for (int i = 0; i < parameters.Length; i++)
         {
-            argVariables[i] = Expression.Variable(parameters[i].ParameterType, parameters[i].Name);
+            argVariables[i] = Variable(parameters[i]);
             statements.Add(Expression.Assign(argVariables[i],
                 BuildArgumentExpression(i, parameters[i])));
         }
@@ -1888,10 +1888,10 @@ public class JSMarshaller
             // public type is passed to JS and then passed back to .NET as `object` type.
 
             /*
-             * (T)(value.TryUnwrap() ?? value.TryGetValueExternal());
+             * (T)(value.TryUnwrap() ?? value.GetValueExternalOrPrimitive());
              */
             MethodInfo getExternalMethod =
-                typeof(JSValue).GetMethod(nameof(JSValue.TryGetValueExternal))!;
+                typeof(JSValue).GetMethod(nameof(JSValue.GetValueExternalOrPrimitive))!;
             statements = new[]
             {
                 Expression.Convert(

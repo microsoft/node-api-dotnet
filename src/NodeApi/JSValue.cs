@@ -872,23 +872,37 @@ public readonly struct JSValue : IEquatable<JSValue>
         return GCHandle.FromIntPtr(result).Target!;
     }
 
-    public JSReference CreateReference() => new(this);
+    /// <summary>
+    /// Gets the .NET external value or primitive object value (string, boolean, or double)
+    /// for a JS value, or null if the JS value is not convertible to one of those types.
+    /// </summary>
+    /// <remarks>
+    /// This is useful when marshalling where a JS value must be converted to some .NET type,
+    /// but the target type is unknown (object).
+    /// </remarks>
+    public object? GetValueExternalOrPrimitive()
+    {
+        return TypeOf() switch
+        {
+            JSValueType.String => GetValueStringUtf16(),
+            JSValueType.Boolean => GetValueBool(),
+            JSValueType.Number => GetValueDouble(),
+            JSValueType.External => GetValueExternal(),
+            _ => null,
+        };
+   }
 
-    public JSReference CreateWeakReference() => new(this, isWeak: true);
-
-    public bool IsError() => GetRuntime(out napi_env env, out napi_value handle)
-        .IsError(env, handle, out bool result).ThrowIfFailed(result);
-
-    public static bool IsExceptionPending() => GetCurrentRuntime(out napi_env env)
-        .IsExceptionPending(env, out bool result).ThrowIfFailed(result);
-
-    public static JSValue GetAndClearLastException() => GetCurrentRuntime(out napi_env env)
-        .GetAndClearLastException(env, out napi_value result).ThrowIfFailed(result);
-
-    public bool IsArrayBuffer() => GetRuntime(out napi_env env, out napi_value handle)
-        .IsArrayBuffer(env, handle, out bool result).ThrowIfFailed(result);
-
-    public unsafe Span<byte> GetArrayBufferInfo()
+   public JSReference CreateReference() => new(this);
+   public JSReference CreateWeakReference() => new(this, isWeak: true);
+   public bool IsError() => GetRuntime(out napi_env env, out napi_value handle)
+       .IsError(env, handle, out bool result).ThrowIfFailed(result);
+   public static bool IsExceptionPending() => GetCurrentRuntime(out napi_env env)
+       .IsExceptionPending(env, out bool result).ThrowIfFailed(result);
+   public static JSValue GetAndClearLastException() => GetCurrentRuntime(out napi_env env)
+       .GetAndClearLastException(env, out napi_value result).ThrowIfFailed(result);
+   public bool IsArrayBuffer() => GetRuntime(out napi_env env, out napi_value handle)
+       .IsArrayBuffer(env, handle, out bool result).ThrowIfFailed(result);
+   public unsafe Span<byte> GetArrayBufferInfo()
     {
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
         runtime.GetArrayBufferInfo(env, handle, out nint data, out nuint length).ThrowIfFailed();

@@ -93,6 +93,9 @@ internal class TypeExporter
 
     private JSReference ExportClass(Type type)
     {
+        string typeName = type.Name;
+        Trace($"### ExportClass({typeName}");
+
         if (_exportedTypes.TryGetValue(type, out JSReference? classObjectReference))
         {
             return classObjectReference;
@@ -100,55 +103,68 @@ internal class TypeExporter
 
         Trace($"> {nameof(TypeExporter)}.ExportClass({type.FormatName()})");
 
-        bool isStatic = type.IsAbstract && type.IsSealed;
-        Type classBuilderType =
-            (type.IsValueType ? typeof(JSStructBuilder<>) : typeof(JSClassBuilder<>))
-            .MakeGenericType(isStatic ? typeof(object) : type);
+        // Add a temporary null entry to the dictionary while exporting this type, in case the
+        // type is encountered while exporting members. It will be non-null by the time this method returns
+        // (or removed if an exception is thrown).
+        _exportedTypes.Add(type, null!);
+        try
+        {
+            bool isStatic = type.IsAbstract && type.IsSealed;
+            Type classBuilderType =
+                (type.IsValueType ? typeof(JSStructBuilder<>) : typeof(JSClassBuilder<>))
+                .MakeGenericType(isStatic ? typeof(object) : type);
 
-        object classBuilder;
-        if (type.IsInterface || isStatic || type.IsValueType)
-        {
-            classBuilder = classBuilderType.CreateInstance(
-                new[] { typeof(string) }, new[] { type.Name });
-        }
-        else
-        {
-            ConstructorInfo[] constructors =
-                type.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
-                .Where(IsSupportedConstructor)
-                .ToArray();
-            JSCallbackDescriptor constructorDescriptor;
-            if (constructors.Length == 1 &&
-                !constructors[0].GetParameters().Any((p) => p.IsOptional))
+            object classBuilder;
+            if (type.IsInterface || isStatic || type.IsValueType)
             {
-                constructorDescriptor =
-                    _marshaller.BuildFromJSConstructorExpression(constructors[0]).Compile();
+                classBuilder = classBuilderType.CreateInstance(
+                    new[] { typeof(string) }, new[] { type.Name });
             }
             else
             {
-                // Multiple constructors or optional parameters require overload resolution.
-                constructorDescriptor =
-                    _marshaller.BuildConstructorOverloadDescriptor(constructors);
+                ConstructorInfo[] constructors =
+                    type.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(IsSupportedConstructor)
+                    .ToArray();
+                JSCallbackDescriptor constructorDescriptor;
+                if (constructors.Length == 1 &&
+                    !constructors[0].GetParameters().Any((p) => p.IsOptional))
+                {
+                    constructorDescriptor =
+                        _marshaller.BuildFromJSConstructorExpression(constructors[0]).Compile();
+                }
+                else
+                {
+                    // Multiple constructors or optional parameters require overload resolution.
+                    constructorDescriptor =
+                        _marshaller.BuildConstructorOverloadDescriptor(constructors);
+                }
+
+                classBuilder = classBuilderType.CreateInstance(
+                    new[] { typeof(string), typeof(JSCallbackDescriptor) },
+                    new object[] { type.Name, constructorDescriptor });
             }
 
-            classBuilder = classBuilderType.CreateInstance(
-                new[] { typeof(string), typeof(JSCallbackDescriptor) },
-                new object[] { type.Name, constructorDescriptor });
+            ExportProperties(type, classBuilder);
+            ExportMethods(type, classBuilder);
+            ExportNestedTypes(type, classBuilder);
+
+            string defineMethodName = type.IsInterface ? "DefineInterface" :
+                isStatic ? "DefineStaticClass" : type.IsValueType ? "DefineStruct" : "DefineClass";
+            MethodInfo defineClassMethod = classBuilderType.GetInstanceMethod(defineMethodName);
+            JSValue classObject = (JSValue)defineClassMethod.Invoke(
+                classBuilder,
+                defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
+
+            classObjectReference = new JSReference(classObject);
+            _exportedTypes[type] = classObjectReference;
         }
-
-        ExportProperties(type, classBuilder);
-        ExportMethods(type, classBuilder);
-        ExportNestedTypes(type, classBuilder);
-
-        string defineMethodName = type.IsInterface ? "DefineInterface" :
-            isStatic ? "DefineStaticClass" : type.IsValueType ? "DefineStruct" : "DefineClass";
-        MethodInfo defineClassMethod = classBuilderType.GetInstanceMethod(defineMethodName);
-        JSValue classObject = (JSValue)defineClassMethod.Invoke(
-            classBuilder,
-            defineClassMethod.GetParameters().Select((_) => (object?)null).ToArray())!;
-
-        classObjectReference = new JSReference(classObject);
-        _exportedTypes.Add(type, classObjectReference);
+        catch
+        {
+            // Clean up the temporary null entry.
+            _exportedTypes.Remove(type);
+            throw;
+        }
 
         // Also export any types returned by properties or methods of this type, because
         // they might otherwise not be referenced by JS before they are used.

@@ -2034,7 +2034,7 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-    public override napi_status DefineClass(
+    public override unsafe napi_status DefineClass(
         napi_env env,
         string name,
         napi_callback constructor,
@@ -2050,11 +2050,30 @@ public class TracingJSRuntime : JSRuntime
             $"[{string.Join(", ", properties.ToArray().Select((p) => Format(env, p)))}]",
         });
 
+        // Replace property callbacks with the tracing callbacks.
+        var tracedProperties = new napi_property_descriptor[properties.Length];
+        for (int i = 0; i < properties.Length; i++)
+        {
+            tracedProperties[i] = properties[i];
+            if (properties[i].getter == new napi_callback(JSValue.s_invokeJSGetter))
+            {
+                tracedProperties[i].method = new napi_callback(s_traceGetterCallback);
+            }
+            if (properties[i].setter == new napi_callback(JSValue.s_invokeJSSetter))
+            {
+                tracedProperties[i].method = new napi_callback(s_traceSetterCallback);
+            }
+            if (properties[i].method == new napi_callback(JSValue.s_invokeJSMethod))
+            {
+                tracedProperties[i].method = new napi_callback(s_traceMethodCallback);
+            }
+        }
+
         napi_status status;
         try
         {
             status = _runtime.DefineClass(
-                env, name, constructor, data, properties, out result);
+                env, name, constructor, data, tracedProperties, out result);
         }
         catch (Exception ex)
         {

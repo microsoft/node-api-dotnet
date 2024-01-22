@@ -174,12 +174,14 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     }
 
     public static bool IsTracingEnabled { get; } =
+        Debugger.IsAttached ||
         Environment.GetEnvironmentVariable("TRACE_NODE_API_HOST") == "1";
 
     public static void Trace(string msg)
     {
         if (IsTracingEnabled)
         {
+            Debug.WriteLine(msg);
             Console.WriteLine(msg);
             Console.Out.Flush();
         }
@@ -212,7 +214,8 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         JSRuntime runtime = new NodejsRuntime();
 
-        if (Environment.GetEnvironmentVariable("TRACE_NODE_API_RUNTIME") != null)
+        if (Debugger.IsAttached ||
+            Environment.GetEnvironmentVariable("TRACE_NODE_API_RUNTIME") != null)
         {
             TraceSource trace = new(typeof(JSValue).Namespace!);
             trace.Switch.Level = SourceLevels.All;
