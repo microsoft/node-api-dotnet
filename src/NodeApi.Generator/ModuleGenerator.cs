@@ -45,7 +45,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         // Note source generators cannot be directly launched in a debugger,
         // because the generator runs at build time, not at application run-time.
         // Set the environment variable to trigger debugging at build time.
-        DebugHelper.AttachDebugger("DEBUG_NODE_API_GENERATOR");
+        DebugHelper.AttachDebugger("NODE_API_DEBUG_GENERATOR");
     }
 
     public void Execute(GeneratorExecutionContext context)

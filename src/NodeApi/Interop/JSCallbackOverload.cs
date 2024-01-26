@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
@@ -47,25 +48,51 @@ public readonly struct JSCallbackOverload
     /// </summary>
     public JSCallback Callback { get; }
 
-    public static JSCallbackDescriptor CreateDescriptor(JSCallbackOverload[] overloads)
+    /// <summary>
+    /// Creates a callback descriptor for a set of method overloads.
+    /// </summary>
+    /// <param name="name">The method name.</param>
+    /// <param name="overloads">Array of objects each having parameter information for one
+    /// overload.</param>
+    /// <returns>Callback descriptor that can be used for marshalling the method call.</returns>
+    public static JSCallbackDescriptor CreateDescriptor(
+        string? name,
+        JSCallbackOverload[] overloads)
     {
-        return new JSCallbackDescriptor(ResolveAndInvoke, overloads);
+        return new JSCallbackDescriptor(name, ResolveAndInvoke, overloads);
     }
 
     /// <summary>
-    /// Selects a callback matching the supplied arguments, and invokes the callback.
+    /// Creates a callback descriptor for a set of method overloads, where the overloads are
+    /// not loaded until the first call.
+    /// </summary>
+    /// <param name="name">The method name.</param>
+    /// <param name="overloads">Function that returns an array of objects each having parameter
+    /// information for one overload. The function is called only once, on the first invocation
+    /// of the callback.</param>
+    /// <returns>Callback descriptor that can be used for marshalling the method call.</returns>
+    public static JSCallbackDescriptor CreateDescriptor(
+        string? name,
+        Func<JSCallbackOverload[]> deferredOverloads)
+    {
+        // Use Lazy<T> to ensure the deferral callback is only invoked once,
+        // because it can involve expensive compilation of marshalling expressions.
+        return new JSCallbackDescriptor(
+            name,
+            ResolveAndInvokeDeferred,
+            new Lazy<JSCallbackOverload[]>(
+                deferredOverloads, LazyThreadSafetyMode.ExecutionAndPublication));
+    }
+
+    /// <summary>
+    /// Selects an overload matching the supplied arguments, and invokes the overload callback.
     /// </summary>
     /// <param name="args">Callback arguments including overload info in the
     /// <see cref="JSCallbackArgs.Data"/> property.</param>
     /// <returns>Result of the callback invocation.</returns>
     /// <exception cref="JSException">No overload or multiple overloads were found for the
     /// supplied arguments.</exception>
-    /// <remarks>
-    /// This method may be use as the <see cref="JSPropertyDescriptor.Method"/> when
-    /// a list of <see cref="JSCallbackOverload" /> entries is also provided via the
-    /// <see cref="JSPropertyDescriptor.Data" /> property.
-    /// </remarks>
-    public static JSValue ResolveAndInvoke(JSCallbackArgs args)
+    private static JSValue ResolveAndInvoke(JSCallbackArgs args)
     {
         if (args.Data is not IReadOnlyList<JSCallbackOverload> overloads ||
             overloads.Count == 0)
@@ -74,30 +101,28 @@ public readonly struct JSCallbackOverload
         }
 
         JSCallbackOverload overload = Resolve(args, overloads);
+        return Invoke(overload, args);
+    }
 
-        if (overload.DefaultValues != null && args.Length < overload.ParameterTypes.Length)
+    /// <summary>
+    /// Invokes a deferral callback to get the available overloads, then selects an overload
+    /// matching the supplied arguments, and invokes the overload callback.
+    /// </summary>
+    /// <param name="args">Callback arguments including deferred overload callback in the
+    /// <see cref="JSCallbackArgs.Data"/> property.</param>
+    /// <returns>Result of the callback invocation.</returns>
+    /// <exception cref="JSException">No overload or multiple overloads were found for the
+    /// supplied arguments.</exception>
+    private static JSValue ResolveAndInvokeDeferred(JSCallbackArgs args)
+    {
+        if (args.Data is not Lazy<JSCallbackOverload[]> deferredOverloads)
         {
-            int count = args.Length;
-            int countWithDefaults = overload.ParameterTypes.Length;
-            int countRequired = countWithDefaults - overload.DefaultValues.Length;
-            Span<napi_value> argsWithDefaults = stackalloc napi_value[countWithDefaults];
-            for (int i = 0; i < count; i++)
-            {
-                argsWithDefaults[i] = (napi_value)args[i];
-            }
-            for (int i = count; i < countWithDefaults; i++)
-            {
-                argsWithDefaults[i] = (napi_value)GetDefaultArg(
-                    overload.ParameterTypes[i], overload.DefaultValues[i - countRequired]);
-            }
+            throw new JSException("Missing deferred overload resolution callback.");
+        }
 
-            return overload.Callback(new JSCallbackArgs(
-                args.Scope, (napi_value)args.ThisArg, argsWithDefaults, args.Data));
-        }
-        else
-        {
-            return overload.Callback(args);
-        }
+        JSCallbackOverload[] overloads = deferredOverloads.Value;
+        JSCallbackOverload overload = Resolve(args, overloads);
+        return Invoke(overload, args);
     }
 
     /// <summary>
@@ -289,6 +314,33 @@ public readonly struct JSCallbackOverload
         {
             throw new NotSupportedException(
                 "Default parameter type not supported: " + parameterType);
+        }
+    }
+
+    private static JSValue Invoke(JSCallbackOverload overload, JSCallbackArgs args)
+    {
+        if (overload.DefaultValues != null && args.Length < overload.ParameterTypes.Length)
+        {
+            int count = args.Length;
+            int countWithDefaults = overload.ParameterTypes.Length;
+            int countRequired = countWithDefaults - overload.DefaultValues.Length;
+            Span<napi_value> argsWithDefaults = stackalloc napi_value[countWithDefaults];
+            for (int i = 0; i < count; i++)
+            {
+                argsWithDefaults[i] = (napi_value)args[i];
+            }
+            for (int i = count; i < countWithDefaults; i++)
+            {
+                argsWithDefaults[i] = (napi_value)GetDefaultArg(
+                    overload.ParameterTypes[i], overload.DefaultValues[i - countRequired]);
+            }
+
+            return overload.Callback(new JSCallbackArgs(
+                args.Scope, (napi_value)args.ThisArg, argsWithDefaults, args.Data));
+        }
+        else
+        {
+            return overload.Callback(args);
         }
     }
 }

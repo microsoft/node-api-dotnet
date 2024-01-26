@@ -176,7 +176,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
     public static bool IsTracingEnabled { get; } =
         Debugger.IsAttached ||
-        Environment.GetEnvironmentVariable("TRACE_NODE_API_HOST") == "1";
+        Environment.GetEnvironmentVariable("NODE_API_TRACE_HOST") == "1";
 
     public static void Trace(string msg)
     {
@@ -211,12 +211,12 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         Trace($"    .NET Runtime version: {Environment.Version}");
 #endif
 
-        DebugHelper.AttachDebugger("DEBUG_NODE_API_RUNTIME");
+        DebugHelper.AttachDebugger("NODE_API_DEBUG_RUNTIME");
 
         JSRuntime runtime = new NodejsRuntime();
 
         if (Debugger.IsAttached ||
-            Environment.GetEnvironmentVariable("TRACE_NODE_API_RUNTIME") != null)
+            Environment.GetEnvironmentVariable("NODE_API_TRACE_RUNTIME") != null)
         {
             TraceSource trace = new(typeof(JSValue).Namespace!);
             trace.Switch.Level = SourceLevels.All;
@@ -554,9 +554,13 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
                 continue;
             }
 
+            // Delay-loading is enabled by default, but can be disabled with this env variable.
+            bool deferMembers = Environment.GetEnvironmentVariable("NODE_API_DELAYLOAD") != "0";
+
             if (!_exportedNamespaces.TryGetValue(namespaceParts[0], out Namespace? parentNamespace))
             {
-                parentNamespace = new Namespace(namespaceParts[0], _typeExporter.TryExportType);
+                parentNamespace = new Namespace(
+                    namespaceParts[0], (type) => _typeExporter.TryExportType(type, deferMembers));
                 _exports.GetValue()!.Value.SetProperty(namespaceParts[0], parentNamespace.Value);
                 _exportedNamespaces.Add(namespaceParts[0], parentNamespace);
             }
@@ -568,7 +572,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
                 {
                     childNamespace = new Namespace(
                         parentNamespace.Name + '.' + namespaceParts[i],
-                        _typeExporter.TryExportType);
+                        (type) => _typeExporter.TryExportType(type, deferMembers));
                     parentNamespace.Namespaces.Add(namespaceParts[i], childNamespace);
                 }
 
