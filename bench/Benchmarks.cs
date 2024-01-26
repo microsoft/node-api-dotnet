@@ -156,7 +156,7 @@ public abstract class Benchmarks
     [Benchmark]
     public void JSValueToStringAsCharArray()
     {
-        new string(_jsString.GetValueStringUtf16AsCharArray());
+        _ = new string(_jsString.GetValueStringUtf16AsCharArray());
     }
 
     [Benchmark]

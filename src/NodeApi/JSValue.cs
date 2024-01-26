@@ -890,19 +890,19 @@ public readonly struct JSValue : IEquatable<JSValue>
             JSValueType.External => GetValueExternal(),
             _ => null,
         };
-   }
+    }
 
-   public JSReference CreateReference() => new(this);
-   public JSReference CreateWeakReference() => new(this, isWeak: true);
-   public bool IsError() => GetRuntime(out napi_env env, out napi_value handle)
-       .IsError(env, handle, out bool result).ThrowIfFailed(result);
-   public static bool IsExceptionPending() => GetCurrentRuntime(out napi_env env)
-       .IsExceptionPending(env, out bool result).ThrowIfFailed(result);
-   public static JSValue GetAndClearLastException() => GetCurrentRuntime(out napi_env env)
-       .GetAndClearLastException(env, out napi_value result).ThrowIfFailed(result);
-   public bool IsArrayBuffer() => GetRuntime(out napi_env env, out napi_value handle)
-       .IsArrayBuffer(env, handle, out bool result).ThrowIfFailed(result);
-   public unsafe Span<byte> GetArrayBufferInfo()
+    public JSReference CreateReference() => new(this);
+    public JSReference CreateWeakReference() => new(this, isWeak: true);
+    public bool IsError() => GetRuntime(out napi_env env, out napi_value handle)
+        .IsError(env, handle, out bool result).ThrowIfFailed(result);
+    public static bool IsExceptionPending() => GetCurrentRuntime(out napi_env env)
+        .IsExceptionPending(env, out bool result).ThrowIfFailed(result);
+    public static JSValue GetAndClearLastException() => GetCurrentRuntime(out napi_env env)
+        .GetAndClearLastException(env, out napi_value result).ThrowIfFailed(result);
+    public bool IsArrayBuffer() => GetRuntime(out napi_env env, out napi_value handle)
+        .IsArrayBuffer(env, handle, out bool result).ThrowIfFailed(result);
+    public unsafe Span<byte> GetArrayBufferInfo()
     {
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
         runtime.GetArrayBufferInfo(env, handle, out nint data, out nuint length).ThrowIfFailed();
