@@ -1163,7 +1163,7 @@ public class JSMarshaller
          *   new Type[] { ... }, // Constructor overload parameter types
          *   (args) => { ... }); // Constructor overload lambda
          * ...                   // Additional overloads
-         * return JSCallbackOverload.CreateDescriptor(overloads);
+         * return JSCallbackOverload.CreateDescriptor(typeName, overloads);
          */
 
         ParameterExpression overloadsVariable =
@@ -1192,9 +1192,12 @@ public class JSMarshaller
         }
 
         MethodInfo createDescriptorMethod = typeof(JSCallbackOverload).GetStaticMethod(
-            nameof(JSCallbackOverload.CreateDescriptor));
+            nameof(JSCallbackOverload.CreateDescriptor),
+            new Type[] { typeof(string), typeof(JSCallbackOverload[]) });
         statements[statements.Length - 1] = Expression.Call(
-            createDescriptorMethod, overloadsVariable);
+            createDescriptorMethod,
+            Expression.Constant(constructors[0].DeclaringType!.Name),
+            overloadsVariable);
 
         return (Expression<Func<JSCallbackDescriptor>>)Expression.Lambda(
             typeof(Func<JSCallbackDescriptor>),
@@ -1207,10 +1210,9 @@ public class JSMarshaller
     }
 
     /// <summary>
-    /// Builds a callback descriptor that resolves and invokes the best-matching overload from
-    /// a set of overloaded constructors.
+    /// Gets overload information for a set of constructors.
     /// </summary>
-    public JSCallbackDescriptor BuildConstructorOverloadDescriptor(ConstructorInfo[] constructors)
+    public JSCallbackOverload[] GetConstructorOverloads(ConstructorInfo[] constructors)
     {
         JSCallbackOverload[] overloads = new JSCallbackOverload[constructors.Length];
         for (int i = 0; i < constructors.Length; i++)
@@ -1229,7 +1231,7 @@ public class JSMarshaller
                 BuildFromJSConstructorExpression(constructors[i]).Compile();
             overloads[i] = new JSCallbackOverload(parameterTypes, constructorDelegate);
         }
-        return JSCallbackOverload.CreateDescriptor(overloads);
+        return overloads;
     }
 
     /// <summary>
@@ -1251,7 +1253,7 @@ public class JSMarshaller
          *   new Type[] { ... }, // Method overload parameter types
          *   (args) => { ... }); // Method overload lambda
          * ...                   // Additional overloads
-         * return JSCallbackOverload.CreateDescriptor(overloads);
+         * return JSCallbackOverload.CreateDescriptor(methodName, overloads);
          */
 
         ParameterExpression overloadsVariable =
@@ -1280,9 +1282,12 @@ public class JSMarshaller
         }
 
         MethodInfo createDescriptorMethod = typeof(JSCallbackOverload).GetStaticMethod(
-            nameof(JSCallbackOverload.CreateDescriptor));
+            nameof(JSCallbackOverload.CreateDescriptor),
+            new Type[] { typeof(string), typeof(JSCallbackOverload[]) });
         statements[statements.Length - 1] = Expression.Call(
-            createDescriptorMethod, overloadsVariable);
+            createDescriptorMethod,
+            Expression.Constant(methods[0].Name),
+            overloadsVariable);
 
         return (Expression<Func<JSCallbackDescriptor>>)Expression.Lambda(
             typeof(Func<JSCallbackDescriptor>),
@@ -1295,10 +1300,9 @@ public class JSMarshaller
     }
 
     /// <summary>
-    /// Builds a callback descriptor that resolves and invokes the best-matching overload from
-    /// a set of overloaded methods.
+    /// Gets overload information for a set of overloaded methods.
     /// </summary>
-    public JSCallbackDescriptor BuildMethodOverloadDescriptor(MethodInfo[] methods)
+    public JSCallbackOverload[] GetMethodOverloads(MethodInfo[] methods)
     {
         JSCallbackOverload[] overloads = new JSCallbackOverload[methods.Length];
         for (int i = 0; i < methods.Length; i++)
@@ -1318,7 +1322,7 @@ public class JSMarshaller
                 BuildFromJSMethodExpression(methods[i]).Compile();
             overloads[i] = new JSCallbackOverload(parameterTypes, defaultValues, methodDelegate);
         }
-        return JSCallbackOverload.CreateDescriptor(overloads);
+        return overloads;
     }
 
     private Expression<JSCallback> BuildFromJSStaticMethodExpression(MethodInfo method)

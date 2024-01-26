@@ -35,7 +35,7 @@ public static class Program
 
     public static int Main(string[] args)
     {
-        DebugHelper.AttachDebugger("DEBUG_NODE_API_GENERATOR");
+        DebugHelper.AttachDebugger("NODE_API_DEBUG_GENERATOR");
 
         if (!ParseArgs(args))
         {
