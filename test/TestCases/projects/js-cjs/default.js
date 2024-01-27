@@ -6,4 +6,4 @@ const dotnet = require('node-api-dotnet');
 require('./bin/System.Runtime');
 require('./bin/System.Console');
 
-dotnet.System.Console.WriteLine('Test!');
+dotnet.System.Console.WriteLine(`Hello from .NET ${dotnet.runtimeVersion}!`);

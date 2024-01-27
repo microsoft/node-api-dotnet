@@ -4,8 +4,8 @@
     "target": "ES2022",
     "allowJs": true,
     "checkJs": true,
-    "outDir": "out"
+    "noEmit": true
   },
-  "include": ["*.ts", "bin/*.js"],
-  "exclude": ["net472.ts", "node_modules"]
+  "include": ["net472.js", "bin/*.js"],
+  "exclude": ["node_modules"]
 }

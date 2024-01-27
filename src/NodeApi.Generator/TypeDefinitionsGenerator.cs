@@ -378,6 +378,11 @@ dotnet.load(assemblyName);
 
     private bool IsTypeExported(Type type)
     {
+        if (IsExcludedNamespace(type.Namespace))
+        {
+            return false;
+        }
+
         // Types not in the current assembly are not exported from this TS module.
         // (But support mscorlib and System.Runtime forwarding to System.Private.CoreLib.)
         if (type.Assembly != _assembly &&
@@ -627,7 +632,8 @@ import { Duplex } from 'stream';
                 foreach (PropertyInfo property in type.GetProperties(
                     BindingFlags.Public | BindingFlags.Static))
                 {
-                    if (!IsExcludedMember(property))
+                    // Indexed properties are not implemented.
+                    if (!IsExcludedMember(property) && property.GetIndexParameters().Length == 0)
                     {
                         if (isFirstMember) isFirstMember = false; else s++;
                         ExportTypeMember(ref s, property);
@@ -666,7 +672,11 @@ import { Duplex } from 'stream';
             string prefix = (implements.Length == 0 ? $" {implementsKind}" : ",") +
                 (interfaceTypes.Length > 1 ? "\n\t" : " ");
 
-            if (isStreamSubclass &&
+            if (!interfaceType.IsPublic || IsExcludedNamespace(interfaceType.Namespace))
+            {
+                continue;
+            }
+            else if (isStreamSubclass &&
                 (interfaceType.Name == nameof(IDisposable) ||
                 interfaceType.Name == nameof(IAsyncDisposable)))
             {
@@ -726,7 +736,8 @@ import { Duplex } from 'stream';
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
                 (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
             {
-                if (!IsExcludedMember(property))
+                // Indexed properties are not implemented.
+                if (!IsExcludedMember(property) && property.GetIndexParameters().Length == 0)
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, property);
@@ -764,7 +775,9 @@ import { Duplex } from 'stream';
                 type.GetInterfaces().Any((i) => i.Name == typeof(IComparable<>).Name)) ||
                 (interfaceType.Name == "ISpanFormattable" &&
                 (type.Name == "INumberBase`1" ||
-                type.GetInterfaces().Any((i) => i.Name == "INumberBase`1"))))
+                type.GetInterfaces().Any((i) => i.Name == "INumberBase`1"))) ||
+                (interfaceType.Name == "ICollection" &&
+                type.Name == "IProducerConsumerCollection`1"))
             {
                 // TS interfaces cannot extend multiple interfaces that have non-identical methods
                 // with the same name. This is most commonly an issue with IComparable and
@@ -774,10 +787,10 @@ import { Duplex } from 'stream';
 
             return false;
         }
-        else if (type.Name == "TypeDelegator" && interfaceType.Name == "IReflectableType")
+        else if (interfaceType.Name == "IReflectableType")
         {
-            // Special case: TypeDelegator has an explicit implementation of this interface,
-            // but it isn't detected by reflection due to the runtime type delegation.
+            // Special case: Reflectable types have explicit implementations of this interface,
+            // but they aren't detected by reflection due to the runtime type delegation.
             return true;
         }
 
@@ -822,6 +835,11 @@ import { Duplex } from 'stream';
             {
                 return true;
             }
+        }
+
+        if (type.BaseType != null && type.BaseType != typeof(object))
+        {
+            return HasExplicitInterfaceImplementations(type.BaseType!, interfaceType);
         }
 
         return false;
@@ -966,6 +984,22 @@ import { Duplex } from 'stream';
         if (type.Namespace != null || type.IsNested)
         {
             s += "}";
+        }
+    }
+
+    private static bool IsExcludedNamespace(string? ns)
+    {
+        // These namespaces contain APIs that are problematic for TS generation.
+        // (Mostly old .NET Framework APIs.)
+        switch (ns)
+        {
+            case "System.Runtime.InteropServices":
+            case "System.Runtime.Remoting.Messaging":
+            case "System.Runtime.Serialization":
+            case "System.Security.AccessControl":
+            case "System.Security.Policy":
+                return true;
+            default: return false;
         }
     }
 

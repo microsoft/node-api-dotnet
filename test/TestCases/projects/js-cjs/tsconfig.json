@@ -7,5 +7,5 @@
     "noEmit": true
   },
   "include": ["*.js", "bin/*.js"],
-  "exclude": ["node_modules"]
+  "exclude": ["net472.js", "node_modules"]
 }

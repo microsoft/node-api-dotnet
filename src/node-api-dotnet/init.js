@@ -16,18 +16,36 @@ const ridPlatform =
 const ridArch = process.arch === 'ia32' ? 'x86' : process.arch;
 const rid = `${ridPlatform}-${ridArch}`;
 
+const defaultTargetFramework = 'net8.0';
+
+/**
+ * The loaded instance of the .NET Runtime. Only one instance/version may be loaded in the process.
+ */
+let dotnet = undefined;
+
 /**
  * Initializes the Node API .NET host.
- * @param {string} targetFramework Minimum requested .NET version. Must be one of the target
+ * @param {string?} targetFramework Minimum requested .NET version. Must be one of the target
  * framework monikers supported by the Node API .NET package. The actual loaded version of .NET
  * may be higher, if the requested version is not installed.
  * @returns {import('./index')} The Node API .NET host.
  */
 function initialize(targetFramework) {
+  if (!targetFramework) {
+    // Some version was already loaded and no specific version was requested.
+    // Return the already-loaded version.
+    if (dotnet) {
+      return dotnet;
+    }
+
+    targetFramework = defaultTargetFramework;
+  }
+
   const assemblyName = 'Microsoft.JavaScript.NodeApi';
   const nativeHostPath = __dirname + `/${rid}/${assemblyName}.node`;
   const managedHostPath = __dirname + `/${targetFramework}/${assemblyName}.DotNetHost.dll`
 
   const nativeHost = require(nativeHostPath);
-  return nativeHost.initialize(targetFramework, managedHostPath, require);
+  dotnet = nativeHost.initialize(targetFramework, managedHostPath, require);
+  return dotnet;
 }

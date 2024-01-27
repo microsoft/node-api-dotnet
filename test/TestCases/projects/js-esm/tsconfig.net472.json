@@ -6,6 +6,6 @@
     "checkJs": true,
     "noEmit": true
   },
-  "include": ["*.js", "bin/*.js"],
-  "exclude": ["net472.js", "node_modules"]
+  "include": ["net472.js", "bin/*.js"],
+  "exclude": ["node_modules"]
 }

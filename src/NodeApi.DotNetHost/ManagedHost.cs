@@ -138,6 +138,9 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         }
 
         exports.DefineProperties(
+            JSPropertyDescriptor.Accessor("runtimeVersion", GetRuntimeVersion),
+            JSPropertyDescriptor.Accessor("frameworkMoniker", GetFrameworkMoniker),
+
             // The require() method loads a .NET assembly that was built to be a Node API module.
             // It uses static binding to the APIs the module specifically exports to JS.
             JSPropertyDescriptor.Function("require", LoadModule),
@@ -165,12 +168,14 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         // Export the System.Runtime and System.Console assemblies by default.
         LoadAssemblyTypes(typeof(object).Assembly);
-        _loadedAssembliesByName.Add("System.Runtime", typeof(object).Assembly);
+        _loadedAssembliesByName.Add(
+            typeof(object).Assembly.GetName().Name!, typeof(object).Assembly);
 
         if (typeof(Console).Assembly != typeof(object).Assembly)
         {
             LoadAssemblyTypes(typeof(Console).Assembly);
-            _loadedAssembliesByName.Add("System.Console", typeof(Console).Assembly);
+            _loadedAssembliesByName.Add(
+                typeof(Console).Assembly.GetName().Name!, typeof(Console).Assembly);
         }
     }
 
@@ -323,6 +328,22 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         Trace($"    Assembly not resolved: {assemblyName}");
         return default;
+    }
+
+    public JSValue GetRuntimeVersion(JSCallbackArgs _)
+    {
+        return Environment.Version.ToString();
+    }
+
+    public JSValue GetFrameworkMoniker(JSCallbackArgs _)
+    {
+        Version runtimeVersion = Environment.Version;
+
+        // For .NET 4 the minor version may be higher, but net472 is the only TFM supported.
+        string tfm = runtimeVersion.Major == 4 ? "net472" :
+            $"net{runtimeVersion.Major}.{runtimeVersion.Minor}";
+
+        return tfm;
     }
 
     /// <summary>

@@ -7,5 +7,5 @@
     "outDir": "out"
   },
   "include": ["*.ts", "bin/*.js"],
-  "exclude": ["node_modules"]
+  "exclude": ["net472.ts", "node_modules"]
 }

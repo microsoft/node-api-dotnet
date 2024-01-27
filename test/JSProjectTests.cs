@@ -1,16 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// Test project JS references the System.Console assembly, which doesn't exist in .NET Framework 4.
-#if !NETFRAMEWORK
-
 #pragma warning disable CA1822 // Mark members as static
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using Xunit;
 
@@ -19,10 +15,22 @@ using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
 
+[CollectionDefinition(nameof(JSProjectTests), DisableParallelization = true)]
+[Collection(nameof(JSProjectTests))]
 public class JSProjectTests
 {
+    private const string DefaultFrameworkTarget = "net8.0";
+
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases(
-        (testCaseName) => testCaseName.StartsWith("projects/"));
+        (testCaseName) => testCaseName.StartsWith("projects/") &&
+            IsCurrentTargetFramework(Path.GetFileName(testCaseName)));
+
+    private static bool IsCurrentTargetFramework(string target)
+    {
+        string currentFrameworkTarget = GetCurrentFrameworkTarget();
+        return target == "default" ? currentFrameworkTarget == DefaultFrameworkTarget :
+            target == currentFrameworkTarget;
+    }
 
     [Theory]
     [MemberData(nameof(TestCases))]
@@ -36,8 +44,13 @@ public class JSProjectTests
         string buildLogFilePath = GetBuildLogFilePath(projectName, "projects");
         BuildTestProjectReferences(projectName, buildLogFilePath);
 
-        string compileLogFilePath = GetBuildLogFilePath(projectName + "-ts", "projects");
-        BuildTestProjectTypeScript(projectName, compileLogFilePath);
+        string compileLogFilePath = GetBuildLogFilePath(
+            projectName + "-" + moduleName, "projects");
+        string tsConfigFile = "tsconfig." + Path.GetFileNameWithoutExtension(moduleName) + ".json";
+        BuildTestProjectTypeScript(projectName,
+            compileLogFilePath,
+            File.Exists(Path.Combine(ProjectDir(projectName), tsConfigFile)) ?
+                tsConfigFile : null);
 
         string jsFilePath = Path.Combine(ProjectDir(projectName), moduleName + ".js");
         if (!File.Exists(jsFilePath))
@@ -82,11 +95,14 @@ public class JSProjectTests
             verboseLog: false);
     }
 
-    private static void BuildTestProjectTypeScript(string projectName, string logFilePath)
+    private static void BuildTestProjectTypeScript(
+        string projectName,
+        string logFilePath,
+        string? tsConfigFile = null)
     {
         // This assumes the `npm` / `node` executables are on the current PATH.
 
-        StreamWriter logWriter = new(File.Open(
+        using StreamWriter logWriter = new(File.Open(
             logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
 
         string exe = "npm";
@@ -124,7 +140,12 @@ public class JSProjectTests
                 "Full output: " + logFilePath);
         }
 
-        var nodeStartInfo = new ProcessStartInfo("node", $"node_modules/typescript/bin/tsc")
+        string nodeArgs = "node_modules/typescript/bin/tsc";
+        if (!string.IsNullOrEmpty(tsConfigFile))
+        {
+            nodeArgs += " -p " + tsConfigFile;
+        }
+        var nodeStartInfo = new ProcessStartInfo("node", nodeArgs)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -152,5 +173,3 @@ public class JSProjectTests
         }
     }
 }
-
-#endif // NET7_0_OR_GREATER
