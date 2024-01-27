@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -409,7 +408,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         if (exports.IsObject())
         {
-            exportsRef = JSNativeApi.CreateReference(exports);
+            exportsRef = new JSReference(exports);
             _loadedModules.Add(assemblyFilePath, exportsRef);
         }
 

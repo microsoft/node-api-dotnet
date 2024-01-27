@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.IO;
 using Microsoft.JavaScript.NodeApi.Interop;
 using Microsoft.JavaScript.NodeApi.Runtime;
 using Xunit;
@@ -36,7 +34,7 @@ public class GCTests
             classBuilder.AddMethod("method", (x) => (args) => DotnetClass.Method());
             JSObject dotnetClass = (JSObject)classBuilder.DefineClass();
 
-            JSFunction jsCreateInstanceFunction = (JSFunction)JSNativeApi.RunScript(
+            JSFunction jsCreateInstanceFunction = (JSFunction)JSValue.RunScript(
                 "function jsCreateInstanceFunction(Class) { new Class() }; " +
                 "jsCreateInstanceFunction");
 

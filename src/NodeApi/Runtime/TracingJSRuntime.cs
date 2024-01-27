@@ -10,7 +10,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.JavaScript.NodeApi.Interop;
-using static Microsoft.JavaScript.NodeApi.JSNativeApi;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
@@ -505,6 +504,20 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
+    public override napi_status AddFinalizer(
+        napi_env env,
+        napi_value value,
+        nint finalizeData,
+        napi_finalize finalizeCallback,
+        nint finalizeHint)
+    {
+        napi_status status = TraceCall(
+            [Format(env, value)],
+            () => (_runtime.AddFinalizer(
+                env, value, finalizeData, finalizeCallback, finalizeHint)));
+        return status;
+    }
+
     public override napi_status AdjustExternalMemory(
         napi_env env,
         long changeInBytes,
@@ -823,7 +836,28 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-    public override napi_status GetValueBigInt(
+    public override napi_status GetBigIntWordCount(
+        napi_env env, napi_value value, out nuint result)
+    {
+        // The combined TraceCall() can't be used with Span<T>.
+        TraceCall([Format(env, value)]);
+
+        napi_status status;
+        try
+        {
+            status = _runtime.GetBigIntWordCount(env, value, out result);
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex);
+            throw;
+        }
+
+        TraceReturn(status, [result.ToString()]);
+        return status;
+    }
+
+    public override napi_status GetBigIntWords(
         napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result)
     {
         // The combined TraceCall() can't be used with Span<T>.
@@ -832,7 +866,7 @@ public class TracingJSRuntime : JSRuntime
         napi_status status;
         try
         {
-            status = _runtime.GetValueBigInt(env, value, out sign, words, out result);
+            status = _runtime.GetBigIntWords(env, value, out sign, words, out result);
         }
         catch (Exception ex)
         {
@@ -1452,19 +1486,19 @@ public class TracingJSRuntime : JSRuntime
        nint data,
        out napi_value result)
     {
-        if (cb == new napi_callback(JSNativeApi.s_invokeJSCallback))
+        if (cb == new napi_callback(JSValue.s_invokeJSCallback))
         {
             cb = new napi_callback(s_traceFunctionCallback);
         }
-        else if (cb == new napi_callback(JSNativeApi.s_invokeJSMethod))
+        else if (cb == new napi_callback(JSValue.s_invokeJSMethod))
         {
             cb = new napi_callback(s_traceMethodCallback);
         }
-        else if (cb == new napi_callback(JSNativeApi.s_invokeJSGetter))
+        else if (cb == new napi_callback(JSValue.s_invokeJSGetter))
         {
             cb = new napi_callback(s_traceGetterCallback);
         }
-        else if (cb == new napi_callback(JSNativeApi.s_invokeJSSetter))
+        else if (cb == new napi_callback(JSValue.s_invokeJSSetter))
         {
             cb = new napi_callback(s_traceSetterCallback);
         }
@@ -2021,15 +2055,15 @@ public class TracingJSRuntime : JSRuntime
         for (int i = 0; i < properties.Length; i++)
         {
             tracedProperties[i] = properties[i];
-            if (properties[i].getter == new napi_callback(JSNativeApi.s_invokeJSGetter))
+            if (properties[i].getter == new napi_callback(JSValue.s_invokeJSGetter))
             {
                 tracedProperties[i].method = new napi_callback(s_traceGetterCallback);
             }
-            if (properties[i].setter == new napi_callback(JSNativeApi.s_invokeJSSetter))
+            if (properties[i].setter == new napi_callback(JSValue.s_invokeJSSetter))
             {
                 tracedProperties[i].method = new napi_callback(s_traceSetterCallback);
             }
-            if (properties[i].method == new napi_callback(JSNativeApi.s_invokeJSMethod))
+            if (properties[i].method == new napi_callback(JSValue.s_invokeJSMethod))
             {
                 tracedProperties[i].method = new napi_callback(s_traceMethodCallback);
             }
@@ -2120,6 +2154,19 @@ public class TracingJSRuntime : JSRuntime
                 env, js_object, native_object, finalize_cb, finalize_hint, out resultRef),
                 Format(env, resultRef)));
         result = resultRef;
+        return status;
+    }
+
+    public override napi_status Wrap(
+        napi_env env,
+        napi_value js_object,
+        nint native_object,
+        napi_finalize finalize_cb,
+        nint finalize_hint)
+    {
+        napi_status status = TraceCall(
+            [Format(env, js_object), Format(native_object)],
+            () => _runtime.Wrap(env, js_object, native_object, finalize_cb, finalize_hint));
         return status;
     }
 

@@ -55,6 +55,13 @@ public abstract partial class JSRuntime
         nint finalizeHint,
         out napi_ref result) => throw NS();
 
+    public virtual napi_status AddFinalizer(
+        napi_env env,
+        napi_value value,
+        nint finalizeData,
+        napi_finalize finalizeCallback,
+        nint finalizeHint) => throw NS();
+
     public virtual napi_status AdjustExternalMemory(
         napi_env env, long changeInBytes, out long result) => throw NS();
 
@@ -124,7 +131,8 @@ public abstract partial class JSRuntime
     public virtual napi_status GetValueInt64(napi_env env, napi_value value, out long result) => throw NS();
     public virtual napi_status GetValueBigInt64(napi_env env, napi_value value, out long result, out bool lossless) => throw NS();
     public virtual napi_status GetValueBigInt64(napi_env env, napi_value value, out ulong result, out bool lossless) => throw NS();
-    public virtual napi_status GetValueBigInt(napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result) => throw NS();
+    public virtual napi_status GetBigIntWordCount(napi_env env, napi_value value, out nuint result) => throw NS();
+    public virtual napi_status GetBigIntWords(napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result) => throw NS();
     public virtual napi_status GetValueBool(napi_env env, napi_value value, out bool result) => throw NS();
     public virtual napi_status GetValueStringUtf8(napi_env env, napi_value value, Span<byte> buf, out int result) => throw NS();
     public virtual napi_status GetValueStringUtf16(napi_env env, napi_value value, Span<char> buf, out int result) => throw NS();
@@ -376,6 +384,14 @@ public abstract partial class JSRuntime
         napi_finalize finalize_cb,
         nint finalize_hint,
         out napi_ref result) => throw NS();
+
+    public virtual napi_status Wrap(
+        napi_env env,
+        napi_value js_object,
+        nint native_object,
+        napi_finalize finalize_cb,
+        nint finalize_hint) => throw NS();
+
     public virtual napi_status Unwrap(napi_env env, napi_value js_object, out nint result) => throw NS();
     public virtual napi_status RemoveWrap(napi_env env, napi_value js_object, out nint result) => throw NS();
     public virtual napi_status SetObjectTypeTag(

@@ -30,7 +30,7 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 public class JSMarshaller
 {
     /// <summary>
-    /// Prefix applied to the the name of out parameters when building expressions. Expressions
+    /// Prefix applied to the name of out parameters when building expressions. Expressions
     /// do not distinguish between ref and out parameters, but the source generator needs to use
     /// the correct keyword.
     /// </summary>
@@ -78,33 +78,41 @@ public class JSMarshaller
     // Cache some reflected members that are frequently referenced in expressions.
 
     private static readonly PropertyInfo s_context =
-        typeof(JSRuntimeContext).GetStaticProperty(nameof(JSRuntimeContext.Current))!;
+        typeof(JSRuntimeContext).GetStaticProperty(nameof(JSRuntimeContext.Current))
+            ?? throw new NotImplementedException("JSRuntimeContext.Current");
 
     private static readonly PropertyInfo s_moduleContext =
-        typeof(JSModuleContext).GetStaticProperty(nameof(JSModuleContext.Current))!;
+        typeof(JSModuleContext).GetStaticProperty(nameof(JSModuleContext.Current))
+            ?? throw new NotImplementedException("JSModuleContext.Current");
 
     private static readonly PropertyInfo s_valueItem =
-        typeof(JSValue).GetIndexer(typeof(string))!;
+        typeof(JSValue).GetIndexer(typeof(string))
+            ?? throw new NotImplementedException("JSValue[string]");
 
     private static readonly MethodInfo s_isNullOrUndefined =
-        typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.IsNullOrUndefined))!;
+        typeof(JSValue).GetMethod(nameof(JSValue.IsNullOrUndefined))
+            ?? throw new NotImplementedException("JSValue.IsNullOrUndefined");
 
     private static readonly PropertyInfo s_callbackArg =
-        typeof(JSCallbackArgs).GetIndexer(typeof(int))!;
+        typeof(JSCallbackArgs).GetIndexer(typeof(int))
+            ?? throw new NotImplementedException("JSCallbackArgs[int]");
 
     private static readonly MethodInfo s_unwrap =
-        typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Unwrap))!;
+        typeof(JSValue).GetMethod(nameof(JSValue.Unwrap))
+            ?? throw new NotImplementedException("JSValue.Unwrap");
 
     private static readonly MethodInfo s_tryUnwrap =
-        typeof(JSNativeApi).GetStaticMethod(
-            nameof(JSNativeApi.TryUnwrap), new[] { typeof(JSValue) })!;
+        typeof(JSValue).GetMethod(nameof(JSValue.TryUnwrap))
+            ?? throw new NotImplementedException("JSValue.TryUnwrap");
 
     private static readonly MethodInfo s_getOrCreateObjectWrapper =
-        typeof(JSRuntimeContext).GetInstanceMethod(nameof(JSRuntimeContext.GetOrCreateObjectWrapper))!;
+        typeof(JSRuntimeContext).GetInstanceMethod(nameof(JSRuntimeContext.GetOrCreateObjectWrapper))
+            ?? throw new NotImplementedException("JSRuntimeContext.GetOrCreateObjectWrapper");
 
     private static readonly MethodInfo s_asVoidPromise =
         typeof(TaskExtensions).GetStaticMethod(
-            nameof(TaskExtensions.AsPromise), new[] { typeof(Task) })!;
+            nameof(TaskExtensions.AsPromise), new[] { typeof(Task) })
+            ?? throw new NotImplementedException("TaskExtensions.AsPromise");
 
     /// <summary>
     /// Gets or sets a value indicating whether the marshaller automatically converts
@@ -534,27 +542,31 @@ public class JSMarshaller
             if (methodParameters.Length == 0)
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
-                        new[] { typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.CallMethod),
+                        new[] { typeof(JSValue) })
+                        ?? throw new NotImplementedException("JSValue.CallMethod(JSValue)"),
                     methodName);
             }
             else if (methodParameters.Length == 1)
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
-                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.CallMethod),
+                        new[] { typeof(JSValue), typeof(JSValue) })
+                        ?? throw new NotImplementedException(
+                            "JSValue.CallMethod(JSValue, JSValue)"),
                     methodName,
                     ParameterToJSValue(0));
             }
             else if (methodParameters.Length == 2)
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
-                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
-                             typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.CallMethod),
+                        new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue) })
+                        ?? throw new NotImplementedException(
+                            "JSValue.CallMethod(JSValue, JSValue, JSValue)"),
                     methodName,
                     ParameterToJSValue(0),
                     ParameterToJSValue(1));
@@ -562,10 +574,12 @@ public class JSMarshaller
             else if (methodParameters.Length == 3)
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
-                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
-                             typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.CallMethod),
+                        new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
+                            typeof(JSValue) })
+                        ?? throw new NotImplementedException(
+                            "JSValue.CallMethod(JSValue, JSValue, JSValue, JSValue)"),
                     methodName,
                     ParameterToJSValue(0),
                     ParameterToJSValue(1),
@@ -574,11 +588,12 @@ public class JSMarshaller
             else
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.CallMethod),
-                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue[]) }),
+                    thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.CallMethod),
+                        new[] { typeof(JSValue), typeof(JSValue[]) })
+                        ?? throw new NotImplementedException("JSValue.CallMethod(JSValue, JSValue[])"),
                     new Expression[]
                     {
-                        thisParameter,
                         methodName,
                         Expression.NewArrayInit(
                             typeof(JSValue),
@@ -701,27 +716,30 @@ public class JSMarshaller
             if (methodParameters.Length == 0)
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
-                        new[] { typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.Call),
+                        new[] { typeof(JSValue) })
+                        ?? throw new NotImplementedException("JSValue.Call(JSValue)"),
                     Expression.Default(typeof(JSValue)));
             }
             else if (methodParameters.Length == 1)
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
-                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.Call),
+                        new[] { typeof(JSValue), typeof(JSValue) })
+                        ?? throw new NotImplementedException("JSValue.Call(JSValue, JSValue)"),
                     Expression.Default(typeof(JSValue)),
                     ParameterToJSValue(0));
             }
             else if (methodParameters.Length == 2)
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
-                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
-                             typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.Call),
+                        new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue) })
+                        ?? throw new NotImplementedException(
+                            "JSValue.Call(JSValue, JSValue, JSValue)"),
                     Expression.Default(typeof(JSValue)),
                     ParameterToJSValue(0),
                     ParameterToJSValue(1));
@@ -729,10 +747,12 @@ public class JSMarshaller
             else if (methodParameters.Length == 3)
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
-                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
-                             typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.Call),
+                        new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue),
+                            typeof(JSValue) })
+                        ?? throw new NotImplementedException(
+                            "JSValue.Call(JSValue, JSValue, JSValue, JSValue)"),
                     Expression.Default(typeof(JSValue)),
                     ParameterToJSValue(0),
                     ParameterToJSValue(1),
@@ -741,11 +761,14 @@ public class JSMarshaller
             else
             {
                 callExpression = Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.Call),
-                         new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue[]) }),
+                    thisParameter,
+                    typeof(JSValue).GetMethod(nameof(JSValue.Call),
+                        new[] { typeof(JSValue), typeof(JSValue[]) })
+                        ?? throw new NotImplementedException(
+                            "JSValue.Call(JSValue, JSValue[])"),
                     new Expression[]
                     {
-                        thisParameter,
+
                         Expression.Default(typeof(JSValue)),
                         Expression.NewArrayInit(
                             typeof(JSValue),
@@ -878,7 +901,8 @@ public class JSMarshaller
             valueRefVariable,
             Expression.New(
                 typeof(JSReference).GetInstanceConstructor(
-                    new[] { typeof(JSValue), typeof(bool) })!,
+                    new[] { typeof(JSValue), typeof(bool) })
+                ?? throw new NotImplementedException("new JSReference(JSValue, bool)"),
                 valueParameter,
                 Expression.Constant(false)));
         Expression assignSyncContextExpression = Expression.Assign(
@@ -1018,9 +1042,10 @@ public class JSMarshaller
             Expression getStatement = Expression.Assign(
                 resultVariable,
                 Expression.Call(
-                    typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetProperty),
-                        new[] { typeof(JSValue), typeof(JSValue) }),
                     thisParameter,
+                    typeof(JSValue).GetMethod(
+                        nameof(JSValue.GetProperty), new[] { typeof(JSValue) })
+                        ?? throw new NotImplementedException("JSValue.GetProperty(JSValue)"),
                     propertyName));
             Expression returnStatement = InlineOrInvoke(
                 GetFromJSValueExpression(property.PropertyType),
@@ -1095,9 +1120,10 @@ public class JSMarshaller
                     valueParameter,
                     nameof(BuildToJSPropertySetExpression)));
             Expression setStatement = Expression.Call(
-                typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.SetProperty),
-                    new[] { typeof(JSValue), typeof(JSValue), typeof(JSValue) }),
                 thisParameter,
+                typeof(JSValue).GetMethod(nameof(JSValue.SetProperty),
+                    new[] { typeof(JSValue), typeof(JSValue) })
+                    ?? throw new NotImplementedException("JSValue.SetProperty(JSValue, JSValue)"),
                 propertyName,
                 jsValueVariable);
 
@@ -1657,7 +1683,8 @@ public class JSMarshaller
              */
 
             PropertyInfo moduleProperty = typeof(JSModuleContext).GetProperty(
-                nameof(JSModuleContext.Module))!;
+                nameof(JSModuleContext.Module))
+                ?? throw new NotImplementedException("JSModuleContext.Module");
             yield return Expression.Assign(
                 thisVariable,
                 Expression.TypeAs(
@@ -1679,13 +1706,14 @@ public class JSMarshaller
              */
 
             PropertyInfo thisArgProperty = typeof(JSCallbackArgs).GetProperty(
-                nameof(JSCallbackArgs.ThisArg))!;
+                nameof(JSCallbackArgs.ThisArg))
+                ?? throw new NotImplementedException("JSCallbackArgs.ThisArg");
             yield return Expression.Assign(
                 thisVariable,
                 Expression.TypeAs(
                     Expression.Call(
-                        s_unwrap,
                         Expression.Property(s_argsParameter, thisArgProperty),
+                        s_unwrap,
                         Expression.Constant(type.Name)),
                     type));
             yield return Expression.IfThen(
@@ -1702,7 +1730,8 @@ public class JSMarshaller
 
             LambdaExpression convert = GetFromJSValueExpression(type);
             PropertyInfo thisArgProperty = typeof(JSCallbackArgs).GetProperty(
-                nameof(JSCallbackArgs.ThisArg))!;
+                nameof(JSCallbackArgs.ThisArg))
+                ?? throw new NotImplementedException("JSCallbackArgs.ThisArg");
             yield return Expression.Assign(
                 thisVariable,
                 Expression.Invoke(
@@ -1756,7 +1785,7 @@ public class JSMarshaller
         if (nullableType != null)
         {
             convertExpression = Expression.Condition(
-                Expression.Call(s_isNullOrUndefined, argExpression),
+                Expression.Call(argExpression, s_isNullOrUndefined),
                 Expression.Constant(null, nullableType),
                 Expression.Convert(convertExpression, nullableType));
         }
@@ -1865,14 +1894,14 @@ public class JSMarshaller
             /*
              * (T)(value.TryUnwrap() ?? value.GetValueExternalOrPrimitive());
              */
-            MethodInfo getExternalMethod = typeof(JSNativeApi).GetStaticMethod(
-                nameof(JSNativeApi.GetValueExternalOrPrimitive));
+            MethodInfo getExternalMethod =
+                typeof(JSValue).GetMethod(nameof(JSValue.GetValueExternalOrPrimitive))!;
             statements = new[]
             {
                 Expression.Convert(
                     Expression.Coalesce(
-                        Expression.Call(s_tryUnwrap, valueParameter),
-                        Expression.Call(getExternalMethod, valueParameter)),
+                        Expression.Call(valueParameter, s_tryUnwrap),
+                        Expression.Call(valueParameter, getExternalMethod)),
                     toType),
             };
         }
@@ -1932,14 +1961,18 @@ public class JSMarshaller
                         InlineOrInvoke(
                             BuildConvertFromJSValueExpression(genericArguments![0]),
                             Expression.Call(
-                                typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetElement)),
-                                valueParameter, Expression.Constant(0)),
+                                valueParameter,
+                                typeof(JSValue).GetMethod(nameof(JSValue.GetElement))
+                                ?? throw new NotImplementedException("JSValue.GetElement"),
+                                Expression.Constant(0)),
                             nameof(BuildConvertFromJSValueExpression)),
                         InlineOrInvoke(
                             BuildConvertFromJSValueExpression(genericArguments![1]),
                             Expression.Call(
-                                typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetElement)),
-                                valueParameter, Expression.Constant(1)),
+                                valueParameter,
+                                typeof(JSValue).GetMethod(nameof(JSValue.GetElement))
+                                ?? throw new NotImplementedException("JSValue.GetElement"),
+                                Expression.Constant(1)),
                             nameof(BuildConvertFromJSValueExpression))),
                 };
             }
@@ -1955,8 +1988,10 @@ public class JSMarshaller
                 Expression TupleItem(int index) => InlineOrInvoke(
                     BuildConvertFromJSValueExpression(genericArguments![index]),
                     Expression.Call(
-                        typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetElement)),
-                        valueParameter, Expression.Constant(index)),
+                        valueParameter,
+                        typeof(JSValue).GetMethod(nameof(JSValue.GetElement))
+                        ?? throw new NotImplementedException("JSValue.GetElement"),
+                        Expression.Constant(index)),
                     nameof(BuildConvertFromJSValueExpression));
                 statements = new[]
                 {
@@ -2003,7 +2038,7 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Coalesce(
-                        Expression.TypeAs(Expression.Call(s_tryUnwrap, valueParameter), toType),
+                        Expression.TypeAs(Expression.Call(valueParameter, s_tryUnwrap), toType),
                         Expression.Convert(valueParameter, typeof(NodeStream), adapterConversion)),
                 };
             }
@@ -2025,8 +2060,9 @@ public class JSMarshaller
                 Expression TupleItem(int index) => InlineOrInvoke(
                     BuildConvertFromJSValueExpression(genericArguments![index]),
                     Expression.Call(
-                        typeof(JSNativeApi).GetStaticMethod(nameof(JSNativeApi.GetElement)),
-                        valueParameter, Expression.Constant(index)),
+                        valueParameter,
+                        typeof(JSValue).GetMethod(nameof(JSValue.GetElement))!,
+                        Expression.Constant(index)),
                     nameof(BuildConvertFromJSValueExpression));
                 statements = new[]
                 {
@@ -2040,7 +2076,7 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Convert(
-                        Expression.Call(s_unwrap, valueParameter, Expression.Constant(toType.Name)),
+                        Expression.Call(valueParameter, s_unwrap, Expression.Constant(toType.Name)),
                         toType),
                 };
             }
@@ -2060,7 +2096,7 @@ public class JSMarshaller
             statements = new[]
             {
                 Expression.Coalesce(
-                    Expression.TypeAs(Expression.Call(s_tryUnwrap, valueParameter), toType),
+                    Expression.TypeAs(Expression.Call(valueParameter, s_tryUnwrap), toType),
                     Expression.New(adapterConstructor, valueParameter)),
             };
         }
@@ -2072,12 +2108,10 @@ public class JSMarshaller
 
         if (nullableType != null)
         {
-            MethodInfo isNullOrUndefinedMethod =
-                typeof(JSNativeApi).GetMethod(nameof(JSNativeApi.IsNullOrUndefined))!;
             statements = new Expression[]
             {
                 Expression.Condition(
-                    Expression.Call(isNullOrUndefinedMethod, valueParameter),
+                    Expression.Call(valueParameter, s_isNullOrUndefined),
                     Expression.Constant(null, nullableType),
                     Expression.Convert(
                         Expression.Block(toType, variables, statements),
@@ -2656,7 +2690,7 @@ public class JSMarshaller
             typeDefinition == typeof(ISet<>))
         {
             /*
-             * JSNativeApi.TryUnwrap(value) as ICollection<T> ??
+             * value.TryUnwrap() as ICollection<T> ??
              *     ((JSArray)value).AsCollection<T>(
              *         (value) => (T)value,
              *         (value) => (JSValue)value);
@@ -2675,7 +2709,7 @@ public class JSMarshaller
             MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
                 typeof(JSValue), jsCollectionType);
             yield return Expression.Coalesce(
-                Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
                 Expression.Call(
                     asCollectionMethod,
                     Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
@@ -2688,7 +2722,7 @@ public class JSMarshaller
             typeDefinition == typeof(IAsyncEnumerable<>))
         {
             /*
-             * JSNativeApi.TryUnwrap(value) as IReadOnlyCollection<T> ??
+             * value.TryUnwrap() as IReadOnlyCollection<T> ??
              *     ((JSArray)value).AsReadOnlyCollection<T>((value) => (T)value);
              */
             Type jsCollectionType = typeDefinition == typeof(IEnumerable<>) ?
@@ -2706,7 +2740,7 @@ public class JSMarshaller
             MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
                 typeof(JSValue), jsCollectionType);
             yield return Expression.Coalesce(
-                Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
                 Expression.Call(
                     asCollectionMethod,
                     Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
@@ -2718,7 +2752,7 @@ public class JSMarshaller
             Type valueType = toType.GenericTypeArguments[1];
 
             /*
-             * JSNativeApi.TryUnwrap(value) as IDictionary<TKey, TValue> ??
+             * value.TryUnwrap() as IDictionary<TKey, TValue> ??
              *     ((JSMap)value).AsDictionary<TKey, TValue>(
              *         (key) => (TKey)key,
              *         (value) => (TValue)value,
@@ -2730,7 +2764,7 @@ public class JSMarshaller
             MethodInfo asJSMapMethod = typeof(JSMap).GetExplicitConversion(
                 typeof(JSValue), typeof(JSMap));
             yield return Expression.Coalesce(
-                Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
                 Expression.Call(
                     asDictionaryMethod,
                     Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
@@ -2745,7 +2779,7 @@ public class JSMarshaller
             Type valueType = toType.GenericTypeArguments[1];
 
             /*
-             * JSNativeApi.TryUnwrap(value) as IReadOnlyDictionary<TKey, TValue> ??
+             * value.TryUnwrap() as IReadOnlyDictionary<TKey, TValue> ??
              *     ((JSMap)value).AsReadOnlyDictionary<TKey, TValue>(
              *         (key) => (TKey)key,
              *         (value) => (TValue)value,
@@ -2757,7 +2791,7 @@ public class JSMarshaller
             MethodInfo asJSMapMethod = typeof(JSMap).GetExplicitConversion(
                 typeof(JSValue), typeof(JSMap));
             yield return Expression.Coalesce(
-                Expression.TypeAs(Expression.Call(s_tryUnwrap, valueExpression), toType),
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
                 Expression.Call(
                     asDictionaryMethod,
                     Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
@@ -2896,21 +2930,7 @@ public class JSMarshaller
                     },
                     keyType,
                     valueType);
-            yield return Expression.
-/* Unmerged change from project 'NodeApi.DotNetHost(net6.0)'
-Before:
-                var typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
-After:
-                string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
-*/
-
-/* Unmerged change from project 'NodeApi.DotNetHost(net472)'
-Before:
-                var typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
-After:
-                string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
-*/
-Call(
+            yield return Expression.Call(
                 Expression.Property(null, s_context),
                 wrapMethod,
                 valueExpression,
@@ -3098,7 +3118,7 @@ Call(
 
     /// <summary>
     /// Converts a lambda expression that takes a <see cref="JSValue"/> as the first parameter
-    /// to a lambda expression that references the the member value of a <see cref="JSInterface"/>
+    /// to a lambda expression that references the member value of a <see cref="JSInterface"/>
     /// and automatically switches to the JS thread.
     /// </summary>
     public LambdaExpression MakeInterfaceExpression(LambdaExpression methodExpression)

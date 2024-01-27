@@ -8,7 +8,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Microsoft.JavaScript.NodeApi.Interop;
 
 using static Microsoft.JavaScript.NodeApi.DotNetHost.ManagedHost;

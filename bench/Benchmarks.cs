@@ -51,6 +51,7 @@ public abstract class Benchmarks
         "libnode" + GetSharedLibraryExtension());
 
     private napi_env _env;
+    private JSValue _jsString;
     private JSFunction _jsFunction;
     private JSFunction _jsFunctionWithArgs;
     private JSFunction _jsFunctionWithCallback;
@@ -95,13 +96,14 @@ public abstract class Benchmarks
 
         // Create some JS values that will be used by the benchmarks.
 
-        _jsFunction = (JSFunction)JSNativeApi.RunScript("function jsFunction() { }; jsFunction");
-        _jsFunctionWithArgs = (JSFunction)JSNativeApi.RunScript(
+        _jsString = JSValue.RunScript("'Hello Node-API .Net!'");
+        _jsFunction = (JSFunction)JSValue.RunScript("function jsFunction() { }; jsFunction");
+        _jsFunctionWithArgs = (JSFunction)JSValue.RunScript(
             "function jsFunctionWithArgs(a, b, c) { }; jsFunctionWithArgs");
-        _jsFunctionWithCallback = (JSFunction)JSNativeApi.RunScript(
+        _jsFunctionWithCallback = (JSFunction)JSValue.RunScript(
             "function jsFunctionWithCallback(cb, ...args) { cb(...args); }; " +
             "jsFunctionWithCallback");
-        _jsInstance = (JSObject)JSNativeApi.RunScript(
+        _jsInstance = (JSObject)JSValue.RunScript(
             "const jsInstance = { method: (...args) => {} }; jsInstance");
 
         _dotnetFunction = (JSFunction)JSValue.CreateFunction(
@@ -125,15 +127,15 @@ public abstract class Benchmarks
             (x, value) => x.Property = (string)value);
         classBuilder.AddMethod("method", (x) => (args) => DotnetClass.Method());
         _dotnetClass = (JSObject)classBuilder.DefineClass();
-        _dotnetInstance = (JSObject)JSNativeApi.CallAsConstructor(_dotnetClass);
+        _dotnetInstance = (JSObject)((JSValue)_dotnetClass).CallAsConstructor();
 
-        _jsFunctionCreateInstance = (JSFunction)JSNativeApi.RunScript(
+        _jsFunctionCreateInstance = (JSFunction)JSValue.RunScript(
             "function jsFunctionCreateInstance(Class) { new Class() }; " +
             "jsFunctionCreateInstance");
-        _jsFunctionCallMethod = (JSFunction)JSNativeApi.RunScript(
+        _jsFunctionCallMethod = (JSFunction)JSValue.RunScript(
             "function jsFunctionCallMethod(instance) { instance.method(); }; " +
             "jsFunctionCallMethod");
-        _jsFunctionCallMethodWithArgs = (JSFunction)JSNativeApi.RunScript(
+        _jsFunctionCallMethodWithArgs = (JSFunction)JSValue.RunScript(
             "function jsFunctionCallMethodWithArgs(instance, ...args) " +
             "{ instance.method(...args); }; " +
             "jsFunctionCallMethodWithArgs");
@@ -144,6 +146,18 @@ public abstract class Benchmarks
     private static JSValueScope NewJSScope() => new(JSValueScopeType.Callback);
 
     // Benchmarks in the base class run in both CLR and AOT environments.
+
+    [Benchmark]
+    public void JSValueToString()
+    {
+        _jsString.GetValueStringUtf16();
+    }
+
+    [Benchmark]
+    public void JSValueToStringAsCharArray()
+    {
+        _ = new string(_jsString.GetValueStringUtf16AsCharArray());
+    }
 
     [Benchmark]
     public void CallJSFunction()
@@ -229,13 +243,13 @@ public abstract class Benchmarks
             JSObject hostModule = new();
             _ = new ManagedHost(hostModule);
             _jsHost = hostModule;
-            _jsFunctionCallMethodDynamic = (JSFunction)JSNativeApi.RunScript(
+            _jsFunctionCallMethodDynamic = (JSFunction)JSValue.RunScript(
                 "function jsFunctionCallMethodDynamic(dotnet) " +
                 "{ dotnet.System.Object.ReferenceEquals(null, null); }; " +
                 "jsFunctionCallMethodDynamic");
 
             // Implement IFormatProvider in JS and pass it to a .NET method.
-            _jsFunctionCallMethodDynamicInterface = (JSFunction)JSNativeApi.RunScript(
+            _jsFunctionCallMethodDynamicInterface = (JSFunction)JSValue.RunScript(
                 "function jsFunctionCallMethodDynamicInterface(dotnet)  {" +
                 "    const formatProvider = { GetFormat: (type) => null };" +
                 "    dotnet.System.String.Format(formatProvider, '', null, null);" +

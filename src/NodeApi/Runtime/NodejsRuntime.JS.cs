@@ -5,8 +5,6 @@ using System;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
-using static JSNativeApi;
-
 // Imports Node.js native APIs defined in js_native_api.h
 public unsafe partial class NodejsRuntime
 {
@@ -48,12 +46,25 @@ public unsafe partial class NodejsRuntime
         nint finalizeHint,
         out napi_ref result)
     {
+        // Finalizer reference must be deleted by calling code.
         result = default;
         fixed (napi_ref* result_ptr = &result)
         {
             return Import(ref napi_add_finalizer)(
                 env, value, finalizeData, finalizeCallback, finalizeHint, (nint)result_ptr);
         }
+    }
+
+    public override napi_status AddFinalizer(
+        napi_env env,
+        napi_value value,
+        nint finalizeData,
+        napi_finalize finalizeCallback,
+        nint finalizeHint)
+    {
+        // Finalizer reference is deleted automatically when the GC collects the value.
+        return Import(ref napi_add_finalizer)(
+            env, value, finalizeData, finalizeCallback, finalizeHint, default);
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, long, nint, napi_status>
@@ -468,13 +479,24 @@ public unsafe partial class NodejsRuntime
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, nint, nint, napi_status>
         napi_get_value_bigint_words;
 
-    public override napi_status GetValueBigInt(
+    public override napi_status GetBigIntWordCount(napi_env env, napi_value value, out nuint result)
+    {
+        result = 0;
+        fixed (nuint* result_ptr = &result)
+        {
+            // sign and words pointers must be null when we just want to get the length.
+            return Import(ref napi_get_value_bigint_words)(
+                env, value, default, (nint)result_ptr, default);
+        }
+    }
+
+    public override napi_status GetBigIntWords(
         napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result)
     {
         sign = default;
         result = (nuint)words.Length;
         fixed (int* sign_ptr = &sign)
-        fixed (ulong* words_ptr = &words.GetPinnableReference())
+        fixed (ulong* words_ptr = words)
         fixed (nuint* result_ptr = &result)
         {
             return Import(ref napi_get_value_bigint_words)(
@@ -806,7 +828,11 @@ public unsafe partial class NodejsRuntime
         napi_env env, int sign, ReadOnlySpan<ulong> words, out napi_value result)
     {
         result = default;
-        fixed (ulong* words_ptr = &words.GetPinnableReference())
+        if (words.Length == 0)
+        {
+            words = [0];
+        }
+        fixed (ulong* words_ptr = words)
         fixed (napi_value* result_ptr = &result)
         {
             return Import(ref napi_create_bigint_words)(
@@ -1649,12 +1675,25 @@ public unsafe partial class NodejsRuntime
         nint finalize_hint,
         out napi_ref result)
     {
+        // The wrapper reference must be deleted by user code.
         result = default;
         fixed (napi_ref* result_ptr = &result)
         {
             return Import(ref napi_wrap)(
                 env, js_object, native_object, finalize_cb, finalize_hint, (nint)result_ptr);
         }
+    }
+
+    public override napi_status Wrap(
+        napi_env env,
+        napi_value js_object,
+        nint native_object,
+        napi_finalize finalize_cb,
+        nint finalize_hint)
+    {
+        // The wrapper reference is deleted by Node.js.
+        return Import(ref napi_wrap)(
+            env, js_object, native_object, finalize_cb, finalize_hint, default);
     }
 
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, napi_status> napi_unwrap;

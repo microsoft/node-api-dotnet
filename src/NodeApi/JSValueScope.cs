@@ -90,7 +90,7 @@ public sealed class JSValueScope : IDisposable
         throw new JSInvalidThreadAccessException(currentScope: null);
 
     /// <summary>
-    /// Gets the envionment handle for the scope, or throws an exception if the scope is
+    /// Gets the environment handle for the scope, or throws an exception if the scope is
     /// disposed or access from the current thread is invalid.
     /// </summary>
     /// <exception cref="JSValueScopeClosedException">The scope has been closed.</exception>
@@ -155,7 +155,7 @@ public sealed class JSValueScope : IDisposable
 
     /// <summary>
     /// Creates a new instance of a <see cref="JSValueScope"/>, which may be a parentless scope
-    /// with initial enviroment handle and JS runtime.
+    /// with initial environment handle and JS runtime.
     /// </summary>
     /// <param name="scopeType">The type of scope to create.</param>
     /// <param name="env">JS environment handle, required only for creating a scope
@@ -204,7 +204,7 @@ public sealed class JSValueScope : IDisposable
                 if (_parentScope.ScopeType == JSValueScopeType.Root)
                 {
                     // When there are multiple instances of the managed host in a process
-                    // (created by searate workers), they do not inherit scope.
+                    // (created by separate workers), they do not inherit scope.
                     _parentScope = null;
                 }
                 else
