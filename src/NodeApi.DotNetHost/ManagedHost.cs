@@ -138,8 +138,8 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         }
 
         exports.DefineProperties(
-            JSPropertyDescriptor.Accessor("runtimeVersion", GetRuntimeVersion),
-            JSPropertyDescriptor.Accessor("frameworkMoniker", GetFrameworkMoniker),
+            JSPropertyDescriptor.Accessor("runtimeVersion", ManagedHost.GetRuntimeVersion),
+            JSPropertyDescriptor.Accessor("frameworkMoniker", ManagedHost.GetFrameworkMoniker),
 
             // The require() method loads a .NET assembly that was built to be a Node API module.
             // It uses static binding to the APIs the module specifically exports to JS.
@@ -330,12 +330,12 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         return default;
     }
 
-    public JSValue GetRuntimeVersion(JSCallbackArgs _)
+    public static JSValue GetRuntimeVersion(JSCallbackArgs _)
     {
         return Environment.Version.ToString();
     }
 
-    public JSValue GetFrameworkMoniker(JSCallbackArgs _)
+    public static JSValue GetFrameworkMoniker(JSCallbackArgs _)
     {
         Version runtimeVersion = Environment.Version;
 

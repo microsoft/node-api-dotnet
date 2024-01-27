@@ -991,16 +991,15 @@ import { Duplex } from 'stream';
     {
         // These namespaces contain APIs that are problematic for TS generation.
         // (Mostly old .NET Framework APIs.)
-        switch (ns)
+        return ns switch
         {
-            case "System.Runtime.InteropServices":
-            case "System.Runtime.Remoting.Messaging":
-            case "System.Runtime.Serialization":
-            case "System.Security.AccessControl":
-            case "System.Security.Policy":
-                return true;
-            default: return false;
-        }
+            "System.Runtime.InteropServices" or
+            "System.Runtime.Remoting.Messaging" or
+            "System.Runtime.Serialization" or
+            "System.Security.AccessControl" or
+            "System.Security.Policy" => true,
+            _ => false,
+        };
     }
 
     private static bool IsExcludedMember(PropertyInfo property)

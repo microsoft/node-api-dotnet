@@ -10,11 +10,12 @@ internal struct PooledBuffer : IDisposable
 
     public PooledBuffer()
     {
-        Buffer = Array.Empty<byte>();
+        Buffer = [];
         Length = 0;
     }
 
 #if NETFRAMEWORK
+
     // Avoid a dependency on System.Buffers with .NET Framwork.
     // It is available as a nuget package, but might not be installed in the application.
     // In this case the buffer is not actually pooled.
@@ -27,11 +28,11 @@ internal struct PooledBuffer : IDisposable
         Length = length;
     }
 
-#else
-    private ArrayPool<byte>? _pool;
+    public readonly void Dispose() { }
 
-    private PooledBuffer(int length)
-        : this(ArrayPool<byte>.Shared, length, length) { }
+#else
+
+    private ArrayPool<byte>? _pool;
 
     private PooledBuffer(int length, int bufferMinimumLength)
         : this(ArrayPool<byte>.Shared, length, bufferMinimumLength) { }
@@ -42,6 +43,16 @@ internal struct PooledBuffer : IDisposable
         Buffer = pool.Rent(bufferMinimumLength);
         Length = length;
     }
+
+    public void Dispose()
+    {
+        if (_pool != null)
+        {
+            _pool.Return(Buffer!);
+            _pool = null;
+        }
+    }
+
 #endif
 
     public int Length { get; private set; }
@@ -51,17 +62,6 @@ internal struct PooledBuffer : IDisposable
     public readonly Span<byte> Span => Buffer;
 
     public readonly ref byte Pin() => ref Span.GetPinnableReference();
-
-    public void Dispose()
-    {
-#if !NETFRAMEWORK
-        if (_pool != null)
-        {
-            _pool.Return(Buffer!);
-            _pool = null;
-        }
-#endif
-    }
 
     public static unsafe PooledBuffer FromStringUtf8(string? value)
     {
