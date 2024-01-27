@@ -258,7 +258,7 @@ public partial class NodeStream
         }
         catch (Exception ex)
         {
-            bool isExceptionPending5 = JSValue.IsExceptionPending();
+            bool isExceptionPending5 = JSError.IsExceptionPending();
             try
             {
                 callback = callbackReference.GetValue()!.Value;

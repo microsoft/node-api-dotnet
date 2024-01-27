@@ -69,10 +69,10 @@ public struct JSError
         JSErrorInfo errorInfo = JSErrorInfo.GetLastErrorInfo();
 
         // A pending JS exception takes precedence over any internal error status.
-        if (JSValue.IsExceptionPending())
+        if (IsExceptionPending())
         {
             _message = null;
-            _errorRef = CreateErrorReference(JSValue.GetAndClearLastException());
+            _errorRef = CreateErrorReference(GetAndClearLastException());
             return;
         }
 
@@ -199,7 +199,7 @@ public struct JSError
 
         using var scope = new JSValueScope(JSValueScopeType.Handle);
 
-        if (JSValue.IsExceptionPending())
+        if (IsExceptionPending())
             throw new JSException(new JSError());
 
         napi_status status = scope.Runtime.Throw(
@@ -379,54 +379,10 @@ public struct JSError
             s_isFatal = _previousIsFatal;
         }
     }
-}
 
-public static class JSNativeApi
-{
-    public static void FatalIfFailed([DoesNotReturnIf(true)] this napi_status status,
-                                     string? message = null,
-                                     [CallerMemberName] string memberName = "",
-                                     [CallerFilePath] string sourceFilePath = "",
-                                     [CallerLineNumber] int sourceLineNumber = 0)
-    {
-        if (status == napi_status.napi_ok)
-        {
-            return;
-        }
+    public static bool IsExceptionPending() => JSValue.GetCurrentRuntime(out napi_env env)
+        .IsExceptionPending(env, out bool result).ThrowIfFailed(result);
 
-        if (string.IsNullOrEmpty(message))
-        {
-            message = status.ToString();
-        }
-
-        JSError.Fatal(message!, memberName, sourceFilePath, sourceLineNumber);
-    }
-
-    public static void ThrowIfFailed([DoesNotReturnIf(true)] this napi_status status,
-                                     [CallerMemberName] string memberName = "",
-                                     [CallerFilePath] string sourceFilePath = "",
-                                     [CallerLineNumber] int sourceLineNumber = 0)
-    {
-        if (status == napi_status.napi_ok)
-            return;
-
-        if (JSError.FatalIfFailedScope.IsFatal)
-            JSError.Fatal(
-                "Failed while handling error", memberName, sourceFilePath, sourceLineNumber);
-
-        throw new JSException(
-            new JSError($"Error in {memberName} at {sourceFilePath}:{sourceLineNumber}"));
-    }
-
-    // Throw if status is not napi_ok. Otherwise, return the provided value.
-    // This function helps writing compact wrappers for the interop calls.
-    public static T ThrowIfFailed<T>(this napi_status status,
-                                     T value,
-                                     [CallerMemberName] string memberName = "",
-                                     [CallerFilePath] string sourceFilePath = "",
-                                     [CallerLineNumber] int sourceLineNumber = 0)
-    {
-        status.ThrowIfFailed(memberName, sourceFilePath, sourceLineNumber);
-        return value;
-    }
+    public static JSValue GetAndClearLastException() => JSValue.GetCurrentRuntime(out napi_env env)
+        .GetAndClearLastException(env, out napi_value result).ThrowIfFailed(result);
 }

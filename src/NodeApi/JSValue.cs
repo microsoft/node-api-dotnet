@@ -391,8 +391,6 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public bool IsBigInt() => TypeOf() == JSValueType.BigInt;
 
-    public JSBigInt? AsJSBigInt() => IsBigInt() ? JSBigInt.CreateUnchecked(this) : default;
-
     public double GetValueDouble() => GetRuntime(out napi_env env, out napi_value handle)
         .GetValueDouble(env, handle, out double result).ThrowIfFailed(result);
 
@@ -892,16 +890,12 @@ public readonly struct JSValue : IEquatable<JSValue>
         };
     }
 
-    public JSReference CreateReference() => new(this);
-    public JSReference CreateWeakReference() => new(this, isWeak: true);
     public bool IsError() => GetRuntime(out napi_env env, out napi_value handle)
         .IsError(env, handle, out bool result).ThrowIfFailed(result);
-    public static bool IsExceptionPending() => GetCurrentRuntime(out napi_env env)
-        .IsExceptionPending(env, out bool result).ThrowIfFailed(result);
-    public static JSValue GetAndClearLastException() => GetCurrentRuntime(out napi_env env)
-        .GetAndClearLastException(env, out napi_value result).ThrowIfFailed(result);
+
     public bool IsArrayBuffer() => GetRuntime(out napi_env env, out napi_value handle)
         .IsArrayBuffer(env, handle, out bool result).ThrowIfFailed(result);
+
     public unsafe Span<byte> GetArrayBufferInfo()
     {
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);

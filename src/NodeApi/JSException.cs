@@ -67,7 +67,7 @@ public class JSException : Exception
                     string.Empty;
                 firstLineEnd = dotnetStack.IndexOf('\n');
                 while (firstLineEnd >= 0 && dotnetStack.IndexOf(
-                    "." + nameof(JSNativeApi.ThrowIfFailed), 0, firstLineEnd) >= 0)
+                    "." + nameof(NodeApiStatusExtensions.ThrowIfFailed), 0, firstLineEnd) >= 0)
                 {
                     dotnetStack = dotnetStack.Substring(firstLineEnd + 1);
                     firstLineEnd = dotnetStack.IndexOf('\n');

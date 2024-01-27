@@ -11,12 +11,8 @@ public readonly struct JSBigInt : IEquatable<JSValue>
 {
     private readonly JSValue _value;
 
-    public static implicit operator JSValue(JSBigInt value) => value.AsJSValue();
-    public static explicit operator JSBigInt?(JSValue value) => value.AsJSBigInt();
-    public static explicit operator JSBigInt(JSValue value)
-        => value.AsJSBigInt() is JSBigInt result
-            ? result
-            : throw new InvalidCastException("JSValue is not BigInt");
+    public static explicit operator JSBigInt(JSValue value) => new(value);
+    public static implicit operator JSValue(JSBigInt value) => value._value;
 
     public static implicit operator JSBigInt(BigInteger value) => new(value);
     public static explicit operator BigInteger(JSBigInt value) => value.ToBigInteger();
@@ -42,8 +38,6 @@ public readonly struct JSBigInt : IEquatable<JSValue>
     public JSBigInt(BigInteger value) : this(JSValue.CreateBigInt(value))
     {
     }
-
-    public static JSBigInt CreateUnchecked(JSValue value) => new(value);
 
     public int GetWordCount() => _value.GetBigIntWordCount();
 

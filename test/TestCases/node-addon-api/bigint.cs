@@ -28,8 +28,7 @@ public class TestBigInt : TestHelper, ITestObject
 
     private static JSValue IsBigInt(JSCallbackArgs args)
     {
-        JSBigInt? big = args[0].AsJSBigInt();
-        return big.HasValue;
+        return args[0].IsBigInt();
     }
 
     private static JSValue TestInt64(JSCallbackArgs args)
