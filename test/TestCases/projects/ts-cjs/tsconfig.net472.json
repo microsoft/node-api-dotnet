@@ -6,6 +6,6 @@
     "checkJs": true,
     "outDir": "out"
   },
-  "include": ["*.ts", "bin/*.js"],
-  "exclude": ["net472.ts", "node_modules"]
+  "include": ["net472.ts", "bin/*.js"],
+  "exclude": ["node_modules"]
 }

@@ -56,6 +56,13 @@ For examples of this scenario, see
     const dotnet = require('node-api-dotnet');
     ```
 
+   To load a specific version of .NET, append the target framework moniker to the module name.
+   A `.js` suffix is required when using ES modules, optional with CommonJS.
+   ```JavaScript
+   import dotnet from 'node-api-dotnet/net6.0.js'
+   ```
+   Currently the supported target frameworks are `net472`, `net6.0`, and `net8.0`.
+
 4. Load one or more .NET packages using the generated `.js` files:
    ```JavaScript
    require('./bin/Example.Package.js');

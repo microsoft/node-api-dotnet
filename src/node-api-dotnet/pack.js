@@ -22,7 +22,6 @@ const targetFrameworks = ['net8.0', 'net6.0'];
 if (process.platform === 'win32') targetFrameworks.push('net472');
 
 const aotTargetFramework = 'net8.0';
-const defaultManagedHostTargetFramework = 'net6.0';
 
 const fs = require('fs');
 const path = require('path');
@@ -189,8 +188,7 @@ function copyFile(sourceFilePath, destFilePath) {
 
 function generateTargetFrameworkScriptFiles(packageStageDir) {
   // Generate `index.js` for the default target framework, plus one for each supported target.
-  generateTargetFrameworkScriptFile(
-    path.join(packageStageDir, 'index.js'), defaultManagedHostTargetFramework);
+  generateTargetFrameworkScriptFile(path.join(packageStageDir, 'index.js'));
   for (let tfm of targetFrameworks) {
     generateTargetFrameworkScriptFile(path.join(packageStageDir, tfm + '.js'), tfm);
   }
@@ -199,7 +197,15 @@ function generateTargetFrameworkScriptFiles(packageStageDir) {
 function generateTargetFrameworkScriptFile(filePath, tfm) {
   // Each generated entrypoint script uses `init.js` to request a specific target framework version.
   const js = `const initialize = require('./init');
-module.exports = initialize('${tfm}');
+module.exports = initialize(${tfm ? `'${tfm}'` : ''});
 `;
   fs.writeFileSync(filePath, js);
+
+  // Also generate a `.d.ts` file for each tfm, which just re-exports the default index.
+  if (tfm) {
+    const dts = `import './index';
+export * from 'node-api-dotnet';
+`;
+    fs.writeFileSync(filePath.replace(/\.js$/, '.d.ts'), dts);
+  }
 }

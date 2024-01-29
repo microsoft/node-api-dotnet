@@ -59,14 +59,28 @@ For a minimal example of this scenario, see
     [build it from source](../README-DEV.md).<br>Then get the package from
     `out/pkg/node-api-dotnet-{version}.tgz`.
 
-6. Import the `node-api-dotnet` package in your JavaScript code:
-    ```JavaScript
-    const dotnet = require('node-api-dotnet');
-    ```
-    Or if using ES modules:
+6. Import the `node-api-dotnet` package in your JavaScript or TypeScript code. The import syntax
+   depends on the [module system](https://nodejs.org/api/esm.html) the current project is using.
+
+   ES modules (TypeScript or JavaScript):
     ```JavaScript
     import dotnet from 'node-api-dotnet';
     ```
+   CommonJS modules (TypeScript):
+    ```TypeScript
+    import * as dotnet from 'node-api-dotnet';
+    ```
+   CommonJS modules (JavaScript):
+    ```JavaScript
+    const dotnet = require('node-api-dotnet');
+    ```
+
+   To load a specific version of .NET, append the target framework moniker to the module name.
+   A `.js` suffix is required when using ES modules, optional with CommonJS.
+   ```JavaScript
+   import dotnet from 'node-api-dotnet/net6.0.js'
+   ```
+   Currently the supported target frameworks are `net472`, `net6.0`, and `net8.0`.
 
 7. Load your .NET module assembly from its path using the `dotnet.require()` function. Also provide
     a hint about type definitions (from the same path):

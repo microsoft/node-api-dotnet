@@ -7,6 +7,17 @@
 declare module 'node-api-dotnet' {
 
 /**
+ * Gets the current .NET runtime version, for example "8.0.1".
+ */
+export const runtimeVersion: string;
+
+/**
+ * Gets the framework monikier corresponding to the current .NET runtime version,
+ * for example "net8.0" or "net472".
+ */
+export const frameworkMoniker: string;
+
+/**
  * Loads a .NET assembly that was built to be a Node API module, using static binding to
  * the APIs the module specifically exports to JS.
  * @param dotnetAssemblyFilePath Path to the .NET assembly DLL file.

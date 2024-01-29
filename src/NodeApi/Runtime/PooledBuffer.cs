@@ -6,29 +6,43 @@ namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 internal struct PooledBuffer : IDisposable
 {
-    private ArrayPool<byte>? _pool;
-    public static readonly PooledBuffer Empty = new(null, [], 0);
+    public static readonly PooledBuffer Empty = new();
 
-    public PooledBuffer(ArrayPool<byte> pool, int length)
-        : this(pool, pool.Rent(length), length) { }
-
-    public PooledBuffer(ArrayPool<byte> pool, int length, int bufferMinimumLength)
-        : this(pool, pool.Rent(bufferMinimumLength), length) { }
-
-    private PooledBuffer(ArrayPool<byte>? pool, byte[] buffer, int length)
+    public PooledBuffer()
     {
-        _pool = pool;
-        Buffer = buffer;
+        Buffer = [];
+        Length = 0;
+    }
+
+#if NETFRAMEWORK
+
+    // Avoid a dependency on System.Buffers with .NET Framwork.
+    // It is available as a nuget package, but might not be installed in the application.
+    // In this case the buffer is not actually pooled.
+
+    public PooledBuffer(int length) : this(length, length) { }
+
+    public PooledBuffer(int length, int bufferMinimumLength)
+    {
+        Buffer = new byte[bufferMinimumLength];
         Length = length;
     }
 
-    public int Length { get; private set; }
+    public readonly void Dispose() { }
 
-    public readonly byte[] Buffer { get; }
+#else
 
-    public readonly Span<byte> Span => Buffer;
+    private ArrayPool<byte>? _pool;
 
-    public readonly ref byte Pin() => ref Span.GetPinnableReference();
+    private PooledBuffer(int length, int bufferMinimumLength)
+        : this(ArrayPool<byte>.Shared, length, bufferMinimumLength) { }
+
+    private PooledBuffer(ArrayPool<byte> pool, int length, int bufferMinimumLength)
+    {
+        _pool = pool;
+        Buffer = pool.Rent(bufferMinimumLength);
+        Length = length;
+    }
 
     public void Dispose()
     {
@@ -39,6 +53,16 @@ internal struct PooledBuffer : IDisposable
         }
     }
 
+#endif
+
+    public int Length { get; private set; }
+
+    public readonly byte[] Buffer { get; }
+
+    public readonly Span<byte> Span => Buffer;
+
+    public readonly ref byte Pin() => ref Span.GetPinnableReference();
+
     public static unsafe PooledBuffer FromStringUtf8(string? value)
     {
         if (string.IsNullOrEmpty(value))
@@ -47,15 +71,8 @@ internal struct PooledBuffer : IDisposable
         }
 
         int byteLength = Encoding.UTF8.GetByteCount(value);
-        PooledBuffer buffer = new(ArrayPool<byte>.Shared, byteLength, byteLength + 1);
-
-        fixed (char* pChars = value)
-        fixed (byte* pBuffer = buffer.Buffer)
-        {
-            // The Span<byte> overload of GetBytes() would be nicer, but is not available on .NET 4.
-            Encoding.UTF8.GetBytes(pChars, value!.Length, pBuffer, byteLength);
-            pBuffer[byteLength] = 0;
-        }
+        PooledBuffer buffer = new(byteLength, byteLength + 1);
+        Encoding.UTF8.GetBytes(value, 0, value!.Length, buffer.Buffer, 0);
 
         return buffer;
     }
