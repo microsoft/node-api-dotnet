@@ -9,12 +9,20 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
+public readonly struct JSTypedArray<T> : IEquatable<JSValue>
+#if NET7_0_OR_GREATER
+    , IJSValue<JSTypedArray<T>>
+#endif
+    where T : struct
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSTypedArray<T>(JSValue value) => new(value);
-    public static implicit operator JSValue(JSTypedArray<T> arr) => arr._value;
+    public static implicit operator JSValue(JSTypedArray<T> value) => value.AsJSValue();
+    public static explicit operator JSTypedArray<T>?(JSValue value) => value.As<JSTypedArray<T>>();
+    public static explicit operator JSTypedArray<T>(JSValue value)
+        => value.As<JSTypedArray<T>>()
+        ?? throw new InvalidCastException("JSValue is not a TypedArray.");
+
 
     private static int ElementSize { get; } = default(T) switch
     {
@@ -100,6 +108,17 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
                 "Read-only memory cannot be transferred from .NET to JS.");
         }
     }
+
+    #region IJSValue<JSTypedArray<T>> implementation
+
+    //TODO: (vmoroz) Implement correctly
+    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+
+    public static JSTypedArray<T> CreateUnchecked(JSValue value) => new(value);
+
+    #endregion
+
+    public JSValue AsJSValue() => _value;
 
     /// <summary>
     /// Checks if this Memory is already owned by a JS TypedArray value, and if so

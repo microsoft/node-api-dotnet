@@ -9,11 +9,16 @@ using System.Diagnostics.CodeAnalysis;
 namespace Microsoft.JavaScript.NodeApi;
 
 public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquatable<JSValue>
+#if NET7_0_OR_GREATER
+    , IJSValue<JSObject>
+#endif
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSObject(JSValue value) => new(value);
-    public static implicit operator JSValue(JSObject obj) => obj._value;
+    public static implicit operator JSValue(JSObject value) => value.AsJSValue();
+    public static explicit operator JSObject?(JSValue value) => value.As<JSObject>();
+    public static explicit operator JSObject(JSValue value)
+        => value.As<JSObject>() ?? throw new InvalidCastException("JSValue is not an Object.");
 
     private JSObject(JSValue value)
     {
@@ -23,6 +28,16 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
     public JSObject() : this(JSValue.CreateObject())
     {
     }
+
+    #region IJSValue<JSObject> implementation
+
+    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+
+    public static JSObject CreateUnchecked(JSValue value) => new(value);
+
+    #endregion
+
+    public JSValue AsJSValue() => _value;
 
     public JSObject(IEnumerable<KeyValuePair<JSValue, JSValue>> properties) : this()
     {

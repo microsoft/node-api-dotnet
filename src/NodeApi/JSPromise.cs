@@ -15,11 +15,16 @@ namespace Microsoft.JavaScript.NodeApi;
 /// </summary>
 /// <seealso cref="TaskExtensions"/>
 public readonly struct JSPromise : IEquatable<JSValue>
+#if NET7_0_OR_GREATER
+    , IJSValue<JSPromise>
+#endif
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSPromise(JSValue value) => new(value);
-    public static implicit operator JSValue(JSPromise promise) => promise._value;
+    public static implicit operator JSValue(JSPromise value) => value.AsJSValue();
+    public static explicit operator JSPromise?(JSValue value) => value.As<JSPromise>();
+    public static explicit operator JSPromise(JSValue value)
+        => value.As<JSPromise>() ?? throw new InvalidCastException("JSValue is not a Promise.");
 
     public static explicit operator JSPromise(JSObject obj) => (JSPromise)(JSValue)obj;
     public static implicit operator JSObject(JSPromise promise) => (JSObject)promise._value;
@@ -142,6 +147,16 @@ public readonly struct JSPromise : IEquatable<JSValue>
             deferred.Reject(ex);
         }
     }
+
+    #region IJSValue<JSPromise> implementation
+
+    public static bool CanBeConvertedFrom(JSValue value) => value.IsPromise();
+
+    public static JSPromise CreateUnchecked(JSValue value) => new(value);
+
+    #endregion
+
+    public JSValue AsJSValue() => _value;
 
     /// <summary>
     /// Registers callbacks that are invoked when a promise is fulfilled and/or rejected,
