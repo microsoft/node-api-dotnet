@@ -18,7 +18,6 @@ using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 using NativeLibrary = Microsoft.JavaScript.NodeApi.Runtime.NativeLibrary;
 #endif
 
-
 #if !NETFRAMEWORK
 using System.Runtime.Loader;
 #endif
@@ -66,25 +65,6 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// Component that dynamically exports types from loaded assemblies.
     /// </summary>
     private readonly TypeExporter _typeExporter;
-
-    /// <summary>
-    /// Mapping from top-level namespace names like `System` and `Microsoft` to
-    /// namespace objects that track child namespaces and types in the namespace.
-    /// </summary>
-    /// <remarks>
-    /// This is a tree structure because each namespace object has another dictionary
-    /// of child namespaces.
-    /// </remarks>
-    private readonly Dictionary<string, Namespace> _exportedNamespaces = new();
-
-    /// <summary>
-    /// Mapping from .NET types to JS type objects for exported types.
-    /// </summary>
-    /// <remarks>
-    /// Note when dynamically loading an assembly, all the types in the assembly
-    /// are 
-    /// </remarks>
-    private readonly Dictionary<Type, JSReference> _exportedTypes = new();
 
     /// <summary>
     /// Mapping from assembly file paths to loaded assemblies.
@@ -163,16 +143,21 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         // Save the exports object, on which top-level namespaces will be defined.
         _exports = new JSReference(exports);
 
-        _typeExporter = new(_exportedTypes);
+        _typeExporter = new()
+        {
+            // Delay-loading is enabled by default, but can be disabled with this env variable.
+            IsDelayLoadEnabled =
+                Environment.GetEnvironmentVariable("NODE_API_DELAYLOAD") != "0"
+        };
 
         // Export the System.Runtime and System.Console assemblies by default.
-        LoadAssemblyTypes(typeof(object).Assembly);
+        _typeExporter.ExportAssemblyTypes(typeof(object).Assembly, exports);
         _loadedAssembliesByName.Add(
             typeof(object).Assembly.GetName().Name!, typeof(object).Assembly);
 
         if (typeof(Console).Assembly != typeof(object).Assembly)
         {
-            LoadAssemblyTypes(typeof(Console).Assembly);
+            _typeExporter.ExportAssemblyTypes(typeof(Console).Assembly, exports);
             _loadedAssembliesByName.Add(
                 typeof(Console).Assembly.GetName().Name!, typeof(Console).Assembly);
         }
@@ -191,6 +176,9 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             Console.Out.Flush();
         }
     }
+
+    [Conditional("DEBUG")]
+    public static void TraceDebug(string msg) => Trace(msg);
 
     /// <summary>
     /// Called by the native host to initialize the managed host module.
@@ -525,7 +513,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
 
-            LoadAssemblyTypes(assembly);
+            _typeExporter.ExportAssemblyTypes(assembly, (JSObject)_exports.GetValue()!.Value);
         }
         catch (BadImageFormatException)
         {
@@ -552,79 +540,6 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         Trace("< ManagedHost.LoadAssembly() => newly loaded");
         return assembly;
-    }
-
-    private void LoadAssemblyTypes(Assembly assembly)
-    {
-        Trace($"> ManagedHost.LoadAssemblyTypes({assembly.GetName().Name})");
-        int count = 0;
-
-        foreach (Type type in assembly.GetTypes())
-        {
-            if (!type.IsPublic)
-            {
-                // This also skips nested types which are NestedPublic but not Public.
-                continue;
-            }
-
-            string[] namespaceParts = type.Namespace?.Split('.') ?? [];
-            if (namespaceParts.Length == 0)
-            {
-                Trace($"    Skipping un-namespaced type: {type.Name}");
-                continue;
-            }
-
-            // Delay-loading is enabled by default, but can be disabled with this env variable.
-            bool deferMembers = Environment.GetEnvironmentVariable("NODE_API_DELAYLOAD") != "0";
-
-            if (!_exportedNamespaces.TryGetValue(namespaceParts[0], out Namespace? parentNamespace))
-            {
-                parentNamespace = new Namespace(
-                    namespaceParts[0], (type) => _typeExporter.TryExportType(type, deferMembers));
-                _exports.GetValue()!.Value.SetProperty(namespaceParts[0], parentNamespace.Value);
-                _exportedNamespaces.Add(namespaceParts[0], parentNamespace);
-            }
-
-            for (int i = 1; i < namespaceParts.Length; i++)
-            {
-                if (!parentNamespace.Namespaces.TryGetValue(
-                    namespaceParts[i], out Namespace? childNamespace))
-                {
-                    childNamespace = new Namespace(
-                        parentNamespace.Name + '.' + namespaceParts[i],
-                        (type) => _typeExporter.TryExportType(type, deferMembers));
-                    parentNamespace.Namespaces.Add(namespaceParts[i], childNamespace);
-                }
-
-                parentNamespace = childNamespace;
-            }
-
-            string typeName = type.Name;
-            if (type.IsGenericTypeDefinition)
-            {
-#if NETFRAMEWORK
-                typeName = typeName.Substring(0, typeName.IndexOf('`')) + '$';
-#else
-                typeName = string.Concat(typeName.AsSpan(0, typeName.IndexOf('`')), "$");
-#endif
-                if (!parentNamespace.Types.ContainsKey(typeName))
-                {
-                    // Multiple generic types may have the same name but with
-                    // different numbers of type args. They are only exported once.
-                    parentNamespace.Types.Add(typeName, type);
-                    Trace($"    {parentNamespace}.{typeName}");
-                    count++;
-                }
-            }
-            else
-            {
-                parentNamespace.Types.Add(typeName, type);
-                Trace($"    {parentNamespace}.{typeName}");
-                count++;
-            }
-        }
-
-        Trace($"< ManagedHost.LoadAssemblyTypes({assembly.GetName().Name}) => {count} types");
     }
 
     protected override void Dispose(bool disposing)

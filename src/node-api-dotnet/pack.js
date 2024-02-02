@@ -77,7 +77,8 @@ function packMainPackage() {
   // npm pack
   const command = `npm pack --pack-destination "${outPkgDir}"`;
   childProcess.execSync(command, { cwd: packageStageDir, stdio: 'inherit' });
-  const packageFilePath = path.join(outPkgDir, `${packageName}-${buildVersion}.tgz`)
+  const packageFilePath = path.join(outPkgDir, `${packageName}-${buildVersion}.tgz`);
+  writePackageVersionProps(buildVersion);
   console.log(`Successfully created package '${packageFilePath}'`);
 }
 
@@ -208,4 +209,16 @@ export * from 'node-api-dotnet';
 `;
     fs.writeFileSync(filePath.replace(/\.js$/, '.d.ts'), dts);
   }
+}
+
+function writePackageVersionProps(buildVersion) {
+  // Write a simple .props file that can be imported by MSBuild to get the current package version.
+  fs.writeFileSync(
+    path.join(outPkgDir, 'version.props'),
+    `<Project>
+  <PropertyGroup>
+    <NodeApiDotnetPackageVersion>${buildVersion}</NodeApiDotnetPackageVersion>
+  </PropertyGroup>
+</Project>
+`);
 }

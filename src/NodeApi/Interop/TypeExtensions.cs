@@ -10,6 +10,11 @@ public static class TypeExtensions
 {
     public static string FormatName(this Type type)
     {
+        if (type.IsArray)
+        {
+            return FormatName(type.GetElementType()!) + "[]";
+        }
+
         static string FormatNameWithoutNamespace(Type type)
         {
             string typeName = type.Name;

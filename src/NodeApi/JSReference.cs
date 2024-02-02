@@ -127,6 +127,10 @@ public class JSReference : IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets the referenced JS value, or null if the reference is weak and the value is
+    /// no longer available.
+    /// </summary>
     public JSValue? GetValue()
     {
         JSValueScope.CurrentRuntime.GetReferenceValue(Env, _handle, out napi_value result)

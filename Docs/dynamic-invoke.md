@@ -15,7 +15,7 @@ For examples of this scenario, see
        <GenerateNodeApiTypeDefinitionsForReferences>true</GenerateNodeApiTypeDefinitionsForReferences>
      </PropertyGroup>
      <ItemGroup>
-       <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.*" />
+       <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.5.*" />
        <PackageReference Include="Example.Package" Version="1.2.3" />
        <PackageReference Include="Example.Package.Two" Version="2.3.4" />
      </ItemGroup>
