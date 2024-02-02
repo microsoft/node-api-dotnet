@@ -128,6 +128,11 @@ public class ClassObject : ITestInterface
 
     public ClassObject ThisObject() => this;
 
+    public static ITestInterface Create(string value)
+    {
+        return new ClassObject { Value = value };
+    }
+
 #if !AOT
     public string AppendGenericValue<T>(T value)
     {

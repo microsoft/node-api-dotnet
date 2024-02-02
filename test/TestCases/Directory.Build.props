@@ -24,7 +24,7 @@
     <ItemGroup>
         <ProjectReference Include="$(NodeApiSrcDir)NodeApi\NodeApi.csproj" />
         <ProjectReference Include="$(NodeApiSrcDir)NodeApi.DotNetHost\NodeApi.DotNetHost.csproj" />
-        <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" VersionOverride="0.4.*-*" />
+        <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" VersionOverride="0.5.*-*" />
     </ItemGroup>
 
     <PropertyGroup>
