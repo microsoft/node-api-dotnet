@@ -9,11 +9,17 @@ using System.Threading;
 namespace Microsoft.JavaScript.NodeApi;
 
 public readonly partial struct JSAsyncIterable : IAsyncEnumerable<JSValue>, IEquatable<JSValue>
+#if NET7_0_OR_GREATER
+    , IJSValue<JSAsyncIterable>
+#endif
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSAsyncIterable(JSValue value) => new(value);
-    public static implicit operator JSValue(JSAsyncIterable iterable) => iterable._value;
+    public static implicit operator JSValue(JSAsyncIterable value) => value.AsJSValue();
+    public static explicit operator JSAsyncIterable?(JSValue value) => value.As<JSAsyncIterable>();
+    public static explicit operator JSAsyncIterable(JSValue value)
+        => value.As<JSAsyncIterable>()
+        ?? throw new InvalidCastException("JSValue is not an AsyncIterable.");
 
     public static explicit operator JSAsyncIterable(JSObject obj) => (JSAsyncIterable)(JSValue)obj;
     public static implicit operator JSObject(JSAsyncIterable iterable) => (JSObject)iterable._value;
@@ -22,6 +28,17 @@ public readonly partial struct JSAsyncIterable : IAsyncEnumerable<JSValue>, IEqu
     {
         _value = value;
     }
+
+    #region IJSValue<JSAsyncIterable> implementation
+
+    //TODO: (vmoroz) implement proper check using Symbol.asyncIterator
+    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+
+    public static JSAsyncIterable CreateUnchecked(JSValue value) => new(value);
+
+    #endregion
+
+    public JSValue AsJSValue() => _value;
 
 #pragma warning disable IDE0060 // Unused parameter
     public Enumerator GetAsyncEnumerator(CancellationToken cancellationToken = default)

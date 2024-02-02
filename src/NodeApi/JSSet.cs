@@ -10,11 +10,16 @@ using Microsoft.JavaScript.NodeApi.Interop;
 namespace Microsoft.JavaScript.NodeApi;
 
 public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
+#if NET7_0_OR_GREATER
+    , IJSValue<JSSet>
+#endif
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSSet(JSValue value) => new(value);
-    public static implicit operator JSValue(JSSet set) => set._value;
+    public static implicit operator JSValue(JSSet value) => value.AsJSValue();
+    public static explicit operator JSSet?(JSValue value) => value.As<JSSet>();
+    public static explicit operator JSSet(JSValue value)
+        => value.As<JSSet>() ?? throw new InvalidCastException("JSValue is not a Set.");
 
     public static explicit operator JSSet(JSObject obj) => (JSSet)(JSValue)obj;
     public static implicit operator JSObject(JSSet set) => (JSObject)set._value;
@@ -43,6 +48,17 @@ public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
     {
         _value = JSRuntimeContext.Current.Import(null, "Set").CallAsConstructor(iterable);
     }
+
+    #region IJSValue<JSSet> implementation
+
+    // TODO: (vmoroz) Implement using instanceof
+    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+
+    public static JSSet CreateUnchecked(JSValue value) => new(value);
+
+    #endregion
+
+    public JSValue AsJSValue() => _value;
 
     public int Count => (int)_value["size"];
 

@@ -9,14 +9,16 @@ using System.Diagnostics.CodeAnalysis;
 namespace Microsoft.JavaScript.NodeApi;
 
 public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSValue>
+#if NET7_0_OR_GREATER
+    , IJSValue<JSIterable>
+#endif
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSIterable(JSValue value) => new(value);
-    public static implicit operator JSValue(JSIterable iterable) => iterable._value;
-
-    public static explicit operator JSArray(JSIterable iterable) => (JSArray)iterable._value;
-    public static implicit operator JSIterable(JSArray array) => (JSIterable)(JSValue)array;
+    public static implicit operator JSValue(JSIterable value) => value.AsJSValue();
+    public static explicit operator JSIterable?(JSValue value) => value.As<JSIterable>();
+    public static explicit operator JSIterable(JSValue value)
+        => value.As<JSIterable>() ?? throw new InvalidCastException("JSValue is not an Iterable.");
 
     public static explicit operator JSIterable(JSObject obj) => (JSIterable)(JSValue)obj;
     public static implicit operator JSObject(JSIterable iterable) => (JSObject)iterable._value;
@@ -25,6 +27,17 @@ public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSV
     {
         _value = value;
     }
+
+    #region IJSValue<JSIterable> implementation
+
+    //TODO: (vmoroz) implement proper check using Symbol.iterator
+    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+
+    public static JSIterable CreateUnchecked(JSValue value) => new(value);
+
+    #endregion
+
+    public JSValue AsJSValue() => _value;
 
     public Enumerator GetEnumerator() => new(_value);
 
