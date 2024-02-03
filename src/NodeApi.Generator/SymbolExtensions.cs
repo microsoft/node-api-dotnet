@@ -341,7 +341,8 @@ internal static class SymbolExtensions
         TypeBuilder typeBuilder,
         Type[]? genericTypeParameters)
     {
-        foreach (Type interfaceType in typeSymbol.Interfaces.Select(AsType))
+        foreach (Type interfaceType in typeSymbol.Interfaces.Select(
+            (i) => i.AsType(genericTypeParameters)))
         {
             typeBuilder.AddInterfaceImplementation(interfaceType);
         }
