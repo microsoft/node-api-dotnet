@@ -306,11 +306,8 @@ internal static class SymbolExtensions
             return typeBuilder;
         }
 
-        // Ensure the base type is built before building the derived type.
-        if (baseType != null)
-        {
-            BuildBaseType(typeSymbol);
-        }
+        // Ensure the base type and interfaces are built before building the derived type.
+        BuildBaseTypeAndInterfaces(typeSymbol);
 
         // Ensure this type is only built once.
         if (SymbolicTypes.TryGetValue(typeFullName, out thisType) && thisType is not TypeBuilder)
@@ -321,18 +318,28 @@ internal static class SymbolExtensions
         return typeBuilder.CreateType()!;
     }
 
-    private static void BuildBaseType(INamedTypeSymbol typeSymbol)
+    private static void BuildBaseTypeAndInterfaces(INamedTypeSymbol typeSymbol)
     {
-        string baseTypeFullName = GetTypeSymbolFullName(typeSymbol.BaseType!);
-        if (SymbolicTypes.TryGetValue(baseTypeFullName, out Type? baseType) &&
-            baseType is TypeBuilder baseTypeBuilder)
+        if (typeSymbol.BaseType != null)
         {
-            if (typeSymbol.BaseType != null)
-            {
-                BuildBaseType(typeSymbol.BaseType);
-            }
+            BuildBaseTypeAndInterfaces(typeSymbol.BaseType);
 
-            baseTypeBuilder.CreateType();
+            string baseTypeFullName = GetTypeSymbolFullName(typeSymbol.BaseType!);
+            if (SymbolicTypes.TryGetValue(baseTypeFullName, out Type? baseType) &&
+                baseType is TypeBuilder baseTypeBuilder)
+            {
+                baseTypeBuilder.CreateType();
+            }
+        }
+
+        foreach (INamedTypeSymbol interfaceTypeSymbol in typeSymbol.Interfaces)
+        {
+            string interfaceTypeFullName = GetTypeSymbolFullName(interfaceTypeSymbol);
+            if (SymbolicTypes.TryGetValue(interfaceTypeFullName, out Type? interfaceType) &&
+                interfaceType is TypeBuilder interfaceTypeBuilder)
+            {
+                interfaceTypeBuilder.CreateType();
+            }
         }
     }
 
@@ -341,7 +348,8 @@ internal static class SymbolExtensions
         TypeBuilder typeBuilder,
         Type[]? genericTypeParameters)
     {
-        foreach (Type interfaceType in typeSymbol.Interfaces.Select(AsType))
+        foreach (Type interfaceType in typeSymbol.Interfaces.Select(
+            (i) => i.AsType(genericTypeParameters)))
         {
             typeBuilder.AddInterfaceImplementation(interfaceType);
         }
