@@ -6,6 +6,7 @@
     <LangVersion>12</LangVersion>
     <Nullable>enable</Nullable>
     <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
+    <PackRelease>false</PackRelease><!-- Prevent `dotnet pack` from defaulting to Release config. -->
     <BaseOutputPath>$(MSBuildThisFileDirectory)out/</BaseOutputPath>
     <OutputPath>$(BaseOutputPath)bin/$(Configuration)/$(MSBuildProjectName)/</OutputPath>
     <PackageOutputPath>$(BaseOutputPath)pkg/</PackageOutputPath>
