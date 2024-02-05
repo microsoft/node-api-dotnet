@@ -1,7 +1,10 @@
 <Project>
+  <!-- The main purpose of this file is to prevent use of the root Directory.Build.props file,
+  because Benchmark.NET does not like the build output paths to be redirected. -->
   <PropertyGroup>
-    <LangVersion>10</LangVersion>
-    <Nullable>enable</Nullable>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and ! $([MSBuild]::IsOsPlatform('Windows')) ">net8.0</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net472</TargetFrameworks>
+    <PackRelease>false</PackRelease>
+    <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
   </PropertyGroup>
-
 </Project>

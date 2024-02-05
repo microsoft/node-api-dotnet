@@ -4,6 +4,9 @@ This project contains a set of micro-benchmarks for .NET + JS interop operations
 [BenchmarkDotNet](https://benchmarkdotnet.org/). Most benchmarks run in both CLR and AOT modes,
 though the "Dynamic" benchmarks are CLR-only.
 
+> :warning: The benchmarks currently depend on a special branch build of `libnode` being present at
+`../bin/<rid>`. This should be resolved with [#107](https://github.com/microsoft/node-api-dotnet/issues/107).
+
 ### Run all benchmarks
 ```
 dotnet run -c Release -f net8.0 --filter *

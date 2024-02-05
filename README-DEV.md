@@ -5,7 +5,7 @@
    - _and_ [.NET 6 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/6.0)
    - _and_ [.NET 4.7.2 developer pack](https://dotnet.microsoft.com/en-us/download/dotnet-framework/net472)
      (Windows only)
- - [Node.js](https://nodejs.org/) version 16 or later
+ - [Node.js](https://nodejs.org/) version 18 or later
 
 While `node-api-dotnet` supports .NET 6 or .NET Framework 4 at runtime, .NET 8 or later SDK is
 required for building the AOT components.
@@ -21,10 +21,11 @@ from re-using a previously-loaded (possibly outdated) version of the source gene
 
 ## Build Packages
 ```bash
-dotnet pack -c Release
+dotnet pack
 ```
 This produces both nuget and npm packages (for the current platform only) in the `out/pkg`
-directory.
+directory. It uses `Debug` configuration by default, which is slower but allows for
+[debugging](#debugging). Append `-c Relase` to change the configuration.
 
 ## Test
 ```bash
@@ -50,16 +51,60 @@ assembly, then all `.js` test files execute against the assembly.
 Most test cases run twice, once for "hosted" CLR mode and once for AOT ahead-of-time compiled mode
 with no CLR.
 
+### Test a Private Build in another project
+A project typically consumes the `Microsoft.JavaScript.NodeApi` packages from `nuget.org`. Use these
+steps to set up a project to use a local build of the packages instead:
+1. [Build nuget packages](#build-packages) with `dotnet pack`.
+2. Note the version of the packages produced. If building from branch other than `main` the
+   package version may include a git commit hash.
+3. Add the package output directory to `<packageSources>` in your project's `NuGet.config` file,
+   before the `nuget.org` package source. It should look like this. (Replace
+   `/path/to-/node-api-dotnet` with the correct relative or absolute path on your system.)
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="local" value="/path/to/node-api-dotnet/out/pkg" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <disabledPackageSources>
+    <clear />
+  </disabledPackageSources>
+</configuration>
+```
+4. In your `.csproj` or `Directory.Packages.props` file, update `<PackageReference>` elements to
+   reference the version of the packages that you built locally. Include the git commit hash suffix,
+   if applicable. For example:
+```xml
+  <ItemGroup>
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.4.31-g424705b2aa" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.4.31-g424705b2aa" />
+  </ItemGroup>
+```
+5. Stop the .NET build server to ensure it doesn't continue using a previous version of the
+   generator assembly:
+```bash
+dotnet build-server shutdown
+```
+
 ## Debugging
 With a debug build, the following environment variables trigger just-in-time debugging of the
 respective components:
  - `NODE_API_DEBUG_GENERATOR=1` - Debug the C# source-generator or TS type-definitions generator
- when they runs during the build.
+ when they run during the build.
  - `NODE_API_DEBUG_RUNTIME=1` - Debug the .NET runtime host when it is loaded by JavaScript. (Does
  not apply to AOT-compiled modules.)
+
 Setting either of these variables to `1` causes the program to print a message to the console
-at startup and wait for a debugger to attach. Set to the string `vs` to use the VS JIT
-Debug dialog instead (requires Windows and a Visual Studio installation).
+at startup and wait (with 20s countdown) for a debugger to attach:
+```
+###################### DEBUG ######################
+Process "node" (21864) is waiting for debugger.
+Press any key to continue without debugging... (20)
+```
+Set to the string `vs` to use the VS JIT Debug dialog instead. (Requires Windows and a Visual Studio
+installation.)
 
 ## Tracing
 The following environment variables trigger verbose tracing to the console:
@@ -74,5 +119,10 @@ PR builds will fail if formatting does not comply with settings in `.editorconfi
 dotnet format --severity info --verbosity detailed
 ```
 
+## Benchmarks
+There are a lot of micro-benchmarks to measure low-level .NET/JS interop operations. See
+[bench/README.md](./bench/README.md) for details.
+
 ## Roadmap
+We track major feature work on the project board:
 [node-api-dotnet tasks](https://github.com/users/jasongin/projects/1/views/1)
