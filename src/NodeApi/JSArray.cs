@@ -5,21 +5,16 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSArray>
-#endif
+public readonly partial struct JSArray : IJSValue<JSArray>, IList<JSValue>
 {
     private readonly JSValue _value;
 
     public static implicit operator JSValue(JSArray arr) => arr.AsJSValue();
     public static explicit operator JSArray?(JSValue value) => value.As<JSArray>();
-    public static explicit operator JSArray(JSValue value)
-        => value.As<JSArray>() ?? throw new InvalidCastException("JSValue is not an Array");
+    public static explicit operator JSArray(JSValue value) => value.CastTo<JSArray>();
 
     public static explicit operator JSArray(JSObject obj) => (JSArray)(JSValue)obj;
     public static implicit operator JSObject(JSArray arr) => (JSObject)arr._value;
@@ -53,13 +48,17 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
 
     #region IJSValue<JSArray> implementation
 
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsArray();
+    public static bool CanCreateFrom(JSValue value) => value.IsArray();
 
-    public static JSArray CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSArray IJSValue<JSArray>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSArray CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+    #endregion
 
     /// <inheritdoc/>
     public int Length => _value.GetArrayLength();

@@ -9,10 +9,7 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly struct JSTypedArray<T> : IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSTypedArray<T>>
-#endif
+public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     where T : struct
 {
     private readonly JSValue _value;
@@ -20,9 +17,7 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue>
     public static implicit operator JSValue(JSTypedArray<T> value) => value.AsJSValue();
     public static explicit operator JSTypedArray<T>?(JSValue value) => value.As<JSTypedArray<T>>();
     public static explicit operator JSTypedArray<T>(JSValue value)
-        => value.As<JSTypedArray<T>>()
-        ?? throw new InvalidCastException("JSValue is not a TypedArray.");
-
+        => value.CastTo<JSTypedArray<T>>();
 
     private static int ElementSize { get; } = default(T) switch
     {
@@ -112,13 +107,17 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue>
     #region IJSValue<JSTypedArray<T>> implementation
 
     //TODO: (vmoroz) Implement correctly
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value) => value.IsObject();
 
-    public static JSTypedArray<T> CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSTypedArray<T> IJSValue<JSTypedArray<T>>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSTypedArray<T> CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+    #endregion
 
     /// <summary>
     /// Checks if this Memory is already owned by a JS TypedArray value, and if so

@@ -12,18 +12,14 @@ namespace Microsoft.JavaScript.NodeApi;
 /// <summary>
 /// Enables creation of JS Proxy objects with C# handler callbacks.
 /// </summary>
-public readonly partial struct JSProxy : IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSProxy>
-#endif
+public readonly partial struct JSProxy : IJSValue<JSProxy>
 {
     private readonly JSValue _value;
     private readonly JSValue _revoke = default;
 
     public static implicit operator JSValue(JSProxy value) => value.AsJSValue();
     public static explicit operator JSProxy?(JSValue value) => value.As<JSProxy>();
-    public static explicit operator JSProxy(JSValue value)
-        => value.As<JSProxy>() ?? throw new InvalidCastException("JSValue is not a Proxy.");
+    public static explicit operator JSProxy(JSValue value) => value.CastTo<JSProxy>();
 
     private JSProxy(JSValue value)
     {
@@ -73,13 +69,17 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
     #region IJSValue<JSProxy> implementation
 
     // TODO: (vmoroz) Implement using instanceof
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value) => value.IsObject();
 
-    public static JSProxy CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSProxy IJSValue<JSProxy>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSProxy CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+    #endregion
 
     /// <summary>
     /// Revokes the proxy, so that further access to the target is no longer trapped by

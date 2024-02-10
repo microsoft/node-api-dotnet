@@ -9,17 +9,13 @@ namespace Microsoft.JavaScript.NodeApi;
 /// <summary>
 /// Represents a JavaScript Function value.
 /// </summary>
-public readonly struct JSFunction : IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSFunction>
-#endif
+public readonly struct JSFunction : IJSValue<JSFunction>
 {
     private readonly JSValue _value;
 
     public static implicit operator JSValue(JSFunction value) => value.AsJSValue();
     public static explicit operator JSFunction?(JSValue value) => value.As<JSFunction>();
-    public static explicit operator JSFunction(JSValue value)
-        => value.As<JSFunction>() ?? throw new InvalidCastException("JSValue is not a Function");
+    public static explicit operator JSFunction(JSValue value) => value.CastTo<JSFunction>();
 
     private JSFunction(JSValue value)
     {
@@ -274,13 +270,17 @@ public readonly struct JSFunction : IEquatable<JSValue>
 
     #region IJSValue<JSFunction> implementation
 
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsFunction();
+    public static bool CanCreateFrom(JSValue value) => value.IsFunction();
 
-    public static JSFunction CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSFunction IJSValue<JSFunction>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSFunction CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+#endregion
 
     /// <summary>
     /// Gets the name of the function, or an empty string if the function is unnamed.

@@ -8,17 +8,13 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSObject>
-#endif
+public readonly partial struct JSObject : IJSValue<JSObject>, IDictionary<JSValue, JSValue>
 {
     private readonly JSValue _value;
 
     public static implicit operator JSValue(JSObject value) => value.AsJSValue();
     public static explicit operator JSObject?(JSValue value) => value.As<JSObject>();
-    public static explicit operator JSObject(JSValue value)
-        => value.As<JSObject>() ?? throw new InvalidCastException("JSValue is not an Object.");
+    public static explicit operator JSObject(JSValue value) => value.CastTo<JSObject>();
 
     private JSObject(JSValue value)
     {
@@ -31,13 +27,17 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
 
     #region IJSValue<JSObject> implementation
 
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value) => value.IsObject();
 
-    public static JSObject CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSObject IJSValue<JSObject>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSObject CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+#endregion
 
     public JSObject(IEnumerable<KeyValuePair<JSValue, JSValue>> properties) : this()
     {

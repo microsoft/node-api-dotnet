@@ -4,21 +4,16 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.JavaScript.NodeApi.Interop;
-using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly struct JSDate : IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSDate>
-#endif
+public readonly struct JSDate : IJSValue<JSDate>
 {
     private readonly JSValue _value;
 
     public static implicit operator JSValue(JSDate value) => value.AsJSValue();
     public static explicit operator JSDate?(JSValue value) => value.As<JSDate>();
-    public static explicit operator JSDate(JSValue value)
-        => value.As<JSDate>() ?? throw new InvalidCastException("JSValue is not a Date");
+    public static explicit operator JSDate(JSValue value) => value.CastTo<JSDate>();
 
     private JSDate(JSValue value)
     {
@@ -44,13 +39,18 @@ public readonly struct JSDate : IEquatable<JSValue>
 
     #region IJSValue<JSDate> implementation
 
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsDate();
+    public static bool CanCreateFrom(JSValue value) => value.IsDate();
 
-    public static JSDate CreateUnchecked(JSValue value) => new(value);
+#if NET7_0_OR_GREATER
+    static JSDate IJSValue<JSDate>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSDate CreateUnchecked(JSValue value) => new(value);
+#endif
+
+    public JSValue AsJSValue() => _value;
 
     #endregion
 
-    public JSValue AsJSValue() => _value;
 
     public static JSDate FromDateTime(DateTime value)
     {

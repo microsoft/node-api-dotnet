@@ -8,17 +8,13 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSIterable>
-#endif
+public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JSValue>
 {
     private readonly JSValue _value;
 
     public static implicit operator JSValue(JSIterable value) => value.AsJSValue();
     public static explicit operator JSIterable?(JSValue value) => value.As<JSIterable>();
-    public static explicit operator JSIterable(JSValue value)
-        => value.As<JSIterable>() ?? throw new InvalidCastException("JSValue is not an Iterable.");
+    public static explicit operator JSIterable(JSValue value) => value.CastTo<JSIterable>();
 
     public static explicit operator JSIterable(JSObject obj) => (JSIterable)(JSValue)obj;
     public static implicit operator JSObject(JSIterable iterable) => (JSObject)iterable._value;
@@ -31,13 +27,17 @@ public readonly partial struct JSIterable : IEnumerable<JSValue>, IEquatable<JSV
     #region IJSValue<JSIterable> implementation
 
     //TODO: (vmoroz) implement proper check using Symbol.iterator
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value) => value.IsObject();
 
-    public static JSIterable CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSIterable IJSValue<JSIterable>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSIterable CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+#endregion
 
     public Enumerator GetEnumerator() => new(_value);
 

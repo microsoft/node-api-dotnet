@@ -9,17 +9,13 @@ using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSSet>
-#endif
+public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
 {
     private readonly JSValue _value;
 
     public static implicit operator JSValue(JSSet value) => value.AsJSValue();
     public static explicit operator JSSet?(JSValue value) => value.As<JSSet>();
-    public static explicit operator JSSet(JSValue value)
-        => value.As<JSSet>() ?? throw new InvalidCastException("JSValue is not a Set.");
+    public static explicit operator JSSet(JSValue value) => value.CastTo<JSSet>();
 
     public static explicit operator JSSet(JSObject obj) => (JSSet)(JSValue)obj;
     public static implicit operator JSObject(JSSet set) => (JSObject)set._value;
@@ -52,13 +48,17 @@ public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
     #region IJSValue<JSSet> implementation
 
     // TODO: (vmoroz) Implement using instanceof
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value) => value.IsObject();
 
-    public static JSSet CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSSet IJSValue<JSSet>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSSet CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+    #endregion
 
     public int Count => (int)_value["size"];
 

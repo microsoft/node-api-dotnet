@@ -1,40 +1,45 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if !NET7_0_OR_GREATER
 using System;
+
+#if !NET7_0_OR_GREATER
 using System.Reflection;
 #endif
 
 namespace Microsoft.JavaScript.NodeApi;
 
-#if NET7_0_OR_GREATER
 // A static interface that helps with the conversion of JSValue to a specific type.
-public interface IJSValue<TSelf> where TSelf : struct, IJSValue<TSelf>
+public interface IJSValue<TSelf> : IEquatable<JSValue> where TSelf : struct, IJSValue<TSelf>
 {
-    public static abstract bool CanBeConvertedFrom(JSValue value);
+    public JSValue AsJSValue();
+
+#if NET7_0_OR_GREATER
+    public static abstract bool CanCreateFrom(JSValue value);
 
     public static abstract TSelf CreateUnchecked(JSValue value);
+#endif
 }
-#else
+
+#if !NET7_0_OR_GREATER
 // A static class that helps with the conversion of JSValue to a specific type.
-public static class IJSValueShim<T> where T : struct
+internal static class IJSValueShim<T> where T : struct
 {
-    private static readonly Func<JSValue, bool> s_canBeConvertedFrom =
+    private static readonly Func<JSValue, bool> s_canBeCreatedFrom =
         (Func<JSValue, bool>)Delegate.CreateDelegate(
             typeof(Func<JSValue, bool>),
             typeof(T).GetMethod(
-                nameof(JSObject.CanBeConvertedFrom),
+                "CanCreateFrom",
                 BindingFlags.Static | BindingFlags.Public)!);
 
     private static readonly Func<JSValue, T>s_createUnchecked =
         (Func<JSValue, T>)Delegate.CreateDelegate(
             typeof(Func<JSValue, T>),
             typeof(T).GetMethod(
-                nameof(JSObject.CreateUnchecked),
-                BindingFlags.Static | BindingFlags.Public)!);
+                "CreateUnchecked",
+                BindingFlags.Static | BindingFlags.NonPublic)!);
 
-    public static bool CanBeConvertedFrom(JSValue value) => s_canBeConvertedFrom(value);
+    public static bool CanCreateFrom(JSValue value) => s_canBeCreatedFrom(value);
 
     public static T CreateUnchecked(JSValue value) => s_createUnchecked(value);
 }

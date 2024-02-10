@@ -6,10 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly struct JSSymbol : IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSSymbol>
-#endif
+public readonly struct JSSymbol : IJSValue<JSSymbol>
 {
     private readonly JSValue _value;
 
@@ -21,8 +18,7 @@ public readonly struct JSSymbol : IEquatable<JSValue>
 
     public static implicit operator JSValue(JSSymbol value) => value.AsJSValue();
     public static explicit operator JSSymbol?(JSValue value) => value.As<JSSymbol>();
-    public static explicit operator JSSymbol(JSValue value)
-        => value.As<JSSymbol>() ?? throw new InvalidCastException("JSValue is not a Symbol.");
+    public static explicit operator JSSymbol(JSValue value) => value.CastTo<JSSymbol>();
 
     private JSSymbol(JSValue value)
     {
@@ -36,13 +32,17 @@ public readonly struct JSSymbol : IEquatable<JSValue>
 
     #region IJSValue<JSSymbol> implementation
 
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsSymbol();
+    public static bool CanCreateFrom(JSValue value) => value.IsSymbol();
 
-    public static JSSymbol CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSSymbol IJSValue<JSSymbol>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSSymbol CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+#endregion
 
     /// <summary>
     /// Gets the symbol's description, or null if it does not have one.

@@ -8,17 +8,13 @@ using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSMap>
-#endif
+public readonly partial struct JSMap : IJSValue<JSMap>, IDictionary<JSValue, JSValue>
 {
     private readonly JSValue _value;
 
     public static implicit operator JSValue(JSMap value) => value.AsJSValue();
     public static explicit operator JSMap?(JSValue value) => value.As<JSMap>();
-    public static explicit operator JSMap(JSValue value)
-        => value.As<JSMap>() ?? throw new InvalidCastException("JSValue is not a Map.");
+    public static explicit operator JSMap(JSValue value) => value.CastTo<JSMap>();
 
     public static explicit operator JSMap(JSObject obj) => (JSMap)(JSValue)obj;
     public static implicit operator JSObject(JSMap map) => (JSObject)map._value;
@@ -48,13 +44,17 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
     #region IJSValue<JSMap> implementation
 
     // TODO: (vmoroz) Implement using instanceof
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value) => value.IsObject();
 
-    public static JSMap CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+#if NET7_0_OR_GREATER
+    static JSMap IJSValue<JSMap>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSMap CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+    #endregion
 
     public int Count => (int)_value["size"];
 

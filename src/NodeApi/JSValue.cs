@@ -391,28 +391,32 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public bool IsBigInt() => TypeOf() == JSValueType.BigInt;
 
-    public bool Is<TValue>() where TValue : struct
+    public bool Is<TValue>() where TValue : struct, IJSValue<TValue>
 #if NET7_0_OR_GREATER
-        , IJSValue<TValue> => TValue.CanBeConvertedFrom(this);
+        => TValue.CanCreateFrom(this);
 #else
-        => IJSValueShim<TValue>.CanBeConvertedFrom(this);
+        => IJSValueShim<TValue>.CanCreateFrom(this);
 #endif
 
-    public TValue? As<TValue>() where TValue : struct
+    public TValue? As<TValue>() where TValue : struct, IJSValue<TValue>
 #if NET7_0_OR_GREATER
-        , IJSValue<TValue>
-        => TValue.CanBeConvertedFrom(this) ? TValue.CreateUnchecked(this) : default;
+        => TValue.CanCreateFrom(this) ? TValue.CreateUnchecked(this) : default;
 #else
-        => IJSValueShim<TValue>.CanBeConvertedFrom(this)
+        => IJSValueShim<TValue>.CanCreateFrom(this)
             ? IJSValueShim<TValue>.CreateUnchecked(this) : default;
 #endif
 
-    public TValue AsUnchecked<TValue>() where TValue : struct
+    public TValue AsUnchecked<TValue>() where TValue : struct, IJSValue<TValue>
 #if NET7_0_OR_GREATER
-        , IJSValue<TValue> => TValue.CreateUnchecked(this);
+        => TValue.CreateUnchecked(this);
 #else
         => IJSValueShim<TValue>.CreateUnchecked(this);
 #endif
+
+    public TValue CastTo<TValue>() where TValue : struct, IJSValue<TValue>
+        => As<TValue>()
+        ?? throw new InvalidCastException("JSValue cannot be casted to target type.");
+
 
     public double GetValueDouble() => GetRuntime(out napi_env env, out napi_value handle)
         .GetValueDouble(env, handle, out double result).ThrowIfFailed(result);

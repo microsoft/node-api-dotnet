@@ -15,18 +15,13 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// https://nodejs.org/api/globals.html#class-abortsignal
 /// https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal
 /// </remarks>
-public readonly struct JSAbortSignal : IEquatable<JSValue>
-#if NET7_0_OR_GREATER
-    , IJSValue<JSAbortSignal>
-#endif
+public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
 {
     private readonly JSValue _value;
 
     public static implicit operator JSValue(JSAbortSignal value) => value.AsJSValue();
     public static explicit operator JSAbortSignal?(JSValue value) => value.As<JSAbortSignal>();
-    public static explicit operator JSAbortSignal(JSValue value)
-        => value.As<JSAbortSignal>()
-        ?? throw new InvalidCastException("JSValue is not an AbortSignal.");
+    public static explicit operator JSAbortSignal(JSValue value) => value.CastTo<JSAbortSignal>();
 
     public static explicit operator JSAbortSignal(JSObject obj) => (JSAbortSignal)(JSValue)obj;
     public static implicit operator JSObject(JSAbortSignal promise) => (JSObject)promise._value;
@@ -46,14 +41,18 @@ public readonly struct JSAbortSignal : IEquatable<JSValue>
 
     #region IJSValue<JSAbortSignal> implementation
 
+    public static bool CanCreateFrom(JSValue value) => value.IsObject();
+
+#if NET7_0_OR_GREATER
     // TODO: (vmoroz) Implement
-    public static bool CanBeConvertedFrom(JSValue value) => value.IsObject();
-
-    public static JSAbortSignal CreateUnchecked(JSValue value) => new(value);
-
-    #endregion
+    static JSAbortSignal IJSValue<JSAbortSignal>.CreateUnchecked(JSValue value) => new(value);
+#else
+    private static JSAbortSignal CreateUnchecked(JSValue value) => new(value);
+#endif
 
     public JSValue AsJSValue() => _value;
+
+#endregion
 
     private CancellationToken ToCancellationToken()
     {
