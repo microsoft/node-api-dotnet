@@ -27,12 +27,11 @@ parameters:
       VMImage: windows-latest
       TargetRuntime: win-arm64
     - Name: osx_x64
-      VMImage: macos-latest
+      VMImage: macos-13
       TargetRuntime: osx-x64
     - Name: osx_arm64
-      VMImage: macos-latest
+      VMImage: macos-13-arm64
       TargetRuntime: osx-arm64
-      UseGlobalJson: true
     - Name: linux_x64
       VMImage: ubuntu-latest
       TargetRuntime: linux-x64
