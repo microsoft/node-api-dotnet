@@ -17,19 +17,20 @@ namespace Microsoft.JavaScript.NodeApi.Test;
 public class TypeDefsGeneratorTests
 {
     private static TypeDefinitionsGenerator CreateTypeDefinitionsGenerator(
-        IEnumerable<KeyValuePair<string, string>> docs)
+        IEnumerable<KeyValuePair<string, string>> docs, bool insertNamespace = true)
     {
         return CreateTypeDefinitionsGenerator(docs.Select((pair) =>
-            new KeyValuePair<string, XElement>(pair.Key, new XElement("summary", pair.Value))));
+            new KeyValuePair<string, XElement>(pair.Key, new XElement("summary", pair.Value))),
+            insertNamespace);
     }
 
     private static TypeDefinitionsGenerator CreateTypeDefinitionsGenerator(
-        IEnumerable<KeyValuePair<string, XElement>> docs)
+        IEnumerable<KeyValuePair<string, XElement>> docs, bool insertNamespace = true)
     {
         string ns = typeof(TypeDefsGeneratorTests).FullName + "+";
         XDocument docsXml = new(new XElement("root", new XElement("members",
             docs.Select((pair) => new XElement("member",
-                new XAttribute("name", pair.Key.Insert(2, ns)),
+                new XAttribute("name", insertNamespace ? pair.Key.Insert(2, ns) : pair.Key),
                 pair.Value)))));
         return new TypeDefinitionsGenerator(
             typeof(TypeDefsGeneratorTests).Assembly,
@@ -38,8 +39,12 @@ public class TypeDefsGeneratorTests
             suppressWarnings: true);
     }
 
-    private string GenerateTypeDefinition(Type type, IDictionary<string, string> docs)
-        => CreateTypeDefinitionsGenerator(docs).GenerateTypeDefinition(type).TrimEnd();
+    private string GenerateTypeDefinition(
+        Type type,
+        IDictionary<string, string> docs,
+        bool insertNamespace = true)
+        => CreateTypeDefinitionsGenerator(docs, insertNamespace)
+            .GenerateTypeDefinition(type).TrimEnd();
 
     private string GenerateMemberDefinition(MemberInfo member, IDictionary<string, string> docs)
         => CreateTypeDefinitionsGenerator(docs).GenerateMemberDefinition(member).TrimEnd();
@@ -79,7 +84,7 @@ public class TypeDefsGeneratorTests
         }));
     }
 
-    private class SimpleClass : SimpleInterface
+    internal class SimpleClass : SimpleInterface
     {
         public string TestProperty { get; set; } = null!;
         public string TestMethod() { return string.Empty; }
@@ -185,11 +190,7 @@ public class TypeDefsGeneratorTests
         Assert.Equal("""
 
             /** [Generic type factory] generic-interface */
-            export function GenericInterface$(T: IType<any>): GenericInterface$$1<any>;
-
-            /** generic-interface */
-            export interface GenericInterface$$1<T> {
-            }
+            export function GenericInterface$(T: IType): IType;
 
             /** generic-interface */
             export interface GenericInterface$1<T> {
@@ -223,27 +224,24 @@ public class TypeDefsGeneratorTests
         Assert.Equal("""
 
             /** [Generic type factory] generic-class */
-            export function GenericClass$(T: IType<any>): GenericClass$$1<any>;
+            export function GenericClass$(T: IType): typeof GenericClass$1<any>;
 
             /** generic-class */
-            export interface GenericClass$$1<T> {
+            export class GenericClass$1<T> {
             	/** constructor */
             	new(value: T): GenericClass$1<T>;
 
-            	/** static-property */
-            	TestStaticProperty: T;
-
-            	/** static-method */
-            	TestStaticMethod(value: T): T;
-            }
-
-            /** generic-class */
-            export interface GenericClass$1<T> {
             	/** instance-property */
             	TestProperty: T;
 
+            	/** static-property */
+            	static TestStaticProperty: any;
+
             	/** instance-method */
             	TestMethod(value: T): T;
+
+            	/** static-method */
+            	static TestStaticMethod(value: any): any;
             }
             """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(GenericClass<>), new Dictionary<string, string>
@@ -265,12 +263,7 @@ public class TypeDefsGeneratorTests
         Assert.Equal("""
 
             /** [Generic type factory] generic-delegate */
-            export function GenericDelegate$(T: IType<any>): GenericDelegate$$1<any>;
-
-            /** generic-delegate */
-            export interface GenericDelegate$$1<T> {
-            	new(func: (arg: T) => T): GenericDelegate$1<T>;
-            }
+            export function GenericDelegate$(T: IType): IType;
 
             /** generic-delegate */
             export interface GenericDelegate$1<T> { (arg: T): T; }
@@ -301,6 +294,45 @@ public class TypeDefsGeneratorTests
                 "."),
         }));
     }
+
+    [Fact]
+    public void GenerateExtensionMethods()
+    {
+        string extensionsName = typeof(SimpleClassExtensions).FullName!;
+        Assert.Equal("""
+
+            export namespace SimpleClassExtensions {
+            	/** extension A */
+            	export function TestExtensionA(value: unknown): void;
+
+            	/** extension B */
+            	export function TestExtensionB(value: unknown): void;
+            }
+
+            /** Extension methods from {@link Microsoft.JavaScript.NodeApi.Test.SimpleClassExtensions} */
+            export interface SimpleClass {
+            	/** extension A */
+            	TestExtensionA(): void;
+
+            	/** extension B */
+            	TestExtensionB(): void;
+            }
+            """.ReplaceLineEndings(),
+        GenerateTypeDefinition(typeof(SimpleClassExtensions), new Dictionary<string, string>
+        {
+            [$"M:{extensionsName}.TestExtensionA({typeof(SimpleClass).FullName})"] = "extension A",
+            [$"M:{extensionsName}.TestExtensionB({typeof(SimpleClass).FullName})"] = "extension B",
+        }, insertNamespace: false));
+    }
 }
+
+internal static class SimpleClassExtensions
+{
+    public static void TestExtensionA(this TypeDefsGeneratorTests.SimpleClass value)
+        => value.TestMethod();
+    public static void TestExtensionB(this TypeDefsGeneratorTests.SimpleClass value)
+        => value.TestMethod();
+}
+
 
 #endif // !NETFRAMEWORK

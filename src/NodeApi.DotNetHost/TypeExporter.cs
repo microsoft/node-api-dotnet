@@ -239,7 +239,8 @@ internal class TypeExporter
         else if (targetType.IsPrimitive ||
             targetType == typeof(object) ||
             targetType == typeof(string) ||
-            targetType == typeof(Type))
+            targetType == typeof(Type) ||
+            targetType.Name == nameof(Task) || targetType.Name.StartsWith(nameof(Task) + '`'))
         {
             TraceDebug($"Target type '{targetType.FormatName()}' not supported for " +
                 $"extension method '{extensionMethodName}'.");
@@ -254,6 +255,7 @@ internal class TypeExporter
         else if ((targetType.GetInterface(nameof(System.Collections.IEnumerable)) != null &&
             (targetType.Namespace == typeof(System.Collections.IEnumerable).Namespace ||
             targetType.Namespace == typeof(IEnumerable<>).Namespace)) ||
+            targetType.Name.StartsWith("IAsyncEnumerable`") ||
             targetType.Name == nameof(Tuple) || targetType.Name.StartsWith(nameof(Tuple) + '`'))
         {
             TraceDebug($"Collection target type '{targetType.FormatName()}' not supported for " +

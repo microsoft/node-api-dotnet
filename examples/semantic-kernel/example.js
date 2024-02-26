@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// @ts-check
-
 import dotnet from 'node-api-dotnet';
 import './bin/System.Text.Encodings.Web.js';
 import './bin/Microsoft.Extensions.DependencyInjection.js';
@@ -15,14 +13,12 @@ const SK = dotnet.Microsoft.SemanticKernel;
 
 const kernelBuilder = SK.Kernel.CreateBuilder();
 
-// @ts-ignore - Typedefs for extension methods are not yet available.
 kernelBuilder.AddAzureOpenAIChatCompletion(
   process.env['OPENAI_DEPLOYMENT'] || '',
   process.env['OPENAI_ENDPOINT'] || '',
   process.env['OPENAI_KEY'] || '',
 );
 
-// @ts-ignore - Typedefs for extension methods are not yet available.
 const kernel = kernelBuilder.Build();
 
 const prompt = `{{$input}}
@@ -44,7 +40,6 @@ does not conflict with the First or Second Law.
 const executionSettings = new SK.Connectors.OpenAI.OpenAIPromptExecutionSettings();
 executionSettings.MaxTokens = 100;
 
-// @ts-ignore - Typedefs for extension methods are not yet available.
 const summaryFunction = kernel.CreateFunctionFromPrompt(prompt, executionSettings);
 
 const summarizeArguments = new Map([

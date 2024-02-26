@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -468,9 +469,8 @@ dotnet.load(assemblyName);
         else if (type.IsClass || type.IsInterface || type.IsValueType)
         {
             GenerateClassDefinition(ref s, type);
-        }
-        else
-        {
+
+            GenerateExtensionMethods(ref s, type);
         }
     }
 
@@ -508,12 +508,12 @@ dotnet.load(assemblyName);
             // from tye .NET System.Type type, which could also be accessed from JS.
             s.Insert(insertIndex, @"
 /** A JavaScript projection of a .NET type. */
-interface IType<T> {
+interface IType {
 	/**
 	 * Constructs a new instance of the type.
 	 * (Not available for static class or interface types.)
 	 */
-	new?(...args: any[]): T;
+	new?(...args: any[]): IType;
 
 	/** Gets the full name of the .NET type. */
 	toString(): string;
@@ -571,21 +571,6 @@ import { Duplex } from 'stream';
         if (type.IsGenericTypeDefinition)
         {
             GenerateGenericTypeFactory(ref s, type);
-
-            GenerateDocComments(ref s, type);
-
-            Type[] typeArgs = type.GetGenericArguments();
-            string typeParams = string.Join(", ", typeArgs.Select((t) => t.Name));
-            s += $"export interface {exportName}$${typeArgs.Length}<{typeParams}> {{";
-
-            string invokeArgs = string.Join(", ", invokeMethod.GetParameters().Select(
-                (p) => $"{p.Name}: {GetTSType(p)}"));
-            string invokeRet = GetTSType(invokeMethod.ReturnParameter);
-            s += $"new(func: ({invokeArgs}) => {invokeRet}): " +
-                $"{exportName}${typeArgs.Length}<{typeParams}>;";
-
-            s += "}";
-            s++;
         }
 
         GenerateDocComments(ref s, type);
@@ -604,67 +589,19 @@ import { Duplex } from 'stream';
 
         string exportName = GetExportName(type);
 
-        bool isFirstMember = true;
-        bool isGenericTypeDefinition = type.IsGenericTypeDefinition;
-        if (isGenericTypeDefinition)
+        if (type.IsGenericTypeDefinition)
         {
             GenerateGenericTypeFactory(ref s, type);
-
-            GenerateDocComments(ref s, type);
-
-            Type[] typeArgs = type.GetGenericArguments();
-            string typeParams = string.Join(", ", typeArgs.Select((t) => t.Name));
-            s += $"export interface {exportName}$${typeArgs.Length}<{typeParams}> {{";
-
-            foreach (ConstructorInfo constructor in type.GetConstructors(
-                BindingFlags.Public | BindingFlags.Instance))
-            {
-                if (!IsExcludedMember(constructor))
-                {
-                    if (isFirstMember) isFirstMember = false; else s++;
-                    ExportTypeMember(ref s, constructor);
-                }
-            }
-
-            if (type.IsClass)
-            {
-                foreach (PropertyInfo property in type.GetProperties(
-                    BindingFlags.Public | BindingFlags.Static))
-                {
-                    // Indexed properties are not implemented.
-                    if (!IsExcludedMember(property) && property.GetIndexParameters().Length == 0)
-                    {
-                        if (isFirstMember) isFirstMember = false; else s++;
-                        ExportTypeMember(ref s, property);
-                    }
-                }
-
-                foreach (MethodInfo method in type.GetMethods(
-                    BindingFlags.Public | BindingFlags.Static))
-                {
-                    if (!IsExcludedMember(method))
-                    {
-                        if (isFirstMember) isFirstMember = false; else s++;
-                        ExportTypeMember(ref s, method);
-                    }
-                }
-            }
-
-            s += "}";
-            s++;
         }
 
         GenerateDocComments(ref s, type);
 
-        bool isStaticClass = type.IsAbstract && type.IsSealed && !isGenericTypeDefinition;
+        bool isStaticClass = type.IsAbstract && type.IsSealed && !type.IsGenericTypeDefinition;
         bool isStreamSubclass = type.BaseType?.FullName == typeof(Stream).FullName;
-        string classKind = type.IsInterface || type.IsGenericTypeDefinition ?
-            "interface" : isStaticClass ? "namespace" : "class";
-        string implementsKind = type.IsInterface || type.IsGenericTypeDefinition ?
-            "extends" : "implements";
+        string classKind = type.IsInterface ? "interface" : isStaticClass ? "namespace" : "class";
+        string implementsKind = type.IsInterface ? "extends" : "implements";
 
         string implements = string.Empty;
-
         Type[] interfaceTypes = type.GetInterfaces();
         foreach (Type interfaceType in interfaceTypes)
         {
@@ -713,18 +650,14 @@ import { Duplex } from 'stream';
 
         s += $"export {classKind} {exportName}{GetGenericParams(type)}{implements} {{";
 
-        isFirstMember = true;
-
-        if (!isGenericTypeDefinition)
+        bool isFirstMember = true;
+        foreach (ConstructorInfo constructor in type.GetConstructors(
+            BindingFlags.Public | BindingFlags.Instance))
         {
-            foreach (ConstructorInfo constructor in type.GetConstructors(
-                BindingFlags.Public | BindingFlags.Instance))
+            if (!IsExcludedMember(constructor))
             {
-                if (!IsExcludedMember(constructor))
-                {
-                    if (isFirstMember) isFirstMember = false; else s++;
-                    ExportTypeMember(ref s, constructor);
-                }
+                if (isFirstMember) isFirstMember = false; else s++;
+                ExportTypeMember(ref s, constructor);
             }
         }
 
@@ -733,7 +666,7 @@ import { Duplex } from 'stream';
             foreach (PropertyInfo property in type.GetProperties(
                 BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
+                (type.IsInterface ? default : BindingFlags.Static)))
             {
                 // Indexed properties are not implemented.
                 if (!IsExcludedMember(property) && property.GetIndexParameters().Length == 0)
@@ -746,7 +679,7 @@ import { Duplex } from 'stream';
             foreach (MethodInfo method in type.GetMethods(
                 BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface || isGenericTypeDefinition ? default : BindingFlags.Static)))
+                (type.IsInterface ? default : BindingFlags.Static)))
             {
                 if (!IsExcludedMember(method))
                 {
@@ -849,13 +782,94 @@ import { Duplex } from 'stream';
         GenerateDocComments(ref s, type, "[Generic type factory] ");
         string exportName = GetExportName(type);
         Type[] typeArgs = type.GetGenericArguments();
-        string typeParams = string.Join(", ", typeArgs.Select((t) => $"{t.Name}: IType<any>"));
+        string typeParams = string.Join(", ", typeArgs.Select((t) => $"{t.Name}: IType"));
+        string typeParamsAsAny = string.Join(", ", typeArgs.Select((_) => $"any"));
 
         // TODO: Instead of `any` here, use TypeScript to map each generic type arg to JS.
         s += $"export function {exportName}$({typeParams}): " +
-            $"{exportName}$${typeArgs.Length}<{string.Join(", ", typeArgs.Select((_) => "any"))}>;";
+            (type.IsInterface || type.BaseType?.FullName == typeof(MulticastDelegate).FullName ?
+            "IType;" : $"typeof {exportName}${typeArgs.Length}<{typeParamsAsAny}>;");
         s++;
         _emitType = true;
+    }
+
+    private void GenerateExtensionMethods(ref SourceBuilder s, Type type)
+    {
+        bool isStaticClass = type.IsAbstract && type.IsSealed;
+        if (!type.IsClass || !isStaticClass || !IsExtensionMember(type))
+        {
+            return;
+        }
+
+        IEnumerable<IGrouping<Type, MethodInfo>> extensionMethodsByTargetType =
+            type.GetMethods(BindingFlags.Static | BindingFlags.Public)
+            .Where((m) => IsExtensionMember(m) && !IsExcludedMember(m))
+            .GroupBy((m) => m.GetParameters()[0].ParameterType)
+            .Where((g) => IsExtensionTargetTypeSupported(g.Key));
+        foreach (IGrouping<Type, MethodInfo> extensionMethodGroup in extensionMethodsByTargetType)
+        {
+            Type targetType = extensionMethodGroup.Key;
+            if (targetType.IsConstructedGenericType)
+            {
+                // Extension methods for constructed generic types can't be represented in TS.
+                continue;
+            }
+
+            s++;
+
+            BeginNamespace(ref s, targetType);
+
+            s += $"/** Extension methods from {{@link {type.Namespace}.{GetExportName(type)}}} */";
+
+            if (targetType.IsGenericTypeDefinition)
+            {
+                string exportName = GetExportName(targetType);
+                Type[] typeArgs = targetType.GetGenericArguments();
+                string typeParams = string.Join(", ", typeArgs.Select((t) => t.Name));
+                s += $"export interface {exportName}${typeArgs.Length}<{typeParams}> {{";
+            }
+            else
+            {
+                s += $"export interface {GetExportName(targetType)} {{";
+            }
+
+            bool isFirstMember = true;
+            foreach (MethodInfo method in extensionMethodGroup)
+            {
+                if (isFirstMember) isFirstMember = false; else s++;
+                ExportTypeMember(ref s, method, asExtension: true);
+            }
+
+            s += "}";
+
+            EndNamespace(ref s, targetType);
+        }
+    }
+
+    private static bool IsExtensionMember(MemberInfo member)
+    {
+        return member.GetCustomAttributesData().Any(
+            (a) => a.AttributeType.FullName == typeof(ExtensionAttribute).FullName);
+    }
+
+    private static bool IsExtensionTargetTypeSupported(Type targetType)
+    {
+        if (targetType.IsValueType || targetType.IsPrimitive ||
+            targetType == typeof(object) ||
+            targetType == typeof(string) ||
+            targetType == typeof(Type) ||
+            targetType.IsArray ||
+            (targetType.GetInterface(nameof(System.Collections.IEnumerable)) != null &&
+             (targetType.Namespace == typeof(System.Collections.IEnumerable).Namespace ||
+              targetType.Namespace == typeof(IEnumerable<>).Namespace)) ||
+            targetType.Name.StartsWith("IAsyncEnumerable`") ||
+            targetType.Name == nameof(Tuple) || targetType.Name.StartsWith(nameof(Tuple) + '`') ||
+            targetType.Name == nameof(Task) || targetType.Name.StartsWith(nameof(Task) + '`'))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     public string GenerateMemberDefinition(MemberInfo member)
@@ -865,7 +879,7 @@ import { Duplex } from 'stream';
         return s.ToString();
     }
 
-    private void ExportTypeMember(ref SourceBuilder s, MemberInfo member)
+    private void ExportTypeMember(ref SourceBuilder s, MemberInfo member, bool asExtension = false)
     {
         Type declaringType = member.DeclaringType!;
 
@@ -894,16 +908,16 @@ import { Duplex } from 'stream';
             string propertyName = TSIdentifier(memberName);
             string propertyType = GetTSType(property);
 
-            if (declaringType.IsAbstract && declaringType.IsSealed)
+            if (declaringType.IsAbstract && declaringType.IsSealed &&
+                !declaringType.IsGenericTypeDefinition)
             {
                 string varKind = property.SetMethod == null ? "const " : "var ";
                 s += $"export {varKind}{propertyName}: {propertyType};";
             }
             else
             {
-                bool isStatic = (property.GetMethod?.IsStatic ??
-                    property.SetMethod?.IsStatic ?? false) &&
-                    !declaringType.IsGenericTypeDefinition;
+                bool isStatic = property.GetMethod?.IsStatic ??
+                    property.SetMethod?.IsStatic ?? false;
                 string modifiers = (isStatic ? "static " : "") +
                     (property.SetMethod == null ? "readonly " : "");
                 string optionalToken = string.Empty;
@@ -924,7 +938,8 @@ import { Duplex } from 'stream';
             GenerateDocComments(ref s, method);
             string methodName = TSIdentifier(memberName);
             string genericParams = GetGenericParams(method);
-            string parameters = GetTSParameters(method.GetParameters());
+            string parameters = GetTSParameters(
+                asExtension ? method.GetParameters().Skip(1).ToArray() : method.GetParameters());
             string returnType = GetTSType(method.ReturnParameter);
 
             if (methodName == nameof(IDisposable.Dispose))
@@ -933,7 +948,7 @@ import { Duplex } from 'stream';
                 methodName = "dispose";
             }
 
-            if (declaringType.IsAbstract && declaringType.IsSealed &&
+            if (declaringType.IsAbstract && declaringType.IsSealed && !asExtension &&
                 !declaringType.IsGenericTypeDefinition)
             {
                 s += "export function " +
@@ -941,8 +956,7 @@ import { Duplex } from 'stream';
             }
             else
             {
-                bool isStatic = method.IsStatic && !declaringType.IsGenericTypeDefinition;
-                s += (isStatic ? "static " : "") +
+                s += (method.IsStatic && !asExtension ? "static " : "") +
                     $"{methodName}{genericParams}({parameters}): {returnType};";
             }
         }
@@ -1008,6 +1022,11 @@ import { Duplex } from 'stream';
             return true;
         }
 
+        if (IsExcludedNamespace(property.PropertyType.Namespace))
+        {
+            return true;
+        }
+
         return false;
     }
 
@@ -1041,6 +1060,18 @@ import { Duplex } from 'stream';
             return true;
         }
 
+        if (method.Name == nameof(TaskAsyncEnumerableExtensions.ConfigureAwait) &&
+            method.DeclaringType?.FullName == typeof(TaskAsyncEnumerableExtensions).FullName)
+        {
+            // ConfigureAwait() doesn't work from JS.
+            return true;
+        }
+
+        if (method.GetParameters().Any((p) => IsExcludedNamespace(p.ParameterType.Namespace)))
+        {
+            return true;
+        }
+
         return false;
     }
 
@@ -1066,6 +1097,11 @@ import { Duplex } from 'stream';
 
     private string GetTSType(PropertyInfo property)
     {
+        // TypeScript does not allow type parameters in static members.
+        // See https://github.com/microsoft/TypeScript/issues/32211
+        bool allowTypeParameters =
+            !(property.GetMethod?.IsStatic == true || property.SetMethod?.IsStatic == true);
+
         Type propertyType = property.PropertyType;
         if (propertyType.IsByRef)
         {
@@ -1074,7 +1110,8 @@ import { Duplex } from 'stream';
 
         string tsType = GetTSType(
             propertyType,
-            FixNullability(_nullabilityContext.Create(property)));
+            FixNullability(_nullabilityContext.Create(property)),
+            allowTypeParameters);
 
         if (tsType == "unknown" || tsType.Contains("unknown"))
         {
@@ -1093,6 +1130,10 @@ import { Duplex } from 'stream';
     {
         string tsType;
         MethodInfo? method = parameter.Member as MethodInfo;
+
+        // TypeScript does not allow type parameters in static members.
+        // See https://github.com/microsoft/TypeScript/issues/32211
+        bool allowTypeParameters = method?.IsStatic != true;
 
         if (parameter.Position < 0 && method != null)
         {
@@ -1143,7 +1184,8 @@ import { Duplex } from 'stream';
 
                     tsType = GetTSType(
                         parameter.ParameterType,
-                        FixNullability(_nullabilityContext.Create(parameter)));
+                        FixNullability(_nullabilityContext.Create(parameter)),
+                        allowTypeParameters);
                     return $"{{ {resultName}: {tsType}, {outProperties} }}";
                 }
             }
@@ -1155,7 +1197,10 @@ import { Duplex } from 'stream';
             parameterType = parameterType.GetElementType()!;
         }
 
-        tsType = GetTSType(parameterType, FixNullability(_nullabilityContext.Create(parameter)));
+        tsType = GetTSType(
+            parameterType,
+            FixNullability(_nullabilityContext.Create(parameter)),
+            allowTypeParameters);
         if (tsType == "unknown" || tsType.Contains("unknown"))
         {
             string className = parameter.Member.DeclaringType!.Name;
@@ -1213,7 +1258,10 @@ import { Duplex } from 'stream';
         return nullability;
     }
 
-    private string GetTSType(Type type, NullabilityInfo? nullability)
+    private string GetTSType(
+        Type type,
+        NullabilityInfo? nullability,
+        bool allowTypeParams = true)
     {
         string tsType = "unknown";
         if (type.IsPointer)
@@ -1245,6 +1293,10 @@ import { Duplex } from 'stream';
             tsType = specialType;
         }
 #if !NETFRAMEWORK
+        else if (type.IsGenericTypeParameter)
+        {
+            tsType = allowTypeParams ? type.Name : "any";
+        }
         else if (type.IsGenericTypeParameter || type.IsGenericMethodParameter)
         {
             tsType = type.Name;
@@ -1261,7 +1313,7 @@ import { Duplex } from 'stream';
         else if (type.IsArray)
         {
             Type elementType = type.GetElementType()!;
-            tsType = GetTSType(elementType, nullability?.ElementType) + "[]";
+            tsType = GetTSType(elementType, nullability?.ElementType, allowTypeParams) + "[]";
         }
         else if (type.BaseType?.FullName == typeof(MulticastDelegate).FullName)
         {
@@ -1271,26 +1323,30 @@ import { Duplex } from 'stream';
             }
             else if (type.IsGenericType && type.Name.StartsWith(nameof(Action) + "`"))
             {
+                NullabilityInfo[]? typeArgsNullability = nullability?.GenericTypeArguments;
                 string[] parameters = type.GetGenericArguments().Select((t, i) =>
-                        $"arg{i + 1}: {GetTSType(t, nullability?.GenericTypeArguments[i])}")
+                        $"arg{i + 1}: {GetTSType(t, typeArgsNullability?[i], allowTypeParams)}")
                     .ToArray();
                 tsType = $"({string.Join(", ", parameters)}) => void";
             }
             else if (type.IsGenericType && type.Name.StartsWith("Func`"))
             {
                 Type[] typeArgs = type.GetGenericArguments();
+                NullabilityInfo[]? typeArgsNullability = nullability?.GenericTypeArguments;
                 string[] parameters = typeArgs.Take(typeArgs.Length - 1).Select((t, i) =>
-                        $"arg{i + 1}: {GetTSType(t, nullability?.GenericTypeArguments[i])}")
+                        $"arg{i + 1}: {GetTSType(t, typeArgsNullability?[i], allowTypeParams)}")
                     .ToArray();
                 string returnType = GetTSType(
                     typeArgs[typeArgs.Length - 1],
-                    nullability?.GenericTypeArguments[typeArgs.Length - 1]);
+                    nullability?.GenericTypeArguments[typeArgs.Length - 1],
+                    allowTypeParams);
                 tsType = $"({string.Join(", ", parameters)}) => {returnType}";
             }
             else if (type.IsGenericType && type.Name.StartsWith("Predicate`"))
             {
                 Type typeArg = type.GetGenericArguments()[0];
-                string tsTypeArg = GetTSType(typeArg, nullability?.GenericTypeArguments[0]);
+                NullabilityInfo[]? typeArgsNullability = nullability?.GenericTypeArguments;
+                string tsTypeArg = GetTSType(typeArg, typeArgsNullability?[0], allowTypeParams);
                 tsType = $"(value: {tsTypeArg}) => boolean";
             }
             else if (IsTypeExported(type))
@@ -1329,7 +1385,8 @@ import { Duplex } from 'stream';
         }
         else if (_referenceAssemblies.ContainsKey(type.Assembly.GetName().Name!))
         {
-            tsType = type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' + type.Name :
+            tsType = type.IsNested ?
+                GetTSType(type.DeclaringType!, null, allowTypeParams) + '.' + type.Name :
                 (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
             _imports.Add(type.Assembly.GetName().Name!);
         }
@@ -1337,28 +1394,28 @@ import { Duplex } from 'stream';
         if (type.IsGenericType)
         {
             string typeDefinitionName = type.GetGenericTypeDefinition().FullName!;
-            Type[] typeArguments = type.GetGenericArguments();
-            NullabilityInfo[]? typeArgumentsNullability = nullability?.GenericTypeArguments;
-            if (typeArgumentsNullability?.Length < typeArguments.Length)
+            Type[] typeArgs = type.GetGenericArguments();
+            NullabilityInfo[]? typeArgsNullability = nullability?.GenericTypeArguments;
+            if (typeArgsNullability?.Length < typeArgs.Length)
             {
                 // NullabilityContext doesn't handle generic type arguments of by-ref parameters.
-                typeArgumentsNullability = null;
+                typeArgsNullability = null;
             }
 
             if (typeDefinitionName == typeof(Nullable<>).FullName)
             {
-                tsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]) +
+                tsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams) +
                     UndefinedTypeSuffix;
             }
             else if (typeDefinitionName == typeof(Task<>).FullName ||
                 typeDefinitionName == typeof(ValueTask<>).FullName)
             {
-                tsType = $"Promise<{GetTSType(typeArguments[0], typeArgumentsNullability?[0])}>";
+                tsType = $"Promise<{GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams)}>";
             }
             else if (typeDefinitionName == typeof(Memory<>).FullName ||
                 typeDefinitionName == typeof(ReadOnlyMemory<>).FullName)
             {
-                Type elementType = typeArguments[0];
+                Type elementType = typeArgs[0];
                 tsType = elementType.FullName switch
                 {
                     "System.SByte" => "Int8Array",
@@ -1376,65 +1433,76 @@ import { Duplex } from 'stream';
             }
             else if (typeDefinitionName == typeof(IList<>).FullName)
             {
-                tsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]) + "[]";
+                string elementType =
+                    GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
+                if (elementType.EndsWith(UndefinedTypeSuffix))
+                {
+                    elementType = $"({elementType})";
+                }
+                tsType = elementType + "[]";
             }
             else if (typeDefinitionName == typeof(IReadOnlyList<>).FullName)
             {
-                tsType = "readonly " + GetTSType(typeArguments[0], typeArgumentsNullability?[0]) +
-                    "[]";
+                string elementType =
+                    GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
+                if (elementType.EndsWith(UndefinedTypeSuffix))
+                {
+                    elementType = $"({elementType})";
+                }
+                tsType = "readonly " + elementType + "[]";
             }
             else if (typeDefinitionName == typeof(ICollection<>).FullName)
             {
-                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
+                string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 return $"Iterable<{elementTsType}> & {{ length: number, " +
                     $"add(item: {elementTsType}): void, delete(item: {elementTsType}): boolean }}";
             }
             else if (typeDefinitionName == typeof(IReadOnlyCollection<>).FullName ||
                 typeDefinitionName == typeof(ReadOnlyCollection<>).FullName)
             {
-                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
+                string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 return $"Iterable<{elementTsType}> & {{ length: number }}";
             }
             else if (typeDefinitionName == typeof(ISet<>).FullName)
             {
-                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
+                string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 return $"Set<{elementTsType}>";
             }
 #if !NETFRAMEWORK
             else if (typeDefinitionName == typeof(IReadOnlySet<>).FullName)
             {
-                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
+                string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 return $"ReadonlySet<{elementTsType}>";
             }
 #endif
             else if (typeDefinitionName == typeof(IEnumerable<>).FullName)
             {
-                string elementTsType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
+                string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 return $"Iterable<{elementTsType}>";
             }
             else if (typeDefinitionName == typeof(IDictionary<,>).FullName)
             {
-                string keyTSType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
-                string valueTSType = GetTSType(typeArguments[1], typeArgumentsNullability?[1]);
+                string keyTSType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
+                string valueTSType = GetTSType(typeArgs[1], typeArgsNullability?[1], allowTypeParams);
                 tsType = $"Map<{keyTSType}, {valueTSType}>";
             }
             else if (typeDefinitionName == typeof(IReadOnlyDictionary<,>).FullName)
             {
-                string keyTSType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
-                string valueTSType = GetTSType(typeArguments[1], typeArgumentsNullability?[1]);
+                string keyTSType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
+                string valueTSType = GetTSType(typeArgs[1], typeArgsNullability?[1], allowTypeParams);
                 tsType = $"ReadonlyMap<{keyTSType}, {valueTSType}>";
             }
             else if (typeDefinitionName == typeof(KeyValuePair<,>).FullName)
             {
-                string keyTSType = GetTSType(typeArguments[0], typeArgumentsNullability?[0]);
-                string valueTSType = GetTSType(typeArguments[1], typeArgumentsNullability?[1]);
+                string keyTSType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
+                string valueTSType = GetTSType(typeArgs[1], typeArgsNullability?[1], allowTypeParams);
                 tsType = $"[{keyTSType}, {valueTSType}]";
             }
             else if (typeDefinitionName.StartsWith("System.Tuple`") ||
                 typeDefinitionName.StartsWith("System.ValueTuple`"))
             {
-                IEnumerable<string> itemTSTypes = typeArguments.Select((typeArg, index) =>
-                    GetTSType(typeArg, typeArgumentsNullability?[index]));
+                IEnumerable<string> itemTSTypes = typeArgs.Select((typeArg, index) =>
+                    GetTSType(typeArg, typeArgsNullability?[index], allowTypeParams));
                 tsType = $"[{string.Join(", ", itemTSTypes)}]";
             }
             else
@@ -1444,9 +1512,8 @@ import { Duplex } from 'stream';
                 {
                     tsType = tsType.Substring(0, typeNameEnd);
 
-                    Type[] typeArgs = type.GetGenericArguments();
                     string typeParams = string.Join(", ", typeArgs.Select(
-                        (t, i) => GetTSType(t, typeArgumentsNullability?[i])));
+                        (t, i) => GetTSType(t, typeArgsNullability?[i], allowTypeParams)));
                     tsType = $"{tsType}${typeArgs.Length}<{typeParams}>";
                 }
                 else if (type.IsNested && type.DeclaringType!.IsGenericTypeDefinition)
