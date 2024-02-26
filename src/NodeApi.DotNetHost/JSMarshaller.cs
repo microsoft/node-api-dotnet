@@ -93,7 +93,11 @@ public class JSMarshaller
         typeof(JSValue).GetMethod(nameof(JSValue.IsNullOrUndefined))
             ?? throw new NotImplementedException("JSValue.IsNullOrUndefined");
 
-    private static readonly PropertyInfo s_callbackArg =
+    private static readonly PropertyInfo s_thisArgProperty =
+        typeof(JSCallbackArgs).GetProperty(nameof(JSCallbackArgs.ThisArg))
+            ?? throw new NotImplementedException("JSCallbackArgs.ThisArg");
+
+    private static readonly PropertyInfo s_argsIndexer =
         typeof(JSCallbackArgs).GetIndexer(typeof(int))
             ?? throw new NotImplementedException("JSCallbackArgs[int]");
 
@@ -389,6 +393,9 @@ public class JSMarshaller
     /// the expression will marshal the arguments from JS, invoke the method, then marshal the
     /// return value (or exception) back to JS.
     /// </summary>
+    /// <param name="method">The reflected method info.</param>
+    /// <param name="asExtensionMethod">True to treat a static .NET extension method as an
+    /// instance method call on the target JS object.</param>
     /// <remarks>
     /// The returned expression takes a single <see cref="JSCallbackArgs"/> parameter and
     /// returns a <see cref="JSValue"/>. For instance methods, the `this` argument for the JS
@@ -396,7 +403,9 @@ public class JSMarshaller
     /// declaring type. The lambda expression may be converted to a <see cref="JSCallback"/>
     /// delegate with <see cref="LambdaExpression.Compile()"/>.
     /// </remarks>
-    public Expression<JSCallback> BuildFromJSMethodExpression(MethodInfo method)
+    public Expression<JSCallback> BuildFromJSMethodExpression(
+        MethodInfo method,
+        bool asExtensionMethod = false)
     {
         if (method is null) throw new ArgumentNullException(nameof(method));
         else if (method.IsGenericMethodDefinition) throw new ArgumentException(
@@ -404,7 +413,7 @@ public class JSMarshaller
 
         try
         {
-            return method.IsStatic
+            return method.IsStatic && !asExtensionMethod
                 ? BuildFromJSStaticMethodExpression(method)
                 : BuildFromJSInstanceMethodExpression(method);
         }
@@ -1302,13 +1311,18 @@ public class JSMarshaller
     /// <summary>
     /// Gets overload information for a set of overloaded methods.
     /// </summary>
-    public JSCallbackOverload[] GetMethodOverloads(MethodInfo[] methods)
+    public JSCallbackOverload[] GetMethodOverloads(
+        MethodInfo[] methods,
+        bool staticAsExtensions = false)
     {
         JSCallbackOverload[] overloads = new JSCallbackOverload[methods.Length];
         for (int i = 0; i < methods.Length; i++)
         {
+            // For extension methods the first parameter is not used in overload resolution.
             ParameterInfo[] parameters = methods[i].GetParameters();
-            Type[] parameterTypes = parameters.Select(p => p.ParameterType).ToArray();
+            Type[] parameterTypes = parameters
+                .Skip(staticAsExtensions && methods[i].IsStatic ? 1 : 0)
+                .Select(p => p.ParameterType).ToArray();
 
             object?[]? defaultValues = null;
             if (parameters.Any((p) => p.HasDefaultValue))
@@ -1319,7 +1333,8 @@ public class JSMarshaller
             }
 
             JSCallback methodDelegate =
-                BuildFromJSMethodExpression(methods[i]).Compile();
+                BuildFromJSMethodExpression(
+                    methods[i], methods[i].IsStatic && staticAsExtensions).Compile();
             overloads[i] = new JSCallbackOverload(parameterTypes, defaultValues, methodDelegate);
         }
         return overloads;
@@ -1402,32 +1417,52 @@ public class JSMarshaller
         List<ParameterExpression> argVariables = new();
         List<ParameterExpression> variables = new();
         ParameterExpression thisVariable = Expression.Variable(method.DeclaringType!, "__this");
-        variables.Add(thisVariable);
         LabelTarget returnTarget = Expression.Label(typeof(JSValue));
         ParameterInfo[] parameters = method.GetParameters();
         List<Expression> statements = new(parameters.Length + 5);
 
-        statements.AddRange(BuildThisArgumentExpressions(
-            method.DeclaringType!, thisVariable, returnTarget));
 
-        for (int i = 0; i < parameters.Length; i++)
+        if (method.IsStatic)
         {
-            argVariables.Add(Variable(parameters[i]));
-            statements.Add(Expression.Assign(argVariables[i],
-                BuildArgumentExpression(i, parameters[i])));
+            // Build an expression for calling an extension method where the first arg is this.
+            argVariables.Add(Variable(parameters[0]));
+            statements.AddRange(BuildThisArgumentExpressions(
+                parameters[0].ParameterType, argVariables[0], returnTarget));
+
+            for (int i = 1; i < parameters.Length; i++)
+            {
+                argVariables.Add(Variable(parameters[i]));
+                statements.Add(Expression.Assign(argVariables[i],
+                    BuildArgumentExpression(i - 1, parameters[i])));
+            }
         }
+        else
+        {
+            variables.Add(thisVariable);
+            statements.AddRange(BuildThisArgumentExpressions(
+                method.DeclaringType!, thisVariable, returnTarget));
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                argVariables.Add(Variable(parameters[i]));
+                statements.Add(Expression.Assign(argVariables[i],
+                    BuildArgumentExpression(i, parameters[i])));
+            }
+        }
+
 
         ParameterExpression? resultVariable = null;
         if (method.ReturnType == typeof(void))
         {
-            statements.Add(Expression.Call(thisVariable, method, argVariables));
+            statements.Add(Expression.Call(
+                method.IsStatic ? null : thisVariable, method, argVariables));
         }
         else
         {
             resultVariable = Expression.Variable(method.ReturnType, "__result");
             variables.Add(resultVariable);
             statements.Add(Expression.Assign(resultVariable,
-                Expression.Call(thisVariable, method, argVariables)));
+                Expression.Call(method.IsStatic ? null : thisVariable, method, argVariables)));
         }
 
         if (parameters.Any((p) => p.IsOut))
@@ -1705,14 +1740,11 @@ public class JSMarshaller
              * if (__this == null) return JSValue.Undefined;
              */
 
-            PropertyInfo thisArgProperty = typeof(JSCallbackArgs).GetProperty(
-                nameof(JSCallbackArgs.ThisArg))
-                ?? throw new NotImplementedException("JSCallbackArgs.ThisArg");
             yield return Expression.Assign(
                 thisVariable,
                 Expression.TypeAs(
                     Expression.Call(
-                        Expression.Property(s_argsParameter, thisArgProperty),
+                        Expression.Property(s_argsParameter, s_thisArgProperty),
                         s_unwrap,
                         Expression.Constant(type.Name)),
                     type));
@@ -1729,14 +1761,11 @@ public class JSMarshaller
              */
 
             LambdaExpression convert = GetFromJSValueExpression(type);
-            PropertyInfo thisArgProperty = typeof(JSCallbackArgs).GetProperty(
-                nameof(JSCallbackArgs.ThisArg))
-                ?? throw new NotImplementedException("JSCallbackArgs.ThisArg");
             yield return Expression.Assign(
                 thisVariable,
                 Expression.Invoke(
                     convert,
-                    Expression.Property(s_argsParameter, thisArgProperty)));
+                    Expression.Property(s_argsParameter, s_thisArgProperty)));
         }
         else
         {
@@ -1763,7 +1792,7 @@ public class JSMarshaller
         }
 
         Expression argExpression = Expression.Property(
-            s_argsParameter, s_callbackArg, Expression.Constant(index));
+            s_argsParameter, s_argsIndexer, Expression.Constant(index));
 
         Type? nullableType = null;
         if (!parameterType.IsValueType)
@@ -2592,7 +2621,7 @@ public class JSMarshaller
         /*
          * StructName obj = default;
          * obj.Property0 = (Property0Type)value["property0"];
-         * ... 
+         * ...
          * return obj;
          */
         ParameterExpression objVariable = Expression.Variable(toType, "obj");
@@ -2605,7 +2634,7 @@ public class JSMarshaller
         {
             if (property.SetMethod == null || property.SetMethod.GetParameters().Length > 1)
             {
-                // Skip indexed properties, where the setter takes one or more parameters. 
+                // Skip indexed properties, where the setter takes one or more parameters.
                 continue;
             }
 
@@ -2658,7 +2687,7 @@ public class JSMarshaller
         {
             if (property.GetMethod == null || property.GetMethod.GetParameters().Length > 0)
             {
-                // Skip indexed properties, where the getter takes one or more parameters. 
+                // Skip indexed properties, where the getter takes one or more parameters.
                 continue;
             }
 

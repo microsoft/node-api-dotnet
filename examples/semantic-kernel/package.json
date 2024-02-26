@@ -1,10 +1,14 @@
 {
   "name": "node-api-dotnet-examples-semantic-kernel",
   "type": "module",
+  "scripts": {
+    "checkjs": "tsc"
+  },
   "dependencies": {
     "node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
   },
   "devDependencies": {
-    "@types/node": "^20.8.10"
+    "@types/node": "^20.8.10",
+    "typescript": "^5.3.3"
   }
 }

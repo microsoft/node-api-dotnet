@@ -7,7 +7,12 @@ namespace Microsoft.JavaScript.NodeApi.TestCases;
 
 // Note these types do not have [JSExport] attributes: static binding does not support generics.
 
-public class GenericClass<T>
+public interface IGenericInterface<T>
+{
+    T Value { get; set; }
+}
+
+public class GenericClass<T> : IGenericInterface<T>
 {
     public GenericClass(T value) { Value = value; }
     public T Value { get; set; }
