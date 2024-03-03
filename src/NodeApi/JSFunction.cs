@@ -10,11 +10,16 @@ namespace Microsoft.JavaScript.NodeApi;
 /// Represents a JavaScript Function value.
 /// </summary>
 public readonly struct JSFunction : IEquatable<JSValue>
+#if NET7_0_OR_GREATER
+    , IJSValue<JSFunction>
+#endif
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSFunction(JSValue value) => new(value);
-    public static implicit operator JSValue(JSFunction function) => function._value;
+    public static implicit operator JSValue(JSFunction value) => value.AsJSValue();
+    public static explicit operator JSFunction?(JSValue value) => value.As<JSFunction>();
+    public static explicit operator JSFunction(JSValue value)
+        => value.As<JSFunction>() ?? throw new InvalidCastException("JSValue is not a Function");
 
     private JSFunction(JSValue value)
     {
@@ -266,6 +271,16 @@ public readonly struct JSFunction : IEquatable<JSValue>
             callback(args[0], args[1], args[2], args[3], args[4])))
     {
     }
+
+    #region IJSValue<JSFunction> implementation
+
+    public static bool CanBeConvertedFrom(JSValue value) => value.IsFunction();
+
+    public static JSFunction CreateUnchecked(JSValue value) => new(value);
+
+    #endregion
+
+    public JSValue AsJSValue() => _value;
 
     /// <summary>
     /// Gets the name of the function, or an empty string if the function is unnamed.
