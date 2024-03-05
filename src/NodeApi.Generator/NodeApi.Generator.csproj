@@ -57,4 +57,16 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="NpmPack"
+    AfterTargets="Pack"
+    Outputs="$(PackageOutputPath)node-api-dotnet-generator-$(PackageVersion).tgz"
+  >
+    <PropertyGroup>
+      <NodeApiPackScript>$(MSBuildThisFileDirectory)..\node-api-dotnet\pack.js</NodeApiPackScript>
+      <RuntimeIdentifierList Condition=" '$(RuntimeIdentifierList)' == '' ">$(RuntimeIdentifier)</RuntimeIdentifierList>
+    </PropertyGroup>
+    <Message Importance="High" Text="node $(NodeApiPackScript) node-api-dotnet-generator $(Configuration) $(RuntimeIdentifierList)" />
+    <Exec Command="node $(NodeApiPackScript) node-api-dotnet-generator $(Configuration) $(RuntimeIdentifierList)" />
+  </Target>
+
 </Project>

@@ -34,8 +34,8 @@
       <NodeApiPackScript>$(MSBuildThisFileDirectory)..\node-api-dotnet\pack.js</NodeApiPackScript>
       <RuntimeIdentifierList Condition=" '$(RuntimeIdentifierList)' == '' ">$(RuntimeIdentifier)</RuntimeIdentifierList>
     </PropertyGroup>
-    <Message Importance="High" Text="node $(NodeApiPackScript) $(Configuration) $(RuntimeIdentifierList)" />
-    <Exec Command="node $(NodeApiPackScript) $(Configuration) $(RuntimeIdentifierList)" />
+    <Message Importance="High" Text="node $(NodeApiPackScript) node-api-dotnet $(Configuration) $(RuntimeIdentifierList)" />
+    <Exec Command="node $(NodeApiPackScript) node-api-dotnet $(Configuration) $(RuntimeIdentifierList)" />
   </Target>
 
 </Project>

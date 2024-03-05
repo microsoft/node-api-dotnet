@@ -7,12 +7,14 @@ if (nodeMajorVersion < 16) {
   process.exit(1);
 }
 
+const packageName = process.argv[2];
 const configuration = ['Debug', 'Release'].find(
-  (c) => c.toLowerCase() == (process.argv[2] ?? '').toLowerCase());
-const rids = process.argv.slice(3);
+  (c) => c.toLowerCase() == (process.argv[3] ?? '').toLowerCase());
+const rids = process.argv.slice(4);
 
-if (!configuration || rids.length === 0) {
-  console.error('Usage: node pack.js Debug|Release rids...');
+if (!packageName || !configuration || rids.length === 0) {
+  console.error('Missing command arguments.');
+  console.error('Usage: node pack.js package-name Debug|Release rids...');
   process.exit(1);
 }
 
@@ -32,9 +34,15 @@ const outPkgDir = path.resolve(__dirname, '../../out/pkg');
 
 if (!fs.existsSync(outPkgDir)) fs.mkdirSync(outPkgDir);
 
-packMainPackage();
-console.log();
-packGeneratorPackage();
+if (packageName === 'node-api-dotnet') {
+  packMainPackage();
+} else if (packageName === 'node-api-dotnet-generator') {
+  packGeneratorPackage();
+} else {
+  console.error('Invalid package name.');
+  console.error('Usage: node pack.js package-name Debug|Release rids...');
+  process.exit(1);
+}
 
 function packMainPackage() {
   const packageJson = require('./package.json');
