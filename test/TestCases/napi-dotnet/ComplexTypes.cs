@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#pragma warning disable IDE0301
+#pragma warning disable IDE0301 // Collection initialization can be simplified
 
 using System;
 using System.Collections.Generic;

@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable IDE0230 // Use UTF-8 string literals
+
 using System;
 using System.Collections.Generic;
 using Microsoft.JavaScript.NodeApi;
