@@ -17,9 +17,8 @@ namespace Microsoft.JavaScript.NodeApi.Test;
 internal static class TestBuilder
 {
     // JS code locates test modules using these environment variables.
-    public const string ModulePathEnvironmentVariableName = "TEST_DOTNET_MODULE_PATH";
-    public const string HostPathEnvironmentVariableName = "TEST_DOTNET_HOST_PATH";
-    public const string DotNetVersionEnvironmentVariableName = "TEST_DOTNET_VERSION";
+    public const string ModulePathEnvironmentVariableName = "NODE_API_TEST_MODULE_PATH";
+    public const string DotNetVersionEnvironmentVariableName = "NODE_API_TEST_TARGET_FRAMEWORK";
 
     public static string Configuration { get; } =
 #if DEBUG
@@ -131,14 +130,20 @@ internal static class TestBuilder
         string projectFilePath = Path.Combine(
             TestCasesDirectory, moduleName, moduleName + ".csproj");
 
-        string noTypeDefs = "<PropertyGroup>\n" +
-            "<GenerateNodeApiTypeDefinitions>false</GenerateNodeApiTypeDefinitions>\n" +
+        // Test builds should use the same target framework that the current test is using.
+        string targetFramework = "<PropertyGroup>\n" +
+            $"  <TargetFrameworks>{GetCurrentFrameworkTarget()}</TargetFrameworks>\n" +
             "</PropertyGroup>\n";
 
-        // Auto-generate an empty project file. All project info is inherited from
-        // TestCases/Directory.Build.{props,targets}, except for certain test modules
-        // that need to skip typedef generation.
+        // Certain test modules need to skip typedef generation.
+        string noTypeDefs = "<PropertyGroup>\n" +
+            "  <GenerateNodeApiTypeDefinitions>false</GenerateNodeApiTypeDefinitions>\n" +
+            "</PropertyGroup>\n";
+
+        // Auto-generate a simple project file. Almost all project info is inherited from
+        // TestCases/Directory.Build.{props,targets}.
         File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n" +
+            targetFramework +
             (moduleName == "napi-dotnet-init" ? noTypeDefs : string.Empty) +
             "</Project>\n");
 
@@ -164,20 +169,33 @@ internal static class TestBuilder
       string target,
       IDictionary<string, string> properties,
       string logFilePath,
+      bool noRestore = false,
       bool verboseLog = false)
     {
         if (GetNoBuild()) return;
+
+        string workingDirectory = Path.GetDirectoryName(logFilePath)!;
+        if (target != "Publish")
+        {
+            WriteCurrentFrameworkGlobalJson(workingDirectory);
+        }
 
         using StreamWriter logWriter = new(File.Open(
             logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
 
         List<string> arguments = new()
         {
-            "build",
+            target == "Restore" ? "restore" : "build",
             projectFilePath,
             "/t:" + target,
             verboseLog ? "/v:d" : "/v:n",
         };
+
+        if (noRestore)
+        {
+            arguments.Add("--no-restore");
+        }
+
         foreach (KeyValuePair<string, string> property in properties)
         {
             arguments.Add($"/p:{property.Key}={property.Value}");
@@ -189,10 +207,14 @@ internal static class TestBuilder
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            WorkingDirectory = Path.GetDirectoryName(logFilePath)!,
+            WorkingDirectory = workingDirectory,
         };
 
+        // Prevent the launched build from using the same MSBuild SDK that was used to run the test.
+        startInfo.Environment["MSBuildSDKsPath"] = "";
+
         logWriter.WriteLine($"dotnet {startInfo.Arguments}");
+        logWriter.WriteLine($"CWD={workingDirectory}");
         logWriter.WriteLine();
         logWriter.Flush();
 
@@ -211,6 +233,33 @@ internal static class TestBuilder
             Assert.Fail($"Build process produced error output:\n{errorOutput}\n" +
                 "Full output: " + logFilePath);
         }
+    }
+
+    private static void WriteCurrentFrameworkGlobalJson(string workingDirectory)
+    {
+        Version frameworkVersion = Environment.Version;
+        if (frameworkVersion.Major == 4)
+        {
+            // .NET 4.x is supported at runtime, but not at build time.
+            // So the global.json at the repo root will determine the SDK.
+            return;
+        }
+
+        // Write a global.json file to the working directory to specify an SDK version
+        // that matches the current runtime major version. Roll forward to the latest
+        // installed SDK within the same major version.
+        string sdkVersion = frameworkVersion.Major + "." + frameworkVersion.Minor + ".100";
+        string globalJson = $$"""
+            {
+                "sdk": {
+                    "version": "{{sdkVersion}}",
+                    "allowPrerelease": true,
+                    "rollForward": "latestFeature"
+                }
+            }
+            """;
+        string globalJsonFilePath = Path.Combine(workingDirectory, "global.json");
+        File.WriteAllText(globalJsonFilePath, globalJson);
     }
 
     public static void RunNodeTestCase(

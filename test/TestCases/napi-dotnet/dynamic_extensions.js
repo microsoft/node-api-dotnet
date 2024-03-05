@@ -3,13 +3,9 @@
 
 const assert = require('assert');
 
-const dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
-const dotnetVersion = process.env.TEST_DOTNET_VERSION;
-/** @type {import('./napi-dotnet')} */
-const dotnet = require(dotnetHost)
-  .initialize(dotnetVersion, dotnetHost.replace(/\.node$/, '.DotNetHost.dll'));
+const dotnet = require('../common').dotnet;
 
-dotnet.load(process.env.TEST_DOTNET_MODULE_PATH);
+dotnet.load(process.env.NODE_API_TEST_MODULE_PATH);
 
 const System = dotnet.System;
 const TestCases = dotnet.Microsoft.JavaScript.NodeApi.TestCases;

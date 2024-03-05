@@ -9,6 +9,7 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <SelfContained>false</SelfContained>
+    <RollForward>major</RollForward><!-- Enable running on .NET 6 or any later major version. -->
   </PropertyGroup>
 
   <ItemGroup>

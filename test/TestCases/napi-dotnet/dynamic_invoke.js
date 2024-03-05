@@ -3,10 +3,7 @@
 
 const assert = require('assert');
 
-const dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
-const dotnetVersion = process.env.TEST_DOTNET_VERSION;
-const dotnet = require(dotnetHost)
-  .initialize(dotnetVersion, dotnetHost.replace(/\.node$/, '.DotNetHost.dll'));
+const dotnet = require('../common').dotnet;
 
 console.dir(Object.keys(dotnet));
 
@@ -23,7 +20,7 @@ assert.strictEqual(version, parsedVersion);
 assert.strictEqual(undefined, Version.TryParse('invalid'));
 
 // Load the test module using dynamic binding `load()` instead of static binding `require()`.
-const assemblyPath = process.env.TEST_DOTNET_MODULE_PATH;
+const assemblyPath = process.env.NODE_API_TEST_MODULE_PATH;
 dotnet.load(assemblyPath);
 const TestCases = dotnet.Microsoft.JavaScript.NodeApi.TestCases;
 assert.strictEqual(TestCases.toString(), 'Microsoft.JavaScript.NodeApi.TestCases');

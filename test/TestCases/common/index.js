@@ -113,33 +113,38 @@ async function whichBuildType() {
 exports.whichBuildType = whichBuildType;
 
 // Load the addon module, using either hosted or native AOT mode.
-exports.dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
-exports.dotnetModule = process.env.TEST_DOTNET_MODULE_PATH;
-exports.dotnetVersion = process.env.TEST_DOTNET_VERSION;
+exports.testModule = process.env.NODE_API_TEST_MODULE_PATH;
+exports.targetFramework = process.env.NODE_API_TEST_TARGET_FRAMEWORK;
 
-exports.loadDotnetModule = function () {
-  let dotnetModule;
-  if (exports.dotnetHost) {
-    // Normally the init.js script in the npm package takes care of locating the correct
-    // native host and managed host binaries for the current environment.
-    dotnetModule = require(exports.dotnetHost)
-      .initialize(
-        exports.dotnetVersion,
-        exports.dotnetHost.replace(/\.node$/, '.DotNetHost.dll'),
-        require)
-      .require(exports.dotnetModule);
-  } else {
+function loadDotnetHost() {
+  if (/\.node$/.test(exports.testModule)) {
+    // Do not load .NET for a native AOT module.
+    return undefined;
+  }
+
+  return require('../../../out/pkg/node-api-dotnet/' + exports.targetFramework);
+}
+Object.defineProperty(exports, 'dotnet', { get: loadDotnetHost });
+
+function loadTestModule() {
+  let testModule = undefined;
+
+  if (/\.node$/.test(exports.testModule)) {
+    // The test module is an AOT-compiled module that does not require a separate host.
+
     // The Node API module may need the require() function at initialization time; passing it via a
     // global is the only solution for AOT, since it cannot be obtained via any `napi_*` function.
     global.node_api_dotnet = { require };
 
-    dotnetModule = require(exports.dotnetModule);
+    testModule = require(exports.testModule);
+  } else if (exports.testModule) {
+    // The test module is a .NET assembly that requires a .NET host.
+    testModule = exports.dotnet.require(exports.testModule);
   }
 
-  return dotnetModule;
+  return testModule;
 }
-
-exports.binding = exports.loadDotnetModule();
+Object.defineProperty(exports, 'binding', { get: loadTestModule });
 
 exports.runTest = async function (test) {
   await Promise.resolve(test(exports.binding))

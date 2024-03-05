@@ -87,11 +87,21 @@ public class JSProjectTests
         string projectFilePath = Path.Combine(
             TestCasesDirectory, "projects", projectName, projectName + ".csproj");
 
+        // The test project files do not specify the TargetFramework. BuildProject() supplies that
+        // property, but it doesn't work with restore unless restore is run separately.
+        BuildProject(
+            projectFilePath,
+            "Restore",
+            properties,
+            logFilePath,
+            verboseLog: false);
+
         BuildProject(
             projectFilePath,
             "Build",
             properties,
             logFilePath,
+            noRestore: true,
             verboseLog: false);
     }
 
