@@ -78,13 +78,13 @@ jobs:
         dotnet test -f ${{ matrix.dotnet-version }}
         --configuration ${{ matrix.configuration }}
         --logger trx
-        --results-directory "out/test/${{ matrix.dotnet-version }-node${{ matrix.node-version }}-${{ matrix.configuration }}"
+        --results-directory "out/test/${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}"
 
     - name: Upload test logs
       if: always() # Update artifacts regardless if code succeeded, failed, or cancelled
       uses: actions/upload-artifact@v3
       with:
-        name: test-logs-${{ matrix.os }}-${{matrix.dotnet-version}}-node${{ matrix.node-version }}-${{ matrix.configuration }}
+        name: test-logs-${{ matrix.os }}-${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}
         path: |
           out/obj/${{ matrix.configuration }}/**/*.log
           out/obj/${{ matrix.configuration }}/**/*.rsp
