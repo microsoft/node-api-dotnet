@@ -406,6 +406,7 @@ internal class TypeExporter
 
             ExportProperties(type, classBuilder, deferMembers);
             ExportMethods(type, classBuilder, deferMembers);
+            ExportNestedTypes(type, classBuilder);
 
             string defineMethodName = type.IsInterface ? "DefineInterface" :
                 isStatic ? "DefineStaticClass" : type.IsValueType ? "DefineStruct" : "DefineClass";
@@ -826,6 +827,37 @@ internal class TypeExporter
         }
         return methodDescriptor;
 
+    }
+
+    private void ExportNestedTypes(Type type, object classBuilder)
+    {
+        Type classBuilderType = classBuilder.GetType();
+        MethodInfo? addValuePropertyMethod = classBuilderType.GetInstanceMethod(
+            "AddProperty", new[] { typeof(string), typeof(JSValue), typeof(JSPropertyAttributes) });
+
+        JSPropertyAttributes propertyAttributes = JSPropertyAttributes.Static |
+            JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable;
+
+        foreach (Type nestedType in type.GetNestedTypes())
+        {
+            if (!nestedType.IsNestedPublic || !IsSupportedType(nestedType))
+            {
+                continue;
+            }
+
+            JSValue? nestedTypeValue = GetTypeProxy(nestedType)?.Value;
+            if (nestedTypeValue != null)
+            {
+                addValuePropertyMethod.Invoke(
+                    classBuilder,
+                    new object[]
+                    {
+                        nestedType.Name,
+                        nestedTypeValue,
+                        propertyAttributes,
+                    });
+            }
+        }
     }
 
     private JSReference ExportEnum(Type type)
