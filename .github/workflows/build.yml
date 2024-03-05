@@ -13,15 +13,19 @@ jobs:
       matrix:
         os: [ windows-latest, macos-latest, ubuntu-latest ]
         dotnet-version: [ net6.0, net8.0]
-        node-version: [ 20.x ]
+        node-version: [ 18.x, 20.x ]
         configuration: [ Release ]
-
-        include:
-          - os: windows-latest
-            dotnet-version: net472  # Include .NET Framework 4.x only on Windows
-
-          - dotnet-version: net8.0
-            node-version: 18.x      # Include Node.js 18 only with .NET 8 (to thin the matrix)
+        exclude:
+          # Exclude Node 18.x on .NET < 8, to thin the matrix.
+          - dotnet-version: net6.0
+            node-version: 18.x
+          - dotnet-version: net472
+            node-version: 18.x
+          # Exclude .NET 4.x on non-Windows OS.
+          - os: macos-latest
+            dotnet-version: net472 
+          - os: ubuntu-latest
+            dotnet-version: net472
 
       fail-fast: false  # Don't cancel other jobs when one job fails
 
