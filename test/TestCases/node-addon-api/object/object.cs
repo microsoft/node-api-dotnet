@@ -121,7 +121,7 @@ public partial class TestObject : TestHelper, ITestObject
         obj["0.0f"] = 0.0f;
         obj["0.0"] = 0.0;
         obj["-1"] = -1;
-        obj["foo2"] = new ReadOnlySpan<byte>([(byte)'f', (byte)'o', (byte)'o']);
+        obj["foo2"] = new ReadOnlySpan<byte>(new[] { (byte)'f', (byte)'o', (byte)'o' });
         obj["foo4"] = "foo";
         obj["circular"] = obj;
         obj["circular2"] = obj;
@@ -160,8 +160,7 @@ public partial class TestObject : TestHelper, ITestObject
         return obj.InstanceOf(constructor);
     }
 
-    public JSObject Init() =>
-    [
+    public JSObject Init() => new(
         Method(GetPropertyNames),
         Method(DefineProperties),
         Method(DefineValueProperty),
@@ -208,6 +207,5 @@ public partial class TestObject : TestHelper, ITestObject
         Method(SubscriptGetAtIndex),
         Method(SubscriptSetWithUtf8StyleString),
         Method(SubscriptSetWithCSharpStyleString),
-        Method(SubscriptSetAtIndex),
-    ];
+        Method(SubscriptSetAtIndex));
 }

@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable IDE0301
+
 using System;
 using System.Collections.Generic;
 

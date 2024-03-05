@@ -113,11 +113,11 @@ async function whichBuildType() {
 exports.whichBuildType = whichBuildType;
 
 // Load the addon module, using either hosted or native AOT mode.
-exports.testModule = process.env.NODE_API_TEST_MODULE_PATH;
+exports.testModulePath = process.env.NODE_API_TEST_MODULE_PATH;
 exports.targetFramework = process.env.NODE_API_TEST_TARGET_FRAMEWORK;
 
 function loadDotnetHost() {
-  if (/\.node$/.test(exports.testModule)) {
+  if (/\.node$/.test(exports.testModulePath)) {
     // Do not load .NET for a native AOT module.
     return undefined;
   }
@@ -129,17 +129,17 @@ Object.defineProperty(exports, 'dotnet', { get: loadDotnetHost });
 function loadTestModule() {
   let testModule = undefined;
 
-  if (/\.node$/.test(exports.testModule)) {
+  if (/\.node$/.test(exports.testModulePath)) {
     // The test module is an AOT-compiled module that does not require a separate host.
 
     // The Node API module may need the require() function at initialization time; passing it via a
     // global is the only solution for AOT, since it cannot be obtained via any `napi_*` function.
     global.node_api_dotnet = { require };
 
-    testModule = require(exports.testModule);
-  } else if (exports.testModule) {
+    testModule = require(exports.testModulePath);
+  } else if (exports.testModulePath) {
     // The test module is a .NET assembly that requires a .NET host.
-    testModule = exports.dotnet.require(exports.testModule);
+    testModule = exports.dotnet.require(exports.testModulePath);
   }
 
   return testModule;

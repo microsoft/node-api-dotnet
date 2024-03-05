@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, macos-latest, ubuntu-latest ]
-        dotnet-version: [ net6.0, net8.0]
+        dotnet-version: [ net472, net6.0, net8.0]
         node-version: [ 18.x, 20.x ]
         configuration: [ Release ]
         exclude:
@@ -83,9 +83,9 @@ jobs:
         --configuration ${{ matrix.configuration }}
         --logger trx
         --results-directory "out/test/${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}"
+      continue-on-error: true
 
     - name: Upload test logs
-      if: always() # Update artifacts regardless if code succeeded, failed, or cancelled
       uses: actions/upload-artifact@v3
       with:
         name: test-logs-${{ matrix.os }}-${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}

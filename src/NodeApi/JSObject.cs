@@ -24,6 +24,19 @@ public readonly partial struct JSObject : IDictionary<JSValue, JSValue>, IEquata
     {
     }
 
+    public JSObject(IEnumerable<KeyValuePair<JSValue, JSValue>> properties) : this()
+    {
+        foreach (KeyValuePair<JSValue, JSValue> property in properties)
+        {
+            _value.SetProperty(property.Key, property.Value);
+        }
+    }
+
+    public JSObject(params KeyValuePair<JSValue, JSValue>[] properties)
+        : this((IEnumerable<KeyValuePair<JSValue, JSValue>>)properties)
+    {
+    }
+
     int ICollection<KeyValuePair<JSValue, JSValue>>.Count
         => _value.GetPropertyNames().GetArrayLength();
 

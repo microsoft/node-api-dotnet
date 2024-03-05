@@ -2,7 +2,9 @@
     <Import Project="../../rid.props" />
 
     <PropertyGroup>
+        <!-- Test projects support .NET 6 SDK which has C# language version 10. -->
         <LangVersion>10</LangVersion>
+
         <Nullable>enable</Nullable>
         <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
         <BaseOutputPath>$(MSBuildThisFileDirectory)../../out/</BaseOutputPath>
