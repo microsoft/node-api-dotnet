@@ -127,7 +127,7 @@ internal class TypeExporter
                     TypeProxy typeProxy = new(parentNamespace, nestedType);
                     parentNamespace.Types.Add(nestedTypeName, typeProxy);
                     typeProxies.Add(typeProxy);
-                    Trace($"    {parentNamespace}.{typeName}");
+                    Trace($"    {parentNamespace}.{nestedTypeName}");
                     count++;
                 }
             }
@@ -199,7 +199,6 @@ internal class TypeExporter
         }
 
         string targetTypeName = TypeProxy.GetTypeProxyName(targetType);
-        Trace($"    +{targetTypeName}.{extensionMethod.Name}()");
 
         // Target namespaces and types should be already loaded because either they are in the
         // current assembly (where types are loaded before extension methods) or in an assembly

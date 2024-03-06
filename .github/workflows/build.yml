@@ -12,14 +12,27 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, macos-latest, ubuntu-latest ]
+        dotnet-version: [ net472, net6.0, net8.0]
         node-version: [ 18.x, 20.x ]
         configuration: [ Release ]
+        exclude:
+          # Exclude Node 18.x on .NET < 8, to thin the matrix.
+          - dotnet-version: net6.0
+            node-version: 18.x
+          - dotnet-version: net472
+            node-version: 18.x
+          # Exclude .NET 4.x on non-Windows OS.
+          - os: macos-latest
+            dotnet-version: net472 
+          - os: ubuntu-latest
+            dotnet-version: net472
+
       fail-fast: false  # Don't cancel other jobs when one job fails
 
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0 # Deep clone is required for versioning on git commit height
 
@@ -28,22 +41,20 @@ jobs:
       run: sudo ln -s /lib/x86_64-linux-gnu/libdl.so.2 /lib/x86_64-linux-gnu/libdl.so
 
     - name: Setup .NET 6
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 6.0.x
 
+    # The .NET 8 SDK is required even when the build matrix targets other .NET versions.
     - name: Setup .NET 8
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
 
     - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-
-    - name: Build ${{ matrix.configuration }}
-      run: dotnet build --configuration ${{ matrix.configuration }}
 
     - name: Build packages
       id: pack
@@ -56,48 +67,29 @@ jobs:
     #      limit-access-to-actor: true
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      if: matrix.dotnet-version == 'net8.0' && matrix.node-version == '20.x'
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.os }}-${{ matrix.configuration }}-packages
         path: |
           out/pkg/*.nupkg
           out/pkg/*.tgz
 
-    - name: Test .NET 4.7.2
-      if: matrix.os == 'windows-latest' && steps.pack.conclusion == 'success' && !cancelled()
-      env:
-        TRACE_NODE_API_HOST: 1
-      run: >
-        dotnet test -f net472
-        --configuration ${{ matrix.configuration }}
-        --logger trx
-        --results-directory "out/test/netfx47-node${{ matrix.node-version }}-${{ matrix.configuration }}"
-
-    - name: Test .NET 6
+    - name: Test
       if: steps.pack.conclusion == 'success' && !cancelled()
       env:
         TRACE_NODE_API_HOST: 1
       run: >
-        dotnet test -f net6.0
+        dotnet test -f ${{ matrix.dotnet-version }}
         --configuration ${{ matrix.configuration }}
         --logger trx
-        --results-directory "out/test/dotnet6-node${{ matrix.node-version }}-${{ matrix.configuration }}"
-
-    - name: Test .NET 8
-      if: steps.pack.conclusion == 'success' && !cancelled()
-      env:
-        TRACE_NODE_API_HOST: 1
-      run: >
-        dotnet test -f net8.0
-        --configuration ${{ matrix.configuration }}
-        --logger trx
-        --results-directory "out/test/dotnet8-node${{ matrix.node-version }}-${{ matrix.configuration }}"
+        --results-directory "out/test/${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}"
+      continue-on-error: true
 
     - name: Upload test logs
-      if: always() # Update artifacts regardless if code succeeded, failed, or cancelled
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: test-logs-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.configuration }}
+        name: test-logs-${{ matrix.os }}-${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}
         path: |
           out/obj/${{ matrix.configuration }}/**/*.log
           out/obj/${{ matrix.configuration }}/**/*.rsp

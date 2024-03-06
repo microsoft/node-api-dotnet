@@ -19,7 +19,7 @@
   </Target>
 
   <!-- TODO: Find a better workaround for this assembly version conflict. -->
-  <Target Name="CopyUnsafeAssembly" AfterTargets="CopyFilesToOutputDirectory"
+  <Target Name="CopyUnsafeAssembly" AfterTargets="PublishManagedAssembly"
     Condition=" '$(TargetFramework)' == 'net472' "
   >
       <Copy SourceFiles="$(BaseOutputPath)bin\$(Configuration)\NodeApi\net472\$(RuntimeIdentifier)\System.Runtime.CompilerServices.Unsafe.dll"

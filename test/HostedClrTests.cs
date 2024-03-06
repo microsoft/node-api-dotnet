@@ -17,7 +17,6 @@ namespace Microsoft.JavaScript.NodeApi.Test;
 public class HostedClrTests
 {
     private static readonly Dictionary<string, string?> s_builtTestModules = new();
-    private static readonly Lazy<string> s_builtHostModule = new(() => BuildHostModule());
 
 #if NETFRAMEWORK
     // The .NET Framework host does not yet support multiple instances of a module.
@@ -35,10 +34,8 @@ public class HostedClrTests
         string moduleName = id.Substring(0, id.IndexOf('/'));
         string testCaseName = id.Substring(id.IndexOf('/') + 1);
         string testCasePath = testCaseName.Replace('/', Path.DirectorySeparatorChar);
-
-        string hostFilePath = s_builtHostModule.Value;
-
         string buildLogFilePath = GetBuildLogFilePath("hosted", moduleName);
+
         if (!s_builtTestModules.TryGetValue(moduleName, out string? moduleFilePath))
         {
             try
@@ -63,31 +60,6 @@ public class HostedClrTests
             Assert.Fail("Build failed. Check the log for details: " + buildLogFilePath);
         }
 
-        // Copy the host file to the same directory as the module. Normally nuget + npm
-        // packaging should orchestrate getting these files in the right places.
-        string hostFilePath2 = Path.Combine(
-            Path.GetDirectoryName(moduleFilePath)!, Path.GetFileName(hostFilePath));
-        CopyIfNewer(hostFilePath, hostFilePath2);
-        if (File.Exists(hostFilePath + ".pdb"))
-        {
-            CopyIfNewer(hostFilePath + ".pdb", hostFilePath2 + ".pdb");
-        }
-
-        string runtimeConfigFilePath = Path.Combine(
-            RepoRootDirectory,
-            "out",
-            "bin",
-            Configuration,
-            "NodeApi",
-            GetCurrentFrameworkTarget(),
-            GetCurrentPlatformRuntimeIdentifier(),
-            "publish",
-            Path.GetFileNameWithoutExtension(hostFilePath) + ".runtimeconfig.json");
-        CopyIfNewer(
-            runtimeConfigFilePath,
-            hostFilePath2.Replace(".node", ".runtimeconfig.json"));
-        hostFilePath = hostFilePath2;
-
         // TODO: Support compiling TS files to JS.
         string jsFilePath = Path.Combine(TestCasesDirectory, moduleName, testCasePath + ".js");
 
@@ -95,62 +67,12 @@ public class HostedClrTests
         RunNodeTestCase(jsFilePath, runLogFilePath, new Dictionary<string, string>
         {
             [ModulePathEnvironmentVariableName] = moduleFilePath,
-            [HostPathEnvironmentVariableName] = hostFilePath,
             [DotNetVersionEnvironmentVariableName] = GetCurrentFrameworkTarget(),
 
             // CLR host tracing (very verbose).
             // This will cause the test to always fail because tracing writes to stderr.
             ////["COREHOST_TRACE"] = "1",
         });
-    }
-
-    private static string BuildHostModule()
-    {
-        string projectFilePath = Path.Combine(RepoRootDirectory, "src", "NodeApi", "NodeApi.csproj");
-
-        string logDir = Path.Combine(
-            RepoRootDirectory, "out", "obj", Configuration);
-        Directory.CreateDirectory(logDir);
-        string logFilePath = Path.Combine(logDir, "publish-host.log");
-
-        string targetFramework = GetCurrentFrameworkTarget();
-        var properties = new Dictionary<string, string>
-        {
-            ["TargetFramework"] = targetFramework,
-            ["RuntimeIdentifier"] = GetCurrentPlatformRuntimeIdentifier(),
-            ["Configuration"] = Configuration,
-        };
-        BuildProject(
-            projectFilePath,
-            "Publish",
-            properties,
-            logFilePath,
-            verboseLog: false);
-
-        // The native AOT host must be built separately. It always uses the latest .NET version.
-        properties["TargetFramework"] = "net8.0";
-        properties["PublishAot"] = "true";
-        string logFilePath2 = Path.Combine(logDir, "publish-nativehost.log");
-        BuildProject(
-            projectFilePath,
-            "Publish",
-            properties,
-            logFilePath2,
-            verboseLog: false);
-
-        string publishDir = Path.Combine(
-            RepoRootDirectory,
-            "out",
-            "bin",
-            Configuration,
-            "NodeApi",
-            "aot",
-            GetCurrentPlatformRuntimeIdentifier(),
-            "publish");
-        string moduleFilePath = Path.Combine(publishDir, "Microsoft.JavaScript.NodeApi.node");
-        Assert.True(
-            File.Exists(moduleFilePath), "Host module file was not built: " + moduleFilePath);
-        return moduleFilePath;
     }
 
     private static string? BuildTestModuleCSharp(

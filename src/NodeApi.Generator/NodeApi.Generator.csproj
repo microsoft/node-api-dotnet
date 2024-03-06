@@ -9,6 +9,7 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <SelfContained>false</SelfContained>
+    <RollForward>major</RollForward><!-- Enable running on .NET 6 or any later major version. -->
   </PropertyGroup>
 
   <ItemGroup>
@@ -54,6 +55,18 @@
       <TargetPathWithTargetPlatformMoniker Include="$(TargetDir)\Microsoft.JavaScript.NodeApi.dll" IncludeRuntimeDependency="false" />
       <TargetPathWithTargetPlatformMoniker Include="$(TargetDir)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" IncludeRuntimeDependency="false" />
     </ItemGroup>
+  </Target>
+
+  <Target Name="NpmPack"
+    AfterTargets="Pack"
+    Outputs="$(PackageOutputPath)node-api-dotnet-generator-$(PackageVersion).tgz"
+  >
+    <PropertyGroup>
+      <NodeApiPackScript>$(MSBuildThisFileDirectory)..\node-api-dotnet\pack.js</NodeApiPackScript>
+      <RuntimeIdentifierList Condition=" '$(RuntimeIdentifierList)' == '' ">$(RuntimeIdentifier)</RuntimeIdentifierList>
+    </PropertyGroup>
+    <Message Importance="High" Text="node $(NodeApiPackScript) node-api-dotnet-generator $(Configuration) $(RuntimeIdentifierList)" />
+    <Exec Command="node $(NodeApiPackScript) node-api-dotnet-generator $(Configuration) $(RuntimeIdentifierList)" />
   </Target>
 
 </Project>

@@ -239,27 +239,34 @@ public struct JSError
         JSValue error = (exception as JSException)?.Error?.Value ??
             JSValue.CreateError(code: null, (JSValue)message);
 
-        // When running on V8, the `Error.captureStackTrace()` function and `Error.stack` property
-        // can be used to add the .NET stack info to the JS error stack.
-        JSValue captureStackTrace = JSValue.Global["Error"]["captureStackTrace"];
-        if (captureStackTrace.IsFunction())
+        // A no-context scope is used when initializing the host. In that case, do not attempt
+        // to override the stack property, because if initialization fails the scope may not
+        // be available for the stack callback.
+        if (JSValueScope.Current.ScopeType != JSValueScopeType.NoContext)
         {
-            // Capture the stack trace of the .NET exception, which will be combined with
-            // the JS stack trace when requested.
-            JSValue dotnetStack = exception.StackTrace?.Replace("\r", string.Empty) ?? string.Empty;
+            // When running on V8, the `Error.captureStackTrace()` function and `Error.stack`
+            // property can be used to add the .NET stack info to the JS error stack.
+            JSValue captureStackTrace = JSValue.Global["Error"]["captureStackTrace"];
+            if (captureStackTrace.IsFunction())
+            {
+                // Capture the stack trace of the .NET exception, which will be combined with
+                // the JS stack trace when requested.
+                JSValue dotnetStack = exception.StackTrace?.Replace("\r", string.Empty)
+                    ?? string.Empty;
 
-            // Capture the current JS stack trace as an object.
-            // Defer formatting the stack as a string until requested.
-            JSObject jsStack = new();
-            captureStackTrace.Call(default, jsStack);
+                // Capture the current JS stack trace as an object.
+                // Defer formatting the stack as a string until requested.
+                JSObject jsStack = new();
+                captureStackTrace.Call(default, jsStack);
 
-            // Override the `stack` property of the JS Error object, and add private
-            // properties that the overridden property getter uses to construct the stack.
-            error.DefineProperties(
-                JSPropertyDescriptor.Accessor(
-                    "stack", GetErrorStack, setter: null, JSPropertyAttributes.DefaultProperty),
-                JSPropertyDescriptor.ForValue("__dotnetStack", dotnetStack),
-                JSPropertyDescriptor.ForValue("__jsStack", jsStack));
+                // Override the `stack` property of the JS Error object, and add private
+                // properties that the overridden property getter uses to construct the stack.
+                error.DefineProperties(
+                    JSPropertyDescriptor.Accessor(
+                        "stack", GetErrorStack, setter: null, JSPropertyAttributes.DefaultProperty),
+                    JSPropertyDescriptor.ForValue("__dotnetStack", dotnetStack),
+                    JSPropertyDescriptor.ForValue("__jsStack", jsStack));
+            }
         }
 
         napi_status status = error.Scope.Runtime.Throw(

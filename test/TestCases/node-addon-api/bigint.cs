@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using Microsoft.JavaScript.NodeApi;
 
@@ -83,13 +84,12 @@ public class TestBigInt : TestHelper, ITestObject
         return new JSBigInt(actual);
     }
 
-    public JSObject Init() => [
+    public JSObject Init() => new(
         Method(IsLossless),
         Method(IsBigInt),
         Method(TestInt64),
         Method(TestUInt64),
         Method(TestWords),
         Method(TestWordSpan),
-        Method(TestBigInteger),
-    ];
+        Method(TestBigInteger));
 }

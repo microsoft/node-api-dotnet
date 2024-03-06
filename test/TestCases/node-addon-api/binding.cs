@@ -44,7 +44,7 @@ public abstract class TestHelper
 {
     public static KeyValuePair<JSValue, JSValue> Method(
         JSCallback callback,
-        [CallerArgumentExpression(nameof(callback))] string callbackName = "")
+        [CallerArgumentExpression("callback")] string callbackName = "")
     {
         string name = callbackName ?? string.Empty;
         name = name.Substring(name.IndexOf('.') + 1);

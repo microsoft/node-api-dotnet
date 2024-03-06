@@ -6,12 +6,9 @@ const assert = require('assert');
 // This only tests dynamic invocation because optional parameters
 // are not yet implemented for static binding.
 
-const dotnetHost = process.env.TEST_DOTNET_HOST_PATH;
-const dotnetVersion = process.env.TEST_DOTNET_VERSION;
-const dotnet = require(dotnetHost)
-  .initialize(dotnetVersion, dotnetHost.replace(/\.node$/, '.DotNetHost.dll'));
+const dotnet = require('../common').dotnet;
 
-const assemblyPath = process.env.TEST_DOTNET_MODULE_PATH;
+const assemblyPath = process.env.NODE_API_TEST_MODULE_PATH;
 const assembly = dotnet.load(assemblyPath);
 const OptionalParameters = dotnet.Microsoft.JavaScript.NodeApi.TestCases.OptionalParameters;
 

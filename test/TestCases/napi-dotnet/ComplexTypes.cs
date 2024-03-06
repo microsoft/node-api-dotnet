@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable IDE0301 // Collection initialization can be simplified
+
 using System;
 using System.Collections.Generic;
 
@@ -26,7 +28,7 @@ public static class ComplexTypes
 
     public static ClassObject? NullableClassObject { get; set; }
 
-    public static string[] StringArray { get; set; } = [];
+    public static string[] StringArray { get; set; } = Array.Empty<string>();
 
     public static Memory<uint> UIntArray { get; set; }
 
