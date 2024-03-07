@@ -52,7 +52,7 @@ public sealed class NodejsPlatform : IDisposable
         var entryAssembly = Assembly.GetEntryAssembly();
 
         nint libnodeHandle =
-            entryAssembly == null
+            entryAssembly != null
                 ? NativeLibrary.Load(libnode, entryAssembly, null)
                 : NativeLibrary.Load(libnode);
 #else
