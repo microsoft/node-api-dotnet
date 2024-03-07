@@ -4,7 +4,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-#if NETCOREAPP3_0_OR_GREATER
+#if NET7_0_OR_GREATER
 using System.Reflection;
 #endif
 
@@ -48,7 +48,7 @@ public sealed class NodejsPlatform : IDisposable
                 "Only one Node.js platform instance per process is allowed.");
         }
 
-#if NETCOREAPP3_0_OR_GREATER
+#if NET7_0_OR_GREATER
         var entryAssembly = Assembly.GetEntryAssembly();
 
         nint libnodeHandle =
