@@ -4,10 +4,6 @@
 using System;
 using System.Runtime.InteropServices;
 
-#if NET7_0_OR_GREATER
-using System.Reflection;
-#endif
-
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 using static JSRuntime;
@@ -49,7 +45,7 @@ public sealed class NodejsPlatform : IDisposable
         }
 
 #if NET7_0_OR_GREATER
-        var entryAssembly = Assembly.GetEntryAssembly();
+        var entryAssembly = System.Reflection.Assembly.GetEntryAssembly();
 
         nint libnodeHandle =
             entryAssembly != null
