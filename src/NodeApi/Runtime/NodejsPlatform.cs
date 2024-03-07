@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
@@ -25,25 +26,29 @@ public sealed class NodejsPlatform : IDisposable
     /// <summary>
     /// Initializes the Node.js platform.
     /// </summary>
-    /// <param name="libnodePath">Path to the `libnode` shared library, including extension.</param>
+    /// <param name="libnode">Name of the `libnode` shared library.</param>
     /// <param name="args">Optional application arguments.</param>
     /// <param name="execArgs">Optional platform options.</param>
     /// <exception cref="InvalidOperationException">A Node.js platform instance has already been
     /// loaded in the current process.</exception>
     public NodejsPlatform(
-        string libnodePath,
+        string libnode,
         string[]? args = null,
         string[]? execArgs = null)
     {
-        if (string.IsNullOrEmpty(libnodePath)) throw new ArgumentNullException(nameof(libnodePath));
-
         if (Current != null)
         {
             throw new InvalidOperationException(
                 "Only one Node.js platform instance per process is allowed.");
         }
 
-        nint libnodeHandle = NativeLibrary.Load(libnodePath);
+        var entryAssembly = Assembly.GetEntryAssembly();
+
+        nint libnodeHandle =
+            entryAssembly == null
+                ? NativeLibrary.Load(libnode, entryAssembly, null)
+                : NativeLibrary.Load(libnode);
+
         Runtime = new NodejsRuntime(libnodeHandle);
 
         Runtime.CreatePlatform(args, execArgs, (error) => Console.WriteLine(error), out _platform)
