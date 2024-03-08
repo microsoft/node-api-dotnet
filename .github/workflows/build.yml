@@ -87,7 +87,8 @@ jobs:
       continue-on-error: true
 
     - name: Upload test logs
-      uses: actions/upload-artifact@v4
+      # upload-artifact@v4 breaks the test reporter: https://github.com/dorny/test-reporter/issues/343
+      uses: actions/upload-artifact@v3
       with:
         name: test-logs-${{ matrix.os }}-${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}
         path: |
