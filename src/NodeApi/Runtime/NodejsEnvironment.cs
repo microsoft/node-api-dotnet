@@ -23,6 +23,11 @@ using static JSRuntime;
 /// </remarks>
 public sealed class NodejsEnvironment : IDisposable
 {
+    /// <summary>
+    /// Corresponds to NAPI_VERSION from js_native_api.h.
+    /// </summary>
+    public const int NodeApiVersion = 8;
+
     private readonly JSValueScope _scope;
     private readonly Thread _thread;
     private readonly TaskCompletionSource<bool> _completion = new();
@@ -44,6 +49,7 @@ public sealed class NodejsEnvironment : IDisposable
                 (napi_platform)platform,
                 (error) => Console.WriteLine(error),
                 mainScript,
+                NodeApiVersion,
                 out napi_env env).ThrowIfFailed();
 
             // The new scope instance saves itself as the thread-local JSValueScope.Current.
