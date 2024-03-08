@@ -47,6 +47,14 @@ public class NodejsEmbeddingTests
     }
 
     [SkippableFact]
+    public void NodejsRestart()
+    {
+        // Create and destory a Node.js environment twice, using the same platform instance.
+        NodejsStart();
+        NodejsStart();
+    }
+
+    [SkippableFact]
     public void NodejsCallFunction()
     {
         using NodejsEnvironment nodejs = CreateNodejsEnvironment();

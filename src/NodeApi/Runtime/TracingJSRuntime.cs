@@ -2648,15 +2648,14 @@ public class TracingJSRuntime : JSRuntime
     #region Embedding
 
     public override napi_status CreatePlatform(
-        string[]? args, string[]? execArgs, Action<string>? errorHandler, out napi_platform result)
+        string[]? args, Action<string>? errorHandler, out napi_platform result)
     {
         napi_platform resultValue = default;
         napi_status status = TraceCall(
             [
                 $"[{string.Join(", ", args ?? [])}]",
-                $"[{string.Join(", ", execArgs ?? [])}]",
             ],
-            () => (_runtime.CreatePlatform(args, execArgs, errorHandler, out resultValue),
+            () => (_runtime.CreatePlatform(args, errorHandler, out resultValue),
                 Format(resultValue)));
         result = resultValue;
         return status;
@@ -2673,12 +2672,14 @@ public class TracingJSRuntime : JSRuntime
         napi_platform platform,
         Action<string>? errorHandler,
         string? mainScript,
+        int apiVersion,
         out napi_env result)
     {
         napi_env resultValue = default;
         napi_status status = TraceCall(
             [Format(platform), Format(mainScript)],
-            () => (_runtime.CreateEnvironment(platform, errorHandler, mainScript, out resultValue),
+            () => (_runtime.CreateEnvironment(
+                platform, errorHandler, mainScript, apiVersion, out resultValue),
                 Format(resultValue)));
         result = resultValue;
         return status;
