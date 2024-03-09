@@ -64,6 +64,10 @@ public static class NativeLibrary
 #if NETFRAMEWORK
         string? libraryPath = FindLibrary(libraryName, assembly);
 
+        if (libraryPath == null) {
+            throw new ArgumentNullException(nameof(libraryName));
+        }
+
         return LoadLibrary(libraryPath);
 #else
         return SysNativeLibrary.Load(libraryName);
