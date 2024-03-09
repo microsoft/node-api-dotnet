@@ -4,6 +4,8 @@
 #if !NET7_0_OR_GREATER
 
 using System;
+using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 #if !NETFRAMEWORK
 using SysNativeLibrary = System.Runtime.InteropServices.NativeLibrary;
@@ -51,6 +53,24 @@ public static class NativeLibrary
     }
 
     /// <summary>
+    /// Loads a native library using the high-level API.
+    /// </summary>
+    /// <param name="libraryName">The name of the native library to be loaded.</param>
+    /// <param name="assembly">The assembly loading the native library.</param>
+    /// <param name="searchPath">The search path.</param>
+    /// <returns>The OS handle for the loaded native library.</returns>
+    public static nint Load(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+#if NETFRAMEWORK
+        var libraryPath = FindLibrary(libraryName, assembly);
+
+        return LoadLibrary(libraryPath);
+#else
+        return SysNativeLibrary.Load(libraryName);
+#endif
+    }
+
+    /// <summary>
     /// Gets the address of an exported symbol.
     /// </summary>
     /// <param name="handle">The native library OS handle.</param>
@@ -73,6 +93,67 @@ public static class NativeLibrary
 #else
         return SysNativeLibrary.TryGetExport(handle, name, out procAddress);
 #endif
+    }
+
+    /// <summary>
+    /// Searches various well-known paths for a library and returns the first result.
+    /// </summary>
+    /// <param name="libraryName">Name of the library to search for.</param>
+    /// <param name="assembly">Assembly to search relative from.</param>
+    /// <returns>Library path if found, otherwise false.</returns>
+    private static string? FindLibrary(string libraryName, Assembly assembly)
+    {
+        if (File.Exists(libraryName))
+        {
+            return Path.GetFullPath(libraryName);
+        }
+
+        string[] tryLibraryNames;
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            tryLibraryNames =
+            [
+                libraryName,
+                $"{libraryName}.dll"
+            ];
+        }
+        else
+        {
+            string libraryExtension = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+                ? "dylib"
+                : "so";
+
+            tryLibraryNames =
+            [
+                libraryName,
+                $"lib{libraryName}",
+                $"{libraryName}.{libraryExtension}",
+                $"lib{libraryName}.{libraryExtension}"
+            ];
+        }
+
+        string[] tryDirectories =
+        [
+            Path.GetDirectoryName(assembly.Location),
+            Environment.CurrentDirectory,
+            Environment.SystemDirectory,
+        ];
+
+        foreach (string tryDirectory in tryDirectories)
+        {
+            foreach (string tryLibraryName in tryLibraryNames)
+            {
+                string tryLibraryPath = Path.Join(tryDirectory, tryLibraryName);
+
+                if (File.Exists(tryLibraryPath))
+                {
+                    return tryLibraryPath;
+                }
+            }
+        }
+
+        return null;
     }
 
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
