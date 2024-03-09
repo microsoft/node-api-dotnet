@@ -70,7 +70,7 @@ public static class NativeLibrary
 
         return LoadLibrary(libraryPath);
 #else
-        return SysNativeLibrary.Load(libraryName);
+        return SysNativeLibrary.Load(libraryName, assembly, searchPath);
 #endif
     }
 
