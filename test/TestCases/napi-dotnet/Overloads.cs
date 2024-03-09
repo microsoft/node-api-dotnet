@@ -26,6 +26,11 @@ public class Overloads
         StringValue = stringValue;
     }
 
+    public Overloads(ITestInterface obj)
+    {
+        StringValue = obj.Value;
+    }
+
     public int? IntValue { get; private set; }
 
     public string? StringValue { get; private set; }
@@ -44,6 +49,11 @@ public class Overloads
     {
         IntValue = intValue;
         StringValue = stringValue;
+    }
+
+    public void SetValue(ITestInterface obj)
+    {
+        StringValue = obj.Value;
     }
 
     // Method with overloaded name in C# is given a non-overloaded export name.

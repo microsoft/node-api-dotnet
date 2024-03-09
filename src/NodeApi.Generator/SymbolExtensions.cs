@@ -414,7 +414,8 @@ internal static class SymbolExtensions
         IReadOnlyList<IParameterSymbol> parameters = constructorSymbol.Parameters;
         for (int i = 0; i < parameters.Count; i++)
         {
-            constructorBuilder.DefineParameter(i, ParameterAttributes.None, parameters[i].Name);
+            // The parameter index is offset by 1.
+            constructorBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameters[i].Name);
         }
 
         if (isDelegateConstructor)
@@ -556,8 +557,10 @@ internal static class SymbolExtensions
             parameter.Type.AsType(type.GenericTypeArguments, buildType: true);
         }
 
-        ConstructorInfo? constructorInfo = type.GetConstructor(
-            methodSymbol.Parameters.Select((p) => p.Type.AsType()).ToArray());
+        BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Instance;
+        ConstructorInfo? constructorInfo = type.GetConstructors(bindingFlags)
+            .FirstOrDefault((c) => c.GetParameters().Select((p) => p.Name).SequenceEqual(
+                methodSymbol.Parameters.Select((p) => p.Name)));
         return constructorInfo ?? throw new InvalidOperationException(
                 $"Constructor not found for type: {type.Name}");
     }
