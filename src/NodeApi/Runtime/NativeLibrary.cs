@@ -133,15 +133,20 @@ public static class NativeLibrary
             ];
         }
 
-        string[] tryDirectories =
+        string?[] tryDirectories =
         [
             Path.GetDirectoryName(assembly.Location),
             Environment.CurrentDirectory,
             Environment.SystemDirectory,
         ];
 
-        foreach (string tryDirectory in tryDirectories)
+        foreach (string? tryDirectory in tryDirectories)
         {
+            if (tryDirectory == null)
+            {
+                continue;
+            }
+
             foreach (string tryLibraryName in tryLibraryNames)
             {
                 string tryLibraryPath = Path.Combine(tryDirectory, tryLibraryName);
