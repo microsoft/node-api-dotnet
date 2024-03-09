@@ -62,7 +62,7 @@ public static class NativeLibrary
     public static nint Load(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
     {
 #if NETFRAMEWORK
-        var libraryPath = FindLibrary(libraryName, assembly);
+        string? libraryPath = FindLibrary(libraryName, assembly);
 
         return LoadLibrary(libraryPath);
 #else
