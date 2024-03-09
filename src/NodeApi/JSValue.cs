@@ -1428,12 +1428,8 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static implicit operator JSValue(float? value) => ValueOrDefault(value, value => CreateNumber(value));
     public static implicit operator JSValue(double? value) => ValueOrDefault(value, value => CreateNumber(value));
     public static implicit operator JSValue(string value) => value == null ? default : CreateStringUtf16(value);
-    public static implicit operator JSValue(char[] value) => value == null ? default : CreateStringUtf16(value);
     public static implicit operator JSValue(Span<char> value) => CreateStringUtf16(value);
     public static implicit operator JSValue(ReadOnlySpan<char> value) => CreateStringUtf16(value);
-    public static implicit operator JSValue(byte[] value) => value == null ? default : CreateStringUtf8(value);
-    public static implicit operator JSValue(Span<byte> value) => CreateStringUtf8(value);
-    public static implicit operator JSValue(ReadOnlySpan<byte> value) => CreateStringUtf8(value);
 
     public static explicit operator bool(JSValue value) => value.GetValueBool();
     public static explicit operator sbyte(JSValue value) => (sbyte)value.GetValueInt32();
@@ -1447,8 +1443,6 @@ public readonly struct JSValue : IEquatable<JSValue>
     public static explicit operator float(JSValue value) => (float)value.GetValueDouble();
     public static explicit operator double(JSValue value) => value.GetValueDouble();
     public static explicit operator string(JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf16();
-    public static explicit operator char[](JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf16AsCharArray();
-    public static explicit operator byte[](JSValue value) => value.IsNullOrUndefined() ? null! : value.GetValueStringUtf8();
     public static explicit operator bool?(JSValue value) => ValueOrDefault(value, value => value.GetValueBool());
     public static explicit operator sbyte?(JSValue value) => ValueOrDefault(value, value => (sbyte)value.GetValueInt32());
     public static explicit operator byte?(JSValue value) => ValueOrDefault(value, value => (byte)value.GetValueUInt32());

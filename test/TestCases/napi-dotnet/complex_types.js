@@ -71,21 +71,52 @@ assert.notStrictEqual(ComplexTypes.stringArray, stringArrayValue);
 assert.deepStrictEqual(ComplexTypes.stringArray, stringArrayValue);
 ComplexTypes.stringArray = [ 'test' ];
 assert.strictEqual(ComplexTypes.stringArray[0], 'test');
-ComplexTypes.stringArray[0] = 'test2';
+ComplexTypes.stringArray[0] = 'test2'; // Does not modify the original
 assert.strictEqual(ComplexTypes.stringArray[0], 'test');
 
+const byteArrayValue = ComplexTypes.byteArray;
+assert(Array.isArray(byteArrayValue));
+assert.strictEqual(byteArrayValue.length, 3);
+assert.notStrictEqual(ComplexTypes.byteArray, byteArrayValue);
+assert.deepStrictEqual(ComplexTypes.byteArray, byteArrayValue);
+ComplexTypes.byteArray = [ 1 ];
+assert.strictEqual(ComplexTypes.byteArray[0], 1);
+ComplexTypes.byteArray[0] = 2; // Does not modify the original
+assert.strictEqual(ComplexTypes.byteArray[0], 1);
+
+const intArrayValue = ComplexTypes.int32Array;
+assert(Array.isArray(intArrayValue));
+assert.strictEqual(intArrayValue.length, 3);
+assert.notStrictEqual(ComplexTypes.int32Array, intArrayValue);
+assert.deepStrictEqual(ComplexTypes.int32Array, intArrayValue);
+ComplexTypes.int32Array = [ 1 ];
+assert.strictEqual(ComplexTypes.int32Array[0], 1);
+ComplexTypes.int32Array[0] = 2; // Does not modify the original
+assert.strictEqual(ComplexTypes.int32Array[0], 1);
+
+
 // C# Memory<T> maps to/from JS TypedArray (without copying) for valid typed-array element types.
-const uintArrayValue = ComplexTypes.uIntArray;
-assert(uintArrayValue instanceof Uint32Array);
-assert.strictEqual(uintArrayValue.length, 0);
-assert.deepStrictEqual(ComplexTypes.uIntArray, uintArrayValue);
-const uintArrayValue2 = new Uint32Array([0, 1, 2]);
-ComplexTypes.uIntArray = uintArrayValue2;
-assert.strictEqual(ComplexTypes.uIntArray.length, 3);
-assert.strictEqual(ComplexTypes.uIntArray[1], 1);
-assert.deepStrictEqual(ComplexTypes.uIntArray, uintArrayValue2);
-const slicedArray = ComplexTypes.slice(new Uint32Array([0, 1, 2, 3]), 1, 2);
-assert.deepStrictEqual(slicedArray, new Uint32Array([1, 2]))
+const uint8ArrayValue = ComplexTypes.byteMemory;
+assert(uint8ArrayValue instanceof Uint8Array);
+assert.strictEqual(uint8ArrayValue.length, 3);
+assert.deepStrictEqual(ComplexTypes.byteMemory, uint8ArrayValue);
+const uint8ArrayValue2 = new Uint8Array([0, 1, 2, 3]);
+ComplexTypes.byteMemory = uint8ArrayValue2;
+assert.strictEqual(ComplexTypes.byteMemory.length, 4);
+assert.strictEqual(ComplexTypes.byteMemory[3], 3);
+assert.deepStrictEqual(ComplexTypes.byteMemory, uint8ArrayValue2);
+
+const int32ArrayValue = ComplexTypes.int32Memory;
+assert(int32ArrayValue instanceof Int32Array);
+assert.strictEqual(int32ArrayValue.length, 3);
+assert.deepStrictEqual(ComplexTypes.int32Memory, int32ArrayValue);
+const int32ArrayValue2 = new Int32Array([0, 1, 2, 3]);
+ComplexTypes.int32Memory = int32ArrayValue2;
+assert.strictEqual(ComplexTypes.int32Memory.length, 4);
+assert.strictEqual(ComplexTypes.int32Memory[3], 3);
+assert.deepStrictEqual(ComplexTypes.int32Memory, int32ArrayValue2);
+const slicedInt32Array = ComplexTypes.slice(new Int32Array([0, 1, 2, 3]), 1, 2);
+assert.deepStrictEqual(slicedInt32Array, new Int32Array([1, 2]))
 
 // C# IEnumerable<T> maps to/from JS Iterable<T> (without copying)
 const enumerableValue = ComplexTypes.enumerable;

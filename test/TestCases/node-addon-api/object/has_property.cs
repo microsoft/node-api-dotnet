@@ -26,7 +26,7 @@ public partial class TestObject
     {
         JSValue obj = args[0];
         JSValue key = args[1];
-        return obj.HasProperty(key.GetValueStringUtf8());
+        return obj.HasProperty(JSValue.CreateStringUtf8(key.GetValueStringUtf8()));
     }
 
     private static JSValue HasPropertyWithCSharpStyleString(JSCallbackArgs args)

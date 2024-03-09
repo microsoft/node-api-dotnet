@@ -11,7 +11,7 @@ public partial class TestObject
     {
         JSValue obj = args[0];
         byte[] key = args[1].GetValueStringUtf8();
-        return obj[key];
+        return obj[JSValue.CreateStringUtf8(key)];
     }
 
     private static JSValue SubscriptGetWithCSharpStyleString(JSCallbackArgs args)
@@ -33,7 +33,7 @@ public partial class TestObject
         JSValue obj = args[0];
         byte[] key = args[1].GetValueStringUtf8();
         JSValue value = args[2];
-        obj[key] = value;
+        obj[JSValue.CreateStringUtf8(key)] = value;
         return JSValue.Undefined;
     }
 

@@ -31,7 +31,7 @@ public partial class TestObject
         JSValue obj = args[0];
         JSValue key = args[1];
         JSValue value = args[2];
-        obj.SetProperty(key.GetValueStringUtf8(), value);
+        obj.SetProperty(JSValue.CreateStringUtf8(key.GetValueStringUtf8()), value);
         return JSValue.Undefined;
     }
 
