@@ -144,7 +144,7 @@ public static class NativeLibrary
         {
             foreach (string tryLibraryName in tryLibraryNames)
             {
-                string tryLibraryPath = Path.Join(tryDirectory, tryLibraryName);
+                string tryLibraryPath = Path.Combine(tryDirectory, tryLibraryName);
 
                 if (File.Exists(tryLibraryPath))
                 {
