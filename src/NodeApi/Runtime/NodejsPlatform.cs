@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
@@ -42,19 +43,12 @@ public sealed class NodejsPlatform : IDisposable
                 "Only one Node.js platform instance per process is allowed.");
         }
 
-#if NET7_0_OR_GREATER
-        var entryAssembly = System.Reflection.Assembly.GetEntryAssembly();
+        var entryAssembly = Assembly.GetAssembly(typeof(NodejsPlatform));
 
         nint libnodeHandle =
             entryAssembly != null
                 ? NativeLibrary.Load(libnode, entryAssembly, null)
                 : NativeLibrary.Load(libnode);
-#else
-        if (string.IsNullOrEmpty(libnode))
-            throw new ArgumentNullException(nameof(libnode));
-
-        nint libnodeHandle = NativeLibrary.Load(libnode);
-#endif
 
         Runtime = new NodejsRuntime(libnodeHandle);
 
