@@ -43,6 +43,12 @@ public class JSMarshaller
     /// </summary>
     public const string ResultPropertyName = "result";
 
+    /// <summary>
+    /// Keeps track of the names of all generated lambda expressions in order to automatically
+    /// avoid collisions, which can occur with overloaded methods.
+    /// </summary>
+    private readonly HashSet<string> _expressionNames = new();
+
     [ThreadStatic]
     private static JSMarshaller? s_current;
 
@@ -805,7 +811,7 @@ public class JSMarshaller
             return Expression.Lambda(
                 _delegates.Value.GetToJSDelegateType(method.ReturnType, parameters),
                 Expression.Block(method.ReturnType, new[] { resultVariable }, statements),
-                $"to_{FullMethodName(method)}",
+                FullMethodName(method, "to_"),
                 parameters);
         }
         catch (Exception ex)
@@ -874,7 +880,7 @@ public class JSMarshaller
             return Expression.Lambda(
                 JSMarshallerDelegates.GetFromJSDelegateType(method.DeclaringType!),
                 body: Expression.Block(typeof(JSValue), variables, statements),
-                $"from_{FullMethodName(method)}",
+                FullMethodName(method, "from_"),
                 parameters: new[] { thisParameter, s_argsParameter });
         }
         catch (Exception ex)
@@ -1265,6 +1271,7 @@ public class JSMarshaller
          * return JSCallbackOverload.CreateDescriptor(methodName, overloads);
          */
 
+        string name = FullMethodName(methods[0]);
         ParameterExpression overloadsVariable =
             Expression.Variable(typeof(JSCallbackOverload[]), "overloads");
         var statements = new Expression[methods.Length + 2];
@@ -1304,7 +1311,7 @@ public class JSMarshaller
                 typeof(JSCallbackDescriptor),
                 new[] { overloadsVariable },
                 statements),
-            name: FullMethodName(methods[0]),
+            name,
             Array.Empty<ParameterExpression>());
     }
 
@@ -3015,17 +3022,30 @@ public class JSMarshaller
             || elementType == typeof(double);
     }
 
-    private static string FullMethodName(MethodInfo method)
+    private string FullMethodName(MethodInfo method, string? prefix = null)
     {
-        string prefix = string.Empty;
         string name = method.Name;
         if (name.StartsWith("get_") || name.StartsWith("set_"))
         {
-            prefix = name.Substring(0, 4);
+            prefix ??= name.Substring(0, 4);
             name = name.Substring(4);
         }
+        else
+        {
+            prefix ??= string.Empty;
+        }
 
-        return $"{prefix}{FullTypeName(method.DeclaringType!)}_{name}";
+        // Ensure the generated name is unique by appending a counter suffix if necessary.
+        string fullName = $"{prefix}{FullTypeName(method.DeclaringType!)}_{name}";
+        string suffix = string.Empty;
+        for (int i = 2; _expressionNames.Contains(fullName + suffix); i++)
+        {
+            suffix = $"_{i}";
+        }
+
+        fullName += suffix;
+        _expressionNames.Add(fullName);
+        return fullName;
     }
 
     internal static string FullTypeName(Type type)
