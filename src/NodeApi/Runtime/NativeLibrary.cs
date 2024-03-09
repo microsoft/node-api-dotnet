@@ -62,11 +62,8 @@ public static class NativeLibrary
     public static nint Load(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
     {
 #if NETFRAMEWORK
-        string? libraryPath = FindLibrary(libraryName, assembly);
-
-        if (libraryPath == null) {
-            throw new ArgumentNullException(nameof(libraryName));
-        }
+        string libraryPath = FindLibrary(libraryName, assembly)
+            ?? throw new ArgumentNullException(nameof(libraryName));
 
         return LoadLibrary(libraryPath);
 #else
