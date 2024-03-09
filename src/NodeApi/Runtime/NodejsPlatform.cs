@@ -29,14 +29,12 @@ public sealed class NodejsPlatform : IDisposable
     /// Name of the `libnode` shared library.
     /// Has to be a full file path when using .NET Framework.
     /// </param>
-    /// <param name="args">Optional application arguments.</param>
-    /// <param name="execArgs">Optional platform options.</param>
+    /// <param name="args">Optional platform arguments.</param>
     /// <exception cref="InvalidOperationException">A Node.js platform instance has already been
     /// loaded in the current process.</exception>
     public NodejsPlatform(
         string libnode,
-        string[]? args = null,
-        string[]? execArgs = null)
+        string[]? args = null)
     {
         if (Current != null)
         {
@@ -60,7 +58,7 @@ public sealed class NodejsPlatform : IDisposable
 
         Runtime = new NodejsRuntime(libnodeHandle);
 
-        Runtime.CreatePlatform(args, execArgs, (error) => Console.WriteLine(error), out _platform)
+        Runtime.CreatePlatform(args, (error) => Console.WriteLine(error), out _platform)
             .ThrowIfFailed();
         Current = this;
     }

@@ -11,13 +11,11 @@ public unsafe partial class NodejsRuntime
 {
 #pragma warning disable IDE1006 // Naming: missing prefix '_'
 
-    private delegate* unmanaged[Cdecl]<
-        int, nint, int, nint, napi_error_message_handler, nint, napi_status>
+    private delegate* unmanaged[Cdecl]<int, nint, napi_error_message_handler, nint, napi_status>
         napi_create_platform;
 
     public override napi_status CreatePlatform(
         string[]? args,
-        string[]? execArgs,
         Action<string>? errorHandler,
         out napi_platform result)
     {
@@ -29,7 +27,6 @@ public unsafe partial class NodejsRuntime
             });
 
         nint args_ptr = StringsToHGlobalUtf8(args, out int args_count);
-        nint exec_args_ptr = StringsToHGlobalUtf8(execArgs, out int exec_args_count);
 
         try
         {
@@ -39,15 +36,13 @@ public unsafe partial class NodejsRuntime
                 if (napi_create_platform == null)
                 {
                     napi_create_platform = (delegate* unmanaged[Cdecl]<
-                        int, nint, int, nint, napi_error_message_handler, nint, napi_status>)
+                        int, nint, napi_error_message_handler, nint, napi_status>)
                         Import(nameof(napi_create_platform));
                 }
 
                 return napi_create_platform(
                     args_count,
                     args_ptr,
-                    exec_args_count,
-                    exec_args_ptr,
                     native_error_handler,
                     (nint)result_ptr);
             }
@@ -55,7 +50,6 @@ public unsafe partial class NodejsRuntime
         finally
         {
             FreeStringsHGlobal(args_ptr, args_count);
-            FreeStringsHGlobal(exec_args_ptr, exec_args_count);
         }
     }
 
@@ -68,13 +62,14 @@ public unsafe partial class NodejsRuntime
     }
 
     private delegate* unmanaged[Cdecl]<
-        napi_platform, napi_error_message_handler, nint, nint, napi_status>
+        napi_platform, napi_error_message_handler, nint, int, nint, napi_status>
         napi_create_environment;
 
     public override napi_status CreateEnvironment(
         napi_platform platform,
         Action<string>? errorHandler,
         string? mainScript,
+        int apiVersion,
         out napi_env result)
     {
         napi_error_message_handler native_error_handler = errorHandler == null ? default :
@@ -91,7 +86,7 @@ public unsafe partial class NodejsRuntime
             fixed (napi_env* result_ptr = &result)
             {
                 return Import(ref napi_create_environment)(
-                    platform, native_error_handler, main_script_ptr, (nint)result_ptr);
+                    platform, native_error_handler, main_script_ptr, apiVersion, (nint)result_ptr);
             }
         }
         finally

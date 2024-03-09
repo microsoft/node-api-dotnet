@@ -521,7 +521,6 @@ public abstract partial class JSRuntime
 
     public virtual napi_status CreatePlatform(
         string[]? args,
-        string[]? execArgs,
         Action<string>? errorHandler,
         out napi_platform result) => throw NS();
     public virtual napi_status DestroyPlatform(napi_platform platform) => throw NS();
@@ -529,6 +528,7 @@ public abstract partial class JSRuntime
         napi_platform platform,
         Action<string>? errorHandler,
         string? mainScript,
+        int apiVersion,
         out napi_env result) => throw NS();
     public virtual napi_status DestroyEnvironment(napi_env env, out int exitCode) => throw NS();
     public virtual napi_status RunEnvironment(napi_env env) => throw NS();
