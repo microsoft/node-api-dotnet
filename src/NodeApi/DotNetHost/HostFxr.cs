@@ -56,57 +56,9 @@ internal static partial class HostFxr
         // TODO: Port more of the logic to find hostfxr path from
         // https://github.com/dotnet/runtime/blob/main/src/native/corehost/nethost/nethost.cpp
         // (Select the correct architecture.)
-
-        string defaultRoot;
-        string? defaultRoot2 = null;
-        string libraryName;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            defaultRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                "dotnet");
-            libraryName = "hostfxr.dll";
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            defaultRoot = "/usr/share/dotnet";
-            defaultRoot2 = "/usr/lib/dotnet";
-            libraryName = "libhostfxr.so";
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            defaultRoot = "/usr/local/share/dotnet";
-            libraryName = "libhostfxr.dylib";
-        }
-        else
-        {
-            throw new PlatformNotSupportedException();
-        }
-
-        string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-        if (string.IsNullOrEmpty(dotnetRoot))
-        {
-            dotnetRoot = defaultRoot;
-        }
-        else
-        {
-            defaultRoot2 = null;
-        }
-
+        string libraryName = GetLibHostFxrFileName();
+        string dotnetRoot = GetDotNetRoot();
         NativeHost.Trace("    .NET root: " + dotnetRoot);
-
-        if (!Directory.Exists(dotnetRoot))
-        {
-            if (defaultRoot2 != null && Directory.Exists(defaultRoot2))
-            {
-                dotnetRoot = defaultRoot2;
-            }
-            else
-            {
-                throw new DirectoryNotFoundException(
-                    ".NET installation not found at " + dotnetRoot);
-            }
-        }
 
         string fxrDir = Path.Combine(dotnetRoot, "host", "fxr");
         if (!Directory.Exists(fxrDir))
@@ -151,6 +103,77 @@ internal static partial class HostFxr
 
         return hostfxrPath ?? throw new Exception("Failed to find an installed .NET host " +
             $"compatible with target version {targetVersion}.");
+    }
+
+    private static string GetLibHostFxrFileName()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return "hostfxr.dll";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "libhostfxr.so";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return "libhostfxr.dylib";
+        }
+        else
+        {
+            throw new PlatformNotSupportedException();
+        }
+    }
+
+    private static string GetDotNetRoot()
+    {
+        // Try to find the .NET installation root from the environment variable.
+        string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        if (!string.IsNullOrEmpty(dotnetRoot) && Directory.Exists(dotnetRoot))
+        {
+            return dotnetRoot;
+        }
+
+        string defaultRoot;
+        string? defaultRoot2 = null;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            defaultRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "dotnet");
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            defaultRoot = "/usr/share/dotnet";
+            defaultRoot2 = "/usr/lib/dotnet";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            defaultRoot = "/usr/local/share/dotnet";
+        }
+        else
+        {
+            throw new PlatformNotSupportedException();
+        }
+
+        if (Directory.Exists(defaultRoot))
+        {
+            return defaultRoot;
+        }
+
+        if (defaultRoot2 == null)
+        {
+            throw new DirectoryNotFoundException(
+                ".NET installation not found at " + defaultRoot);
+        }
+
+        if (Directory.Exists(defaultRoot2))
+        {
+            return defaultRoot2;
+        }
+
+        throw new DirectoryNotFoundException(
+            ".NET installation not found at " + defaultRoot2);
     }
 
     public record struct hostfxr_handle(nint Handle);
