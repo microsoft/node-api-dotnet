@@ -152,7 +152,7 @@ public sealed class JSDispatcherQueue
     internal void AddTimerJob(JSDispatcherQueueTimer.Job timerJob)
     {
         ValidateNoLock();
-        if (timerJob.IsCancelled) return;
+        if (timerJob.IsCanceled) return;
 
         // See if we can invoke it immediately.
         if (timerJob.TickTime <= DateTime.Now)
@@ -401,7 +401,7 @@ public sealed class JSDispatcherQueueTimer
         public JSDispatcherQueueTimer Timer { get; }
         public DateTime TickTime { get; }
         public EventHandler Tick { get; }
-        public bool IsCancelled { get; private set; }
+        public bool IsCanceled { get; private set; }
 
         public Job(JSDispatcherQueueTimer timer, DateTime tickTime, EventHandler tick)
         {
@@ -418,11 +418,11 @@ public sealed class JSDispatcherQueueTimer
             return -Comparer<DateTime>.Default.Compare(TickTime, other.TickTime);
         }
 
-        public void Cancel() => IsCancelled = true;
+        public void Cancel() => IsCanceled = true;
 
         public void Invoke()
         {
-            if (IsCancelled) return;
+            if (IsCanceled) return;
             Tick?.Invoke(Timer, EventArgs.Empty);
             Timer.CompleteJob(this);
         }
