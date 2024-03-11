@@ -215,4 +215,14 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
           attributes,
           data);
     }
+
+    public TDerived AddMethod(
+        string name,
+        JSCallbackDescriptor callbackDescriptor,
+        JSPropertyAttributes attributes = JSPropertyAttributes.DefaultMethod)
+    {
+        Properties.Add(JSPropertyDescriptor.Function(
+            name, callbackDescriptor.Callback, attributes, callbackDescriptor.Data));
+        return (TDerived)(object)this;
+    }
 }

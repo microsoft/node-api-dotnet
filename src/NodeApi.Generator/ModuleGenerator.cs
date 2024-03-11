@@ -368,18 +368,20 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             s += $"exportsValue = new JSModuleBuilder<{ns}.{moduleType.Name}>()";
             s.IncreaseIndent();
 
-            // Export non-static members of the module class.
-            foreach (ISymbol? member in moduleType.GetMembers()
-              .Where((m) => m.DeclaredAccessibility == Accessibility.Public && !m.IsStatic))
+            // Export public non-static members of the module class.
+            IEnumerable<ISymbol> members = moduleType.GetMembers()
+                .Where((m) => m.DeclaredAccessibility == Accessibility.Public && !m.IsStatic);
+
+            foreach (IPropertySymbol property in members.OfType<IPropertySymbol>())
             {
-                if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
-                {
-                    ExportMethod(ref s, method);
-                }
-                else if (member is IPropertySymbol property)
-                {
-                    ExportProperty(ref s, property);
-                }
+                ExportProperty(ref s, property, GetExportName(property));
+            }
+
+            foreach (IGrouping<string, IMethodSymbol> methodGroup in members.OfType<IMethodSymbol>()
+                .Where((m) => m.MethodKind == MethodKind.Ordinary)
+                .GroupBy(GetExportName))
+            {
+                ExportMethod(ref s, methodGroup, methodGroup.Key);
             }
         }
         else
@@ -401,16 +403,18 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 // Export tagged static properties as properties on the module.
                 ExportProperty(ref s, exportProperty, exportName);
             }
-            else if (exportItem is IMethodSymbol exportMethod)
-            {
-                // Export tagged static methods as top-level functions on the module.
-                ExportMethod(ref s, exportMethod, exportName);
-            }
             else if (exportItem is ITypeSymbol exportDelegate &&
                 exportDelegate.TypeKind == TypeKind.Delegate)
             {
                 ExportDelegate(exportDelegate);
             }
+        }
+
+        // Export tagged static methods as top-level functions on the module.
+        foreach (IGrouping<string, IMethodSymbol> methodGroup in exportItems.OfType<IMethodSymbol>()
+            .GroupBy(GetExportName))
+        {
+            ExportMethod(ref s, methodGroup, methodGroup.Key);
         }
 
         if (moduleType != null)
@@ -434,10 +438,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private void ExportType(
         ref SourceBuilder s,
         ITypeSymbol type,
-        string? exportName = null)
+        string exportName)
     {
-        exportName ??= type.Name;
-
         string propertyAttributes = string.Empty;
         if (type.ContainingType != null)
         {
@@ -547,22 +549,15 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         bool isStreamClass = typeof(System.IO.Stream).IsAssignableFrom(type.AsType());
 
-        foreach (ISymbol member in type.GetMembers()
-          .Where((m) => m.DeclaredAccessibility == Accessibility.Public))
-        {
-            if (isStreamClass && !member.IsStatic)
-            {
-                // Only static members on stream subclasses are exported to JS.
-                continue;
-            }
+        IEnumerable<ISymbol> members = type.GetMembers()
+            .Where((m) => m.DeclaredAccessibility == Accessibility.Public)
+            .Where((m) => !isStreamClass || m.IsStatic);
 
-            if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary)
+        foreach (ISymbol member in members)
+        {
+            if (member is IPropertySymbol property)
             {
-                ExportMethod(ref s, method);
-            }
-            else if (member is IPropertySymbol property)
-            {
-                ExportProperty(ref s, property);
+                ExportProperty(ref s, property, GetExportName(member));
             }
             else if (type.TypeKind == TypeKind.Enum && member is IFieldSymbol field)
             {
@@ -571,8 +566,15 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             }
             else if (member is INamedTypeSymbol nestedType)
             {
-                ExportType(ref s, nestedType);
+                ExportType(ref s, nestedType, GetExportName(member));
             }
+        }
+
+        foreach (IGrouping<string, IMethodSymbol> methodGroup in members
+            .OfType<IMethodSymbol>().Where((m) => m.MethodKind == MethodKind.Ordinary)
+            .GroupBy(GetExportName))
+        {
+            ExportMethod(ref s, methodGroup, methodGroup.Key);
         }
     }
 
@@ -581,21 +583,32 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     /// </summary>
     private void ExportMethod(
       ref SourceBuilder s,
-      IMethodSymbol method,
-      string? exportName = null)
+      IEnumerable<IMethodSymbol> methods,
+      string exportName)
     {
-        exportName ??= ToCamelCase(method.Name);
+        // TODO: Support exporting generic methods.
+        methods = methods.Where((m) => !m.IsGenericMethod);
 
-        // An adapter method may be used to support marshalling arbitrary parameters,
-        // if the method does not match the `JSCallback` signature.
+        IMethodSymbol? method = methods.FirstOrDefault();
+        if (method == null)
+        {
+            return;
+        }
+
         string attributes = "JSPropertyAttributes.DefaultMethod" +
             (method.IsStatic ? " | JSPropertyAttributes.Static" : string.Empty);
-        if (method.IsGenericMethod)
+
+        if (methods.Count() == 1 && !IsMethodCallbackAdapterRequired(method))
         {
-            // TODO: Export generic method.
+            // No adapter is needed for a method with a JSCallback signature.
+            string ns = GetNamespace(method);
+            string className = method.ContainingType.Name;
+            s += $".AddMethod(\"{exportName}\", " +
+                $"{ns}.{className}.{method.Name},\n\t{attributes})";
         }
-        else if (IsMethodCallbackAdapterRequired(method))
+        else if (methods.Count() == 1)
         {
+            // An adapter method supports marshalling arbitrary parameters.
             Expression<JSCallback> adapter =
                 _marshaller.BuildFromJSMethodExpression(method.AsMethodInfo());
             _callbackAdapters.Add(adapter.Name!, adapter);
@@ -603,10 +616,11 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         else
         {
-            string ns = GetNamespace(method);
-            string className = method.ContainingType.Name;
-            s += $".AddMethod(\"{exportName}\", " +
-                $"{ns}.{className}.{method.Name},\n\t{attributes})";
+            // An adapter method provides overload resolution.
+            LambdaExpression adapter = _marshaller.BuildMethodOverloadDescriptorExpression(
+                methods.Select((m) => m.AsMethodInfo()).ToArray());
+            _callbackAdapters.Add(adapter.Name!, adapter);
+            s += $".AddMethod(\"{exportName}\", {adapter.Name}(),\n\t{attributes})";
         }
     }
 
@@ -616,10 +630,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private void ExportProperty(
       ref SourceBuilder s,
       IPropertySymbol property,
-      string? exportName = null)
+      string exportName)
     {
-        exportName ??= ToCamelCase(property.Name);
-
         bool writable = property.SetMethod != null ||
             (!property.IsStatic && property.ContainingType.TypeKind == TypeKind.Struct);
         string attributes = "JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable" +
