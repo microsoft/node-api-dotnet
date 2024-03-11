@@ -123,7 +123,7 @@ public partial class TestObject : TestHelper, ITestObject
         obj["0.0f"] = 0.0f;
         obj["0.0"] = 0.0;
         obj["-1"] = -1;
-        obj["foo2"] = new ReadOnlySpan<byte>(new[] { (byte)'f', (byte)'o', (byte)'o' });
+        obj["foo2"] = JSValue.CreateStringUtf8(new[] { (byte)'f', (byte)'o', (byte)'o' });
         obj["foo4"] = "foo";
         obj["circular"] = obj;
         obj["circular2"] = obj;
