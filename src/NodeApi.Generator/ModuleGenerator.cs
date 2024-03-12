@@ -749,7 +749,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
 
         if (constructors.Length == 0 || constructors.Any((c) => c.Parameters.Length == 0 ||
-            (c.Parameters.Length == 1 && c.Parameters[0].Type.AsType() == typeof(JSCallbackArgs))))
+            (c.Parameters.Length == 1 &&
+                GetFullName(c.Parameters[0].Type) == typeof(JSCallbackArgs).FullName)))
         {
             return false;
         }
@@ -767,10 +768,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         if (method.IsStatic &&
             (method.Parameters.Length == 0 ||
             (method.Parameters.Length == 1 &&
-            method.Parameters[0].Type.AsType() == typeof(JSCallbackArgs))) &&
+            GetFullName(method.Parameters[0].Type) == typeof(JSCallbackArgs).FullName)) &&
             method.Parameters.All((p) => p.RefKind == RefKind.None) &&
             (method.ReturnsVoid ||
-            method.ReturnType.AsType() == typeof(JSValue)))
+            GetFullName(method.ReturnType) == typeof(JSValue).FullName))
         {
             return false;
         }
