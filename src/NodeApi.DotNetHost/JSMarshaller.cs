@@ -2353,7 +2353,7 @@ public class JSMarshaller
             else if (fromType == typeof(TimeSpan))
             {
                 MethodInfo toString = typeof(TimeSpan).GetInstanceMethod(
-                    nameof(TimeSpan.ToString), Array.Empty<Type>());
+                    nameof(TimeSpan.ToString), []);
                 MethodInfo asJSValue = typeof(JSValue).GetImplicitConversion(
                     typeof(string), typeof(JSValue));
                 statements = new[]
@@ -2364,7 +2364,7 @@ public class JSMarshaller
             else if (fromType == typeof(Guid))
             {
                 MethodInfo toString = typeof(Guid).GetInstanceMethod(
-                    nameof(Guid.ToString), Array.Empty<Type>());
+                    nameof(Guid.ToString), []);
                 MethodInfo asJSValue = typeof(JSValue).GetImplicitConversion(
                     typeof(string), typeof(JSValue));
                 statements = new[]
