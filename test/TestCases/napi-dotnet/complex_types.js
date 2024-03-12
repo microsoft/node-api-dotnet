@@ -197,12 +197,19 @@ assert.strictEqual(ComplexTypes.testEnum, enumType.Zero);
 ComplexTypes.testEnum = enumType.Two;
 assert.strictEqual(ComplexTypes.testEnum, enumType.Two);
 
-// Date
+// DateTime
 const dateValue = ComplexTypes.date;
 assert(dateValue instanceof Date);
 assert.deepStrictEqual(dateValue, new Date("2023-02-01"));
 ComplexTypes.date = new Date("2024-03-02T11:00");
 assert.deepStrictEqual(ComplexTypes.date, new Date("2024-03-02T11:00"));
+
+// TimeSpan
+const timeValue = ComplexTypes.time;
+assert.strictEqual(typeof timeValue, 'string');
+assert.strictEqual(timeValue, '1.12:30:45');
+ComplexTypes.time = '2.23:34:45';
+assert.strictEqual(ComplexTypes.time, '2.23:34:45');
 
 // Tuples
 const pairValue = ComplexTypes.pair;
@@ -220,6 +227,21 @@ assert(Array.isArray(valueTupleValue));
 assert.deepStrictEqual(valueTupleValue, ['valueTuple', 3]);
 ComplexTypes.valueTuple = ['valueTuple', -3];
 assert.deepStrictEqual(ComplexTypes.valueTuple, ['valueTuple', -3]);
+
+// Guid
+assert.strictEqual(ComplexTypes.guid, '01234567-89ab-cdef-fedc-ba9876543210');
+ComplexTypes.guid = 'fedcba98-7654-3210-0123-456789abcdef';
+assert.strictEqual(ComplexTypes.guid, 'fedcba98-7654-3210-0123-456789abcdef');
+
+// BigInteger
+assert.strictEqual(typeof ComplexTypes.bigInt, 'bigint');
+assert.strictEqual(ComplexTypes.bigInt, 1234567890123456789012345n);
+ComplexTypes.bigInt = 987654321098765432109876n;
+assert.strictEqual(ComplexTypes.bigInt, 987654321098765432109876n);
+ComplexTypes.bigInt = -1234567890123456789012345n;
+assert.strictEqual(ComplexTypes.bigInt, -1234567890123456789012345n);
+ComplexTypes.bigInt = 0n;
+assert.strictEqual(ComplexTypes.bigInt, 0n);
 
 // Ref / out parameters
 const results = classInstance.appendAndGetPreviousValue('!');
