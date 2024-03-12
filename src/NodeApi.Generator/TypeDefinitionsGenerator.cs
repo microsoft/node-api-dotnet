@@ -1285,6 +1285,9 @@ import { Duplex } from 'stream';
             "System.Double" => "number",
             "System.String" => "string",
             "System.DateTime" => "Date",
+            "System.TimeSpan" => "string",
+            "System.Guid" => "string",
+            "System.Numerics.BigInteger" => "bigint",
             _ => null,
         };
 

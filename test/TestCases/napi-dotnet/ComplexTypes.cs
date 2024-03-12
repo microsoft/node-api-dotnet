@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace Microsoft.JavaScript.NodeApi.TestCases;
 
@@ -60,6 +61,8 @@ public static class ComplexTypes
 
     public static DateTime Date { get; set; } = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc);
 
+    public static TimeSpan Time { get; set; } = new TimeSpan(1, 12, 30, 45);
+
     public static KeyValuePair<string, int> Pair { get; set; }
         = new KeyValuePair<string, int>("pair", 1);
 
@@ -67,6 +70,10 @@ public static class ComplexTypes
         = new Tuple<string, int>("tuple", 2);
 
     public static (string Key, int Value) ValueTuple { get; set; } = (Key: "valueTuple", Value: 3);
+
+    public static Guid Guid { get; set; } = Guid.Parse("01234567-89AB-CDEF-FEDC-BA9876543210");
+
+    public static BigInteger BigInt { get; set; } = BigInteger.Parse("1234567890123456789012345");
 }
 
 /// <summary>

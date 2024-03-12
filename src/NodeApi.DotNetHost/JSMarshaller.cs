@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
@@ -160,7 +161,11 @@ public class JSMarshaller
             type == typeof(string) ||
             type == typeof(Array) ||
             type == typeof(Task) ||
-            type == typeof(DateTime))
+            type == typeof(CancellationToken) ||
+            type == typeof(DateTime) ||
+            type == typeof(TimeSpan) ||
+            type == typeof(Guid) ||
+            type == typeof(BigInteger))
         {
             return true;
         }
@@ -171,8 +176,7 @@ public class JSMarshaller
         }
 
         if (type.IsGenericTypeDefinition &&
-            (type == typeof(CancellationToken) ||
-            type == typeof(IEnumerable<>) ||
+            (type == typeof(IEnumerable<>) ||
             type == typeof(IAsyncEnumerable<>) ||
             type == typeof(ICollection<>) ||
             type == typeof(IReadOnlyCollection<>) ||
@@ -2039,13 +2043,45 @@ public class JSMarshaller
                     Expression.Call(Expression.Call(asJSDate, valueParameter), toDateTime),
                 };
             }
+            else if (toType == typeof(TimeSpan))
+            {
+                MethodInfo asString = typeof(JSValue).GetExplicitConversion(
+                    typeof(JSValue), typeof(string));
+                MethodInfo toTimeSpan = typeof(TimeSpan).GetStaticMethod(
+                    nameof(TimeSpan.Parse), new[] { typeof(string) });
+                statements = new[]
+                {
+                    Expression.Call(toTimeSpan, Expression.Call(asString, valueParameter)),
+                };
+            }
+            else if (toType == typeof(Guid))
+            {
+                MethodInfo asString = typeof(JSValue).GetExplicitConversion(
+                    typeof(JSValue), typeof(string));
+                MethodInfo toGuid = typeof(Guid).GetStaticMethod(
+                    nameof(Guid.Parse), new[] { typeof(string) });
+                statements = new[]
+                {
+                    Expression.Call(toGuid, Expression.Call(asString, valueParameter)),
+                };
+            }
+            else if (toType == typeof(BigInteger))
+            {
+                MethodInfo asJSBigInt = typeof(JSBigInt).GetExplicitConversion(
+                    typeof(JSValue), typeof(JSBigInt));
+                MethodInfo toBigInteger = typeof(JSBigInt).GetInstanceMethod(
+                    nameof(JSBigInt.ToBigInteger));
+                statements = new[]
+                {
+                    Expression.Call(Expression.Call(asJSBigInt, valueParameter), toBigInteger),
+                };
+            }
             else if (toType == typeof(CancellationToken))
             {
                 MethodInfo toAbortSignal = typeof(JSAbortSignal).GetExplicitConversion(
                     typeof(JSValue), typeof(JSAbortSignal));
                 MethodInfo toCancellationToken = typeof(JSAbortSignal).GetExplicitConversion(
                     typeof(JSAbortSignal), typeof(CancellationToken));
-
                 statements = new[]
                 {
                     Expression.Call(
@@ -2312,6 +2348,39 @@ public class JSMarshaller
                 statements = new[]
                 {
                     Expression.Call(asJSValue, Expression.Call(fromDateTime, valueParameter)),
+                };
+            }
+            else if (fromType == typeof(TimeSpan))
+            {
+                MethodInfo toString = typeof(TimeSpan).GetInstanceMethod(
+                    nameof(TimeSpan.ToString), Array.Empty<Type>());
+                MethodInfo asJSValue = typeof(JSValue).GetImplicitConversion(
+                    typeof(string), typeof(JSValue));
+                statements = new[]
+                {
+                    Expression.Call(asJSValue, Expression.Call(valueParameter, toString)),
+                };
+            }
+            else if (fromType == typeof(Guid))
+            {
+                MethodInfo toString = typeof(Guid).GetInstanceMethod(
+                    nameof(Guid.ToString), Array.Empty<Type>());
+                MethodInfo asJSValue = typeof(JSValue).GetImplicitConversion(
+                    typeof(string), typeof(JSValue));
+                statements = new[]
+                {
+                    Expression.Call(asJSValue, Expression.Call(valueParameter, toString)),
+                };
+            }
+            else if (fromType == typeof(BigInteger))
+            {
+                ConstructorInfo fromBigInteger = typeof(JSBigInt).GetConstructor(
+                    new[] { typeof(BigInteger) })!;
+                MethodInfo asJSValue = typeof(JSBigInt).GetImplicitConversion(
+                    typeof(JSBigInt), typeof(JSValue));
+                statements = new[]
+                {
+                    Expression.Call(asJSValue, Expression.New(fromBigInteger, valueParameter)),
                 };
             }
             else if (fromType == typeof(CancellationToken))

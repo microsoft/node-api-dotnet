@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
@@ -135,7 +136,8 @@ internal static class SymbolExtensions
         string typeFullName = GetTypeSymbolFullName(namedTypeSymbol);
         ITypeSymbol[] genericArguments = namedTypeSymbol.TypeArguments.ToArray();
         Type? systemType = typeof(object).Assembly.GetType(typeFullName) ??
-            typeof(JSValue).Assembly.GetType(typeFullName);
+            typeof(JSValue).Assembly.GetType(typeFullName) ??
+            typeof(BigInteger).Assembly.GetType(typeFullName);
 
         if (systemType != null)
         {
