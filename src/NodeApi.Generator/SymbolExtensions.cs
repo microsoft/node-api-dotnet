@@ -152,7 +152,7 @@ internal static class SymbolExtensions
 
         // Generating the containing type will also generate the nested type,
         // so it should be found in the SymbolicTypes dictionary afterward.
-        typeSymbol.ContainingType?.AsType();
+        typeSymbol.ContainingType?.AsType(genericTypeParameters: null, buildType);
 
         if (SymbolicTypes.TryGetValue(typeFullName, out Type? symbolicType))
         {
@@ -164,6 +164,8 @@ internal static class SymbolExtensions
 
             if (buildType && symbolicType is TypeBuilder typeBuilder)
             {
+                BuildBaseTypeAndInterfaces((INamedTypeSymbol)typeSymbol);
+
                 symbolicType = typeBuilder.CreateType()!;
                 SymbolicTypes[typeFullName] = symbolicType;
             }
@@ -411,7 +413,7 @@ internal static class SymbolExtensions
                 MethodAttributes.RTSpecialName | MethodAttributes.HideBySig : default),
             CallingConventions.HasThis,
             constructorSymbol.Parameters.Select(
-                (p) => p.Type.AsType(genericTypeParameters)).ToArray());
+                (p) => p.Type.AsType(genericTypeParameters, buildType: false)).ToArray());
 
         IReadOnlyList<IParameterSymbol> parameters = constructorSymbol.Parameters;
         for (int i = 0; i < parameters.Count; i++)
@@ -461,9 +463,10 @@ internal static class SymbolExtensions
             genericMethodParameters == null ? genericTypeParameters :
             genericTypeParameters.Concat(genericMethodParameters).ToArray();
 
-        methodBuilder.SetReturnType(methodSymbol.ReturnType.AsType(genericParameters));
-        methodBuilder.SetParameters(
-            methodSymbol.Parameters.Select((p) => p.Type.AsType(genericParameters)).ToArray());
+        methodBuilder.SetReturnType(
+            methodSymbol.ReturnType.AsType(genericParameters, buildType: false));
+        methodBuilder.SetParameters(methodSymbol.Parameters.Select(
+            (p) => p.Type.AsType(genericParameters, buildType: false)).ToArray());
         BuildSymbolicParameters(methodBuilder, methodSymbol.Parameters);
 
         if (isDelegateMethod)
@@ -487,9 +490,9 @@ internal static class SymbolExtensions
         PropertyBuilder propertyBuilder = typeBuilder.DefineProperty(
             propertySymbol.Name,
             PropertyAttributes.None,
-            propertySymbol.Type.AsType(genericTypeParameters),
+            propertySymbol.Type.AsType(genericTypeParameters, buildType: false),
             propertySymbol.Parameters.Select(
-                (p) => p.Type.AsType(genericTypeParameters)).ToArray());
+                (p) => p.Type.AsType(genericTypeParameters, buildType: false)).ToArray());
 
         MethodAttributes attributes = MethodAttributes.SpecialName | MethodAttributes.Public |
             (propertySymbol.IsStatic ? MethodAttributes.Static :
@@ -501,9 +504,9 @@ internal static class SymbolExtensions
                 propertySymbol.GetMethod.Name,
                 attributes,
                 propertySymbol.IsStatic ? CallingConventions.Standard : CallingConventions.HasThis,
-                propertySymbol.GetMethod.ReturnType.AsType(genericTypeParameters),
+                propertySymbol.GetMethod.ReturnType.AsType(genericTypeParameters, buildType: false),
                 propertySymbol.GetMethod.Parameters.Select(
-                    (p) => p.Type.AsType(genericTypeParameters)).ToArray());
+                    (p) => p.Type.AsType(genericTypeParameters, buildType: false)).ToArray());
             BuildSymbolicParameters(getMethodBuilder, propertySymbol.GetMethod.Parameters);
             if (propertySymbol.IsStatic) getMethodBuilder.GetILGenerator().Emit(OpCodes.Ret);
             propertyBuilder.SetGetMethod(getMethodBuilder);
@@ -515,9 +518,9 @@ internal static class SymbolExtensions
                 propertySymbol.SetMethod.Name,
                 attributes,
                 propertySymbol.IsStatic ? CallingConventions.Standard : CallingConventions.HasThis,
-                propertySymbol.SetMethod.ReturnType.AsType(genericTypeParameters),
+                propertySymbol.SetMethod.ReturnType.AsType(genericTypeParameters, buildType: false),
                 propertySymbol.SetMethod.Parameters.Select(
-                    (p) => p.Type.AsType(genericTypeParameters)).ToArray());
+                    (p) => p.Type.AsType(genericTypeParameters, buildType: false)).ToArray());
             BuildSymbolicParameters(setMethodBuilder, propertySymbol.SetMethod.Parameters);
             if (propertySymbol.IsStatic) setMethodBuilder.GetILGenerator().Emit(OpCodes.Ret);
             propertyBuilder.SetSetMethod(setMethodBuilder);
@@ -578,8 +581,8 @@ internal static class SymbolExtensions
         Type[] typeParameters = type.GetGenericArguments();
         foreach (IParameterSymbol parameter in methodSymbol.Parameters)
         {
-            IEnumerable<Type> methodTypeParameters =
-                methodSymbol.TypeParameters.Select((t) => t.AsType(typeParameters));
+            IEnumerable<Type> methodTypeParameters = methodSymbol.TypeParameters.Select(
+                (t) => t.AsType(typeParameters, buildType: true));
             parameter.Type.AsType(
                 typeParameters.Concat(methodTypeParameters).ToArray(), buildType: true);
         }
