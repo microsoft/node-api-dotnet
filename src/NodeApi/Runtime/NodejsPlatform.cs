@@ -47,7 +47,11 @@ public sealed class NodejsPlatform : IDisposable
 
         nint libnodeHandle =
             entryAssembly != null
-                ? NativeLibrary.Load(libnode, entryAssembly!, DllImportSearchPath.SafeDirectories)
+                ? NativeLibrary.Load(
+                    libnode,
+                    entryAssembly!,
+                    DllImportSearchPath.AssemblyDirectory | DllImportSearchPath.SafeDirectories
+                )
                 : NativeLibrary.Load(libnode);
 
         Runtime = new NodejsRuntime(libnodeHandle);
