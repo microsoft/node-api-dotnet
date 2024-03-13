@@ -11,7 +11,7 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
 /// <summary>
 /// P/Invoke declarations and supporting code for the .net Framework 4.x CLR hosting APIs defined
-/// in MetaHost.h & mscoree.h (mscoree.dll).
+/// in MetaHost.h and mscoree.h (mscoree.dll).
 /// </summary>
 /// <remarks>
 /// https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/clr-hosting-interfaces-added-in-the-net-framework-4-and-4-5

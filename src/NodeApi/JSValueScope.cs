@@ -123,8 +123,8 @@ public sealed class JSValueScope : IDisposable
     /// <summary>
     /// Gets the environment handle for the current thread scope, or throws an exception if
     /// there is no environment for the current thread. For use only with static operations
-    /// not related to any <see cref="JSValue" />; for value operations use
-    /// <see cref="JSValue.UncheckedEnvironmentHandle" /> instead.
+    /// not related to any <see cref="JSValue" />; for value operations use the
+    /// <see cref="EnvironmentHandle" /> from the value's <see cref="JSValue.Scope"/> instead.
     /// </summary>
     /// <exception cref="JSInvalidThreadAccessException">No scope was established for the current
     /// thread.</exception>
@@ -147,7 +147,7 @@ public sealed class JSValueScope : IDisposable
     /// Creates a new instance of a <see cref="JSValueScope"/> with a specified scope type.
     /// </summary>
     /// <param name="scopeType">The type of scope to create; default is
-    /// <see cref="JSValueScopeType.Handle">.</param>
+    /// <see cref="JSValueScopeType.Handle" />.</param>
     public JSValueScope(JSValueScopeType scopeType = JSValueScopeType.Handle)
         : this(scopeType, env: default, runtime: default)
     {

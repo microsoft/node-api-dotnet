@@ -67,9 +67,9 @@ public readonly struct JSCallbackOverload
     /// not loaded until the first call.
     /// </summary>
     /// <param name="name">The method name.</param>
-    /// <param name="overloads">Function that returns an array of objects each having parameter
-    /// information for one overload. The function is called only once, on the first invocation
-    /// of the callback.</param>
+    /// <param name="deferredOverloads">Function that returns an array of objects each having
+    /// parameter information for one overload. The function is called only once, on the first
+    /// invocation of the callback.</param>
     /// <returns>Callback descriptor that can be used for marshalling the method call.</returns>
     public static JSCallbackDescriptor CreateDescriptor(
         string? name,

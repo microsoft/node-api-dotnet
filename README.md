@@ -110,7 +110,7 @@ dotnet.ExampleNamespace.ExampleClass.ExampleMethod(...args); // This call is typ
 
 (CommonJS modules must use `require()` instead of `import`.)
 
-For reference, there is a [list of C# type projections to TypeScript](/Docs/typescript.md).
+For reference, there is a [list of C# type projections to TypeScript](/docs/typescript.md).
 
 ### Full async support
 JavaScript code can `await` a call to a .NET method that returns a `Task`. The marshaller
@@ -282,12 +282,12 @@ For details, see [Using .NET Generics in JavaScript](./docs/generics.md).
 
 #### Instructions
 For calling .NET from JS, choose between one of the following scenarios:
- - [Dynamically invoke .NET APIs from JavaScript](./Docs/dynamic-invoke.md)<br/>
+ - [Dynamically invoke .NET APIs from JavaScript](./docs/dynamic-invoke.md)<br/>
    Dynamic invocation is simpler to set up: all you need is the `node-api-dotnet` npm package and
    the path to a .NET assembly you want to call. But it has some limitations (not all kinds of APIs
    are supported), and is not quite as fast as a C# module, because marshalling code must be
    generated at runtime.
- - [Develop a Node module in C#](./Docs/node-module.md)<br/>
+ - [Develop a Node module in C#](./docs/node-module.md)<br/>
    A C# Node module is appropriate for an application that has more advanced interop needs. It can
    be faster because marshalling code can be generated at compile time, and the shape of the APIs
    exposed to JavaScript can be adapted with JS interop in mind.
@@ -330,4 +330,4 @@ third-party's policies.
 <br/>
 <br/>
 
-![.NET + JS scene](./Docs/images/dotnet-bot_scene_coffee-shop.png)
+![.NET + JS scene](./docs/images/dotnet-bot_scene_coffee-shop.png)

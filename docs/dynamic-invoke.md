@@ -1,8 +1,9 @@
 ## Dynamically invoke .NET APIs from JavaScript
 
-For examples of this scenario, see
-[../examples/dynamic-invoke/](../examples/dynamic-invoke/) or
-[../examples/semantic-kernel/](../examples//semantic-kernel/).
+For examples of this scenario, see the
+[dotnet-dynamic](https://github.com/microsoft/node-api-dotnet/tree/main/examples/dotnet-dynamic) and
+[semantic-kernel/](https://github.com/microsoft/node-api-dotnet/tree/main/examples/semantic-kernel)
+projects.
 
 1. (Optional but recommended) Create a `.csproj` project (without any `.cs` source files) that will
    manage restoring nuget packages for .NET assemblies used by JS:

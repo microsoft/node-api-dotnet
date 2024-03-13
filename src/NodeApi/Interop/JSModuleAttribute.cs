@@ -17,7 +17,7 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// interface. An instance of the class will be constructed when the module is loaded, and disposed
 /// when the module is unloaded if it implements <see cref="IDisposable"/>. Public non-static
 /// properties and methods on the same module class are automatically exported. Those exports are
-/// merged with any additional items in the assembly (other classes, static properties & methods,
+/// merged with any additional items in the assembly (other classes, static properties and methods,
 /// etc) that are tagged with <see cref="JSExportAttribute"/>.
 /// <para/>
 /// If <see cref="JSModuleAttribute"/> is applied to a public static method, then that module

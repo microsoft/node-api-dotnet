@@ -1,7 +1,8 @@
 ## Develop a Node module in C#
 
-For a minimal example of this scenario, see
-[../examples/dotnet-module/](../examples/dotnet-module/).
+For a minimal example of this scenario, see the
+[dotnet-module](https://github.com/microsoft/node-api-dotnet/tree/main/examples/dotnet-module)
+project.
 
 1. Create a .NET Class library project that targets .NET 6 or later. (.NET 8 for AOT.)
     ```
@@ -16,9 +17,6 @@ For a minimal example of this scenario, see
     dotnet add package --prerelease Microsoft.JavaScript.NodeApi
     dotnet add package --prerelease Microsoft.JavaScript.NodeApi.Generator
     ```
-    > :warning: Until these packages are published, you'll need to
-    [build them from source](../README-DEV.md).<br>Then add the `out/pkg` directory as a local
-    package source in your `NuGet.config`.
 
     Afterward you should have the two references in your project file:
     ```xml
@@ -55,9 +53,6 @@ For a minimal example of this scenario, see
     ```
     npm install node-api-dotnet
     ```
-    > :warning: Until this package is published, you'll need to
-    [build it from source](../README-DEV.md).<br>Then get the package from
-    `out/pkg/node-api-dotnet-{version}.tgz`.
 
 6. Import the `node-api-dotnet` package in your JavaScript or TypeScript code. The import syntax
    depends on the [module system](https://nodejs.org/api/esm.html) the current project is using.
