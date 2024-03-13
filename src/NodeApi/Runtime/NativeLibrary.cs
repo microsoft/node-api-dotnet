@@ -62,7 +62,7 @@ public static class NativeLibrary
     public static nint Load(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
     {
 #if NETFRAMEWORK
-        string libraryPath = FindLibrary(libraryName, assembly)
+        string libraryPath = FindLibrary(libraryName, assembly, searchPath)
             ?? throw new ArgumentNullException(nameof(libraryName));
 
         return LoadLibrary(libraryPath);
@@ -101,8 +101,9 @@ public static class NativeLibrary
     /// </summary>
     /// <param name="libraryName">Name of the library to search for.</param>
     /// <param name="assembly">Assembly to search relative from.</param>
+    /// <param name="searchPath">The search path.</param>
     /// <returns>Library path if found, otherwise false.</returns>
-    private static string? FindLibrary(string libraryName, Assembly assembly)
+    private static string? FindLibrary(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
     {
         if (Path.IsPathRooted(libraryName) && File.Exists(libraryName))
         {
@@ -136,8 +137,13 @@ public static class NativeLibrary
 
         string?[] tryDirectories =
         [
-            Path.GetDirectoryName(assembly.Location),
-            Environment.SystemDirectory,
+            searchPath == null || (searchPath & DllImportSearchPath.AssemblyDirectory) > 0
+                ? Path.GetDirectoryName(assembly.Location)
+                : null,
+
+            searchPath == null || (searchPath & DllImportSearchPath.SafeDirectories) > 0
+                ? Environment.SystemDirectory
+                : null,
         ];
 
         foreach (string? tryDirectory in tryDirectories)
