@@ -373,6 +373,11 @@ dotnet.load(assemblyName);
         s += "export * from 'node-api-dotnet';";
         s += "}";
 
+        // Re-export this module's types directly from the module index.
+        // This supports a direct import of the module file.
+        s++;
+        s += "export * from 'node-api-dotnet';";
+
         return s;
     }
 
@@ -1285,6 +1290,9 @@ import { Duplex } from 'stream';
             "System.Double" => "number",
             "System.String" => "string",
             "System.DateTime" => "Date",
+            "System.TimeSpan" => "string",
+            "System.Guid" => "string",
+            "System.Numerics.BigInteger" => "bigint",
             _ => null,
         };
 

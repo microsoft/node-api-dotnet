@@ -5,6 +5,7 @@
     <RootNamespace>Microsoft.JavaScript.NodeApi.DotNetHost</RootNamespace>
     <IsPackable>true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>

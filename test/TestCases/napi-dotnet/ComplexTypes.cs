@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace Microsoft.JavaScript.NodeApi.TestCases;
 
@@ -30,13 +31,19 @@ public static class ComplexTypes
 
     public static string[] StringArray { get; set; } = Array.Empty<string>();
 
-    public static Memory<uint> UIntArray { get; set; }
+    public static byte[] ByteArray { get; set; } = new[] { (byte)0, (byte)1, (byte)2 };
 
-    public static IEnumerable<int> Enumerable { get; set; } = new int[] { 0, 1, 2 };
+    public static int[] Int32Array { get; set; } = new int[] { 0, 1, 2 };
 
-    public static ICollection<int> Collection { get; set; } = new List<int>(new int[] { 0, 1, 2 });
+    public static Memory<byte> ByteMemory { get; set; } = new Memory<byte>(ByteArray);
 
-    public static IReadOnlyCollection<int> ReadOnlyCollection { get; set; } = new int[] { 0, 1, 2 };
+    public static Memory<int> Int32Memory { get; set; } = new Memory<int>(Int32Array);
+
+    public static IEnumerable<int> Enumerable { get; set; } = Int32Array;
+
+    public static ICollection<int> Collection { get; set; } = new List<int>(Int32Array);
+
+    public static IReadOnlyCollection<int> ReadOnlyCollection { get; set; } = Int32Array;
 
     public static IList<int> List { get; set; } = new List<int>();
 
@@ -53,12 +60,14 @@ public static class ComplexTypes
     public static IDictionary<string, IList<ClassObject>> ObjectListDictionary { get; set; }
         = new Dictionary<string, IList<ClassObject>>();
 
-    public static Memory<uint> Slice(Memory<uint> array, int start, int length)
+    public static Memory<int> Slice(Memory<int> array, int start, int length)
         => array.Slice(start, length);
 
     public static TestEnum TestEnum { get; set; }
 
     public static DateTime Date { get; set; } = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    public static TimeSpan Time { get; set; } = new TimeSpan(1, 12, 30, 45);
 
     public static KeyValuePair<string, int> Pair { get; set; }
         = new KeyValuePair<string, int>("pair", 1);
@@ -67,6 +76,10 @@ public static class ComplexTypes
         = new Tuple<string, int>("tuple", 2);
 
     public static (string Key, int Value) ValueTuple { get; set; } = (Key: "valueTuple", Value: 3);
+
+    public static Guid Guid { get; set; } = Guid.Parse("01234567-89AB-CDEF-FEDC-BA9876543210");
+
+    public static BigInteger BigInt { get; set; } = BigInteger.Parse("1234567890123456789012345");
 }
 
 /// <summary>
