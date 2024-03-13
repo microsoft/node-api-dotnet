@@ -15,3 +15,6 @@ examples/**/package-lock.json
 
 *.log
 *.binlog
+
+cache/
+dist/
