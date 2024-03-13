@@ -104,7 +104,7 @@ public static class NativeLibrary
     /// <returns>Library path if found, otherwise false.</returns>
     private static string? FindLibrary(string libraryName, Assembly assembly)
     {
-        if (File.Exists(libraryName))
+        if (Path.IsPathRooted(libraryName) && File.Exists(libraryName))
         {
             return Path.GetFullPath(libraryName);
         }
@@ -137,7 +137,6 @@ public static class NativeLibrary
         string?[] tryDirectories =
         [
             Path.GetDirectoryName(assembly.Location),
-            Environment.CurrentDirectory,
             Environment.SystemDirectory,
         ];
 
