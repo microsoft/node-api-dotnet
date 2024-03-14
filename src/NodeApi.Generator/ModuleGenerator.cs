@@ -476,7 +476,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     LambdaExpression adapter;
                     ConstructorInfo[] constructors = type.GetMembers()
                         .OfType<IMethodSymbol>()
-                        .Where((m) => m.MethodKind == MethodKind.Constructor)
+                        .Where((m) => m.MethodKind == MethodKind.Constructor &&
+                            m.DeclaredAccessibility == Accessibility.Public)
                         .Select((c) => c.AsConstructorInfo())
                         .ToArray();
                     if (constructors.Length == 1)
@@ -493,7 +494,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     _callbackAdapters.Add(adapter.Name!, adapter);
                 }
                 else if (type.GetMembers().OfType<IMethodSymbol>().Any((m) =>
-                    m.MethodKind == MethodKind.Constructor && m.Parameters.Length == 0))
+                    m.MethodKind == MethodKind.Constructor &&
+                    m.DeclaredAccessibility == Accessibility.Public &&
+                    m.Parameters.Length == 0))
                 {
                     s += $"\t() => new {ns}.{type.Name}())";
                 }
@@ -741,7 +744,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     private bool IsConstructorCallbackAdapterRequired(ITypeSymbol type)
     {
         IMethodSymbol[] constructors = type.GetMembers().OfType<IMethodSymbol>()
-            .Where((m) => m.MethodKind == MethodKind.Constructor)
+            .Where((m) => m.MethodKind == MethodKind.Constructor &&
+                m.DeclaredAccessibility == Accessibility.Public)
             .ToArray();
         if (constructors.Length > 1)
         {
