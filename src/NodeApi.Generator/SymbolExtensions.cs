@@ -254,56 +254,65 @@ internal static class SymbolExtensions
         Type[]? genericTypeParameters,
         bool buildType)
     {
+        TypeBuilder typeBuilder;
         Type? baseType = typeSymbol.BaseType?.AsType(genericTypeParameters, buildType);
 
         // A base type might have had a reference to this type and therefore already defined it.
         if (SymbolicTypes.TryGetValue(typeFullName, out Type? thisType))
         {
-            return thisType;
-        }
-
-        TypeBuilder typeBuilder = ModuleBuilder.DefineType(
-            name: typeFullName,
-            GetTypeAttributes(typeSymbol.TypeKind),
-            parent: baseType);
-
-        if (typeSymbol.TypeParameters.Length > 0)
-        {
-            genericTypeParameters ??= [];
-            genericTypeParameters = typeBuilder.DefineGenericParameters(
-                typeSymbol.TypeParameters.Select((p) => p.Name).ToArray());
-        }
-
-        // Add the type builder to the map while building it, to support circular references.
-        SymbolicTypes.Add(typeFullName, typeBuilder);
-
-        BuildSymbolicTypeMembers(typeSymbol, typeBuilder, genericTypeParameters);
-
-        // Preserve JS attributes, which might be referenced by the marshaller.
-        foreach (AttributeData attribute in typeSymbol.GetAttributes())
-        {
-            if (attribute.AttributeClass!.ContainingNamespace.ToString()!.StartsWith(
-                    typeof(JSExportAttribute).Namespace!))
+            if (thisType is not TypeBuilder)
             {
-                Type attributeType = attribute.AttributeClass.AsType();
-                ConstructorInfo constructor = attributeType.GetConstructor(
-                    attribute.ConstructorArguments.Select((a) => a.Type!.AsType()).ToArray()) ??
-                    throw new MissingMemberException(
-                        $"Constructor not found for attribute: {attributeType.Name}");
-                CustomAttributeBuilder attributeBuilder = new(
-                    constructor,
-                    attribute.ConstructorArguments.Select((a) => a.Value).ToArray(),
-                    attribute.NamedArguments.Select((a) =>
-                        GetAttributeProperty(attributeType, a.Key)).ToArray(),
-                    attribute.NamedArguments.Select((a) => a.Value.Value).ToArray());
-                typeBuilder.SetCustomAttribute(attributeBuilder);
+                // The type is already fully built.
+                return thisType;
             }
-        }
 
-        static PropertyInfo GetAttributeProperty(Type type, string name)
-            => type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance) ??
-                throw new MissingMemberException(
-                    $"Property {name} not found on attribute {type.Name}.");
+            typeBuilder = (TypeBuilder)thisType;
+        }
+        else
+        {
+            typeBuilder = ModuleBuilder.DefineType(
+                name: typeFullName,
+                GetTypeAttributes(typeSymbol.TypeKind),
+                parent: baseType);
+
+            if (typeSymbol.TypeParameters.Length > 0)
+            {
+                genericTypeParameters ??= [];
+                genericTypeParameters = typeBuilder.DefineGenericParameters(
+                    typeSymbol.TypeParameters.Select((p) => p.Name).ToArray());
+            }
+
+            // Add the type builder to the map while building it, to support circular references.
+            SymbolicTypes.Add(typeFullName, typeBuilder);
+
+            BuildSymbolicTypeMembers(typeSymbol, typeBuilder, genericTypeParameters);
+
+            // Preserve JS attributes, which might be referenced by the marshaller.
+            foreach (AttributeData attribute in typeSymbol.GetAttributes())
+            {
+                if (attribute.AttributeClass!.ContainingNamespace.ToString()!.StartsWith(
+                        typeof(JSExportAttribute).Namespace!))
+                {
+                    Type attributeType = attribute.AttributeClass.AsType();
+                    ConstructorInfo constructor = attributeType.GetConstructor(
+                        attribute.ConstructorArguments.Select((a) => a.Type!.AsType()).ToArray()) ??
+                        throw new MissingMemberException(
+                            $"Constructor not found for attribute: {attributeType.Name}");
+                    CustomAttributeBuilder attributeBuilder = new(
+                        constructor,
+                        attribute.ConstructorArguments.Select((a) => a.Value).ToArray(),
+                        attribute.NamedArguments.Select((a) =>
+                            GetAttributeProperty(attributeType, a.Key)).ToArray(),
+                        attribute.NamedArguments.Select((a) => a.Value.Value).ToArray());
+                    typeBuilder.SetCustomAttribute(attributeBuilder);
+                }
+            }
+
+            static PropertyInfo GetAttributeProperty(Type type, string name)
+                => type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance) ??
+                    throw new MissingMemberException(
+                        $"Property {name} not found on attribute {type.Name}.");
+        }
 
         if (!buildType)
         {
