@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable IDE0060 // Unused parameters
 #pragma warning disable IDE0301 // Collection initialization can be simplified
 
 using System;
@@ -183,7 +184,7 @@ public enum TestEnum
 // Ensure module generation handles circular references between a base class and derived class.
 public class BaseClass
 {
-    protected BaseClass(int x) {}
+    protected BaseClass(int x) { }
 
     public DerivedClass? Derived { get; set; }
 }
@@ -191,5 +192,5 @@ public class BaseClass
 [JSExport]
 public class DerivedClass : BaseClass
 {
-    public DerivedClass(int x) : base(x) {}
+    public DerivedClass(int x) : base(x) { }
 }
