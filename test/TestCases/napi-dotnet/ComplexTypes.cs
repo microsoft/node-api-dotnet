@@ -160,6 +160,11 @@ public class ClassObject : ITestInterface
     {
         obj.AppendGenericValue<int>(value);
     }
+
+    public static void WithGenericList(IList<StructObject> list)
+    {
+        // This just ensures the TS generator can handle generic parameter types.
+    }
 #endif
 
     public class NestedClass

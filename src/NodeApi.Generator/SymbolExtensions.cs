@@ -108,7 +108,8 @@ internal static class SymbolExtensions
                 throw new NotSupportedException("Multi-dimensional arrays are not supported.");
             }
 
-            return arrayTypeSymbol.ElementType.AsType(genericTypeParameters).MakeArrayType();
+            return arrayTypeSymbol.ElementType.AsType(genericTypeParameters, buildType)
+                .MakeArrayType();
         }
 
         if (typeSymbol is ITypeParameterSymbol typeParameterSymbol)
@@ -143,8 +144,9 @@ internal static class SymbolExtensions
         {
             if (genericArguments.Length > 0)
             {
-                systemType = systemType.MakeGenericType(
-                    genericArguments.Select((t) => t.AsType(genericTypeParameters)).ToArray());
+                systemType = systemType.MakeGenericType(genericArguments
+                    .Select((t) => t.AsType(genericTypeParameters, buildType))
+                    .ToArray());
             }
 
             return systemType;
@@ -158,8 +160,9 @@ internal static class SymbolExtensions
         {
             if (genericArguments.Length > 0)
             {
-                symbolicType = symbolicType.MakeGenericType(
-                    genericArguments.Select((t) => t.AsType(genericTypeParameters)).ToArray());
+                symbolicType = symbolicType.MakeGenericType(genericArguments
+                    .Select((t) => t.AsType(genericTypeParameters, buildType))
+                    .ToArray());
             }
 
             if (buildType && symbolicType is TypeBuilder typeBuilder)
@@ -190,8 +193,9 @@ internal static class SymbolExtensions
 
         if (genericArguments.Length > 0)
         {
-            symbolicType = symbolicType.MakeGenericType(
-                genericArguments.Select((t) => t.AsType(genericTypeParameters)).ToArray());
+            symbolicType = symbolicType.MakeGenericType(genericArguments
+                .Select((t) => t.AsType(genericTypeParameters, buildType))
+                .ToArray());
         }
 
         return symbolicType;
