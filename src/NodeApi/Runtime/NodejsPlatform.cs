@@ -79,10 +79,10 @@ public sealed class NodejsPlatform : IDisposable
     /// <param name="mainScript">Optional script to run in the environment. (Literal script content,
     /// not a path to a script file.)</param>
     /// <returns>A new <see cref="NodejsEnvironment" /> instance.</returns>
-    public NodejsEnvironment CreateEnvironment(string? mainScript = null)
+    public NodejsEnvironment CreateEnvironment(string? dir = null, string? mainScript = null)
     {
         if (IsDisposed) throw new ObjectDisposedException(nameof(NodejsPlatform));
 
-        return new NodejsEnvironment(this, mainScript);
+        return new NodejsEnvironment(this, dir, mainScript);
     }
 }

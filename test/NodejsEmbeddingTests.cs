@@ -5,6 +5,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.JavaScript.NodeApi.DotNetHost;
 using Microsoft.JavaScript.NodeApi.Runtime;
 using Xunit;
 using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
@@ -22,7 +24,7 @@ public class NodejsEmbeddingTests
     internal static NodejsEnvironment CreateNodejsEnvironment()
     {
         Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        return NodejsPlatform.CreateEnvironment();
+        return NodejsPlatform.CreateEnvironment(Path.Combine(GetRepoRootDirectory(), "test"));
     }
 
     internal static void RunInNodejsEnvironment(Action action)
@@ -54,6 +56,8 @@ public class NodejsEmbeddingTests
         NodejsStart();
     }
 
+    public interface IConsole { void Log(string message); }
+
     [SkippableFact]
     public void NodejsCallFunction()
     {
@@ -67,6 +71,94 @@ public class NodejsEmbeddingTests
 
         nodejs.Dispose();
         Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    [SkippableFact]
+    public void NodejsImportBuiltinModule()
+    {
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        JSMarshaller marshaller = new() { AutoCamelCase = true };
+
+        Exception? exception = null;
+        nodejs.SynchronizationContext.Run(() =>
+        {
+            try
+            {
+                JSValue fsModule = nodejs.Import("fs");
+                Assert.Equal(JSValueType.Object, fsModule.TypeOf());
+
+                JSValue nodeFsModule = nodejs.Import("node:fs");
+                Assert.Equal(JSValueType.Object, nodeFsModule.TypeOf());
+            }
+            catch (JSException ex)
+            {
+                exception = new Exception(ex.ToString());
+            }
+        });
+
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+        Assert.Null(exception);
+    }
+
+    [SkippableFact]
+    public void NodejsImportCommonJSModule()
+    {
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        JSMarshaller marshaller = new() { AutoCamelCase = true };
+
+        Exception? exception = null;
+        nodejs.SynchronizationContext.Run(() =>
+        {
+            try
+            {
+                JSValue testModule = nodejs.Import("./test-cjs.js");
+                Assert.Equal(JSValueType.Object, testModule.TypeOf());
+                Assert.Equal(JSValueType.Function, testModule["test"].TypeOf());
+            }
+            catch (JSException ex)
+            {
+                exception = new Exception(ex.ToString());
+            }
+        });
+
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+        Assert.Null(exception);
+    }
+
+    [SkippableFact]
+    public void NodejsImportESModule()
+    {
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        JSMarshaller marshaller = new() { AutoCamelCase = true };
+
+        Exception? exception = null;
+        nodejs.SynchronizationContext.Run(async () =>
+        {
+            try
+            {
+                JSReference importReference = new JSReference(nodejs.Import("./import.cjs"));
+                Func<string, Task<JSValue>> importESModule = (string path) =>
+                {
+                    JSFunction importFunction = (JSFunction)importReference.GetValue()!.Value;
+                    return ((JSPromise)importFunction.CallAsStatic(path)).AsTask();
+                };
+
+                JSValue esModule = await importESModule("./test-esm.mjs");
+
+                Assert.Equal(JSValueType.Object, esModule.TypeOf());
+                Assert.Equal(JSValueType.Function, esModule["test"].TypeOf());
+            }
+            catch (JSException ex)
+            {
+                exception = new Exception(ex.ToString());
+            }
+        });
+
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+        Assert.Null(exception);
     }
 
     [SkippableFact]

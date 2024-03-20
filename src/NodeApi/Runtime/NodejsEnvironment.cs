@@ -37,7 +37,7 @@ public sealed class NodejsEnvironment : IDisposable
     public static implicit operator JSValueScope(NodejsEnvironment environment) =>
         environment._scope;
 
-    internal NodejsEnvironment(NodejsPlatform platform, string? mainScript)
+    internal NodejsEnvironment(NodejsPlatform platform, string? dir, string? mainScript)
     {
         JSValueScope scope = null!;
         JSSynchronizationContext syncContext = null!;
@@ -56,8 +56,27 @@ public sealed class NodejsEnvironment : IDisposable
             scope = new JSValueScope(JSValueScopeType.Root, env, platform.Runtime);
             syncContext = scope.RuntimeContext.SynchronizationContext;
 
-            // The require() function is available as a global in this context.
-            scope.RuntimeContext.Require = JSValue.Global["require"];
+            if (string.IsNullOrEmpty(dir))
+            {
+                dir = ".";
+            }
+
+            JSValue.Global.SetProperty("__dirname", dir!);
+
+            var originalRequireRef = new JSReference(JSValue.Global["require"]);
+            var envRequire = JSValue.CreateFunction("require", (args) =>
+            {
+                var require = originalRequireRef.GetValue()!.Value;
+                var options = new JSObject();
+                options["paths"] = new JSArray(new[] { (JSValue)dir! });
+                var resolvedPath = require.CallMethod("resolve", args[0], options);
+                return require.Call(thisArg: default, resolvedPath);
+            });
+
+            // TODO: Set up require.resolve() and require.resolve.paths.
+
+            JSValue.Global.SetProperty("require", envRequire);
+            scope.RuntimeContext.Require = envRequire;
 
             loadedEvent.Set();
 
