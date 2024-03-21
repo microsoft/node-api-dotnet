@@ -199,3 +199,19 @@ public class DerivedClass : BaseClass
 {
     public DerivedClass(int x) : base(x) { }
 }
+
+[JSExport]
+public class ClassWithPrivateConstructor
+{
+    private ClassWithPrivateConstructor(string value)
+    {
+        Value = value;
+    }
+
+    public static ClassWithPrivateConstructor CreateInstance(string value)
+    {
+        return new ClassWithPrivateConstructor(value);
+    }
+
+    public string Value { get; }
+}

@@ -469,17 +469,31 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 s += $"new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\",";
 
-                // The class constructor may take no parameter, or a single JSCallbackArgs
-                // parameter, or may use an adapter to support arbitrary parameters.
-                if (IsConstructorCallbackAdapterRequired(type))
+                ConstructorInfo[] constructors = type.GetMembers()
+                    .OfType<IMethodSymbol>()
+                    .Where((m) => m.MethodKind == MethodKind.Constructor &&
+                        m.DeclaredAccessibility == Accessibility.Public)
+                    .Select((c) => c.AsConstructorInfo())
+                    .ToArray();
+                if (constructors.Length == 0)
                 {
+                    s += $"\t() => throw new {typeof(JSException).Namespace}" +
+                        $".{typeof(JSException).Name}(" +
+                        $"\"Class '{type.Name}' does not have a public constructor.\"))";
+                }
+                else if (constructors.Length == 1 && constructors[0].GetParameters().Length == 0)
+                {
+                    s += $"\t() => new {ns}.{type.Name}())";
+                }
+                else if (constructors.Length == 1 &&
+                    constructors[0].GetParameters()[0].ParameterType == typeof(JSCallbackArgs))
+                {
+                    s += $"\t(args) => new {ns}.{type.Name}(args))";
+                }
+                else
+                {
+                    // An adapter method supports arbitrary parameters or overloads.
                     LambdaExpression adapter;
-                    ConstructorInfo[] constructors = type.GetMembers()
-                        .OfType<IMethodSymbol>()
-                        .Where((m) => m.MethodKind == MethodKind.Constructor &&
-                            m.DeclaredAccessibility == Accessibility.Public)
-                        .Select((c) => c.AsConstructorInfo())
-                        .ToArray();
                     if (constructors.Length == 1)
                     {
                         adapter = _marshaller.BuildFromJSConstructorExpression(constructors[0]);
@@ -492,17 +506,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         s += $"\t{adapter.Name}())";
                     }
                     _callbackAdapters.Add(adapter.Name!, adapter);
-                }
-                else if (type.GetMembers().OfType<IMethodSymbol>().Any((m) =>
-                    m.MethodKind == MethodKind.Constructor &&
-                    m.DeclaredAccessibility == Accessibility.Public &&
-                    m.Parameters.Length == 0))
-                {
-                    s += $"\t() => new {ns}.{type.Name}())";
-                }
-                else
-                {
-                    s += $"\t(args) => new {ns}.{type.Name}(args))";
                 }
             }
 
@@ -735,31 +738,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         return symbol.GetAttributes().SingleOrDefault(
             (a) => a.AttributeClass?.Name == "JSExportAttribute");
-    }
-
-    /// <summary>
-    /// Checks whether an adapter must be generated for a constructor. An adapter is unnecessary
-    /// if the constructor takes either no parameters or a single JSCallbackArgs parameter.
-    /// </summary>
-    private bool IsConstructorCallbackAdapterRequired(ITypeSymbol type)
-    {
-        IMethodSymbol[] constructors = type.GetMembers().OfType<IMethodSymbol>()
-            .Where((m) => m.MethodKind == MethodKind.Constructor &&
-                m.DeclaredAccessibility == Accessibility.Public)
-            .ToArray();
-        if (constructors.Length > 1)
-        {
-            return true;
-        }
-
-        if (constructors.Length == 0 || constructors.Any((c) => c.Parameters.Length == 0 ||
-            (c.Parameters.Length == 1 &&
-                GetFullName(c.Parameters[0].Type) == typeof(JSCallbackArgs).FullName)))
-        {
-            return false;
-        }
-
-        return true;
     }
 
     /// <summary>
