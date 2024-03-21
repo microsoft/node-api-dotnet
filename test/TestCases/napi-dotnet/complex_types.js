@@ -268,3 +268,19 @@ assert.equal(ClassObject.NestedClass.toString(),
   'Microsoft.JavaScript.NodeApi.TestCases.ClassObject.NestedClass');
 const nestedInstance = new ClassObject.NestedClass('nested');
 assert.strictEqual(nestedInstance.value, 'nested');
+
+// Private constructor
+const ClassWithPrivateConstructor = binding.ClassWithPrivateConstructor;
+let constructorError = undefined;
+try {
+  new ClassWithPrivateConstructor();
+} catch (e) {
+  constructorError = e;
+}
+assert(constructorError);
+assert.strictEqual(
+  constructorError.message,
+  'Class \'ClassWithPrivateConstructor\' does not have a public constructor.');
+// It should still be possible to get an instance that was constructed some other way.
+const instanceWithPrivateConstructor = ClassWithPrivateConstructor.createInstance('test');
+assert.strictEqual(instanceWithPrivateConstructor.value, 'test');
