@@ -351,6 +351,8 @@ internal static class SymbolExtensions
 
         foreach (INamedTypeSymbol interfaceTypeSymbol in typeSymbol.Interfaces)
         {
+            BuildBaseTypeAndInterfaces(interfaceTypeSymbol);
+
             string interfaceTypeFullName = GetTypeSymbolFullName(interfaceTypeSymbol);
             if (SymbolicTypes.TryGetValue(interfaceTypeFullName, out Type? interfaceType) &&
                 interfaceType is TypeBuilder interfaceTypeBuilder)
