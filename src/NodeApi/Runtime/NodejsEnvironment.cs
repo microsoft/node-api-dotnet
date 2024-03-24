@@ -3,6 +3,7 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
@@ -37,7 +38,7 @@ public sealed class NodejsEnvironment : IDisposable
     public static implicit operator JSValueScope(NodejsEnvironment environment) =>
         environment._scope;
 
-    internal NodejsEnvironment(NodejsPlatform platform, string? mainScript)
+    internal NodejsEnvironment(NodejsPlatform platform, string? baseDir, string? mainScript)
     {
         JSValueScope scope = null!;
         JSSynchronizationContext syncContext = null!;
@@ -56,8 +57,16 @@ public sealed class NodejsEnvironment : IDisposable
             scope = new JSValueScope(JSValueScopeType.Root, env, platform.Runtime);
             syncContext = scope.RuntimeContext.SynchronizationContext;
 
-            // The require() function is available as a global in this context.
-            scope.RuntimeContext.Require = JSValue.Global["require"];
+            if (string.IsNullOrEmpty(baseDir))
+            {
+                baseDir = ".";
+            }
+            else
+            {
+                JSValue.Global.SetProperty("__dirname", baseDir!);
+            }
+
+            InitializeModuleImportFunctions(scope.RuntimeContext, baseDir!);
 
             loadedEvent.Set();
 
@@ -75,6 +84,81 @@ public sealed class NodejsEnvironment : IDisposable
 
         _scope = scope;
         SynchronizationContext = syncContext;
+    }
+
+    private static void InitializeModuleImportFunctions(
+        JSRuntimeContext runtimeContext,
+        string baseDir)
+    {
+        // The require function is available as a global in the embedding context.
+        JSFunction originalRequire = (JSFunction)JSValue.Global["require"];
+        JSReference originalRequireRef = new(originalRequire);
+        JSFunction envRequire = new("require", (modulePath) =>
+        {
+            JSValue require = originalRequireRef.GetValue()!.Value;
+            JSValue resolvedPath = ResolveModulePath(require, modulePath, baseDir);
+            return require.Call(thisArg: default, resolvedPath);
+        });
+
+        // Also set up a callback for require.resolve(), in case it is used by imported modules.
+        JSValue requireObject = (JSValue)envRequire;
+        requireObject["resolve"] = new JSFunction("resolve", (modulePath) =>
+        {
+            JSValue require = originalRequireRef.GetValue()!.Value;
+            return ResolveModulePath(require, modulePath, baseDir);
+        });
+
+        JSValue.Global.SetProperty("require", envRequire);
+        runtimeContext.RequireFunction = envRequire;
+
+        // The import keyword is not a function and is only available through use of an
+        // external helper module.
+#pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
+        string assemblyLocation = typeof(NodejsEnvironment).Assembly.Location;
+#pragma warning restore IL3000
+        if (!string.IsNullOrEmpty(assemblyLocation))
+        {
+            string importAdapterModulePath = Path.Combine(
+                Path.GetDirectoryName(assemblyLocation)!, "import.cjs");
+            if (File.Exists(importAdapterModulePath))
+            {
+                JSFunction originalImport = (JSFunction)originalRequire.CallAsStatic(
+                    importAdapterModulePath);
+                JSReference originalImportRef = new(originalImport);
+                JSFunction envImport = new("import", (modulePath) =>
+                {
+                    JSValue require = originalRequireRef.GetValue()!.Value;
+                    JSValue resolvedPath = ResolveModulePath(require, modulePath, baseDir);
+                    JSValue moduleUri = "file://" + (string)resolvedPath;
+                    JSValue import = originalImportRef.GetValue()!.Value;
+                    return import.Call(thisArg: default, moduleUri);
+                });
+
+                JSValue.Global.SetProperty("import", envImport);
+                runtimeContext.ImportFunction = envImport;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Use the require.resolve() function with an explicit base directory to resolve both
+    /// CommonJS and ES modules.
+    /// </summary>
+    /// <param name="require">Require function.</param>
+    /// <param name="modulePath">Module name or path that was supplied to the require or import
+    /// function.</param>
+    /// <param name="baseDir">Base directory for the module resolution.</param>
+    /// <returns>Resolved module path.</returns>
+    /// <exception cref="JSException">Thrown if the module could not be resolved.</exception>
+    private static JSValue ResolveModulePath(
+        JSValue require,
+        JSValue modulePath,
+        string baseDir)
+    {
+        // Pass the base directory to require.resolve() via the options object.
+        JSObject options = new();
+        options["paths"] = new JSArray(new[] { (JSValue)baseDir! });
+        return require.CallMethod("resolve", modulePath, options);
     }
 
     /// <summary>
@@ -284,8 +368,11 @@ public sealed class NodejsEnvironment : IDisposable
     /// <paramref cref="property" /> are null.</exception>
     /// <exception cref="InvalidOperationException">The <see cref="Require"/> function was
     /// not initialized.</exception>
-    public JSValue Import(string? module, string? property = null)
-        => _scope.RuntimeContext.Import(module, property);
+    public JSValue Import(string? module, string? property = null, bool esModule = false)
+        => _scope.RuntimeContext.Import(module, property, esModule);
+
+    public Task<JSValue> ImportAsync(string? module, string? property = null, bool esModule = false)
+        => _scope.RuntimeContext.ImportAsync(module, property, esModule);
 
     /// <summary>
     /// Runs garbage collection in the JS environment.

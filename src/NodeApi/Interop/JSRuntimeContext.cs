@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.Interop.JSCollectionProxies;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
@@ -97,9 +98,14 @@ public sealed class JSRuntimeContext : IDisposable
     private readonly ConcurrentDictionary<(string?, string?), JSReference> _importMap = new();
 
     /// <summary>
-    /// Holds a reference to the require() function.
+    /// Holds a reference to the synchronous CommonJS require() function.
     /// </summary>
-    private JSReference? _require;
+    private JSReference? _requireFunction;
+
+    /// <summary>
+    /// Holds a reference to the asynchronous ES import() function.
+    /// </summary>
+    private JSReference? _importFunction;
 
     private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
 
@@ -153,19 +159,19 @@ public sealed class JSRuntimeContext : IDisposable
     }
 
     /// <summary>
-    /// Gets or sets the require() function.
+    /// Gets or sets the require() function, that supports synchronously importing CommonJS modules.
     /// </summary>
     /// <remarks>
     /// Managed-host initialization will typically pass in the require function.
     /// </remarks>
-    public JSValue Require
+    public JSFunction RequireFunction
     {
         get
         {
-            JSValue? value = _require?.GetValue();
+            JSValue? value = _requireFunction?.GetValue();
             if (value?.IsFunction() == true)
             {
-                return value.Value;
+                return (JSFunction)value.Value;
             }
 
             JSValue globalObject = JSValue.Global[GlobalObjectName];
@@ -174,19 +180,57 @@ public sealed class JSRuntimeContext : IDisposable
                 JSValue globalRequire = globalObject["require"];
                 if (globalRequire.IsFunction())
                 {
-                    _require = new JSReference(globalRequire);
-                    return globalRequire;
+                    _requireFunction = new JSReference(globalRequire);
+                    return (JSFunction)globalRequire;
                 }
             }
 
             throw new InvalidOperationException(
                 $"The require function was not found on the global {GlobalObjectName} object. " +
-                $"Set `global.{GlobalObjectName} = {{ require }}` before loading the module.");
+                $"Set `global.{GlobalObjectName}.require` before loading the module.");
         }
         set
         {
-            _require?.Dispose();
-            _require = new JSReference(value);
+            _requireFunction?.Dispose();
+            _requireFunction = new JSReference(value);
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the import() function, that supports asynchronously importing ES modules.
+    /// </summary>
+    /// <remarks>
+    /// Managed-host initialization will typically pass in the import function.
+    /// </remarks>
+    public JSFunction ImportFunction
+    {
+        get
+        {
+            JSValue? value = _importFunction?.GetValue();
+            if (value?.IsFunction() == true)
+            {
+                return (JSFunction)value.Value;
+            }
+
+            JSValue globalObject = JSValue.Global[GlobalObjectName];
+            if (globalObject.IsObject())
+            {
+                JSValue globalImport = globalObject["import"];
+                if (globalImport.IsFunction())
+                {
+                    _importFunction = new JSReference(globalImport);
+                    return (JSFunction)globalImport;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"The import function was not found on the global {GlobalObjectName} object. " +
+                $"Set `global.{GlobalObjectName}.import` before loading the module.");
+        }
+        set
+        {
+            _importFunction?.Dispose();
+            _importFunction = new JSReference(value);
         }
     }
 
@@ -568,12 +612,18 @@ public sealed class JSRuntimeContext : IDisposable
     /// <c>require()</c> in JavaScript. Required if <paramref name="property"/> is null.</param>
     /// <param name="property">Name of a property on the module (or global), or null to import
     /// the module object. Required if <paramref name="module"/> is null.</param>
-    /// <returns>The imported value.</returns>
+    /// <param name="esModule">True to import an ES module; false to import a CommonJS module
+    /// (default).</param>
+    /// <returns>The imported value. When importing from an ES module, this is a JS promise
+    /// that resolves to the imported value.</returns>
     /// <exception cref="ArgumentNullException">Both <paramref cref="module" /> and
     /// <paramref cref="property" /> are null.</exception>
-    /// <exception cref="InvalidOperationException">The <see cref="Require"/> function was
-    /// not initialized.</exception>
-    public JSValue Import(string? module, string? property = null)
+    /// <exception cref="InvalidOperationException">The <see cref="RequireFunction" /> or
+    /// <see cref="ImportFunction" /> property was not initialized.</exception>
+    public JSValue Import(
+        string? module,
+        string? property = null,
+        bool esModule = false)
     {
         if ((module == null || module == "global") && property == null)
         {
@@ -590,21 +640,62 @@ public sealed class JSRuntimeContext : IDisposable
             }
             else if (property == null)
             {
-                // Importing from a module via require().
-                JSValue moduleValue = Require.Call(thisArg: JSValue.Undefined, module);
+                // Importing from a module via require() or import().
+                JSFunction requireOrImport = esModule ? ImportFunction : RequireFunction;
+                JSValue moduleValue = requireOrImport.CallAsStatic(module);
                 return new JSReference(moduleValue);
             }
             else
             {
                 // Getting a property on an imported module.
                 JSValue moduleValue = Import(module, null);
-                JSValue propertyValue = moduleValue.IsUndefined() ?
-                    JSValue.Undefined : moduleValue.GetProperty(property);
-                return new JSReference(propertyValue);
+                if (esModule)
+                {
+                    return new JSReference(((JSPromise)moduleValue).Then(
+                        (value) => value.IsUndefined() ?
+                            JSValue.Undefined : value.GetProperty(property)));
+                }
+                else
+                {
+                    JSValue propertyValue = moduleValue.IsUndefined() ?
+                        JSValue.Undefined : moduleValue.GetProperty(property);
+                    return new JSReference(propertyValue);
+                }
             }
 
         });
         return reference.GetValue() ?? JSValue.Undefined;
+    }
+
+    /// <summary>
+    /// Imports a module or module property from JavaScript.
+    /// </summary>
+    /// <param name="module">Name of the module being imported, or null to import a
+    /// global property. This is equivalent to the value provided to <c>import</c> or
+    /// <c>require()</c> in JavaScript. Required if <paramref name="property"/> is null.</param>
+    /// <param name="property">Name of a property on the module (or global), or null to import
+    /// the module object. Required if <paramref name="module"/> is null.</param>
+    /// <param name="esModule">True to import an ES module; false to import a CommonJS module
+    /// (default).</param>
+    /// <returns>A task that results in the imported value. When importing from an ES module,
+    /// the task directly results in the imported value (not a JS promise).</returns>
+    /// <exception cref="ArgumentNullException">Both <paramref cref="module" /> and
+    /// <paramref cref="property" /> are null.</exception>
+    /// <exception cref="InvalidOperationException">The <see cref="RequireFunction" /> or
+    /// <see cref="ImportFunction" /> property was not initialized.</exception>
+    public async Task<JSValue> ImportAsync(
+        string? module,
+        string? property = null,
+        bool esModule = false)
+    {
+        JSValue value = Import(module, property, esModule);
+
+        if (value.IsPromise())
+        {
+            value = await ((JSPromise)value).AsTask();
+        }
+
+        return value;
     }
 
     public void Dispose()

@@ -1,0 +1,8 @@
+{
+    "name": "node-api-dotnet-test-cjs-package",
+    "type": "module",
+    "exports": {
+      ".": "./index.js",
+      "./feature": "./feature.js"
+    }
+}

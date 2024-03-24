@@ -125,7 +125,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         }
         else
         {
-            Exception? exception = null;
+            JSException? exception = null;
             Send((_) =>
             {
                 if (IsDisposed) return;
@@ -135,12 +135,12 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
                 }
                 catch (Exception ex)
                 {
-                    exception = ex;
+                    exception = new JSException(ex);
                 }
             }, null);
             if (exception != null)
             {
-                throw new JSException("Exception thrown from JS thread.", exception);
+                throw exception;
             }
         }
     }
@@ -161,7 +161,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
         else
         {
             T result = default!;
-            Exception? exception = null;
+            JSException? exception = null;
             Send((_) =>
             {
                 if (IsDisposed) return;
@@ -171,12 +171,12 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
                 }
                 catch (Exception ex)
                 {
-                    exception = ex;
+                    exception = new JSException(ex);
                 }
             }, null);
             if (exception != null)
             {
-                throw new JSException("Exception thrown from JS thread.", exception);
+                throw exception;
             }
             return result;
         }
@@ -205,7 +205,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
                 }
                 catch (Exception ex)
                 {
-                    completion.TrySetException(ex);
+                    completion.TrySetException(new JSException(ex));
                 }
             }, null);
             return completion.Task;
@@ -235,7 +235,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
                 }
                 catch (Exception ex)
                 {
-                    completion.TrySetException(ex);
+                    completion.TrySetException(new JSException(ex));
                 }
             }, null);
             return completion.Task;

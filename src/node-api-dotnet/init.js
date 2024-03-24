@@ -46,6 +46,11 @@ function initialize(targetFramework) {
   const managedHostPath = __dirname + `/${targetFramework}/${assemblyName}.DotNetHost.dll`
 
   const nativeHost = require(nativeHostPath);
-  dotnet = nativeHost.initialize(targetFramework, managedHostPath, require);
+
+  // Pass require() and import() functions to the host initialize() method.
+  // Since `import` is a keyword and not a function it has to be wrapped in a function value.
+  const importModule = function importModule(modulePath) { return import(modulePath); };
+
+  dotnet = nativeHost.initialize(targetFramework, managedHostPath, require, importModule);
   return dotnet;
 }

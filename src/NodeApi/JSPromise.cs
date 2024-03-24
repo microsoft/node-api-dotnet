@@ -143,20 +143,14 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// Registers callbacks that are invoked when a promise is fulfilled and/or rejected,
     /// and returns a new chained promise.
     /// </summary>
-    public JSPromise Then(Action<JSValue>? fulfilled, Action<JSError>? rejected)
+    public JSPromise Then(
+        Func<JSValue, JSValue>? fulfilled,
+        Func<JSError, JSValue>? rejected = null)
     {
         JSValue fulfilledFunction = fulfilled == null ? JSValue.Undefined :
-            JSValue.CreateFunction(nameof(fulfilled), (args) =>
-            {
-                fulfilled(args[0]);
-                return JSValue.Undefined;
-            });
+            JSValue.CreateFunction(nameof(fulfilled), (args) => fulfilled(args[0]));
         JSValue rejectedFunction = rejected == null ? JSValue.Undefined :
-            JSValue.CreateFunction(nameof(rejected), (args) =>
-            {
-                rejected(new JSError(args[0]));
-                return JSValue.Undefined;
-            });
+            JSValue.CreateFunction(nameof(rejected), (args) => rejected(new JSError(args[0])));
         return (JSPromise)_value.CallMethod("then", fulfilledFunction, rejectedFunction);
     }
 
@@ -164,13 +158,10 @@ public readonly struct JSPromise : IEquatable<JSValue>
     /// Registers a callback that is invoked when a promise is rejected, and returns a new
     /// chained promise.
     /// </summary>
-    public JSPromise Catch(Action<JSValue> rejected)
+    public JSPromise Catch(Func<JSError, JSValue> rejected)
     {
-        JSValue rejectedFunction = JSValue.CreateFunction(nameof(rejected), (args) =>
-        {
-            rejected(args[0]);
-            return JSValue.Undefined;
-        });
+        JSValue rejectedFunction = JSValue.CreateFunction(
+            nameof(rejected), (args) => rejected(new JSError(args[0])));
         return (JSPromise)_value.CallMethod("catch", rejectedFunction);
     }
 

@@ -41,6 +41,13 @@
   </Target>
 
   <Import Project="NodeApi.targets" />
+
+  <ItemGroup>
+    <Content Include="import.cjs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+  </ItemGroup>
   <ItemGroup>
     <None Pack="true" PackagePath="build\$(AssemblyName).targets" Include="NodeApi.targets" />
     <None Pack="true" PackagePath="\" Include="..\..\README.md" />
