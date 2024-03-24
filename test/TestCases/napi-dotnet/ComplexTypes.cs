@@ -91,6 +91,16 @@ public struct StructObject
 {
     public string? Value { get; set; }
 
+    public override bool Equals(object? obj)
+    {
+        return obj is StructObject structObject && Value == structObject.Value;
+    }
+
+    public override int GetHashCode()
+    {
+        return Value?.GetHashCode() ?? 0;
+    }
+
     public static string? StaticValue { get; set; }
 
     public readonly StructObject ThisObject() => this;
@@ -120,6 +130,16 @@ public interface ITestInterface
 public class ClassObject : ITestInterface
 {
     public string? Value { get; set; }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is ClassObject classObject && Value == classObject.Value;
+    }
+
+    public override int GetHashCode()
+    {
+        return Value?.GetHashCode() ?? 0;
+    }
 
     public string AppendValue(string append)
     {

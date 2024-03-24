@@ -16,7 +16,7 @@ assert.strictEqual(version.ToString(), '1.2.3');
 assert.strictEqual(version + '.4', '1.2.3.4'); // Implicit call to .NET ToString()
 
 const parsedVersion = Version.TryParse('1.2.3'); // Try* pattern returns result or undefined.
-assert.strictEqual(version, parsedVersion);
+assert.deepStrictEqual(version, parsedVersion);
 assert.strictEqual(undefined, Version.TryParse('invalid'));
 
 // Load the test module using dynamic binding `load()` instead of static binding `require()`.

@@ -65,15 +65,17 @@ public sealed class JSRuntimeContext : IDisposable
     private readonly ConcurrentDictionary<string, JSReference> _staticClassMap = new();
 
     /// <summary>
-    /// Maps from C# objects to (weak references to) JS wrappers for each object.
+    /// Maps from C# class objects to (weak references to) JS wrappers for each object.
     /// </summary>
     /// <remarks>
     /// Enables re-using the same JS wrapper objects for the same C# objects, so that
     /// a C# object maps to the same JS instance when marshalled multiple times. The
     /// references are weak to allow the JS wrappers to be released; new wrappers are
-    /// re-constructed as needed.
+    /// re-constructed as needed. This is not used with C# structs which are always
+    /// passed to/from JS by value.
     /// </remarks>
-    private readonly ConcurrentDictionary<object, JSReference> _objectMap = new();
+    private readonly ConcurrentDictionary<object, JSReference> _objectMap
+        = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// Maps from exported struct types to (strong references to) JS constructors for classes
@@ -717,4 +719,16 @@ public sealed class JSRuntimeContext : IDisposable
 
         handle.Free();
     }
+
+#if NETFRAMEWORK
+    private class ReferenceEqualityComparer : IEqualityComparer<object>
+    {
+        public static ReferenceEqualityComparer Instance { get; } = new();
+
+        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(object obj) =>
+            System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+    }
+#endif
 }
