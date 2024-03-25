@@ -233,7 +233,7 @@ public class NodejsEmbeddingTests
     /// Tests the functionality of dynamically exporting and marshalling a class type from .NET
     /// to JS (as opposed to relying on [JSExport] (compile-time code-generation) for marshalling.
     /// </summary>
-    [Fact]
+    [SkippableFact]
     public void MarshalClass()
     {
         using NodejsEnvironment nodejs = CreateNodejsEnvironment();
