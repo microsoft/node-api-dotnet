@@ -1,0 +1,5 @@
+{
+    "name": "node-api-dotnet-test-cjs-package",
+    "type": "commonjs",
+    "main": "index.js"
+}

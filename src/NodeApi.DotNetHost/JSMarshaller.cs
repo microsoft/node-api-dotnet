@@ -141,24 +141,6 @@ public class JSMarshaller
     }
 
     /// <summary>
-    /// Converts a value to a JS value.
-    /// </summary>
-    public JSValue From<T>(T value)
-    {
-        JSValue.From<T> converter = GetToJSValueDelegate<T>();
-        return converter(value);
-    }
-
-    /// <summary>
-    /// Converts a JS value to a requested type.
-    /// </summary>
-    public T To<T>(JSValue value)
-    {
-        JSValue.To<T> converter = GetFromJSValueDelegate<T>();
-        return converter(value);
-    }
-
-    /// <summary>
     /// Checks whether a type is converted to a JavaScript built-in type.
     /// </summary>
     internal static bool IsConvertedType(Type type)
@@ -2238,7 +2220,7 @@ public class JSMarshaller
         {
             statements = new[] { valueParameter };
         }
-        else if (fromType == typeof(object) || !fromType.IsPublic)
+        else if (fromType == typeof(object) || !(fromType.IsPublic || fromType.IsNestedPublic))
         {
             // Marshal unknown or nonpublic type as external, so at least it can be round-tripped.
             Expression objectExpression = fromType.IsValueType ?

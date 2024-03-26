@@ -65,4 +65,13 @@ namespace System.Runtime.CompilerServices
     }
 }
 
+namespace System.Diagnostics
+{
+    [AttributeUsage(AttributeTargets.Method, Inherited = false)]
+    public sealed class StackTraceHiddenAttribute : Attribute
+    {
+        public StackTraceHiddenAttribute() {}
+    }
+}
+
 #endif
