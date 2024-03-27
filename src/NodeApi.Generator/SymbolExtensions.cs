@@ -337,28 +337,32 @@ internal static class SymbolExtensions
 
     private static void BuildBaseTypeAndInterfaces(INamedTypeSymbol typeSymbol)
     {
-        if (typeSymbol.BaseType != null)
+        static void BuildType(INamedTypeSymbol typeSymbol)
         {
-            BuildBaseTypeAndInterfaces(typeSymbol.BaseType);
+            BuildBaseTypeAndInterfaces(typeSymbol);
 
-            string baseTypeFullName = GetTypeSymbolFullName(typeSymbol.BaseType!);
-            if (SymbolicTypes.TryGetValue(baseTypeFullName, out Type? baseType) &&
-                baseType is TypeBuilder baseTypeBuilder)
+            string typeFullName = GetTypeSymbolFullName(typeSymbol);
+            if (SymbolicTypes.TryGetValue(typeFullName, out Type? type) &&
+                type is TypeBuilder baseTypeBuilder)
             {
                 baseTypeBuilder.CreateType();
             }
         }
 
+        if (typeSymbol.BaseType != null)
+        {
+            BuildType(typeSymbol.BaseType);
+        }
+
         foreach (INamedTypeSymbol interfaceTypeSymbol in typeSymbol.Interfaces)
         {
-            BuildBaseTypeAndInterfaces(interfaceTypeSymbol);
+            BuildType(interfaceTypeSymbol);
+        }
 
-            string interfaceTypeFullName = GetTypeSymbolFullName(interfaceTypeSymbol);
-            if (SymbolicTypes.TryGetValue(interfaceTypeFullName, out Type? interfaceType) &&
-                interfaceType is TypeBuilder interfaceTypeBuilder)
-            {
-                interfaceTypeBuilder.CreateType();
-            }
+        foreach (INamedTypeSymbol typeArgSymbol in
+            typeSymbol.TypeArguments.OfType<INamedTypeSymbol>())
+        {
+            BuildType(typeArgSymbol);
         }
     }
 
