@@ -239,3 +239,13 @@ public class ClassWithPrivateConstructor
 
     public string Value { get; }
 }
+
+// Ensure module generation handles implementing an interface with a custom type argument.
+[JSExport]
+public class CollectionOfClassObjects : IEnumerable<ClassObject>
+{
+    public IEnumerator<ClassObject> GetEnumerator() => throw new NotImplementedException();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        => throw new NotImplementedException();
+}
