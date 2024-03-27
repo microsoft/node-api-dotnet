@@ -268,3 +268,50 @@ assert.equal(ClassObject.NestedClass.toString(),
   'Microsoft.JavaScript.NodeApi.TestCases.ClassObject.NestedClass');
 const nestedInstance = new ClassObject.NestedClass('nested');
 assert.strictEqual(nestedInstance.value, 'nested');
+
+// Private constructor
+const ClassWithPrivateConstructor = binding.ClassWithPrivateConstructor;
+let constructorError = undefined;
+try {
+  new ClassWithPrivateConstructor();
+} catch (e) {
+  constructorError = e;
+}
+assert(constructorError);
+assert.strictEqual(
+  constructorError.message,
+  'Class \'ClassWithPrivateConstructor\' does not have a public constructor.');
+// It should still be possible to get an instance that was constructed some other way.
+const instanceWithPrivateConstructor = ClassWithPrivateConstructor.createInstance('test');
+assert.strictEqual(instanceWithPrivateConstructor.value, 'test');
+
+// Check that class and struct instances can be round-tripped and are not mixed up by equality.
+const classInstanceA = new ClassObject('test');
+const classInstanceB = new ClassObject('test');
+assert(classInstanceA !== classInstanceB); // Reference inequality.
+assert(classInstanceA.equals(classInstanceB)); // Value equality (C#).
+assert.deepStrictEqual(classInstanceA, classInstanceB); // Value equality (JS).
+// Classes are marshalled by reference so they maintain both value and reference equality.
+ComplexTypes.classObject = classInstanceA;
+assert(ComplexTypes.classObject.equals(classInstanceA));
+assert(ComplexTypes.classObject.equals(classInstanceB));
+assert.deepStrictEqual(ComplexTypes.classObject, classInstanceA);
+assert.deepStrictEqual(ComplexTypes.classObject, classInstanceB);
+assert(ComplexTypes.classObject === classInstanceA);
+assert(ComplexTypes.classObject !== classInstanceB);
+ComplexTypes.classObject = classInstanceB;
+assert(ComplexTypes.classObject.equals(classInstanceA));
+assert(ComplexTypes.classObject.equals(classInstanceB));
+assert(ComplexTypes.classObject !== classInstanceA);
+assert(ComplexTypes.classObject === classInstanceB);
+
+const structInstanceA = new StructObject();
+structInstanceA.value = 'test';
+const structInstanceB = new StructObject();
+structInstanceB.value = 'test';
+assert(structInstanceA !== structInstanceB); // Reference inequality.
+assert.deepStrictEqual(structInstanceA, structInstanceB); // Value equality.
+ComplexTypes.structObject = structInstanceA;
+// Structs are marshalled by value so they maintain value equality but not reference equality.
+assert.deepStrictEqual(ComplexTypes.structObject, structInstanceA);
+assert.deepStrictEqual(ComplexTypes.structObject, structInstanceB);

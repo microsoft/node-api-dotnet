@@ -96,7 +96,7 @@ For examples of this scenario, see
    ```JavaScript
    const ExampleStaticClass = dotnet.ExampleNamespace.ExampleStaticClass;
    const ExampleClass = dotnet.ExampleNamespace.ExampleClass;
-   StaticClass.ExampleMethod();
+   ExampleStaticClass.ExampleMethod();
    const exampleObj = new ExampleClass(...args);
    ```
    Of course you can access properites, pass arguments to methods, get return values, and so on.

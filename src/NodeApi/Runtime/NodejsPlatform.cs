@@ -88,13 +88,18 @@ public sealed class NodejsPlatform : IDisposable
     /// <summary>
     /// Creates a new Node.js environment with a dedicated main thread.
     /// </summary>
+    /// <param name="baseDir">Optional directory that is used as the base directory when resolving
+    /// imported modules, and also as the value of the global `__dirname` property. If unspecified,
+    /// modules are resolved relative to the process CWD and `__dirname` is undefined.</param>
     /// <param name="mainScript">Optional script to run in the environment. (Literal script content,
     /// not a path to a script file.)</param>
     /// <returns>A new <see cref="NodejsEnvironment" /> instance.</returns>
-    public NodejsEnvironment CreateEnvironment(string? mainScript = null)
+    public NodejsEnvironment CreateEnvironment(
+        string? baseDir = null,
+        string? mainScript = null)
     {
         if (IsDisposed) throw new ObjectDisposedException(nameof(NodejsPlatform));
 
-        return new NodejsEnvironment(this, mainScript);
+        return new NodejsEnvironment(this, baseDir, mainScript);
     }
 }

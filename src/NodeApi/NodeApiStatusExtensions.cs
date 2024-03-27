@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
@@ -9,6 +10,7 @@ namespace Microsoft.JavaScript.NodeApi;
 
 public static class NodeApiStatusExtensions
 {
+    [StackTraceHidden]
     public static void FatalIfFailed([DoesNotReturnIf(true)] this napi_status status,
                                      string? message = null,
                                      [CallerMemberName] string memberName = "",
@@ -28,6 +30,7 @@ public static class NodeApiStatusExtensions
         JSError.Fatal(message!, memberName, sourceFilePath, sourceLineNumber);
     }
 
+    [StackTraceHidden]
     public static void ThrowIfFailed([DoesNotReturnIf(true)] this napi_status status,
                                      [CallerMemberName] string memberName = "",
                                      [CallerFilePath] string sourceFilePath = "",
@@ -46,6 +49,7 @@ public static class NodeApiStatusExtensions
 
     // Throw if status is not napi_ok. Otherwise, return the provided value.
     // This function helps writing compact wrappers for the interop calls.
+    [StackTraceHidden]
     public static T ThrowIfFailed<T>(this napi_status status,
                                      T value,
                                      [CallerMemberName] string memberName = "",

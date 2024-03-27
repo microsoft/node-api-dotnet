@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable IDE0060 // Unused parameters
 #pragma warning disable IDE0301 // Collection initialization can be simplified
 
 using System;
@@ -90,9 +91,23 @@ public struct StructObject
 {
     public string? Value { get; set; }
 
+    public override readonly bool Equals(object? obj)
+    {
+        return obj is StructObject structObject && Value == structObject.Value;
+    }
+
+    public override readonly int GetHashCode()
+    {
+        return Value?.GetHashCode() ?? 0;
+    }
+
     public static string? StaticValue { get; set; }
 
     public readonly StructObject ThisObject() => this;
+
+    public static bool operator ==(StructObject left, StructObject right) => left.Equals(right);
+
+    public static bool operator !=(StructObject left, StructObject right) => !(left == right);
 }
 
 /// <summary>
@@ -119,6 +134,16 @@ public interface ITestInterface
 public class ClassObject : ITestInterface
 {
     public string? Value { get; set; }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is ClassObject classObject && Value == classObject.Value;
+    }
+
+    public override int GetHashCode()
+    {
+        return Value?.GetHashCode() ?? 0;
+    }
 
     public string AppendValue(string append)
     {
@@ -159,6 +184,11 @@ public class ClassObject : ITestInterface
     {
         obj.AppendGenericValue<int>(value);
     }
+
+    public static void WithGenericList(IList<StructObject> list)
+    {
+        // This just ensures the TS generator can handle generic parameter types.
+    }
 #endif
 
     public class NestedClass
@@ -178,4 +208,34 @@ public enum TestEnum
     Zero,
     One,
     Two,
+}
+
+// Ensure module generation handles circular references between a base class and derived class.
+public class BaseClass
+{
+    protected BaseClass(int x) { }
+
+    public DerivedClass? Derived { get; set; }
+}
+
+[JSExport]
+public class DerivedClass : BaseClass
+{
+    public DerivedClass(int x) : base(x) { }
+}
+
+[JSExport]
+public class ClassWithPrivateConstructor
+{
+    private ClassWithPrivateConstructor(string value)
+    {
+        Value = value;
+    }
+
+    public static ClassWithPrivateConstructor CreateInstance(string value)
+    {
+        return new ClassWithPrivateConstructor(value);
+    }
+
+    public string Value { get; }
 }

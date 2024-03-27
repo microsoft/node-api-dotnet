@@ -53,15 +53,6 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     private JSValueScope? _rootScope;
 
     /// <summary>
-    /// Strong reference to the JS object that is the exports for this module.
-    /// </summary>
-    /// <remarks>
-    /// The exports object has module APIs such as `require()` and `load()`, along with
-    /// top-level .NET namespaces like `System` and `Microsoft`.
-    /// </remarks>
-    private readonly JSReference _exports;
-
-    /// <summary>
     /// Component that dynamically exports types from loaded assemblies.
     /// </summary>
     private readonly TypeExporter _typeExporter;
@@ -140,10 +131,8 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             AutoCamelCase = false,
         };
 
-        // Save the exports object, on which top-level namespaces will be defined.
-        _exports = new JSReference(exports);
-
-        _typeExporter = new()
+        // The type exporter will define top-level namespace properties on the exports object.
+        _typeExporter = new(JSMarshaller.Current, exports)
         {
             // Delay-loading is enabled by default, but can be disabled with this env variable.
             IsDelayLoadEnabled =
@@ -151,13 +140,13 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         };
 
         // Export the System.Runtime and System.Console assemblies by default.
-        _typeExporter.ExportAssemblyTypes(typeof(object).Assembly, exports);
+        _typeExporter.ExportAssemblyTypes(typeof(object).Assembly);
         _loadedAssembliesByName.Add(
             typeof(object).Assembly.GetName().Name!, typeof(object).Assembly);
 
         if (typeof(Console).Assembly != typeof(object).Assembly)
         {
-            _typeExporter.ExportAssemblyTypes(typeof(Console).Assembly, exports);
+            _typeExporter.ExportAssemblyTypes(typeof(Console).Assembly);
             _loadedAssembliesByName.Add(
                 typeof(Console).Assembly.GetName().Name!, typeof(Console).Assembly);
         }
@@ -222,11 +211,17 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         {
             JSObject exportsObject = (JSObject)new JSValue(exports, scope);
 
-            // Save the require() function that was passed in by the init script.
-            JSValue require = exportsObject["require"];
-            if (require.IsFunction())
+            // Save the require() and import() functions that were passed in by the init script.
+            JSValue requireFunction = exportsObject["require"];
+            if (requireFunction.IsFunction())
             {
-                JSRuntimeContext.Current.Require = require;
+                JSRuntimeContext.Current.RequireFunction = (JSFunction)requireFunction;
+            }
+
+            JSValue importFunction = exportsObject["import"];
+            if (importFunction.IsFunction())
+            {
+                JSRuntimeContext.Current.ImportFunction = (JSFunction)importFunction;
             }
 
             ManagedHost host = new(exportsObject)
@@ -513,7 +508,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
 
-            _typeExporter.ExportAssemblyTypes(assembly, (JSObject)_exports.GetValue()!.Value);
+            _typeExporter.ExportAssemblyTypes(assembly);
         }
         catch (BadImageFormatException)
         {

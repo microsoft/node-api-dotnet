@@ -14,10 +14,15 @@ public static class TaskExtensions
     {
         TaskCompletionSource<JSValue> completion = new();
         promise.Then(
-            completion.SetResult,
+            (JSValue value) =>
+            {
+                completion.SetResult(value);
+                return default;
+            },
             (JSError error) =>
             {
                 completion.SetException(new JSException(error));
+                return default;
             });
         return completion.Task;
     }
