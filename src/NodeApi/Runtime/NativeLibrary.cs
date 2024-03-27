@@ -63,7 +63,7 @@ public static class NativeLibrary
     {
 #if NETFRAMEWORK
         string libraryPath = FindLibrary(libraryName, assembly, searchPath)
-            ?? throw new ArgumentNullException(nameof(libraryName));
+            ?? throw new DllNotFoundException($"Could not find library: {libraryName}");
 
         return LoadLibrary(libraryPath);
 #else
@@ -96,6 +96,7 @@ public static class NativeLibrary
 #endif
     }
 
+#if NETFRAMEWORK
     /// <summary>
     /// Searches various well-known paths for a library and returns the first result.
     /// </summary>
@@ -166,6 +167,7 @@ public static class NativeLibrary
 
         return null;
     }
+#endif
 
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
 
