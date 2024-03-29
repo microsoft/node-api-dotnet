@@ -78,7 +78,7 @@ public sealed class NodejsPlatform : IDisposable
     /// </summary>
     /// <param name="baseDir">Optional directory that is used as the base directory when resolving
     /// imported modules, and also as the value of the global `__dirname` property. If unspecified,
-    /// modules are resolved relative to the process CWD and `__dirname` is undefined.</param>
+    /// importing modules is not enabled and `__dirname` is undefined.</param>
     /// <param name="mainScript">Optional script to run in the environment. (Literal script content,
     /// not a path to a script file.)</param>
     /// <returns>A new <see cref="NodejsEnvironment" /> instance.</returns>

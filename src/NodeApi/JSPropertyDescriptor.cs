@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Diagnostics;
 using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
+[DebuggerDisplay("{Name,nq}")]
 public readonly struct JSPropertyDescriptor
 {
     /// <summary>

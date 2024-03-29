@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Diagnostics;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
@@ -10,6 +11,7 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// callback or standalone function callback. Enables passing a data object via the callback
 /// args data.
 /// </summary>
+[DebuggerDisplay("{Name,nq}()")]
 public readonly struct JSCallbackDescriptor
 {
     /// <summary>

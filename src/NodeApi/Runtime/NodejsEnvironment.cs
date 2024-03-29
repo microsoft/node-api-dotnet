@@ -57,16 +57,11 @@ public sealed class NodejsEnvironment : IDisposable
             scope = new JSValueScope(JSValueScopeType.Root, env, platform.Runtime);
             syncContext = scope.RuntimeContext.SynchronizationContext;
 
-            if (string.IsNullOrEmpty(baseDir))
-            {
-                baseDir = ".";
-            }
-            else
+            if (!string.IsNullOrEmpty(baseDir))
             {
                 JSValue.Global.SetProperty("__dirname", baseDir!);
+                InitializeModuleImportFunctions(scope.RuntimeContext, baseDir!);
             }
-
-            InitializeModuleImportFunctions(scope.RuntimeContext, baseDir!);
 
             loadedEvent.Set();
 
