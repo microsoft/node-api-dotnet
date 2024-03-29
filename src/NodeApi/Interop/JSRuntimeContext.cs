@@ -6,6 +6,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,7 +68,8 @@ public sealed class JSRuntimeContext : IDisposable
     private readonly ConcurrentDictionary<string, JSReference> _staticClassMap = new();
 
     /// <summary>
-    /// Maps from C# class objects to (weak references to) JS wrappers for each object.
+    /// Maps from (weak references to) C# class objects to (weak references to) JS wrappers for
+    /// each object.
     /// </summary>
     /// <remarks>
     /// Enables re-using the same JS wrapper objects for the same C# objects, so that
@@ -75,8 +78,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// re-constructed as needed. This is not used with C# structs which are always
     /// passed to/from JS by value.
     /// </remarks>
-    private readonly ConcurrentDictionary<object, JSReference> _objectMap
-        = new(ReferenceEqualityComparer.Instance);
+    private readonly ConditionalWeakTable<object, JSReference> _objectMap = new();
 
     /// <summary>
     /// Maps from exported struct types to (strong references to) JS constructors for classes
@@ -307,14 +309,9 @@ public sealed class JSRuntimeContext : IDisposable
         // GetOrCreateObjectWrapper() will create a new JS wrapper if requested.
         wrapper.Wrap(obj, out JSReference wrapperWeakRef);
 
-        _objectMap.AddOrUpdate(
-            obj,
-            (_) => wrapperWeakRef,
-            (_, oldReference) =>
-            {
-                oldReference.Dispose();
-                return wrapperWeakRef;
-            });
+        // There should not be an existing wrapper in the map, because this is the
+        // first initialization of a wrapper for the .NET object.
+        _objectMap.Add(obj, wrapperWeakRef);
 
         return wrapper;
     }
@@ -333,7 +330,7 @@ public sealed class JSRuntimeContext : IDisposable
     {
         if (obj == null)
         {
-            // Marshal null object reference to JS undefined. 
+            // Marshal null object reference to JS undefined.
             return JSValue.Undefined;
         }
 
@@ -357,27 +354,29 @@ public sealed class JSRuntimeContext : IDisposable
             return new(wrapper.Value, isWeak: true);
         }
 
-        _objectMap.AddOrUpdate(
-            obj,
-            (_) =>
+        if (!_objectMap.TryGetValue(obj, out JSReference? wrapperReference))
+        {
+            // No wrapper was found in the map for the object. Create a new one.
+            wrapperReference = CreateWrapper(obj);
+            _objectMap.Add(obj, wrapperReference);
+        }
+        else
+        {
+            wrapper = wrapperReference.GetValue();
+            if (!wrapper.HasValue)
             {
-                // No wrapper was found in the map for the object. Create a new one.
-                return CreateWrapper(obj);
-            },
-            (_, wrapperReference) =>
-            {
-                wrapper = wrapperReference.GetValue();
-                if (wrapper.HasValue)
-                {
-                    // A valid reference was found in the map. Return it to keep the same mapping.
-                    return wrapperReference;
-                }
-
                 // A reference was found in the map, but the JS object was released.
-                // Create a new wrapper JS object and update the reference in the map.l
+                // Create a new wrapper JS object and update the reference in the map.
                 wrapperReference.Dispose();
-                return CreateWrapper(obj);
-            });
+                wrapperReference = CreateWrapper(obj);
+#if NETFRAMEWORK
+                _objectMap.Remove(obj);
+                _objectMap.Add(obj, wrapperReference);
+#else
+                _objectMap.AddOrUpdate(obj, wrapperReference);
+#endif
+            }
+        }
 
         return wrapper!.Value;
     }
@@ -541,29 +540,30 @@ public sealed class JSRuntimeContext : IDisposable
     {
         JSValue? wrapper = null;
 
-        _objectMap.AddOrUpdate(
-            collection,
-            (_) =>
+        if (!_objectMap.TryGetValue(collection, out JSReference? wrapperReference))
+        {
+            // No wrapper was found in the map for the object. Create a new one.
+            wrapper = createWrapper();
+            _objectMap.Add(collection, new JSReference(wrapper.Value, isWeak: true));
+        }
+        else
+        {
+            wrapper = wrapperReference.GetValue();
+            if (!wrapper.HasValue)
             {
-                // No wrapper was found in the map for the object. Create a new one.
-                wrapper = createWrapper();
-                return new JSReference(wrapper.Value, isWeak: true);
-            },
-            (_, wrapperReference) =>
-            {
-                wrapper = wrapperReference.GetValue();
-                if (wrapper.HasValue)
-                {
-                    // A valid reference was found in the map. Return it to keep the same mapping.
-                    return wrapperReference;
-                }
-
                 // A reference was found in the map, but the JS object was released.
                 // Create a new wrapper JS object and update the reference in the map.
                 wrapperReference.Dispose();
                 wrapper = createWrapper();
-                return new JSReference(wrapper.Value, isWeak: true);
-            });
+                wrapperReference = new JSReference(wrapper.Value, isWeak: true);
+#if NETFRAMEWORK
+                _objectMap.Remove(collection);
+                _objectMap.Add(collection, wrapperReference);
+#else
+                _objectMap.AddOrUpdate(collection, wrapperReference);
+#endif
+            }
+        }
 
         return wrapper!.Value;
     }
@@ -707,16 +707,21 @@ public sealed class JSRuntimeContext : IDisposable
         IsDisposed = true;
 
         SynchronizationContext.Dispose();
-        DisposeReferences(_objectMap);
-        DisposeReferences(_classMap);
-        DisposeReferences(_staticClassMap);
-        DisposeReferences(_structMap);
+
+#if !NETFRAMEWORK
+        // ConditionalWeakTable<> is not enumerable in .NET Framework.
+        // The JS references will still be released eventually by their finalizers.
+        DisposeReferences(_objectMap.Select((entry) => entry.Value));
+#endif
+        DisposeReferences(_classMap.Values);
+        DisposeReferences(_staticClassMap.Values);
+        DisposeReferences(_structMap.Values);
     }
 
-    private static void DisposeReferences<TKey>(
-        ConcurrentDictionary<TKey, JSReference> references) where TKey : notnull
+    private static void DisposeReferences(
+        IEnumerable<JSReference> references)
     {
-        foreach (JSReference reference in references.Values)
+        foreach (JSReference reference in references)
         {
             try
             {
@@ -726,8 +731,6 @@ public sealed class JSRuntimeContext : IDisposable
             {
             }
         }
-
-        references.Clear();
     }
 
 
