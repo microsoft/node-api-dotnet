@@ -358,7 +358,14 @@ public sealed class JSRuntimeContext : IDisposable
         {
             // No wrapper was found in the map for the object. Create a new one.
             wrapperReference = CreateWrapper(obj);
+
+            // Use AddOrUpdate() in case the constructor just added the object.
+#if NETFRAMEWORK
+            _objectMap.Remove(obj);
             _objectMap.Add(obj, wrapperReference);
+#else
+            _objectMap.AddOrUpdate(obj, wrapperReference);
+#endif
         }
         else
         {
