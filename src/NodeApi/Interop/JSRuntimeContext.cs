@@ -656,8 +656,8 @@ public sealed class JSRuntimeContext : IDisposable
             }
             else
             {
-                // Getting a property on an imported module.
-                JSValue moduleValue = Import(module, null);
+                // Getting a property on a module - import the module first.
+                JSValue moduleValue = Import(module, property: null, esModule);
                 if (esModule)
                 {
                     return new JSReference(((JSPromise)moduleValue).Then(

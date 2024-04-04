@@ -153,7 +153,7 @@ public class NodejsEmbeddingTests
         await nodejs.RunAsync(async () =>
         {
             JSValue testModule = await nodejs.ImportAsync(
-                "./test-esm-package", null, esModule: true);
+                "./test-esm-package", esModule: true);
             Assert.Equal(JSValueType.Object, testModule.TypeOf());
             Assert.Equal(JSValueType.Function, testModule["test"].TypeOf());
             Assert.Equal("test", testModule.CallMethod("test"));
@@ -161,10 +161,16 @@ public class NodejsEmbeddingTests
             // Check that module resolution handles sub-paths from conditional exports.
             // https://nodejs.org/api/packages.html#conditional-exports
             JSValue testModuleFeature = await nodejs.ImportAsync(
-                "./test-esm-package/feature", null, esModule: true);
+                "./test-esm-package/feature", esModule: true);
             Assert.Equal(JSValueType.Object, testModuleFeature.TypeOf());
             Assert.Equal(JSValueType.Function, testModuleFeature["test2"].TypeOf());
             Assert.Equal("test2", testModuleFeature.CallMethod("test2"));
+
+            // Directly import a property from the module
+            JSValue testModuleProperty = await nodejs.ImportAsync(
+                "./test-esm-package", "test", esModule: true);
+            Assert.Equal(JSValueType.Function, testModuleProperty.TypeOf());
+            Assert.Equal("test", testModuleProperty.Call());
         });
 
         nodejs.Dispose();
