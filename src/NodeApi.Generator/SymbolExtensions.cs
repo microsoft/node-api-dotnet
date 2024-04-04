@@ -335,11 +335,19 @@ internal static class SymbolExtensions
         return typeBuilder.CreateType()!;
     }
 
-    private static void BuildBaseTypeAndInterfaces(INamedTypeSymbol typeSymbol)
+    /// <summary>
+    /// Ensures that a type symbol's base type, interface types, and type arguments (if any)
+    /// are built before building the target type.
+    /// </summary>
+    /// <param name="typeSymbol">The symbol that is about to be built as a type.</param>
+    /// <param name="selfSymbol">The type symbol that referenced the current one; used to detect
+    /// self-referential type args. (Should only be specified with recursive calls.)</param>
+    private static void BuildBaseTypeAndInterfaces(
+        INamedTypeSymbol typeSymbol, INamedTypeSymbol? selfSymbol = null)
     {
-        static void BuildType(INamedTypeSymbol typeSymbol)
+        static void BuildType(INamedTypeSymbol typeSymbol, INamedTypeSymbol selfSymbol)
         {
-            BuildBaseTypeAndInterfaces(typeSymbol);
+            BuildBaseTypeAndInterfaces(typeSymbol, selfSymbol);
 
             string typeFullName = GetTypeSymbolFullName(typeSymbol);
             if (SymbolicTypes.TryGetValue(typeFullName, out Type? type) &&
@@ -351,18 +359,22 @@ internal static class SymbolExtensions
 
         if (typeSymbol.BaseType != null)
         {
-            BuildType(typeSymbol.BaseType);
+            BuildType(typeSymbol.BaseType, typeSymbol);
         }
 
         foreach (INamedTypeSymbol interfaceTypeSymbol in typeSymbol.Interfaces)
         {
-            BuildType(interfaceTypeSymbol);
+            BuildType(interfaceTypeSymbol, typeSymbol);
         }
 
         foreach (INamedTypeSymbol typeArgSymbol in
             typeSymbol.TypeArguments.OfType<INamedTypeSymbol>())
         {
-            BuildType(typeArgSymbol);
+            // Skip self-referential type parameters.
+            if (!SymbolEqualityComparer.Default.Equals(typeArgSymbol, selfSymbol))
+            {
+                BuildType(typeArgSymbol, typeSymbol);
+            }
         }
     }
 
