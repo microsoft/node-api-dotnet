@@ -249,3 +249,12 @@ public class CollectionOfClassObjects : IEnumerable<ClassObject>
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         => throw new NotImplementedException();
 }
+
+// Ensure module generation handles a self-referential interface type argument.
+[JSExport]
+public class Equatable : IEquatable<Equatable>
+{
+    public bool Equals(Equatable? other) => other != null;
+    public override bool Equals(object obj) => obj is Equatable;
+    public override int GetHashCode() => 1;
+}
