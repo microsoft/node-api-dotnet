@@ -212,7 +212,14 @@ public class TypeExporter
         {
             string baseOrInterfaceTypeName = TypeProxy.GetTypeProxyName(baseOrInterfaceType);
 
+            if (baseOrInterfaceType.Namespace == null)
+            {
+                Trace($"Skipping un-namespaced base or interface: {baseOrInterfaceType.Name}");
+                return;
+            }
+
             NamespaceProxy? ns = GetNamespaceProxy(baseOrInterfaceType.Namespace!);
+
             if (ns == null)
             {
                 Trace(
