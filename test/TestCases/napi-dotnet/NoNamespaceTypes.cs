@@ -4,6 +4,10 @@
 using System.Collections;
 using System.Collections.Generic;
 
+#pragma warning disable IDE0060 // Remove unused parameter
+#pragma warning disable CA1050 // Declare types in namespaces
+#pragma warning disable CA1822 // Mark members as static
+
 public class NoNamespaceType
 {
 }
