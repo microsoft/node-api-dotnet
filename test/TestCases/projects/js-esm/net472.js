@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import assert from 'assert';
-import dotnet from 'node-api-dotnet/net472.js';
+import dotnet from 'node-api-dotnet/net472';
 
 import './bin/mscorlib.js';
 
