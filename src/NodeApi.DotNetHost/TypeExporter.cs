@@ -314,7 +314,7 @@ public class TypeExporter
         {
             return null;
         }
-        
+
         string[] namespaceParts = ns.Split('.');
         if (!_exportedNamespaces.TryGetValue(
             namespaceParts[0], out NamespaceProxy? namespaceProxy))

@@ -54,7 +54,7 @@ namespace Microsoft.JavaScript.NodeApi.TestCases
         }
 
         public T GetList<T>()
-            where T: List<NoNamespaceType>, INoNamespaceInterface
+            where T : List<NoNamespaceType>, INoNamespaceInterface
         {
             return default!;
         }
