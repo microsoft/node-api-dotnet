@@ -6,11 +6,14 @@
     <!-- The C# xmldoc file is converted to comments in the generated TS type definitions. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-    <!-- `dotnet publish` will produce node module files in $(PublishDir), with
-      .node native AOT binary files under $(RuntimeIdentifier) subdirectories. -->
+    <!-- `dotnet publish` will produce node module files in $(PublishDir) -->
     <PublishAot>true</PublishAot>
     <PublishNodeModule>true</PublishNodeModule>
     <PublishDir>bin</PublishDir>
+
+    <!-- Place .node native AOT binary files under $(RuntimeIdentifier) subdirectories.
+         This could support packaging multiple platform-specific binaries in a single npm package
+         (though that would require building them each separately then merging the results). -->
     <PublishMultiPlatformNodeModule>true</PublishMultiPlatformNodeModule>
 
     <!-- `dotnet publish` will produce an npm package in the $(PackageOutputPath) directory. -->

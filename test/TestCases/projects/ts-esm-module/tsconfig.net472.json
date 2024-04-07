@@ -2,10 +2,9 @@
   "compilerOptions": {
     "module": "Node16",
     "target": "ES2022",
-    "allowJs": true,
-    "checkJs": true,
-    "outDir": "out"
+    "outDir": ".",
+    "esModuleInterop": true
   },
-  "include": ["net472.ts", "bin/*.js"],
+  "include": ["net472.ts"],
   "exclude": ["node_modules"]
 }

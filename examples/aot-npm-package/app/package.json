@@ -7,9 +7,10 @@
   "author": "Microsoft",
   "repository": "github:microsoft/node-api-dotnet",
   "main": "./example.js",
+  "type": "module",
   "scripts": {
   },
   "dependencies": {
-    "aot-npm-package": "file:../lib/pkg/aot-npm-package-0.1.6.tgz"
+    "aot-npm-package": "file:../lib"
   }
 }

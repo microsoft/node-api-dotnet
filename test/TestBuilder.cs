@@ -75,6 +75,7 @@ internal static class TestBuilder
               .Concat(Directory.GetFiles(modulePath, "*.ts")))
             {
                 if (jsFile.EndsWith(".d.ts")) continue;
+                else if (jsFile.EndsWith(".js") && File.Exists(Path.ChangeExtension(jsFile, ".ts"))) continue;
                 string testCaseName = Path.GetFileNameWithoutExtension(jsFile);
                 if (filter == null || filter(moduleName + "/" + testCaseName))
                 {

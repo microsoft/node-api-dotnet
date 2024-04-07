@@ -1,0 +1,13 @@
+{
+  "name": "node-api-dotnet-tests-ts-cjs-dynamic",
+  "scripts": {
+    "compile": "tsc"
+  },
+  "dependencies": {
+    "node-api-dotnet": "file:../../../../out/pkg/node-api-dotnet"
+  },
+  "devDependencies": {
+    "@types/node": "^18.16.14",
+    "typescript": "^5.0.4"
+  }
+}

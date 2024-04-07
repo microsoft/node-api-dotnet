@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-const Example = require('aot-npm-package').Example;
+import { Example } from 'aot-npm-package';
 
 // Call a method exported by the .NET module.
 const result = Example.hello('.NET AOT');
 
-const assert = require('assert');
+import assert from 'node:assert';
 assert.strictEqual(result, 'Hello .NET AOT!');

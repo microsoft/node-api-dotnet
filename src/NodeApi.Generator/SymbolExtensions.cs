@@ -209,7 +209,8 @@ internal static class SymbolExtensions
     {
         string ns = typeSymbol.ContainingType != null ?
             GetTypeSymbolFullName(typeSymbol.ContainingType) :
-            typeSymbol.ContainingNamespace.ToString()!;
+            typeSymbol.ContainingNamespace.IsGlobalNamespace ?
+            "" : typeSymbol.ContainingNamespace.ToString()!;
         string name = (ns.Length > 0 ? ns + "." : "") + typeSymbol.Name;
 
         if (typeSymbol.TypeParameters.Length > 0)

@@ -316,10 +316,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     "[JSExport] attributes cannot be used with custom init method.");
             }
 
-            string ns = GetNamespace(moduleInitializerMethod);
-            string className = moduleInitializerMethod.ContainingType.Name;
+            string classFullName = GetFullName(moduleInitializerMethod.ContainingType);
             string methodName = moduleInitializerMethod.Name;
-            s += $"return (napi_value){ns}.{className}.{methodName}(";
+            s += $"return (napi_value){classFullName}.{methodName}(";
             s += "context, (JSObject)exportsValue);";
         }
         else
@@ -364,8 +363,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         if (moduleType != null)
         {
-            string ns = GetNamespace(moduleType);
-            s += $"exportsValue = new JSModuleBuilder<{ns}.{moduleType.Name}>()";
+            string typeFullName = GetFullName(moduleType);
+            s += $"exportsValue = new JSModuleBuilder<{typeFullName}>()";
             s.IncreaseIndent();
 
             // Export public non-static members of the module class.
@@ -421,8 +420,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         {
             // Construct an instance of the custom module class when the module is initialized.
             // If a no-args constructor is not present then the generated code will not compile.
-            string ns = GetNamespace(moduleType);
-            s += $".ExportModule(new {ns}.{moduleType.Name}(), (JSObject)exportsValue);";
+            string typeFullName = GetFullName(moduleType);
+            s += $".ExportModule(new {typeFullName}(), (JSObject)exportsValue);";
         }
         else
         {
@@ -453,7 +452,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             s += $".AddProperty(\"{exportName}\",";
             s.IncreaseIndent();
 
-            string ns = GetNamespace(type);
+            string typeFullName = GetFullName(type);
             if (type.TypeKind == TypeKind.Interface)
             {
                 // Interfaces do not have constructors.
@@ -483,12 +482,12 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                 }
                 else if (constructors.Length == 1 && constructors[0].GetParameters().Length == 0)
                 {
-                    s += $"\t() => new {ns}.{type.Name}())";
+                    s += $"\t() => new {typeFullName}())";
                 }
                 else if (constructors.Length == 1 &&
                     constructors[0].GetParameters()[0].ParameterType == typeof(JSCallbackArgs))
                 {
-                    s += $"\t(args) => new {ns}.{type.Name}(args))";
+                    s += $"\t(args) => new {typeFullName}(args))";
                 }
                 else
                 {
@@ -607,10 +606,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         if (methods.Count() == 1 && !IsMethodCallbackAdapterRequired(method))
         {
             // No adapter is needed for a method with a JSCallback signature.
-            string ns = GetNamespace(method);
-            string className = method.ContainingType.Name;
+            string typeFullName = GetFullName(method.ContainingType);
             s += $".AddMethod(\"{exportName}\", " +
-                $"{ns}.{className}.{method.Name},\n\t{attributes})";
+                $"{typeFullName}.{method.Name},\n\t{attributes})";
         }
         else if (methods.Count() == 1)
         {
@@ -656,8 +654,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += $".AddProperty(\"{exportName}\",";
         s.IncreaseIndent();
 
-        string ns = GetNamespace(property);
-        string className = property.ContainingType.Name;
+        string typeFullName = GetFullName(property.ContainingType);
 
         if (property.GetMethod?.DeclaredAccessibility != Accessibility.Public)
         {
@@ -672,7 +669,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         else if (property.IsStatic)
         {
-            s += $"getter: () => {ns}.{className}.{property.Name},";
+            s += $"getter: () => {typeFullName}.{property.Name},";
         }
         else
         {
@@ -692,7 +689,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         else if (property.IsStatic)
         {
-            s += $"setter: (value) => {ns}.{className}.{property.Name} = value,";
+            s += $"setter: (value) => {typeFullName}.{property.Name} = value,";
         }
         else
         {

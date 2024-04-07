@@ -42,6 +42,7 @@ public abstract class SourceGenerator
         UnsupportedMethodReturnType,
         UnsupportedOverloads,
         ReferenedTypeNotExported,
+        ESModulePropertiesAreConst,
     }
 
     public static string GetNamespace(ISymbol symbol)
