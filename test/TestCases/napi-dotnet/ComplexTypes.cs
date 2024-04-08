@@ -255,6 +255,6 @@ public class CollectionOfClassObjects : IEnumerable<ClassObject>
 public class Equatable : IEquatable<Equatable>
 {
     public bool Equals(Equatable? other) => other != null;
-    public override bool Equals(object obj) => obj is Equatable;
+    public override bool Equals(object? obj) => obj is Equatable;
     public override int GetHashCode() => 1;
 }

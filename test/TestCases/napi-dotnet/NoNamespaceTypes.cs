@@ -50,7 +50,7 @@ namespace Microsoft.JavaScript.NodeApi.TestCases
 
     public class NoNamespaceContainer
     {
-        public static NoNamespaceDelegate DelegateProperty { get; set; }
+        public static NoNamespaceDelegate DelegateProperty { get; set; } = null!;
 
         public List<NoNamespaceType>? GetList(INoNamespaceInterface arg)
         {
