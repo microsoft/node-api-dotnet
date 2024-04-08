@@ -76,9 +76,8 @@ For a minimal example of this scenario, see
     ```
 
    To load a specific version of .NET, append the target framework moniker to the module name.
-   A `.js` suffix is required when using ES modules, optional with CommonJS.
    ```JavaScript
-   import dotnet from 'node-api-dotnet/net6.0.js'
+   import dotnet from 'node-api-dotnet/net6.0'
    ```
    Currently the supported target frameworks are `net472`, `net6.0`, and `net8.0`.
 

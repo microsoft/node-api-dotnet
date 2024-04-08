@@ -135,7 +135,17 @@ function writePackageJson(packageStageDir, packageJson) {
   if (packageJson.dependencies && packageJson.dependencies['node-api-dotnet']) {
     packageJson.dependencies['node-api-dotnet'] = buildVersion;
   }
+
   delete packageJson.scripts;
+
+  // Generate package entry-points for each of the supported target framework monikers.
+  // https://nodejs.org/api/packages.html#package-entry-points
+  if (packageJson.exports) {
+    for (let tfm of targetFrameworks) {
+      packageJson.exports[`./${tfm}`] = `./${tfm}.js`;
+    }
+  }
+
   const stagedPackageJsonPath = path.join(packageStageDir, 'package.json');
   fs.writeFileSync(stagedPackageJsonPath, JSON.stringify(packageJson, undefined, '  '));
   console.log(stagedPackageJsonPath);
@@ -205,6 +215,9 @@ function generateTargetFrameworkScriptFiles(packageStageDir) {
 
 function generateTargetFrameworkScriptFile(filePath, tfm) {
   // Each generated entrypoint script uses `init.js` to request a specific target framework version.
+  // The exported module will be augmented with .NET namespaces from loaded assemblies.
+  // The module augmentation only works with CommonJS exports, because ESM exports are immutable.
+  // (ES modules can still import this CommonJS module.)
   const js = `const initialize = require('./init');
 module.exports = initialize(${tfm ? `'${tfm}'` : ''});
 `;

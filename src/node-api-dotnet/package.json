@@ -2,10 +2,13 @@
   "name": "node-api-dotnet",
   "version": "0.1.0",
   "description": "Node-API bindings for .Net",
-  "main": "index.js",
   "license": "MIT",
   "author": "Microsoft",
   "scripts": {
+  },
+  "type": "commonjs",
+  "exports": {
+    ".": "./index.js"
   },
   "types": "./index.d.ts",
   "keywords": [
