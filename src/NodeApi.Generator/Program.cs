@@ -169,9 +169,9 @@ public static class Program
                 case "-m":
                 case "--module":
                 case "--modules":
-                    foreach (string moduleType in args[++i].ToLowerInvariant().Split(','))
+                    foreach (string moduleType in args[++i].Split(','))
                     {
-                        switch (moduleType)
+                        switch (moduleType.ToLowerInvariant())
                         {
                             case "es":
                             case "esm":
