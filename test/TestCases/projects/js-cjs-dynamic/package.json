@@ -1,5 +1,5 @@
 {
-  "name": "node-api-dotnet-tests-js-cjs",
+  "name": "node-api-dotnet-tests-js-cjs-dynamic",
   "scripts": {
     "compile": "tsc"
   },

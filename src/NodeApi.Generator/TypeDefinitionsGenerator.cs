@@ -47,8 +47,78 @@ public class TypeDefinitionsGenerator : SourceGenerator
 
     /// <summary>
     /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
+    /// Enables application code to load an assembly (containing explicit JS exports) as an ES
+    /// module, along with type definitions, in one simple import statement.
+    /// </summary>
+    /// <remarks>
+    /// The `__filename` and `__dirname` values are computed for compatibility with ES modules;
+    /// they are equivalent to those predefined values defined for CommonJS modules.
+    /// The required ES export declarations will be appended to this code by the generator.
+    /// An MSBuild task during the AOT publish process sets the `dotnet` variable to undefined.
+    /// </remarks>
+    private const string LoadModuleMJS = @"
+import dotnet from 'node-api-dotnet';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+// @ts-ignore - https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/65252
+import { dlopen, platform, arch } from 'node:process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const moduleName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
+const exports = dotnet ? importDotnetModule(moduleName) : importAotModule(moduleName);
+
+function importDotnetModule(moduleName) {
+    const moduleFilePath = path.join(__dirname, moduleName + '.dll');
+    return dotnet.require(moduleFilePath);
+}
+
+function importAotModule(moduleName) {
+    const ridPlatform = platform === 'win32' ? 'win' : platform === 'darwin' ? 'osx' : platform;
+    const ridArch = arch === 'ia32' ? 'x86' : arch;
+    const rid = `${ridPlatform}-${ridArch}`;
+    const moduleFilePath = path.join(__dirname, rid, moduleName + '.node');
+    const module = { exports: {} };
+    dlopen(module, moduleFilePath);
+    return module.exports;
+}";
+    /// <summary>
+    /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
+    /// Enables application code to load an assembly (containing explicit JS exports) as a CommonJS
+    /// module, along with type definitions, in one simple import statement.
+    /// </summary>
+    /// <remarks>
+    /// An MSBuild task during the AOT publish process sets the `dotnet` variable to undefined.
+    /// </remarks>
+    private const string LoadModuleCJS = @"
+const dotnet = require('node-api-dotnet');
+const path = require('node:path');
+// @ts-ignore - https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/65252
+const { dlopen, platform, arch } = require('node:process');
+
+const moduleName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
+module.exports = dotnet ? importDotnetModule(moduleName) : importAotModule(moduleName);
+
+function importDotnetModule(moduleName) {
+    const moduleFilePath = path.join(__dirname, moduleName + '.dll');
+    return dotnet.require(moduleFilePath);
+}
+
+function importAotModule(moduleName) {
+    const ridPlatform = platform === 'win32' ? 'win' : platform === 'darwin' ? 'osx' : platform;
+    const ridArch = arch === 'ia32' ? 'x86' : arch;
+    const rid = `${ridPlatform}-${ridArch}`;
+    const moduleFilePath = path.join(__dirname, rid, moduleName + '.node');
+    const module = { exports: {} };
+    dlopen(module, moduleFilePath);
+    return module.exports;
+}";
+
+    /// <summary>
+    /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
     /// Enables application code to load an assembly file and type definitions as an ES module with
-    /// one simple import statement.
+    /// one simple import statement. The module does not have direct exports; it augments the
+    /// node-api-dotnet module.
     /// </summary>
     /// <remarks>
     /// The `__filename` and `__dirname` values are computed for compatibility with ES modules;
@@ -61,29 +131,29 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const assemblyName = path.basename(__filename, '.js');
+const assemblyName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
 const assemblyFilePath = path.join(__dirname, assemblyName + '.dll');
-dotnet.load(assemblyFilePath);
-";
+dotnet.load(assemblyFilePath);";
 
     /// <summary>
     /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
     /// Enables application code to load an assembly file and type definitions as a CommonJS module
-    /// with one simple require statement.
+    /// with one simple require statement. The module does not have direct exports; it augments
+    /// the node-api-dotnet module.
     /// </summary>
     private const string LoadAssemblyCJS = @"
 const dotnet = require('node-api-dotnet');
 const path = require('node:path');
 
-const assemblyName = path.basename(__filename, '.js');
+const assemblyName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
 const assemblyFilePath = path.join(__dirname, assemblyName + '.dll');
-dotnet.load(assemblyFilePath);
-";
+dotnet.load(assemblyFilePath);";
 
     /// <summary>
     /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
     /// Enables application code to load a system assembly and type definitions as an ES module
-    /// with one simple import statement.
+    /// with one simple import statement. The module does not have direct exports; it augments
+    /// the node-api-dotnet module.
     /// </summary>
     private const string LoadSystemAssemblyMJS = @"
 import dotnet from 'node-api-dotnet';
@@ -91,22 +161,21 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
-const assemblyName = path.basename(__filename, '.js');
-dotnet.load(assemblyName);
-";
+const assemblyName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
+dotnet.load(assemblyName);";
 
     /// <summary>
     /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
     /// Enables application code to load a system assembly and type definitions as a CommonJS
-    /// module with one simple require statement.
+    /// module with one simple require statement. The module does not have direct exports;
+    /// it augments the node-api-dotnet module.
     /// </summary>
     private const string LoadSystemAssemblyCJS = @"
 const dotnet = require('node-api-dotnet');
 const path = require('node:path');
 
-const assemblyName = path.basename(__filename, '.js');
-dotnet.load(assemblyName);
-";
+const assemblyName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
+dotnet.load(assemblyName);";
 
     private const string UndefinedTypeSuffix = " | undefined";
 
@@ -118,7 +187,8 @@ dotnet.load(assemblyName);
     private readonly IDictionary<string, Assembly> _referenceAssemblies;
     private readonly HashSet<string> _imports;
     private readonly XDocument? _assemblyDoc;
-    private bool _exportAll;
+    private readonly List<MemberInfo> _exportedMembers = new();
+    private bool _isModule;
     private bool _autoCamelCase;
     private bool _emitDisposable;
     private bool _emitDuplex;
@@ -130,10 +200,31 @@ dotnet.load(assemblyName);
         IEnumerable<string> referenceAssemblyPaths,
         IEnumerable<string> systemReferenceAssemblyDirectories,
         string typeDefinitionsPath,
-        ModuleType loaderModuleType,
+        IDictionary<ModuleType, string> modulePaths,
         bool isSystemAssembly = false,
         bool suppressWarnings = false)
     {
+        if (string.IsNullOrEmpty(assemblyPath))
+        {
+            throw new ArgumentNullException(nameof(assemblyPath));
+        }
+        else if (referenceAssemblyPaths is null)
+        {
+            throw new ArgumentNullException(nameof(referenceAssemblyPaths));
+        }
+        else if (systemReferenceAssemblyDirectories is null)
+        {
+            throw new ArgumentNullException(nameof(systemReferenceAssemblyDirectories));
+        }
+        else if (string.IsNullOrEmpty(typeDefinitionsPath))
+        {
+            throw new ArgumentNullException(nameof(typeDefinitionsPath));
+        }
+        else if (modulePaths is null)
+        {
+            throw new ArgumentNullException(nameof(modulePaths));
+        }
+
         // Create a metadata load context that includes a resolver for system assemblies,
         // referenced assemblies, referenced assemblies, and the target assembly.
         IEnumerable<string> allReferenceAssemblyPaths = MergeSystemReferenceAssemblies(
@@ -178,10 +269,6 @@ dotnet.load(assemblyName);
             assemblyDoc = XDocument.Load(assemblyDocFilePath);
         }
 
-        string[] referenceAssemblyNames = referenceAssemblyPaths
-            .Select((r) => Path.GetFileNameWithoutExtension(r))
-            .ToArray();
-
         try
         {
             TypeDefinitionsGenerator generator = new(
@@ -190,26 +277,16 @@ dotnet.load(assemblyName);
                 referenceAssemblies,
                 suppressWarnings);
             SourceText generatedSource = generator.GenerateTypeDefinitions();
-
             File.WriteAllText(typeDefinitionsPath, generatedSource.ToString());
 
-            if (typeDefinitionsPath.EndsWith(".d.ts", StringComparison.OrdinalIgnoreCase))
+            foreach (KeyValuePair<ModuleType, string> moduleTypeAndPath in modulePaths)
             {
-                string pathWithoutExtension = typeDefinitionsPath.Substring(
-                    0, typeDefinitionsPath.Length - 5);
-                string loaderModulePath = pathWithoutExtension + ".js";
-                string header = generator.GetGeneratedFileHeader();
+                ModuleType moduleType = moduleTypeAndPath.Key;
+                string moduleFilePath = moduleTypeAndPath.Value;
 
-                if (loaderModuleType == ModuleType.ES)
-                {
-                    File.WriteAllText(loaderModulePath, header +
-                        (isSystemAssembly ? LoadSystemAssemblyMJS : LoadAssemblyMJS));
-                }
-                else if (loaderModuleType == ModuleType.CommonJS)
-                {
-                    File.WriteAllText(loaderModulePath, header +
-                        (isSystemAssembly ? LoadSystemAssemblyCJS : LoadAssemblyCJS));
-                }
+                SourceText generatedModule = generator.GenerateModuleLoader(
+                    moduleType, isSystemAssembly);
+                File.WriteAllText(moduleFilePath, generatedModule.ToString());
             }
         }
         finally
@@ -277,6 +354,15 @@ dotnet.load(assemblyName);
         IDictionary<string, Assembly> referenceAssemblies,
         bool suppressWarnings)
     {
+        if (assembly is null)
+        {
+            throw new ArgumentNullException(nameof(assembly));
+        }
+        else if (referenceAssemblies is null)
+        {
+            throw new ArgumentNullException(nameof(referenceAssemblies));
+        }
+
         _assembly = assembly;
         _assemblyDoc = assemblyDoc;
         _referenceAssemblies = referenceAssemblies;
@@ -308,7 +394,7 @@ dotnet.load(assemblyName);
         Version? generatorVersion = typeof(TypeDefinitionsGenerator).Assembly.GetName().Version;
         return $"// Generated for: {targetName} {targetVersion}{Environment.NewLine}" +
             $"// Generated by: {generatorName} {generatorVersion}{Environment.NewLine}" +
-            $"/* eslint-disable */{Environment.NewLine}";
+            $"/* eslint-disable */";
     }
 
     public SourceText GenerateTypeDefinitions(bool? autoCamelCase = null)
@@ -319,17 +405,23 @@ dotnet.load(assemblyName);
         // Imports will be inserted here later, after the used references are determined.
         int importsIndex = s.Length;
 
-        _exportAll = !AreAnyItemsExported();
+        // Assume module while finding exported items. Then update the module status afterward.
+        _isModule = true;
+        _exportedMembers.AddRange(GetExportedMembers());
+        _isModule = _exportedMembers.Count > 0;
 
         // Default to camel-case for modules, preserve case otherwise.
-        _autoCamelCase = autoCamelCase ?? !_exportAll;
+        _autoCamelCase = autoCamelCase ?? _isModule;
 
         s++;
 
-        // Declare this types as members of the 'node-api-dotnet' module.
-        // This causes types across multiple .NET assemblies to be merged into
-        // a shared .NET namespace hierarchy.
-        s += "declare module 'node-api-dotnet' {";
+        if (!_isModule)
+        {
+            // Declare this types as members of the 'node-api-dotnet' module.
+            // This causes types across multiple .NET assemblies to be merged into
+            // a shared .NET namespace hierarchy.
+            s += "declare module 'node-api-dotnet' {";
+        }
 
         foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
         {
@@ -350,7 +442,10 @@ dotnet.load(assemblyName);
             }
         }
 
-        s += "}";
+        if (!_isModule)
+        {
+            s += "}";
+        }
 
         GenerateSupportingInterfaces(ref s, importsIndex);
 
@@ -365,25 +460,90 @@ dotnet.load(assemblyName);
             s.Insert(importsIndex, insertBuilder.ToString());
         }
 
-        // Re-export this module's types in a module that matches the assembly name.
-        // This supports AOT when the module is directly imported by name instead of
-        // importing via the .NET host.
-        s++;
-        s += $"declare module '{_assembly.GetName().Name}' {{";
-        s += "export * from 'node-api-dotnet';";
-        s += "}";
+        return s;
+    }
 
-        // Re-export this module's types directly from the module index.
-        // This supports a direct import of the module file.
-        s++;
-        s += "export * from 'node-api-dotnet';";
+    public SourceText GenerateModuleLoader(ModuleType moduleType, bool isSystemAssembly = false)
+    {
+        var s = new SourceBuilder();
+        s += GetGeneratedFileHeader();
+
+        if (_isModule)
+        {
+            if (moduleType == ModuleType.ES)
+            {
+                s += LoadModuleMJS.Replace("    ", ""); // The SourceBuilder will auto-indent.
+
+                bool isFirstMember = true;
+                bool hasDefaultExport = false;
+                foreach (MemberInfo member in _exportedMembers)
+                {
+                    string exportName = GetExportName(member);
+
+                    if (member is PropertyInfo exportedProperty &&
+                        exportedProperty.SetMethod != null)
+                    {
+                        ReportWarning(
+                            DiagnosticId.ESModulePropertiesAreConst,
+                            $"Module-level property '{exportName}' with setter will be " +
+                            "exported as read-only because ES module properties are constant.");
+                    }
+
+                    if (exportName == "default")
+                    {
+                        hasDefaultExport = true;
+                    }
+                    else
+                    {
+                        if (isFirstMember)
+                        {
+                            s++;
+                            isFirstMember = false;
+                        }
+
+                        s += $"export const {exportName} = exports.{exportName};";
+                    }
+                }
+
+                if (hasDefaultExport)
+                {
+                    s++;
+                    s += $"export default exports['default'];";
+                }
+            }
+            else if (moduleType == ModuleType.CommonJS)
+            {
+                s += LoadModuleCJS.Replace("    ", ""); // The SourceBuilder will auto-indent.
+            }
+            else
+            {
+                throw new ArgumentException(
+                    "Invalid module type: " + moduleType, nameof(moduleType));
+            }
+        }
+        else
+        {
+            if (moduleType == ModuleType.ES)
+            {
+                s += isSystemAssembly ? LoadSystemAssemblyMJS : LoadAssemblyMJS;
+            }
+            else if (moduleType == ModuleType.CommonJS)
+            {
+                s += isSystemAssembly ? LoadSystemAssemblyCJS : LoadAssemblyCJS;
+            }
+            else
+            {
+                throw new ArgumentException(
+                    "Invalid module type: " + moduleType, nameof(moduleType));
+            }
+        }
 
         return s;
     }
 
     private bool IsTypeExported(Type type)
     {
-        if (IsExcludedNamespace(type.Namespace))
+        if (!(type.IsPublic || type.IsNestedPublic) || IsExcludedNamespace(type.Namespace))
         {
             return false;
         }
@@ -397,7 +557,7 @@ dotnet.load(assemblyName);
             return false;
         }
 
-        if (_exportAll || type.GetCustomAttributesData().Any((a) =>
+        if (!_isModule || type.GetCustomAttributesData().Any((a) =>
             a.AttributeType.FullName == typeof(JSModuleAttribute).FullName ||
             a.AttributeType.FullName == typeof(JSExportAttribute).FullName))
         {
@@ -424,13 +584,13 @@ dotnet.load(assemblyName);
             a.AttributeType.FullName == typeof(JSModuleAttribute).FullName);
     }
 
-    private bool AreAnyItemsExported()
+    private IEnumerable<MemberInfo> GetExportedMembers()
     {
         foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
         {
             if (IsTypeExported(type))
             {
-                return true;
+                yield return type;
             }
             else
             {
@@ -439,7 +599,7 @@ dotnet.load(assemblyName);
                 {
                     if (IsMemberExported(member))
                     {
-                        return true;
+                        yield return member;
                     }
                     else if (IsCustomModuleInitMethod(member))
                     {
@@ -450,12 +610,16 @@ dotnet.load(assemblyName);
                 }
             }
         }
-
-        return false;
     }
 
+    /// <summary>
+    /// Generates a type definition for a single type. Primarily for unit-testing purposes.
+    /// </summary>
     public string GenerateTypeDefinition(Type type)
     {
+        // Don't use namespaces when generating a single type definition.
+        _isModule = true;
+
         SourceBuilder s = new();
         ExportType(ref s, type);
         return s.ToString();
@@ -653,7 +817,15 @@ import { Duplex } from 'stream';
             _emitDuplex = true;
         }
 
-        s += $"export {classKind} {exportName}{GetGenericParams(type)}{implements} {{";
+        string exportPrefix = "export ";
+        if (exportName == "default")
+        {
+            // For default exports first declare the class then export it separately.
+            exportPrefix = "declare ";
+            exportName = "__default";
+        }
+
+        s += $"{exportPrefix}{classKind} {exportName}{GetGenericParams(type)}{implements} {{";
 
         bool isFirstMember = true;
         foreach (ConstructorInfo constructor in type.GetConstructors(
@@ -695,6 +867,10 @@ import { Duplex } from 'stream';
         }
 
         s += "}";
+        if (exportName == "__default")
+        {
+            s += $"export default {exportName};";
+        }
 
         EndNamespace(ref s, type);
 
@@ -969,9 +1145,9 @@ import { Duplex } from 'stream';
 
     private void BeginNamespace(ref SourceBuilder s, Type type)
     {
-        if (!_exportAll)
+        if (_isModule)
         {
-            // Presence of [JSExport] attributes indicates a module, which is not namespaced.
+            // Modules with [JSExport] attributes are not namespaced.
             return;
         }
 
@@ -993,9 +1169,9 @@ import { Duplex } from 'stream';
 
     private void EndNamespace(ref SourceBuilder s, Type type)
     {
-        if (!_exportAll)
+        if (_isModule)
         {
-            // Presence of [JSExport] attributes indicates a module, which is not namespaced.
+            // Modules with [JSExport] attributes are not namespaced.
             return;
         }
 

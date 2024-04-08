@@ -4,7 +4,6 @@
     <TargetFramework>net6.0</TargetFramework>
     <RestorePackagesPath>$(MSBuildThisFileDirectory)/pkg</RestorePackagesPath>
     <OutDir>bin</OutDir>
-    <NodeApiAssemblyJSModuleType>esm</NodeApiAssemblyJSModuleType>
   </PropertyGroup>
 
   <ItemGroup>

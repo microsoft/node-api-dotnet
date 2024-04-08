@@ -4,7 +4,6 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <RestorePackagesPath>$(MSBuildThisFileDirectory)/pkg</RestorePackagesPath>
     <OutDir>bin</OutDir>
-    <NodeApiAssemblyJSModuleType>esm</NodeApiAssemblyJSModuleType>
     <UseWPF>true</UseWPF>
     <GenerateNodeApiTypeDefinitionsForReferences>true</GenerateNodeApiTypeDefinitionsForReferences>
   </PropertyGroup>

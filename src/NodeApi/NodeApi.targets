@@ -2,6 +2,7 @@
   <Target Name="RenameToDotNode"
     AfterTargets="CopyNativeBinary"
     BeforeTargets="PublishManagedAssembly"
+    DependsOnTargets="_CopyAotSymbols"
     Condition=" '$(PublishNodeModule)' == 'true' "
   >
     <!-- If publishing a node module for for multiple platforms, use an rid-specific subdir. -->
@@ -21,18 +22,42 @@
       SourceFiles="$(PublishDir)$(TargetName).so.dbg"
       DestinationFiles="$(PublishNodeModuleDir)$(TargetName).node.dbg" />
 
-    <!-- Add a non-rid-specific JS file that redirects to the rid-specific binary. -->
-    <!-- (The rid code is the same as node-api-dotnet/init.js.) -->
-    <WriteLinesToFile Condition=" '$(PublishMultiPlatformNodeModule)' == 'true' "
-      File="$(PublishDir)$(TargetName).js" Overwrite="true" Lines=";
-const ridPlatform =
-  process.platform === 'win32' ? 'win' :
-  process.platform === 'darwin' ? 'osx' :
-  process.platform;
-const ridArch = process.arch === 'ia32' ? 'x86' : process.arch;
-const rid = `${ridPlatform}-${ridArch}`;
-module.exports = require(`./${rid}/$(TargetName).node`);
-      " />
+    <!-- The following tasks make some small modifications to the module-loader scripts so they load
+    the AOT module directly instead of loading the .NET assembly via the node-api-dotnet package. -->
+
+    <!-- Replace "const dotnet = require('node-api-dotnet');" with "const dotnet = undefined;" -->
+    <WriteLinesToFile Overwrite="true" Condition="Exists('$(PublishDir)$(TargetName).js')"
+          Lines="$([System.IO.File]::ReadAllText('$(PublishDir)$(TargetName).js')
+            .Replace('const dotnet = require(&apos;node-api-dotnet&apos;);', 'const dotnet = undefined;'))"
+          File="$(PublishDir)$(TargetName).js" />
+    <WriteLinesToFile Overwrite="true" Condition="Exists('$(PublishDir)$(TargetName).cjs')"
+          Lines="$([System.IO.File]::ReadAllText('$(PublishDir)$(TargetName).cjs')
+            .Replace('const dotnet = require(&apos;node-api-dotnet&apos;);', 'const dotnet = undefined;'))"
+          File="$(PublishDir)$(TargetName).cjs" />
+
+    <!-- Replace "import dotnet from 'node-api-dotnet';" with "const dotnet = undefined;" -->
+    <WriteLinesToFile Overwrite="true" Condition="Exists('$(PublishDir)$(TargetName).js')"
+          Lines="$([System.IO.File]::ReadAllText('$(PublishDir)$(TargetName).js')
+            .Replace('import dotnet from &apos;node-api-dotnet&apos;;', 'const dotnet = undefined;'))"
+          File="$(PublishDir)$(TargetName).js" />
+    <WriteLinesToFile Overwrite="true" Condition="Exists('$(PublishDir)$(TargetName).mjs')"
+          Lines="$([System.IO.File]::ReadAllText('$(PublishDir)$(TargetName).mjs')
+            .Replace('import dotnet from &apos;node-api-dotnet&apos;;', 'const dotnet = undefined;'))"
+          File="$(PublishDir)$(TargetName).mjs" />
+
+    <!-- Remove "rid," from the import path when not using a rid-specific subdir. -->
+    <WriteLinesToFile Overwrite="true"
+          Condition="Exists('$(PublishDir)$(TargetName).js') AND '$(PublishMultiPlatformNodeModule)' != 'true'"
+          Lines="$([System.IO.File]::ReadAllText('$(PublishDir)$(TargetName).js').Replace(' rid,', ''))"
+          File="$(PublishDir)$(TargetName).js" />
+    <WriteLinesToFile Overwrite="true"
+          Condition="Exists('$(PublishDir)$(TargetName).cjs') AND '$(PublishMultiPlatformNodeModule)' != 'true'"
+          Lines="$([System.IO.File]::ReadAllText('$(PublishDir)$(TargetName).cjs').Replace(' rid,', ''))"
+          File="$(PublishDir)$(TargetName).cjs" />
+    <WriteLinesToFile Overwrite="true"
+          Condition="Exists('$(PublishDir)$(TargetName).mjs') AND '$(PublishMultiPlatformNodeModule)' != 'true'"
+          Lines="$([System.IO.File]::ReadAllText('$(PublishDir)$(TargetName).mjs').Replace(' rid,', ''))"
+          File="$(PublishDir)$(TargetName).mjs" />
   </Target>
 
   <Target Name="PackNpmPackage"

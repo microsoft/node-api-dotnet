@@ -1,5 +1,6 @@
 {
   "name": "node-api-dotnet-examples-dotnet-module",
+  "type": "commonjs",
   "dependencies": {
     "node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
   }

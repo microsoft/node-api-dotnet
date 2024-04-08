@@ -7,6 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+#if !NETFRAMEWORK
+using System.Text.Json;
+#endif
 
 namespace Microsoft.JavaScript.NodeApi.Generator;
 
@@ -30,7 +33,7 @@ public static class Program
     private static readonly List<string> s_referenceAssemblyPaths = new();
     private static readonly List<string> s_typeDefinitionsPaths = new();
     private static readonly HashSet<int> s_systemAssemblyIndexes = new();
-    private static TypeDefinitionsGenerator.ModuleType s_moduleType;
+    private static readonly List<TypeDefinitionsGenerator.ModuleType> s_moduleTypes = new();
     private static bool s_suppressWarnings;
 
     public static int Main(string[] args)
@@ -46,8 +49,8 @@ public static class Program
                   -p --pack       Targeting pack (optional, multiple)
                   -r --reference  Path to reference assembly (optional, multiple)
                   -t --typedefs   Path to output type definitions file (required)
-                  -m --module     Generate JS loader module(s) alongside typedefs (optional)
-                                  Valid values are 'commonjs' or 'esm'
+                  -m --module     Generate JS module(s) alongside typedefs (optional, multiple)
+                                  Value: 'commonjs', 'esm', or path to package.json with "type"
                   --nowarn        Suppress warnings
                   -? -h --help    Show this help message
                   @<file>         Read response file for more options
@@ -77,22 +80,29 @@ public static class Program
 
             Console.WriteLine($"{s_assemblyPaths[i]} -> {s_typeDefinitionsPaths[i]}");
 
+            string modulePathWithoutExtension = s_typeDefinitionsPaths[i].Substring(
+                0, s_typeDefinitionsPaths[i].Length - 5);
+            Dictionary<TypeDefinitionsGenerator.ModuleType, string> modulePaths = new();
+            foreach (TypeDefinitionsGenerator.ModuleType moduleType in s_moduleTypes.Distinct())
+            {
+                // If only one module type was specified, use the default .js extension.
+                // Otherwise use .cjs / .mjs to distinguish between CommonJS and ES modules.
+                string moduleExtension = s_moduleTypes.Count == 1 ? ".js" :
+                    moduleType == TypeDefinitionsGenerator.ModuleType.CommonJS ? ".cjs" :
+                    moduleType == TypeDefinitionsGenerator.ModuleType.ES ? ".mjs" : ".js";
+                string loaderModulePath = modulePathWithoutExtension + moduleExtension;
+                Console.WriteLine($"{s_assemblyPaths[i]} -> {loaderModulePath}");
+                modulePaths.Add(moduleType, loaderModulePath);
+            }
+
             TypeDefinitionsGenerator.GenerateTypeDefinitions(
                 s_assemblyPaths[i],
                 allReferencePaths,
                 s_referenceAssemblyDirectories,
                 s_typeDefinitionsPaths[i],
-                s_moduleType,
+                modulePaths,
                 isSystemAssembly: s_systemAssemblyIndexes.Contains(i),
                 s_suppressWarnings);
-
-            if (s_moduleType != TypeDefinitionsGenerator.ModuleType.None)
-            {
-                string pathWithoutExtension = s_typeDefinitionsPaths[i].Substring(
-                    0, s_typeDefinitionsPaths[i].Length - 5);
-                string loaderModulePath = pathWithoutExtension + ".js";
-                Console.WriteLine($"{s_assemblyPaths[i]} -> {loaderModulePath}");
-            }
         }
 
         return 0;
@@ -159,19 +169,35 @@ public static class Program
                 case "-m":
                 case "--module":
                 case "--modules":
-                    string moduleType = args[++i].ToLowerInvariant();
-                    switch (moduleType)
+                    foreach (string moduleType in args[++i].Split(','))
                     {
-                        case "es":
-                        case "esm":
-                        case "mjs":
-                            s_moduleType = TypeDefinitionsGenerator.ModuleType.ES;
-                            break;
-                        case "commonjs":
-                        case "cjs":
-                            s_moduleType = TypeDefinitionsGenerator.ModuleType.CommonJS;
-                            break;
-                        default: return false;
+                        switch (moduleType.ToLowerInvariant())
+                        {
+                            case "es":
+                            case "esm":
+                            case "mjs":
+                                s_moduleTypes.Add(TypeDefinitionsGenerator.ModuleType.ES);
+                                break;
+                            case "commonjs":
+                            case "cjs":
+                                s_moduleTypes.Add(TypeDefinitionsGenerator.ModuleType.CommonJS);
+                                break;
+                            case "none":
+                                break;
+                            default:
+                                if (Path.GetFileName(moduleType).Equals(
+                                    "package.json", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    TypeDefinitionsGenerator.ModuleType inferredModuleType =
+                                        GetModuleTypeFromPackageJson(moduleType);
+                                    if (inferredModuleType != default)
+                                    {
+                                        s_moduleTypes.Add(inferredModuleType);
+                                        break;
+                                    }
+                                }
+                                return false;
+                        }
                     }
                     break;
 
@@ -231,6 +257,46 @@ public static class Program
         }
 
         return true;
+    }
+
+    private static TypeDefinitionsGenerator.ModuleType GetModuleTypeFromPackageJson(
+        string packageJsonPath)
+    {
+#if NETFRAMEWORK
+        // System.Text.Json is not available on .NET Framework.
+        Console.Error.WriteLine(
+            "Inferring module type from package.json is not supported on .NET Framework.");
+#else
+        try
+        {
+            using Stream fileStream = File.OpenRead(packageJsonPath);
+            JsonDocument json = JsonDocument.Parse(fileStream);
+
+            // https://nodejs.org/api/packages.html#type
+            if (!json.RootElement.TryGetProperty("type", out JsonElement moduleElement) ||
+                moduleElement.GetString() == "commonjs")
+            {
+                return TypeDefinitionsGenerator.ModuleType.CommonJS;
+            }
+            else if (moduleElement.GetString() == "module")
+            {
+                return TypeDefinitionsGenerator.ModuleType.ES;
+            }
+            else
+            {
+                Console.Error.WriteLine(
+                    "Failed to infer module type from package.json. Unknown module type: " +
+                    moduleElement.GetString());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                "Failed to infer module type from package.json. " + ex.Message);
+        }
+#endif
+
+        return default;
     }
 
     /// <summary>

@@ -11,11 +11,10 @@ For examples of this scenario, see
      <PropertyGroup>
        <TargetFramework>net6.0</TargetFramework>
        <OutDir>bin</OutDir>
-       <NodeApiAssemblyJSModuleType>commonjs</NodeApiAssemblyJSModuleType>
        <GenerateNodeApiTypeDefinitionsForReferences>true</GenerateNodeApiTypeDefinitionsForReferences>
      </PropertyGroup>
      <ItemGroup>
-       <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.5.*" />
+       <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.7.*" />
        <PackageReference Include="Example.Package" Version="1.2.3" />
        <PackageReference Include="Example.Package.Two" Version="2.3.4" />
      </ItemGroup>
@@ -27,7 +26,6 @@ For examples of this scenario, see
      will be placed there.
    - The `Microsoft.JavaScript.NodeApi.Generator` package reference enables automatic generation
      of TS type-definitions for the referenced assemblies.
-   - Change `NodeApiAssemblyJSModuleType` to `esm` if using ES modules.
 
    Build the project to restore the packages, place assemblies in the `bin` directory, and generate
    type definitions:
@@ -35,7 +33,8 @@ For examples of this scenario, see
    dotnet build
    ```
 
-2. Add a dependency on the `node-api-dotnet` npm package to your JavaScript project:
+2. Create a `package.json` file for the project, if you haven't already. Then add a dependency on
+the `node-api-dotnet` npm package to your JavaScript project:
     ```
     npm install node-api-dotnet
     ```

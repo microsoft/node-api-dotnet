@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <Compile Include="../Module.cs" Link="Module.cs" />
+  </ItemGroup>
+
+</Project>

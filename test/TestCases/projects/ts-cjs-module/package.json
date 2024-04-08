@@ -1,6 +1,5 @@
 {
-  "name": "node-api-dotnet-tests-js-cjs",
-  "type": "module",
+  "name": "node-api-dotnet-tests-js-cjs-module",
   "scripts": {
     "compile": "tsc"
   },

@@ -1,5 +1,6 @@
 {
-  "name": "node-api-dotnet-tests-ts-cjs",
+  "name": "node-api-dotnet-tests-js-esm-dynamic",
+  "type": "module",
   "scripts": {
     "compile": "tsc"
   },

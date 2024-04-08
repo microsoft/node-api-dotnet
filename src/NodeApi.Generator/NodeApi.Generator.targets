@@ -5,8 +5,13 @@
 
     <NodeApiGeneratorAssemblyName>Microsoft.JavaScript.NodeApi.Generator</NodeApiGeneratorAssemblyName>
     <NodeApiGeneratorAssemblyPath>$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/$(NodeApiGeneratorAssemblyName).dll</NodeApiGeneratorAssemblyPath>
-    <NodeApiAssemblyJSModuleType Condition=" '$(NodeApiAssemblyJSModuleType)' == '' ">commonjs</NodeApiAssemblyJSModuleType>
-    <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiAssemblyJSModuleType) $(NodeApiTypedefsGeneratorOptions) --framework $(TargetFramework)</NodeApiTypeDefinitionsGeneratorOptions>
+
+    <!-- Try to infer the module type from package.json in the project directory. Otherwise default to generating both module types.-->
+    <NodeApiPackageJson Condition=" '$(NodeApiPackageJson)' == '' ">$(ProjectDir)package.json</NodeApiPackageJson>
+    <NodeApiJSModuleType Condition=" '$(NodeApiJSModuleType)' == '' AND Exists('$(NodeApiPackageJson)') ">&quot;$(NodeApiPackageJson)&quot;</NodeApiJSModuleType>
+    <NodeApiJSModuleType Condition=" '$(NodeApiJSModuleType)' == '' ">commonjs,esm</NodeApiJSModuleType>
+
+    <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiJSModuleType) --framework $(TargetFramework) $(NodeApiTypedefsGeneratorOptions)</NodeApiTypeDefinitionsGeneratorOptions>
   </PropertyGroup>
 
   <Target Name="ConfigureNodeApiTypeDefinitions"
@@ -58,6 +63,9 @@
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND Exists('$(TargetDir)$(NodeApiTypeDefinitionsFileName)') "
   >
     <Copy SourceFiles="$(TargetDir)$(NodeApiTypeDefinitionsFileName)" DestinationFolder="$(PublishDir)" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).js" DestinationFolder="$(PublishDir)" Condition="Exists('$(TargetDir)$(TargetName).js')" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).cjs" DestinationFolder="$(PublishDir)" Condition="Exists('$(TargetDir)$(TargetName).cjs')" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).mjs" DestinationFolder="$(PublishDir)" Condition="Exists('$(TargetDir)$(TargetName).mjs')" />
   </Target>
 
   <Target Name="CleanNodeApiTypeDefinitions" AfterTargets="CoreClean">

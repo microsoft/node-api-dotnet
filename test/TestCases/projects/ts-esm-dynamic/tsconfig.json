@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "module": "Node16",
+    "target": "ES2022",
+    "outDir": "."
+  },
+  "include": ["*.ts"],
+  "exclude": ["net472.ts", "node_modules"]
+}
