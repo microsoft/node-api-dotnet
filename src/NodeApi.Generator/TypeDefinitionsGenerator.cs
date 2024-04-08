@@ -60,6 +60,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
 import dotnet from 'node-api-dotnet';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-ignore - https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/65252
 import { dlopen, platform, arch } from 'node:process';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -92,6 +93,7 @@ function importAotModule(moduleName) {
     private const string LoadModuleCJS = @"
 const dotnet = require('node-api-dotnet');
 const path = require('node:path');
+// @ts-ignore - https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/65252
 const { dlopen, platform, arch } = require('node:process');
 
 const moduleName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
@@ -610,8 +612,14 @@ dotnet.load(assemblyName);";
         }
     }
 
+    /// <summary>
+    /// Generates a type definition for a single type. Primarily for unit-testing purposes.
+    /// </summary>
     public string GenerateTypeDefinition(Type type)
     {
+        // Don't use namespaces when generating a single type definition.
+        _isModule = true;
+
         SourceBuilder s = new();
         ExportType(ref s, type);
         return s.ToString();
