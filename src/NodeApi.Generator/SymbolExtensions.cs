@@ -340,14 +340,16 @@ internal static class SymbolExtensions
     /// are built before building the target type.
     /// </summary>
     /// <param name="typeSymbol">The symbol that is about to be built as a type.</param>
-    /// <param name="selfSymbol">The type symbol that referenced the current one; used to detect
-    /// self-referential type args. (Should only be specified with recursive calls.)</param>
+    /// <param name="referencingSymbols">Optional list of types that led to referencing this one,
+    /// used to prevent infinite recursion.</param>
     private static void BuildBaseTypeAndInterfaces(
-        INamedTypeSymbol typeSymbol, INamedTypeSymbol? selfSymbol = null)
+        INamedTypeSymbol typeSymbol, IEnumerable<INamedTypeSymbol>? referencingSymbols = null)
     {
-        static void BuildType(INamedTypeSymbol typeSymbol, INamedTypeSymbol selfSymbol)
+        static void BuildType(
+            INamedTypeSymbol typeSymbol,
+            IEnumerable<INamedTypeSymbol> referencingSymbols)
         {
-            BuildBaseTypeAndInterfaces(typeSymbol, selfSymbol);
+            BuildBaseTypeAndInterfaces(typeSymbol, referencingSymbols);
 
             string typeFullName = GetTypeSymbolFullName(typeSymbol);
             if (SymbolicTypes.TryGetValue(typeFullName, out Type? type) &&
@@ -357,23 +359,27 @@ internal static class SymbolExtensions
             }
         }
 
+        referencingSymbols = (referencingSymbols ?? Enumerable.Empty<INamedTypeSymbol>())
+            .Append(typeSymbol);
+
         if (typeSymbol.BaseType != null)
         {
-            BuildType(typeSymbol.BaseType, typeSymbol);
+            BuildType(typeSymbol.BaseType, referencingSymbols);
         }
 
         foreach (INamedTypeSymbol interfaceTypeSymbol in typeSymbol.Interfaces)
         {
-            BuildType(interfaceTypeSymbol, typeSymbol);
+            BuildType(interfaceTypeSymbol, referencingSymbols);
         }
 
         foreach (INamedTypeSymbol typeArgSymbol in
             typeSymbol.TypeArguments.OfType<INamedTypeSymbol>())
         {
             // Skip self-referential type parameters.
-            if (!SymbolEqualityComparer.Default.Equals(typeArgSymbol, selfSymbol))
+            if (!referencingSymbols.Any(
+                (s) => SymbolEqualityComparer.Default.Equals(s, typeArgSymbol)))
             {
-                BuildType(typeArgSymbol, typeSymbol);
+                BuildType(typeArgSymbol, referencingSymbols);
             }
         }
     }
