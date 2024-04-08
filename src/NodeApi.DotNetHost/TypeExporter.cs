@@ -212,7 +212,7 @@ public class TypeExporter
         {
             string baseOrInterfaceTypeName = TypeProxy.GetTypeProxyName(baseOrInterfaceType);
 
-            NamespaceProxy? ns = GetNamespaceProxy(baseOrInterfaceType.Namespace!);
+            NamespaceProxy? ns = GetNamespaceProxy(baseOrInterfaceType.Namespace);
             if (ns == null)
             {
                 Trace(
@@ -246,7 +246,7 @@ public class TypeExporter
         // Target namespaces and types should be already loaded because either they are in the
         // current assembly (where types are loaded before extension methods) or in an assembly
         // this one depends on which would have been loaded already.
-        NamespaceProxy? targetTypeNamespace = GetNamespaceProxy(targetType.Namespace!);
+        NamespaceProxy? targetTypeNamespace = GetNamespaceProxy(targetType.Namespace);
         if (targetTypeNamespace == null)
         {
             Trace(
@@ -308,8 +308,13 @@ public class TypeExporter
         return true;
     }
 
-    internal NamespaceProxy? GetNamespaceProxy(string ns)
+    internal NamespaceProxy? GetNamespaceProxy(string? ns)
     {
+        if (ns is null)
+        {
+            return null;
+        }
+
         string[] namespaceParts = ns.Split('.');
         if (!_exportedNamespaces.TryGetValue(
             namespaceParts[0], out NamespaceProxy? namespaceProxy))
