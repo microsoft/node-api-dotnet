@@ -32,15 +32,20 @@ public class ModuleClass
     public string Method(string arg) => arg;
 }
 
-[JSExport]
-public enum ModuleEnum
+namespace TestNamespace
 {
-    None = 0,
-    One = 1,
-}
+    [JSExport("default")]
+    public static class DefaultClass
+    {
+        public static string Method(string arg) => arg;
 
-[JSExport("default")]
-public static class DefaultClass
-{
-    public static string Method(string arg) => arg;
+        public static TestEnum EnumProperty { get; set; }
+    }
+
+    [JSExport("ModuleEnum")]
+    public enum TestEnum
+    {
+        None = 0,
+        One = 1,
+    }
 }
