@@ -1481,7 +1481,7 @@ import { Duplex } from 'stream';
         {
             tsType = allowTypeParams ? type.Name : "any";
         }
-        else if (type.IsGenericTypeParameter || type.IsGenericMethodParameter)
+        else if (type.IsGenericMethodParameter)
         {
             tsType = type.Name;
         }
@@ -1535,8 +1535,11 @@ import { Duplex } from 'stream';
             }
             else if (IsTypeExported(type))
             {
-                tsType = type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' + type.Name :
-                    (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
+                // Types exported from a module are not namespaced.
+                string nsPrefix = !_isModule && type.Namespace != null ? type.Namespace + '.' : "";
+
+                tsType = (type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' : nsPrefix) +
+                    (_isModule ? GetExportName(type) : type.Name);
             }
         }
         else if (type.FullName == typeof(ValueTuple).FullName)
@@ -1564,8 +1567,11 @@ import { Duplex } from 'stream';
         }
         else if (IsTypeExported(type))
         {
-            tsType = type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' + type.Name :
-                (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
+            // Types exported from a module are not namespaced.
+            string nsPrefix = !_isModule && type.Namespace != null ? type.Namespace + '.' : "";
+
+            tsType = (type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' : nsPrefix) +
+                (_isModule ? GetExportName(type) : type.Name);
         }
         else if (_referenceAssemblies.ContainsKey(type.Assembly.GetName().Name!))
         {
