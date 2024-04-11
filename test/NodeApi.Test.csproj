@@ -12,6 +12,7 @@
     <None Include="TestCases\**\*.cs" />
     <None Include="TestCases\**\*.ts" />
     <None Include="TestCases\**\*.js" />
+    <Compile Remove="TestCases\**" />
   </ItemGroup>
 
   <ItemGroup>

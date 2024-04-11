@@ -6,7 +6,10 @@
 
 using Microsoft.JavaScript.NodeApi;
 
+[assembly: JSExport]
+
 // Tests exporting top-level properties on the JS module.
+[JSExport(false)]
 public static class ModuleProperties
 {
     [JSExport]
@@ -19,7 +22,6 @@ public static class ModuleProperties
     public static string Method(string arg) => arg;
 }
 
-[JSExport]
 public class ModuleClass
 {
     public ModuleClass(string value)
