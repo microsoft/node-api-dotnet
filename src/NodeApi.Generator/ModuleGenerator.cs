@@ -113,7 +113,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     ReportError(
                         DiagnosticId.InvalidModuleInitializer,
                         type,
-                        "[JSModule] attribute must be applied to a class.");
+                        "[JSModule] attribute must be applied to a class or method.");
                 }
                 else if (type.DeclaredAccessibility != Accessibility.Public)
                 {
@@ -140,7 +140,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                             ReportError(
                                 DiagnosticId.InvalidModuleInitializer,
                                 member,
-                                "[JSModule] attribute must be applied to a method.");
+                                "[JSModule] attribute must be applied to a class or method.");
                         }
                         else if (!member.IsStatic)
                         {
@@ -194,7 +194,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     {
         foreach (ITypeSymbol type in GetCompilationTypes())
         {
-            if (type.GetAttributes().Any((a) => a.AttributeClass?.Name == "JSExportAttribute"))
+            if (IsExported(type))
             {
                 if (type.TypeKind != TypeKind.Class &&
                     type.TypeKind != TypeKind.Struct &&
@@ -202,7 +202,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                     type.TypeKind != TypeKind.Delegate &&
                     type.TypeKind != TypeKind.Enum)
                 {
-                    ReportError(
+                    ReportWarning(
                         DiagnosticId.UnsupportedTypeKind,
                         type,
                         $"Exporting {type.TypeKind} types is not supported.");
@@ -222,8 +222,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 foreach (ISymbol? member in type.GetMembers())
                 {
-                    if (member.GetAttributes().Any(
-                        (a) => a.AttributeClass?.Name == "JSExportAttribute"))
+                    if (IsExported(member))
                     {
                         if (type.DeclaredAccessibility != Accessibility.Public)
                         {
@@ -239,7 +238,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                                 member,
                                 "Exported member must be public.");
                         }
-                        else if (!(member.IsStatic))
+                        else if (!member.IsStatic)
                         {
                             ReportError(
                                 DiagnosticId.ExportIsNotStatic,
@@ -279,6 +278,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         string generatorName = typeof(ModuleGenerator).Assembly.GetName()!.Name!;
         Version? generatorVersion = typeof(ModuleGenerator).Assembly.GetName().Version;
         s += $"[GeneratedCode(\"{generatorName}\", \"{generatorVersion}\")]";
+        s += "[JSExport(false)]"; // Prevent typedefs from being generated for this class.
         s += $"public static class {ModuleInitializerClassName}";
         s += "{";
 
@@ -712,6 +712,41 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         _callbackAdapters.Add(toAapter.Name!, toAapter);
     }
 
+    public static bool IsExported(ISymbol symbol)
+    {
+        AttributeData? exportAttribute = GetJSExportAttribute(symbol);
+
+        // A private symbol with no [JSExport] attribute is not exported.
+        if (exportAttribute == null && symbol.DeclaredAccessibility != Accessibility.Public)
+        {
+            return false;
+        }
+
+        // If the symbol doesn't have a [JSExport] attribute, check its containing type
+        // and containing assembly.
+        while (exportAttribute == null &&
+            symbol.ContainingType?.DeclaredAccessibility == Accessibility.Public)
+        {
+            symbol = symbol.ContainingType;
+            exportAttribute = GetJSExportAttribute(symbol);
+        }
+
+        if (exportAttribute == null)
+        {
+            exportAttribute = GetJSExportAttribute(symbol.ContainingAssembly);
+
+            if (exportAttribute == null)
+            {
+                return false;
+            }
+        }
+
+        // If the [JSExport] attribute has a single boolean constructor argument, use that.
+        // Any other constructor defaults to true.
+        TypedConstant constructorArgument = exportAttribute.ConstructorArguments.SingleOrDefault();
+        return constructorArgument.Value as bool? ?? true;
+    }
+
     /// <summary>
     /// Gets the projected name for a symbol, which may be different from its C# name.
     /// </summary>
@@ -734,7 +769,9 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     public static AttributeData? GetJSExportAttribute(ISymbol symbol)
     {
         return symbol.GetAttributes().SingleOrDefault(
-            (a) => a.AttributeClass?.Name == "JSExportAttribute");
+            (a) => a.AttributeClass?.Name == typeof(JSExportAttribute).Name &&
+                a.AttributeClass.ContainingNamespace.ToDisplayString() ==
+                    typeof(JSExportAttribute).Namespace);
     }
 
     /// <summary>

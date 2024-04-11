@@ -405,10 +405,7 @@ dotnet.load(assemblyName);";
         // Imports will be inserted here later, after the used references are determined.
         int importsIndex = s.Length;
 
-        // Assume module while finding exported items. Then update the module status afterward.
-        _isModule = true;
         _exportedMembers.AddRange(GetExportedMembers());
-        _isModule = _exportedMembers.Count > 0;
 
         // Default to camel-case for modules, preserve case otherwise.
         _autoCamelCase = autoCamelCase ?? _isModule;
@@ -425,7 +422,7 @@ dotnet.load(assemblyName);";
 
         foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
         {
-            if (IsTypeExported(type))
+            if (!_isModule || IsExported(type))
             {
                 ExportType(ref s, type);
             }
@@ -434,7 +431,7 @@ dotnet.load(assemblyName);";
                 foreach (MemberInfo member in type.GetMembers(
                     BindingFlags.Public | BindingFlags.Static))
                 {
-                    if (IsMemberExported(member))
+                    if (IsExported(member))
                     {
                         ExportMember(ref s, member);
                     }
@@ -541,9 +538,11 @@ dotnet.load(assemblyName);";
         return s;
     }
 
-    private bool IsTypeExported(Type type)
+    private bool IsExported(MemberInfo member)
     {
-        if (!(type.IsPublic || type.IsNestedPublic) || IsExcludedNamespace(type.Namespace))
+        Type type = member as Type ?? member.DeclaringType!;
+
+        if (IsExcludedNamespace(type.Namespace))
         {
             return false;
         }
@@ -557,39 +556,52 @@ dotnet.load(assemblyName);";
             return false;
         }
 
-        if (!_isModule || type.GetCustomAttributesData().Any((a) =>
-            a.AttributeType.FullName == typeof(JSModuleAttribute).FullName ||
-            a.AttributeType.FullName == typeof(JSExportAttribute).FullName))
+        CustomAttributeData? exportAttribute = GetAttribute<JSExportAttribute>(member);
+
+        // If the member doesn't have a [JSExport] attribute, check its declaring type
+        // and declaring assembly.
+        while (exportAttribute == null && member.DeclaringType != null &&
+            (member.DeclaringType.IsPublic || member.DeclaringType.IsNestedPublic))
         {
-            return true;
+            member = member.DeclaringType;
+            exportAttribute = GetAttribute<JSExportAttribute>(member);
         }
 
-        if (type.IsNested)
+        if (exportAttribute == null)
         {
-            return IsTypeExported(type.DeclaringType!);
+            exportAttribute = type.Assembly.GetCustomAttributesData().FirstOrDefault((a) =>
+                a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
+
+            if (exportAttribute == null)
+            {
+                return false;
+            }
         }
 
-        return false;
+        // If the [JSExport] attribute has a single boolean constructor argument, use that.
+        // Any other constructor defaults to true.
+        CustomAttributeTypedArgument constructorArgument =
+            exportAttribute.ConstructorArguments.SingleOrDefault();
+        return constructorArgument.Value as bool? ?? true;
     }
 
-    private static bool IsMemberExported(MemberInfo member)
+    private static CustomAttributeData? GetAttribute<T>(MemberInfo member)
     {
-        return member.GetCustomAttributesData().Any((a) =>
-            a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
-    }
-
-    private static bool IsCustomModuleInitMethod(MemberInfo member)
-    {
-        return member is MethodInfo && member.GetCustomAttributesData().Any((a) =>
-            a.AttributeType.FullName == typeof(JSModuleAttribute).FullName);
+        return member.GetCustomAttributesData().FirstOrDefault((a) =>
+            a.AttributeType.FullName == typeof(T).FullName);
     }
 
     private IEnumerable<MemberInfo> GetExportedMembers()
     {
         foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
         {
-            if (IsTypeExported(type))
+            if (GetAttribute<JSModuleAttribute>(type) != null)
             {
+                _isModule = true;
+            }
+            else if (IsExported(type))
+            {
+                _isModule = true;
                 yield return type;
             }
             else
@@ -597,15 +609,14 @@ dotnet.load(assemblyName);";
                 foreach (MemberInfo member in type.GetMembers(
                     BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Static))
                 {
-                    if (IsMemberExported(member))
+                    if (GetAttribute<JSModuleAttribute>(member) != null)
                     {
-                        yield return member;
+                        _isModule = true;
                     }
-                    else if (IsCustomModuleInitMethod(member))
+                    else if (IsExported(member))
                     {
-                        throw new InvalidOperationException(
-                            "Cannot generate type definitions for an assembly with a " +
-                            "custom [JSModule] initialization method.");
+                        _isModule = true;
+                        yield return member;
                     }
                 }
             }
@@ -1533,7 +1544,7 @@ import { Duplex } from 'stream';
                 string tsTypeArg = GetTSType(typeArg, typeArgsNullability?[0], allowTypeParams);
                 tsType = $"(value: {tsTypeArg}) => boolean";
             }
-            else if (IsTypeExported(type))
+            else if (!_isModule || IsExported(type))
             {
                 // Types exported from a module are not namespaced.
                 string nsPrefix = !_isModule && type.Namespace != null ? type.Namespace + '.' : "";
@@ -1565,7 +1576,7 @@ import { Duplex } from 'stream';
             tsType = "Duplex";
             _emitDuplex = true;
         }
-        else if (IsTypeExported(type))
+        else if (!_isModule || IsExported(type))
         {
             // Types exported from a module are not namespaced.
             string nsPrefix = !_isModule && type.Namespace != null ? type.Namespace + '.' : "";
