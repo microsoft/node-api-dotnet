@@ -216,7 +216,12 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
                         "Exported type must be public.");
                 }
 
-                yield return type;
+                // Don't return nested types when the containing type is also exported.
+                // Nested types will be exported as properties of their containing type.
+                if (type.ContainingType == null || !IsExported(type.ContainingType))
+                {
+                    yield return type;
+                }
             }
             else if (type.TypeKind == TypeKind.Class || type.TypeKind == TypeKind.Struct)
             {
