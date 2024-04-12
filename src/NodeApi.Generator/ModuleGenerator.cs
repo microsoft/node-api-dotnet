@@ -567,7 +567,17 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         {
             if (member is IPropertySymbol property)
             {
-                ExportProperty(ref s, property, GetExportName(member));
+                if (property.Parameters.Any())
+                {
+                    ReportWarning(
+                        DiagnosticId.UnsupportedIndexer,
+                        property,
+                        $"Exporting indexers is not supported.");
+                }
+                else
+                {
+                    ExportProperty(ref s, property, GetExportName(member));
+                }
             }
             else if (type.TypeKind == TypeKind.Enum && member is IFieldSymbol field)
             {

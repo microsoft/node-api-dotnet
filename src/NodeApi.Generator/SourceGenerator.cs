@@ -41,6 +41,7 @@ public abstract class SourceGenerator
         UnsupportedMethodParameterType,
         UnsupportedMethodReturnType,
         UnsupportedOverloads,
+        UnsupportedIndexer,
         ReferenedTypeNotExported,
         ESModulePropertiesAreConst,
     }
