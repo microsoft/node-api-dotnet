@@ -643,12 +643,19 @@ internal static class SymbolExtensions
     {
         Type type = propertySymbol.ContainingType.AsType();
 
-        // Ensure the property type is built.
-        propertySymbol.Type.AsType(type.GenericTypeArguments, buildType: true);
+        Type propertyType = propertySymbol.Type.AsType(type.GenericTypeArguments, buildType: true);
+        Type[] parameterTypes = propertySymbol.Parameters.Select(
+            (p) => p.Type.AsType(type.GenericTypeArguments, buildType: true)).ToArray();
 
         BindingFlags bindingFlags = BindingFlags.Public |
             (propertySymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
-        PropertyInfo? propertyInfo = type.GetProperty(propertySymbol.Name, bindingFlags);
+        PropertyInfo? propertyInfo = type.GetProperty(
+            propertySymbol.Name,
+            bindingFlags,
+            null,
+            propertyType,
+            parameterTypes,
+            null);
         return propertyInfo ?? throw new InvalidOperationException(
                 $"Property not found: {type.Name}.{propertySymbol.Name}");
     }

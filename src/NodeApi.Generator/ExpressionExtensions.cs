@@ -120,6 +120,13 @@ internal static class ExpressionExtensions
                 "[" + ToCS(index.Arguments[0], path, variables) + "]",
 
             MethodCallExpression { Method.IsSpecialName: true } call =>
+                call.Method.Name == "get_Item" && call.Arguments.Count >= 1 ?
+                    WithParentheses(call.Object!, path, variables) +
+                        FormatArgs(call.Arguments, path, variables, "[]") :
+                call.Method.Name == "set_Item" && call.Arguments.Count >= 2 ?
+                    WithParentheses(call.Object!, path, variables) + FormatArgs(
+                        call.Arguments.Take(call.Arguments.Count - 1), path, variables, "[]") +
+                        " = " + ToCS(call.Arguments.Last(), path, variables) :
 #if NETFRAMEWORK
                 call.Method.Name.StartsWith("get_") ?
                     (call.Method.IsStatic ?
@@ -390,6 +397,11 @@ internal static class ExpressionExtensions
     private static string FormatArgs(
         IEnumerable<Expression> arguments,
         string path,
-        HashSet<string>? variables)
-        => "(" + string.Join(", ", arguments.Select((a) => ToCS(a, path, variables))) + ")";
+        HashSet<string>? variables,
+        string brackets = "()")
+    {
+        char start = brackets[0];
+        char end = brackets[1];
+        return start + string.Join(", ", arguments.Select((a) => ToCS(a, path, variables))) + end;
+    }
 }
