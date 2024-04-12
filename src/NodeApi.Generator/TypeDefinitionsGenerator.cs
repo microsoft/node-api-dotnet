@@ -557,6 +557,10 @@ dotnet.load(assemblyName);";
         }
 
         CustomAttributeData? exportAttribute = GetAttribute<JSExportAttribute>(member);
+        if (exportAttribute == null && !IsPublic(member))
+        {
+            return false;
+        }
 
         // If the member doesn't have a [JSExport] attribute, check its declaring type
         // and declaring assembly.
@@ -565,6 +569,10 @@ dotnet.load(assemblyName);";
         {
             member = member.DeclaringType;
             exportAttribute = GetAttribute<JSExportAttribute>(member);
+            if (exportAttribute == null && !IsPublic(member))
+            {
+                return false;
+            }
         }
 
         if (exportAttribute == null)
@@ -589,6 +597,21 @@ dotnet.load(assemblyName);";
     {
         return member.GetCustomAttributesData().FirstOrDefault((a) =>
             a.AttributeType.FullName == typeof(T).FullName);
+    }
+
+    private static bool IsPublic(MemberInfo member)
+    {
+        return member switch
+        {
+            Type type => type.IsPublic || type.IsNestedPublic,
+            MethodBase method => method.IsPublic,
+            PropertyInfo property => (property.GetMethod?.IsPublic ?? false) ||
+                (property.SetMethod?.IsPublic ?? false),
+            EventInfo @event => (@event.AddMethod?.IsPublic ?? false) ||
+                (@event.RemoveMethod?.IsPublic ?? false),
+            FieldInfo field => field.IsPublic,
+            _ => false,
+        };
     }
 
     private IEnumerable<MemberInfo> GetExportedMembers()
@@ -782,17 +805,13 @@ import { Duplex } from 'stream';
         string implementsKind = type.IsInterface ? "extends" : "implements";
 
         string implements = string.Empty;
-        Type[] interfaceTypes = type.GetInterfaces();
+        Type[] interfaceTypes = type.GetInterfaces().Where(IsExported).ToArray();
         foreach (Type interfaceType in interfaceTypes)
         {
             string prefix = (implements.Length == 0 ? $" {implementsKind}" : ",") +
                 (interfaceTypes.Length > 1 ? "\n\t" : " ");
 
-            if (!interfaceType.IsPublic || IsExcludedNamespace(interfaceType.Namespace))
-            {
-                continue;
-            }
-            else if (isStreamSubclass &&
+            if (isStreamSubclass &&
                 (interfaceType.Name == nameof(IDisposable) ||
                 interfaceType.Name == nameof(IAsyncDisposable)))
             {
@@ -840,7 +859,7 @@ import { Duplex } from 'stream';
 
         bool isFirstMember = true;
         foreach (ConstructorInfo constructor in type.GetConstructors(
-            BindingFlags.Public | BindingFlags.Instance))
+            BindingFlags.Public | BindingFlags.Instance).Where(IsExported))
         {
             if (!IsExcludedMember(constructor))
             {
@@ -854,7 +873,7 @@ import { Duplex } from 'stream';
             foreach (PropertyInfo property in type.GetProperties(
                 BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface ? default : BindingFlags.Static)))
+                (type.IsInterface ? default : BindingFlags.Static)).Where(IsExported))
             {
                 // Indexed properties are not implemented.
                 if (!IsExcludedMember(property) && property.GetIndexParameters().Length == 0)
@@ -867,7 +886,7 @@ import { Duplex } from 'stream';
             foreach (MethodInfo method in type.GetMethods(
                 BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface ? default : BindingFlags.Static)))
+                (type.IsInterface ? default : BindingFlags.Static)).Where(IsExported))
             {
                 if (!IsExcludedMember(method))
                 {
@@ -885,7 +904,7 @@ import { Duplex } from 'stream';
 
         EndNamespace(ref s, type);
 
-        foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public))
+        foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public).Where(IsExported))
         {
             ExportType(ref s, nestedType);
         }
