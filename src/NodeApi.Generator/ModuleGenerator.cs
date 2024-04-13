@@ -561,7 +561,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         IEnumerable<ISymbol> members = type.GetMembers()
             .Where((m) => m.DeclaredAccessibility == Accessibility.Public)
-            .Where((m) => !isStreamClass || m.IsStatic);
+            .Where((m) => !isStreamClass || m.IsStatic)
+            .Where(IsExported);
 
         foreach (ISymbol member in members)
         {
@@ -739,11 +740,15 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
 
         // If the symbol doesn't have a [JSExport] attribute, check its containing type
         // and containing assembly.
-        while (exportAttribute == null &&
-            symbol.ContainingType?.DeclaredAccessibility == Accessibility.Public)
+        while (exportAttribute == null && symbol.ContainingType != null)
         {
             symbol = symbol.ContainingType;
             exportAttribute = GetJSExportAttribute(symbol);
+
+            if (exportAttribute == null && symbol.DeclaredAccessibility != Accessibility.Public)
+            {
+                return false;
+            }
         }
 
         if (exportAttribute == null)

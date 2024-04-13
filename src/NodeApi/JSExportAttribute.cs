@@ -11,8 +11,8 @@ namespace Microsoft.JavaScript.NodeApi;
 /// </summary>
 /// <remarks>
 /// When applied to an assembly, all public types in the assembly are exported, unless excluded
-/// by another <see cref="JSExcludeAttribute"/>. When applied to a publci type, all public members
-/// of the type are exported, unless excluded by another <see cref="JSExcludeAttribute"/> or
+/// by another <see cref="JSExportAttribute"/>. When applied to a public type, all public members
+/// of the type are exported, unless excluded by another <see cref="JSExportAttribute"/> or
 /// unsupported for JS export.
 /// <para />
 /// A static class is exported as a JavaScript object, with public members of the static class

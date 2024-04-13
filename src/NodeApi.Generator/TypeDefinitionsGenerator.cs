@@ -193,7 +193,6 @@ dotnet.load(assemblyName);";
     private bool _emitDisposable;
     private bool _emitDuplex;
     private bool _emitType;
-    private readonly bool _suppressWarnings;
 
     public static void GenerateTypeDefinitions(
         string assemblyPath,
@@ -269,13 +268,18 @@ dotnet.load(assemblyName);";
             assemblyDoc = XDocument.Load(assemblyDocFilePath);
         }
 
+        CustomAttributeData? assemblyExportAttribute = assembly.GetCustomAttributesData()
+            .FirstOrDefault((a) => a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
+
         try
         {
-            TypeDefinitionsGenerator generator = new(
-                assembly,
-                assemblyDoc,
-                referenceAssemblies,
-                suppressWarnings);
+            TypeDefinitionsGenerator generator = new(assembly, assemblyDoc, referenceAssemblies)
+            {
+                SuppressWarnings = suppressWarnings,
+                ExportAll = assemblyExportAttribute != null &&
+                    GetExportAttributeValue(assemblyExportAttribute),
+            };
+
             SourceText generatedSource = generator.GenerateTypeDefinitions();
             File.WriteAllText(typeDefinitionsPath, generatedSource.ToString());
 
@@ -351,8 +355,7 @@ dotnet.load(assemblyName);";
     public TypeDefinitionsGenerator(
         Assembly assembly,
         XDocument? assemblyDoc,
-        IDictionary<string, Assembly> referenceAssemblies,
-        bool suppressWarnings)
+        IDictionary<string, Assembly> referenceAssemblies)
     {
         if (assembly is null)
         {
@@ -367,12 +370,15 @@ dotnet.load(assemblyName);";
         _assemblyDoc = assemblyDoc;
         _referenceAssemblies = referenceAssemblies;
         _imports = new HashSet<string>();
-        _suppressWarnings = suppressWarnings;
     }
+
+    public bool ExportAll { get; set; }
+
+    public bool SuppressWarnings { get; set; }
 
     public override void ReportDiagnostic(Diagnostic diagnostic)
     {
-        if (_suppressWarnings && diagnostic.Severity == DiagnosticSeverity.Warning)
+        if (SuppressWarnings && diagnostic.Severity == DiagnosticSeverity.Warning)
         {
             return;
         }
@@ -406,6 +412,10 @@ dotnet.load(assemblyName);";
         int importsIndex = s.Length;
 
         _exportedMembers.AddRange(GetExportedMembers());
+        if (!_isModule)
+        {
+            ExportAll = true;
+        }
 
         // Default to camel-case for modules, preserve case otherwise.
         _autoCamelCase = autoCamelCase ?? _isModule;
@@ -422,14 +432,14 @@ dotnet.load(assemblyName);";
 
         foreach (Type type in _assembly.GetTypes().Where((t) => t.IsPublic))
         {
-            if (!_isModule || IsExported(type))
+            if (IsExported(type))
             {
                 ExportType(ref s, type);
             }
             else
             {
                 foreach (MemberInfo member in type.GetMembers(
-                    BindingFlags.Public | BindingFlags.Static))
+                    BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
                 {
                     if (IsExported(member))
                     {
@@ -542,7 +552,7 @@ dotnet.load(assemblyName);";
     {
         Type type = member as Type ?? member.DeclaringType!;
 
-        if (IsExcludedNamespace(type.Namespace))
+        if (IsExcluded(type))
         {
             return false;
         }
@@ -557,27 +567,34 @@ dotnet.load(assemblyName);";
         }
 
         CustomAttributeData? exportAttribute = GetAttribute<JSExportAttribute>(member);
+        if (exportAttribute == null && !IsPublic(member))
+        {
+            return false;
+        }
 
-        // If the member doesn't have a [JSExport] attribute, check its declaring type
-        // and declaring assembly.
-        while (exportAttribute == null && member.DeclaringType != null &&
-            (member.DeclaringType.IsPublic || member.DeclaringType.IsNestedPublic))
+        // If the member doesn't have a [JSExport] attribute, check its declaring type.
+        while (exportAttribute == null && member.DeclaringType != null)
         {
             member = member.DeclaringType;
             exportAttribute = GetAttribute<JSExportAttribute>(member);
-        }
-
-        if (exportAttribute == null)
-        {
-            exportAttribute = type.Assembly.GetCustomAttributesData().FirstOrDefault((a) =>
-                a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
-
-            if (exportAttribute == null)
+            if (exportAttribute == null && !IsPublic(member))
             {
                 return false;
             }
         }
 
+        // Return export attribute value if found, or else the default for the assembly.
+        return exportAttribute != null ? GetExportAttributeValue(exportAttribute) : ExportAll;
+    }
+
+    private static CustomAttributeData? GetAttribute<T>(MemberInfo member)
+    {
+        return member.GetCustomAttributesData().FirstOrDefault((a) =>
+            a.AttributeType.FullName == typeof(T).FullName);
+    }
+
+    private static bool GetExportAttributeValue(CustomAttributeData exportAttribute)
+    {
         // If the [JSExport] attribute has a single boolean constructor argument, use that.
         // Any other constructor defaults to true.
         CustomAttributeTypedArgument constructorArgument =
@@ -585,10 +602,26 @@ dotnet.load(assemblyName);";
         return constructorArgument.Value as bool? ?? true;
     }
 
-    private static CustomAttributeData? GetAttribute<T>(MemberInfo member)
+    private static bool IsPublic(MemberInfo member)
     {
-        return member.GetCustomAttributesData().FirstOrDefault((a) =>
-            a.AttributeType.FullName == typeof(T).FullName);
+        if (member is not Type &&
+            member.DeclaringType is Type declaringType && declaringType.IsInterface)
+        {
+            // Interface members are always public even if not declared.
+            return true;
+        }
+
+        return member switch
+        {
+            Type type => type.IsPublic || type.IsNestedPublic,
+            MethodBase method => method.IsPublic,
+            PropertyInfo property => (property.GetMethod?.IsPublic ?? false) ||
+                (property.SetMethod?.IsPublic ?? false),
+            EventInfo @event => (@event.AddMethod?.IsPublic ?? false) ||
+                (@event.RemoveMethod?.IsPublic ?? false),
+            FieldInfo field => field.IsPublic,
+            _ => false,
+        };
     }
 
     private IEnumerable<MemberInfo> GetExportedMembers()
@@ -782,17 +815,13 @@ import { Duplex } from 'stream';
         string implementsKind = type.IsInterface ? "extends" : "implements";
 
         string implements = string.Empty;
-        Type[] interfaceTypes = type.GetInterfaces();
+        Type[] interfaceTypes = type.GetInterfaces().Where(IsExported).ToArray();
         foreach (Type interfaceType in interfaceTypes)
         {
             string prefix = (implements.Length == 0 ? $" {implementsKind}" : ",") +
                 (interfaceTypes.Length > 1 ? "\n\t" : " ");
 
-            if (!interfaceType.IsPublic || IsExcludedNamespace(interfaceType.Namespace))
-            {
-                continue;
-            }
-            else if (isStreamSubclass &&
+            if (isStreamSubclass &&
                 (interfaceType.Name == nameof(IDisposable) ||
                 interfaceType.Name == nameof(IAsyncDisposable)))
             {
@@ -840,9 +869,9 @@ import { Duplex } from 'stream';
 
         bool isFirstMember = true;
         foreach (ConstructorInfo constructor in type.GetConstructors(
-            BindingFlags.Public | BindingFlags.Instance))
+            BindingFlags.Public | BindingFlags.Instance).Where(IsExported))
         {
-            if (!IsExcludedMember(constructor))
+            if (!IsExcluded(constructor))
             {
                 if (isFirstMember) isFirstMember = false; else s++;
                 ExportTypeMember(ref s, constructor);
@@ -854,10 +883,10 @@ import { Duplex } from 'stream';
             foreach (PropertyInfo property in type.GetProperties(
                 BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface ? default : BindingFlags.Static)))
+                (type.IsInterface ? default : BindingFlags.Static)).Where(IsExported))
             {
                 // Indexed properties are not implemented.
-                if (!IsExcludedMember(property) && property.GetIndexParameters().Length == 0)
+                if (!IsExcluded(property) && property.GetIndexParameters().Length == 0)
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, property);
@@ -867,9 +896,9 @@ import { Duplex } from 'stream';
             foreach (MethodInfo method in type.GetMethods(
                 BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface ? default : BindingFlags.Static)))
+                (type.IsInterface ? default : BindingFlags.Static)).Where(IsExported))
             {
-                if (!IsExcludedMember(method))
+                if (!IsExcluded(method))
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, method);
@@ -885,7 +914,7 @@ import { Duplex } from 'stream';
 
         EndNamespace(ref s, type);
 
-        foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public))
+        foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public).Where(IsExported))
         {
             ExportType(ref s, nestedType);
         }
@@ -995,7 +1024,7 @@ import { Duplex } from 'stream';
 
         IEnumerable<IGrouping<Type, MethodInfo>> extensionMethodsByTargetType =
             type.GetMethods(BindingFlags.Static | BindingFlags.Public)
-            .Where((m) => IsExtensionMember(m) && !IsExcludedMember(m))
+            .Where((m) => IsExtensionMember(m) && IsExported(m) && !IsExcluded(m))
             .GroupBy((m) => m.GetParameters()[0].ParameterType)
             .Where((g) => IsExtensionTargetTypeSupported(g.Key));
         foreach (IGrouping<Type, MethodInfo> extensionMethodGroup in extensionMethodsByTargetType)
@@ -1192,12 +1221,32 @@ import { Duplex } from 'stream';
         }
     }
 
-    private static bool IsExcludedNamespace(string? ns)
+    private static bool IsExcluded(MemberInfo member)
     {
+        if (member is PropertyInfo property)
+        {
+            return IsExcluded(property);
+        }
+        else if (member is MethodBase method)
+        {
+            return IsExcluded(method);
+        }
+
+        Type type = member as Type ?? member.DeclaringType!;
+
+        // While most types in InteropServices are excluded, safe handle classes are useful
+        // to include because they are extended by handle classes in other assemblies.
+        if (type.FullName == typeof(System.Runtime.InteropServices.SafeHandle).FullName ||
+            type.FullName == typeof(System.Runtime.InteropServices.CriticalHandle).FullName)
+        {
+            return false;
+        }
+
         // These namespaces contain APIs that are problematic for TS generation.
         // (Mostly old .NET Framework APIs.)
-        return ns switch
+        return type.Namespace switch
         {
+            "System.Runtime.CompilerServices" or
             "System.Runtime.InteropServices" or
             "System.Runtime.Remoting.Messaging" or
             "System.Runtime.Serialization" or
@@ -1207,14 +1256,14 @@ import { Duplex } from 'stream';
         };
     }
 
-    private static bool IsExcludedMember(PropertyInfo property)
+    private static bool IsExcluded(PropertyInfo property)
     {
         if (property.PropertyType.IsPointer)
         {
             return true;
         }
 
-        if (IsExcludedNamespace(property.PropertyType.Namespace))
+        if (IsExcluded(property.PropertyType))
         {
             return true;
         }
@@ -1222,7 +1271,7 @@ import { Duplex } from 'stream';
         return false;
     }
 
-    private static bool IsExcludedMember(MethodBase method)
+    private static bool IsExcluded(MethodBase method)
     {
         // Exclude "special" methods like property get/set and event add/remove.
         if (method is MethodInfo && method.IsSpecialName)
@@ -1259,7 +1308,8 @@ import { Duplex } from 'stream';
             return true;
         }
 
-        if (method.GetParameters().Any((p) => IsExcludedNamespace(p.ParameterType.Namespace)))
+        if (method.GetParameters().Any((p) => IsExcluded(p.ParameterType)) ||
+            (method is MethodInfo methodWithReturn && IsExcluded(methodWithReturn.ReturnType)))
         {
             return true;
         }
@@ -1544,7 +1594,7 @@ import { Duplex } from 'stream';
                 string tsTypeArg = GetTSType(typeArg, typeArgsNullability?[0], allowTypeParams);
                 tsType = $"(value: {tsTypeArg}) => boolean";
             }
-            else if (!_isModule || IsExported(type))
+            else if (IsExported(type))
             {
                 // Types exported from a module are not namespaced.
                 string nsPrefix = !_isModule && type.Namespace != null ? type.Namespace + '.' : "";
@@ -1576,7 +1626,7 @@ import { Duplex } from 'stream';
             tsType = "Duplex";
             _emitDuplex = true;
         }
-        else if (!_isModule || IsExported(type))
+        else if (IsExported(type))
         {
             // Types exported from a module are not namespaced.
             string nsPrefix = !_isModule && type.Namespace != null ? type.Namespace + '.' : "";
