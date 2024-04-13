@@ -193,7 +193,6 @@ dotnet.load(assemblyName);";
     private bool _emitDisposable;
     private bool _emitDuplex;
     private bool _emitType;
-    private readonly bool _suppressWarnings;
 
     public static void GenerateTypeDefinitions(
         string assemblyPath,
@@ -269,13 +268,18 @@ dotnet.load(assemblyName);";
             assemblyDoc = XDocument.Load(assemblyDocFilePath);
         }
 
+        CustomAttributeData? assemblyExportAttribute = assembly.GetCustomAttributesData()
+            .FirstOrDefault((a) => a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
+
         try
         {
-            TypeDefinitionsGenerator generator = new(
-                assembly,
-                assemblyDoc,
-                referenceAssemblies,
-                suppressWarnings);
+            TypeDefinitionsGenerator generator = new(assembly, assemblyDoc, referenceAssemblies)
+            {
+                SuppressWarnings = suppressWarnings,
+                ExportAll = assemblyExportAttribute != null &&
+                    GetExportAttributeValue(assemblyExportAttribute),
+            };
+
             SourceText generatedSource = generator.GenerateTypeDefinitions();
             File.WriteAllText(typeDefinitionsPath, generatedSource.ToString());
 
@@ -351,8 +355,7 @@ dotnet.load(assemblyName);";
     public TypeDefinitionsGenerator(
         Assembly assembly,
         XDocument? assemblyDoc,
-        IDictionary<string, Assembly> referenceAssemblies,
-        bool suppressWarnings)
+        IDictionary<string, Assembly> referenceAssemblies)
     {
         if (assembly is null)
         {
@@ -367,12 +370,15 @@ dotnet.load(assemblyName);";
         _assemblyDoc = assemblyDoc;
         _referenceAssemblies = referenceAssemblies;
         _imports = new HashSet<string>();
-        _suppressWarnings = suppressWarnings;
     }
+
+    public bool ExportAll { get; set; }
+
+    public bool SuppressWarnings { get; set; }
 
     public override void ReportDiagnostic(Diagnostic diagnostic)
     {
-        if (_suppressWarnings && diagnostic.Severity == DiagnosticSeverity.Warning)
+        if (SuppressWarnings && diagnostic.Severity == DiagnosticSeverity.Warning)
         {
             return;
         }
@@ -575,22 +581,7 @@ dotnet.load(assemblyName);";
             }
         }
 
-        if (exportAttribute == null)
-        {
-            exportAttribute = type.Assembly.GetCustomAttributesData().FirstOrDefault((a) =>
-                a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
-
-            if (exportAttribute == null)
-            {
-                return false;
-            }
-        }
-
-        // If the [JSExport] attribute has a single boolean constructor argument, use that.
-        // Any other constructor defaults to true.
-        CustomAttributeTypedArgument constructorArgument =
-            exportAttribute.ConstructorArguments.SingleOrDefault();
-        return constructorArgument.Value as bool? ?? true;
+        return exportAttribute != null ? GetExportAttributeValue(exportAttribute) : ExportAll;
     }
 
     private static CustomAttributeData? GetAttribute<T>(MemberInfo member)
@@ -599,8 +590,24 @@ dotnet.load(assemblyName);";
             a.AttributeType.FullName == typeof(T).FullName);
     }
 
+    private static bool GetExportAttributeValue(CustomAttributeData exportAttribute)
+    {
+        // If the [JSExport] attribute has a single boolean constructor argument, use that.
+        // Any other constructor defaults to true.
+        CustomAttributeTypedArgument constructorArgument =
+            exportAttribute.ConstructorArguments.SingleOrDefault();
+        return constructorArgument.Value as bool? ?? true;
+    }
+
     private static bool IsPublic(MemberInfo member)
     {
+        if (member is not Type &&
+            member.DeclaringType is Type declaringType && declaringType.IsInterface)
+        {
+            // Interface members are always public even if not declared.
+            return true;
+        }
+
         return member switch
         {
             Type type => type.IsPublic || type.IsNestedPublic,
@@ -805,7 +812,8 @@ import { Duplex } from 'stream';
         string implementsKind = type.IsInterface ? "extends" : "implements";
 
         string implements = string.Empty;
-        Type[] interfaceTypes = type.GetInterfaces().Where(IsExported).ToArray();
+        Type[] interfaceTypes = type.GetInterfaces()
+            .Where((t) => !_isModule || IsExported(t)).ToArray();
         foreach (Type interfaceType in interfaceTypes)
         {
             string prefix = (implements.Length == 0 ? $" {implementsKind}" : ",") +
@@ -859,7 +867,7 @@ import { Duplex } from 'stream';
 
         bool isFirstMember = true;
         foreach (ConstructorInfo constructor in type.GetConstructors(
-            BindingFlags.Public | BindingFlags.Instance).Where(IsExported))
+            BindingFlags.Public | BindingFlags.Instance).Where((c) => !_isModule || IsExported(c)))
         {
             if (!IsExcludedMember(constructor))
             {
@@ -873,7 +881,8 @@ import { Duplex } from 'stream';
             foreach (PropertyInfo property in type.GetProperties(
                 BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface ? default : BindingFlags.Static)).Where(IsExported))
+                (type.IsInterface ? default : BindingFlags.Static))
+                .Where((p) => !_isModule || IsExported(p)))
             {
                 // Indexed properties are not implemented.
                 if (!IsExcludedMember(property) && property.GetIndexParameters().Length == 0)
@@ -886,7 +895,8 @@ import { Duplex } from 'stream';
             foreach (MethodInfo method in type.GetMethods(
                 BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface ? default : BindingFlags.Static)).Where(IsExported))
+                (type.IsInterface ? default : BindingFlags.Static))
+                .Where((m) => !_isModule || IsExported(m)))
             {
                 if (!IsExcludedMember(method))
                 {
@@ -904,7 +914,8 @@ import { Duplex } from 'stream';
 
         EndNamespace(ref s, type);
 
-        foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public).Where(IsExported))
+        foreach (Type nestedType in type.GetNestedTypes(BindingFlags.Public)
+                .Where((t) => !_isModule || IsExported(t)))
         {
             ExportType(ref s, nestedType);
         }
