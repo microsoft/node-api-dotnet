@@ -100,4 +100,4 @@ For a minimal example of this scenario, see
     ```
     Of course you can access properites, pass arguments to methods, get return values, and so on.
     Most types get automatically marshalled between JavaScript and .NET as you'd expect. For
-    details, see the [type projections reference](./typescript.md).
+    details, see the [type projections reference](../marshalling/).

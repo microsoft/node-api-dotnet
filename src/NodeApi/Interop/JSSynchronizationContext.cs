@@ -23,7 +23,8 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// <para/>
 /// Code that makes explicit use of .NET threads or thread pools may need to capture the
 /// <see cref="JSSynchronizationContext.Current" /> context (before switching off the JS thread)
-/// and hold it for later use to call back to JS via <see cref="JSSynchronizationContext.Post"/>,
+/// and hold it for later use to call back to JS via
+/// <see cref="JSSynchronizationContext.Post(Action, bool)"/>,
 /// <see cref="JSSynchronizationContext.Run"/>, or <see cref="JSSynchronizationContext.RunAsync"/>.
 /// </remarks>
 public abstract class JSSynchronizationContext : SynchronizationContext, IDisposable
@@ -89,7 +90,7 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
     /// <summary>
     /// Runs an asynchronous action on the JS thread, without waiting for completion.
     /// </summary>
-    /// <param name="action">The action to run.</param>
+    /// <param name="asyncAction">The action to run.</param>
     /// <param name="allowSync">True to allow the action to run immediately if the current
     /// synchronization context is this one. By default the action will always be scheduled
     /// for later execution.

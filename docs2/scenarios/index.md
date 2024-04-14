@@ -33,4 +33,4 @@ instructions:
 All of these scenarios support
 [auto-generated TypeScript type definitions](../features/type-definitions),
 [automatic efficient marshalling](../features/automatic-marshalling),
-and [error propagation](../features/error-propagation).
+and [error propagation](../marshalling/exceptions).

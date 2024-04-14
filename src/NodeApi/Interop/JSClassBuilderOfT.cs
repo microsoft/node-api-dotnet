@@ -162,7 +162,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
     /// <remarks>
     /// A JS class defined this way may not be constructed directly from JS. An instance of the
     /// class may be constructed when passing a .NET object (that implements the interface) to JS
-    /// via <see cref="JSRuntimeContext.GetOrCreateObjectWrapper()" />.
+    /// via <see cref="JSRuntimeContext.GetOrCreateObjectWrapper" />.
     /// </remarks>
     public JSValue DefineInterface()
     {

@@ -315,7 +315,7 @@ public sealed class NodejsEnvironment : IDisposable
     /// <summary>
     /// Runs an asynchronous action on the JS thread, without waiting for completion.
     /// </summary>
-    /// <param name="action">The action to run.</param>
+    /// <param name="asyncAction">The action to run.</param>
     /// <param name="allowSync">True to allow the action to run immediately if the current
     /// synchronization context is this one. By default the action will always be scheduled
     /// for later execution.
@@ -362,11 +362,14 @@ public sealed class NodejsEnvironment : IDisposable
     /// <c>require()</c> in JavaScript. Required if <paramref name="property"/> is null.</param>
     /// <param name="property">Name of a property on the module (or global), or null to import
     /// the module object. Required if <paramref name="module"/> is null.</param>
+    /// <param name="esModule">True if importing an ES module. The default is false. Note when
+    /// importing an ES module the returned value will be a JS Promise object that resolves to the
+    /// imported value.</param>
     /// <returns>The imported value.</returns>
-    /// <exception cref="ArgumentNullException">Both <paramref cref="module" /> and
-    /// <paramref cref="property" /> are null.</exception>
-    /// <exception cref="InvalidOperationException">The <see cref="Require"/> function was
-    /// not initialized.</exception>
+    /// <exception cref="ArgumentNullException">Both <paramref name="module" /> and
+    /// <paramref name="property" /> are null.</exception>
+    /// <exception cref="InvalidOperationException">The
+    /// <see cref="JSRuntimeContext.RequireFunction"/> property was not initialized.</exception>
     public JSValue Import(string? module, string? property = null, bool esModule = false)
         => _scope.RuntimeContext.Import(module, property, esModule);
 

@@ -1,8 +1,8 @@
 # Dynamically invoke .NET APIs from JavaScript
 
 For examples of this scenario, see
-[https://github.com/microsoft/node-api-dotnet/blob/main/examples/dynamic-invoke/](/examples/dynamic-invoke/) or
-[https://github.com/microsoft/node-api-dotnet/blob/main/examples/semantic-kernel/](/examples//semantic-kernel/).
+[/examples/dynamic-invoke/](https://github.com/microsoft/node-api-dotnet/blob/main/examples/dynamic-invoke/) or
+[/examples/semantic-kernel/](https://github.com/microsoft/node-api-dotnet/blob/main/examples/semantic-kernel/).
 
 1. Create a `.csproj` project (without any `.cs` source files) that will manage restoring nuget
    packages for .NET assemblies used by JS:
@@ -109,7 +109,7 @@ For examples of this scenario, see
    ```
    Of course you can access properites, pass arguments to methods, get return values, and so on.
    Most types get automatically marshalled between JavaScript and .NET as you'd expect. For
-   details, see the [type projections reference](./reference).
+   details, see the [type projections reference](../marshalling/).
 
    You should notice your IDE offers documentation-comments and member completion from the type
    definitions, and if writing TypeScript code the TypeScript compiler will check against the

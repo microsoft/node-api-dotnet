@@ -26,7 +26,7 @@ hero:
       link: /reference/js-apis
     - theme: alt
       text: .NET API Reference
-      link: /reference/dotnet-apis
+      link: /reference/dotnet/
 
 features:
   - title: Call .NET from JS

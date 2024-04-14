@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import dotnetApiNavTree from '../reference/dotnet/nav.mjs'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -6,6 +7,9 @@ export default defineConfig({
   description: "Advanced interoperability between .NET and JavaScript in the same process",
   lang: 'en-US',
   ////base: '/node-api-dotnet/',
+
+  metaChunk: true,
+
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
 
@@ -50,7 +54,7 @@ export default defineConfig({
         items: [
           {
             text: 'JS / .NET mappings',
-            link: '/marshalling/index',
+            link: '/marshalling/',
             collapsed: true,
             items: [
               { text: 'Basic types', link: '/marshalling/basic-types' },
@@ -72,8 +76,13 @@ export default defineConfig({
               { text: 'Namespaces', link: '/marshalling/namespaces' },
             ],
           },
-          { text: 'JavaScript APIs', link: '/reference/js-apis' },
-          { text: '.NET APIs', link: '/reference/dotnet-apis' },
+          { text: 'JavaScript APIs', link: '/reference/js' },
+          {
+            text: '.NET APIs',
+            link: '/reference/dotnet/',
+            collapsed: true,
+            items: dotnetApiNavTree,
+          },
           { text: 'MSBuild props & tasks', link: '/reference/msbuild-props-tasks' },
           { text: 'Releases & packages', link: '/reference/releases-packages' },
         ]
@@ -88,6 +97,10 @@ export default defineConfig({
 
     search: {
       provider: 'local',
+    },
+
+    editLink: {
+        pattern: 'https://github.com/microsoft/node-api-dotnet/docs/:path',
     },
 
     footer: {

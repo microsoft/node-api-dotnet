@@ -13,7 +13,7 @@ namespace Microsoft.JavaScript.NodeApi;
 public class JSValueScopeClosedException : ObjectDisposedException
 {
     /// <summary>
-    /// Creates a new instance of <see cref="JSValueDisposedException" /> with an optional
+    /// Creates a new instance of <see cref="JSValueScopeClosedException" /> with an optional
     /// object name and message.
     /// </summary>
     public JSValueScopeClosedException(JSValueScope scope, string? message = null)

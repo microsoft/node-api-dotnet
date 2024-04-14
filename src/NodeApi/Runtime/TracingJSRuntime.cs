@@ -22,22 +22,22 @@ using static NodejsRuntime;
 /// <example>
 /// Produces output similar to:
 /// <code>
-/// < CreateObject()
-/// > CreateObject(000001E984E19BB0 object)
-/// < DefineProperties(000001E984E19BB0 object, [hello(), toString()])
-/// > DefineProperties(ok)
-/// < Wrap(000001E984E19BB0 object, 0x000001E984CE4580 RuntimeType)
-/// > Wrap(@000001E9808E7840 000001E984E19BF0 object)
-/// < DefineProperties(000001E984E19B80 object, [Example])
-/// > DefineProperties(ok)
-/// < GetValueType(000001E984E19B80 object)
-/// > GetValueType(object)
-/// < GetInstanceData()
-/// > GetInstanceData(0x000001E984CE1300 JSRuntimeContext)
-/// < GetCallbackInfo(0000000CB8DFE560)
-/// > GetCallbackInfo(1, 0x000001E984CE4590 JSPropertyDescriptor)
-/// < GetCallbackArgs(0000000CB8DFE560, [1])
-/// > GetCallbackArgs(0000000CB8DFE8C8 object, 0000000CB8DFE8D0 string ".NET")
+/// &lt; CreateObject()
+/// &gt; CreateObject(000001E984E19BB0 object)
+/// &lt; DefineProperties(000001E984E19BB0 object, [hello(), toString()])
+/// &gt; DefineProperties(ok)
+/// &lt; Wrap(000001E984E19BB0 object, 0x000001E984CE4580 RuntimeType)
+/// &gt; Wrap(@000001E9808E7840 000001E984E19BF0 object)
+/// &lt; DefineProperties(000001E984E19B80 object, [Example])
+/// &gt; DefineProperties(ok)
+/// &lt; GetValueType(000001E984E19B80 object)
+/// &gt; GetValueType(object)
+/// &lt; GetInstanceData()
+/// &gt; GetInstanceData(0x000001E984CE1300 JSRuntimeContext)
+/// &lt; GetCallbackInfo(0000000CB8DFE560)
+/// &gt; GetCallbackInfo(1, 0x000001E984CE4590 JSPropertyDescriptor)
+/// &lt; GetCallbackArgs(0000000CB8DFE560, [1])
+/// &gt; GetCallbackArgs(0000000CB8DFE8C8 object, 0000000CB8DFE8D0 string ".NET")
 /// </code>
 /// </example>
 public class TracingJSRuntime : JSRuntime

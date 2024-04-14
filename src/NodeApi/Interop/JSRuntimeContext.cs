@@ -242,7 +242,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.
     /// </summary>
     /// <param name="constructorFunction">JS class constructor function returned from
-    /// <see cref="JSNativeApi.DefineClass"/></param>
+    /// <see cref="JSRuntime.DefineClass"/></param>
     /// <returns>The JS constructor.</returns>
     internal JSValue RegisterClass<T>(JSValue constructorFunction) where T : class
     {
@@ -296,7 +296,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// Attaches an object to a JS wrapper, and saves a weak reference to the wrapper.
     /// </summary>
     /// <param name="wrapper">JS object passed as the 'this' argument to the constructor callback
-    /// for <see cref="JSNativeApi.DefineClass"/>.</param>
+    /// for <see cref="JSRuntime.DefineClass"/>.</param>
     /// <param name="externalInstance">New or existing instance of the class to be wrapped,
     /// passed as a JS "external" value.</param>
     /// <returns>The JS wrapper.</returns>
@@ -564,7 +564,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// Registers a struct JS constructor, enabling instantiation of JS wrappers for the struct.
     /// </summary>
     /// <param name="constructorFunction">JS struct constructor function returned from
-    /// <see cref="JSNativeApi.DefineClass"/></param>
+    /// <see cref="JSRuntime.DefineClass"/></param>
     /// <returns>The JS constructor.</returns>
     internal JSValue RegisterStruct<T>(JSValue constructorFunction) where T : struct
     {
@@ -610,8 +610,8 @@ public sealed class JSRuntimeContext : IDisposable
     /// (default).</param>
     /// <returns>The imported value. When importing from an ES module, this is a JS promise
     /// that resolves to the imported value.</returns>
-    /// <exception cref="ArgumentNullException">Both <paramref cref="module" /> and
-    /// <paramref cref="property" /> are null.</exception>
+    /// <exception cref="ArgumentNullException">Both <paramref name="module" /> and
+    /// <paramref name="property" /> are null.</exception>
     /// <exception cref="InvalidOperationException">The <see cref="RequireFunction" /> or
     /// <see cref="ImportFunction" /> property was not initialized.</exception>
     public JSValue Import(
@@ -673,8 +673,8 @@ public sealed class JSRuntimeContext : IDisposable
     /// (default).</param>
     /// <returns>A task that results in the imported value. When importing from an ES module,
     /// the task directly results in the imported value (not a JS promise).</returns>
-    /// <exception cref="ArgumentNullException">Both <paramref cref="module" /> and
-    /// <paramref cref="property" /> are null.</exception>
+    /// <exception cref="ArgumentNullException">Both <paramref name="module" /> and
+    /// <paramref name="property" /> are null.</exception>
     /// <exception cref="InvalidOperationException">The <see cref="RequireFunction" /> or
     /// <see cref="ImportFunction" /> property was not initialized.</exception>
     public async Task<JSValue> ImportAsync(

@@ -20,7 +20,7 @@ public partial class NodeStream
     /// </summary>
     /// <param name="className">Name of the stream class.</param>
     /// <param name="constructorDescriptor">Callback that constructs an instance of the .NET
-    /// <see cref="Stream"/> subclass.
+    /// <see cref="Stream"/> subclass.</param>
     /// <param name="staticProperties">Additional static properties on the stream subclass.</param>
     /// <returns>The class object.</returns>
     internal static JSValue DefineStreamClass(

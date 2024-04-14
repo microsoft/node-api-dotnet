@@ -1,11 +1,12 @@
 {
   "name": "node-api-dotnet-docs",
   "devDependencies": {
-    "vitepress": "^1.0.0-rc.45"
+    "vitepress": "1.1"
   },
   "scripts": {
-    "docs:dev": "vitepress dev",
-    "docs:build": "vitepress build",
-    "docs:preview": "vitepress preview"
+    "dotnet-api": "node ./tools/build-dotnet-api-docs.js",
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
   }
 }
