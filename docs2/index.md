@@ -23,7 +23,7 @@ hero:
       link: /marshalling/index
     - theme: alt
       text: JS API Reference
-      link: /reference/js-apis
+      link: /reference/js/
     - theme: alt
       text: .NET API Reference
       link: /reference/dotnet/

@@ -23,6 +23,8 @@ export const frameworkMoniker: string;
  * @param dotnetAssemblyFilePath Path to the .NET assembly DLL file.
  * @returns The JavaScript module exported by the assembly. (Type information for the module
  * may be available in a separate generated type-definitions file.)
+ * @description The .NET assembly must use `[JSExport]` attributes to export selected types
+ * and/or members to JavaScript. These exports _do not_ use .NET namespaces.
  */
 export function require(dotnetAssemblyFilePath: string): any;
 
@@ -31,6 +33,11 @@ export function require(dotnetAssemblyFilePath: string): any;
  * dynamic invocation of any APIs in the assembly. After loading, types from the assembly are
  * available via namespaces on the main dotnet module.
  * @param assemblyNameOrFilePath Path to the .NET assembly DLL file, or name of a system assembly.
+ * @description After loading an assembly, types in the assembly are merged into the .NET
+ * namespace hierarchy, with top-level namespaces available as properties on the .NET module.
+ * For example, if the assembly defines a type `Contoso.Business.Component`, it can be accessed as
+ * `dotnet.Contoso.Business.Component`. (.NET core library types can be accessed the same way, for
+ * example `dotnet.System.Console`.)
  */
 export function load(assemblyNameOrFilePath: string): void;
 

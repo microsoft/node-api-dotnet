@@ -47,6 +47,7 @@ try {
   processMarkdownFiles(outDir);
 } catch (e) {
   console.error(e.message || e);
+  process.exit(1);
 }
 
 /** Log a command and execute it synchronously. */

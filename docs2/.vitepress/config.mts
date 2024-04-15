@@ -76,7 +76,7 @@ export default defineConfig({
               { text: 'Namespaces', link: '/marshalling/namespaces' },
             ],
           },
-          { text: 'JavaScript APIs', link: '/reference/js' },
+          { text: 'JavaScript APIs', link: '/reference/js/' },
           {
             text: '.NET APIs',
             link: '/reference/dotnet/',
