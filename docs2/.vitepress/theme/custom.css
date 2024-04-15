@@ -1,4 +1,10 @@
+/*
+ * This file has customizations for the VitePress default theme. For a list of
+ * variable defaults that can be overridden, see
+ * https://github.com/vuejs/vitepress/blob/main/src/client/theme-default/styles/vars.css
+ */
+
 :root {
-    /* The default sidebar width is 272px. We need extra width for a deep API doc tree. */
-    --vp-sidebar-width: 360px;
-  }
+  /* The default sidebar width is 272px. We need extra width for a deep API doc tree. */
+  --vp-sidebar-width: 360px;
+}

@@ -76,17 +76,28 @@ export default defineConfig({
               { text: 'Namespaces', link: '/marshalling/namespaces' },
             ],
           },
-          { text: 'JavaScript APIs', link: '/reference/js/' },
-          {
-            text: '.NET APIs',
-            link: '/reference/dotnet/',
-            collapsed: true,
-            items: dotnetApiNavTree,
-          },
           { text: 'MSBuild props & tasks', link: '/reference/msbuild-props-tasks' },
           { text: 'Releases & packages', link: '/reference/releases-packages' },
         ]
       },
+
+      // API docs might belong under "Reference", but the vitepress sidebar has a max depth of 6,
+      // which .NET API docs would exceed if they were one level deeper.
+      {
+        text: 'JavaScript APIs',
+        items: [
+          {
+            text: 'node-api-dotnet',
+            link: '/reference/js/',
+          }
+        ]
+      },
+      {
+        text: '.NET APIs',
+        link: '/reference/dotnet/',
+        items: dotnetApiNavTree,
+      },
+
       { text: 'Support', link: '/support' },
       { text: 'Contributing', link: '/contributing' },
     ],

@@ -8,26 +8,31 @@ const typedoc = require('typedoc');
 const srcDir = path.resolve(__dirname, '../../src/node-api-dotnet');
 const outDir = path.resolve(__dirname, '../reference/js');
 
-exportJsdocToJson()
-  .then(convertJsonToMarkdown)
-  .then((md) => fs.writeFileSync(path.join(outDir, 'index.md'), md))
+const typedefsFile = path.join(srcDir, 'index.d.ts');
+const jsonFile = path.join(outDir, 'api.json');
+const markdownFile = path.join(outDir, 'index.md');
+
+console.log('Creating directory: ' + outDir);
+if (fs.existsSync(outDir)) fs.rmSync(outDir, { recursive: true, force: true });
+fs.mkdirSync(outDir, { recursive: true });
+
+exportJsdocToJson(typedefsFile, jsonFile)
+  .then(() => convertJsonToMarkdown(jsonFile, markdownFile))
   .catch ((e) => {
     console.error(e.message || e);
     process.exit(1);
   });
 
-async function exportJsdocToJson() {
-  if (fs.existsSync(outDir)) fs.rmSync(outDir, { recursive: true, force: true });
-  fs.mkdirSync(outDir, { recursive: true });
-
-  const packageTypedefsFile = path.join(srcDir, 'index.d.ts');
-  if (!fs.existsSync(packageTypedefsFile)) {
-    throw new Error(`File not found: ${packageTypedefsFile}`);
+async function exportJsdocToJson(typedefsFile, jsonFile) {
+  if (!fs.existsSync(typedefsFile)) {
+    throw new Error(`File not found: ${typedefsFile}`);
   }
 
+  console.log('Exporting JSDoc from ' + typedefsFile);
+
   const app = await typedoc.Application.bootstrap({
-    entryPoints: [packageTypedefsFile],
-    tsconfig: path.join(path.dirname(packageTypedefsFile), 'tsconfig.json'),
+    entryPoints: [typedefsFile],
+    tsconfig: path.join(path.dirname(typedefsFile), 'tsconfig.json'),
     exclude: '**/node_modules/**',
     excludeExternals: true,
     excludePrivate: true,
@@ -41,47 +46,26 @@ async function exportJsdocToJson() {
     throw new Error('Failed to convert TypeScript to documentation.');
   }
 
-  const jsonFile = path.join(outDir, 'api.json');
   await app.generateJson(project, jsonFile);
-  const json = fs.readFileSync(jsonFile, 'utf8');
-  return json;
 }
 
-function convertJsonToMarkdown(json) {
+function convertJsonToMarkdown(jsonFile, markdownFile) {
+  console.log('Generating markdown from ' + jsonFile);
+
   /** @type {typedoc.Models.ProjectReflection} */
-  const project = JSON.parse(json);
+  const project = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
 
-  let markdown = `# ${project.name} package\n`;
+  let markdown = `---
+editLink: false
+outline: deep
+---
+`;
 
-  markdown += `
-  ::: code-group
-  \`\`\`JavaScript [ES (TS or JS)]
-  import dotnet from '${project.name}';
-  \`\`\`
-  \`\`\`TypeScript [CommonJS (TS)]
-  import * as dotnet from '${project.name}';
-  \`\`\`
-  \`\`\`JavaScript [CommonJS (JS)]
-  const dotnet = require('${project.name}');
-  \`\`\`
-  :::
-`;
-  markdown += 'To load a specific version of .NET, append the target framework moniker to ' +
-    'the package name:\n';
-  markdown += `
-  ::: code-group
-  \`\`\`JavaScript [ES (TS or JS)]
-  import dotnet from '${project.name}/net6.0';
-  \`\`\`
-  \`\`\`TypeScript [CommonJS (TS)]
-  import * as dotnet from '${project.name}/net6.0';
-  \`\`\`
-  \`\`\`JavaScript [CommonJS (JS)]
-  const dotnet = require('${project.name}/net6.0');
-  \`\`\`
-  :::
-`;
-  markdown += 'Currently the supported target frameworks are `net472`, `net6.0`, and `net8.0`.';
+  markdown += `# ${project.name} package\n`;
+
+  if (project.comment?.summary) {
+    markdown += '\n' + commentToMarkdown(project.comment.summary) + '\n';
+  }
 
   const propertyReflections = project.children
     .filter((item) => item.kind === typedoc.Models.ReflectionKind.Variable);
@@ -101,7 +85,8 @@ function convertJsonToMarkdown(json) {
     }
   }
 
-  return markdown;
+  fs.writeFileSync(markdownFile, markdown);
+  console.log('Generated ' + markdownFile);
 }
 
 function convertPropertyReflectionToMarkdown(

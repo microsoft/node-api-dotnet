@@ -1,10 +1,38 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// APIs defined here are implemented by Microsoft.JavaScript.NodeApi.DotNetHost.
-
-// This explicit module declaration enables module members to be merged with imported namespaces.
+/**
+ * Use the `node-api-dotnet` package to load .NET assemblies into a Node.js application and
+ * call public APIs defined in the assemblies.
+ * ::: code-group
+ * ```JavaScript [ES (TS or JS)]
+ * import dotnet from 'node-api-dotnet';
+ * ```
+ * ```TypeScript [CommonJS (TS)]
+ * import * as dotnet from 'node-api-dotnet';
+ * ```
+ * ```JavaScript [CommonJS (JS)]
+ * const dotnet = require('node-api-dotnet');
+ * ```
+ * :::
+ * To load a specific version of .NET, append the target framework moniker to the package name:
+ * ::: code-group
+ * ```JavaScript [ES (TS or JS)]
+ * import dotnet from 'node-api-dotnet/net6.0';
+ * ```
+ * ```TypeScript [CommonJS (TS)]
+ * import * as dotnet from 'node-api-dotnet/net6.0';
+ * ```
+ * ```JavaScript [CommonJS (JS)]
+ * const dotnet = require('node-api-dotnet/net6.0');
+ * ```
+ * :::
+ * Currently the supported target frameworks are `net472`, `net6.0`, and `net8.0`.
+ * @module node-api-dotnet
+ */
 declare module 'node-api-dotnet' {
+// APIs defined here are implemented by Microsoft.JavaScript.NodeApi.DotNetHost.
+// The explicit module declaration enables module members to be merged with imported namespaces.
 
 /**
  * Gets the current .NET runtime version, for example "8.0.1".
