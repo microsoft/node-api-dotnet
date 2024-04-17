@@ -37,16 +37,6 @@ namespace System.Diagnostics.CodeAnalysis
     }
 }
 
-namespace System
-{
-    [AttributeUsage(AttributeTargets.Method, Inherited = false)]
-    public sealed class UnmanagedCallersOnlyAttribute : Attribute
-    {
-        public UnmanagedCallersOnlyAttribute() { }
-        public Type[]? CallConvs;
-    }
-}
-
 namespace System.Runtime.CompilerServices
 {
     public sealed class IsExternalInit

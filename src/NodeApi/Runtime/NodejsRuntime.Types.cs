@@ -12,11 +12,19 @@ public unsafe partial class NodejsRuntime
     public record struct napi_async_context(nint Handle);
     public record struct napi_async_work(nint Handle);
 
-    public struct napi_cleanup_hook
+    public record struct napi_cleanup_hook(nint Handle)
     {
-        public delegate* unmanaged[Cdecl]<nint /*arg*/, void> Handle;
-        public napi_cleanup_hook(delegate* unmanaged[Cdecl]<nint /*arg*/, void> handle)
-            => Handle = handle;
+#if UNMANAGED_DELEGATES
+        public napi_cleanup_hook(
+            delegate* unmanaged[Cdecl]<nint /*arg*/, void> handle)
+            : this((nint)handle) { }
+#endif
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Delegate(nint arg);
+
+        public napi_cleanup_hook(napi_cleanup_hook.Delegate callback)
+            : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
     }
 
     public record struct napi_threadsafe_function(nint Handle);
@@ -33,36 +41,40 @@ public unsafe partial class NodejsRuntime
         napi_tsfn_blocking
     }
 
-    public struct napi_async_execute_callback
+    public record struct napi_async_execute_callback(nint Handle)
     {
-        public delegate* unmanaged[Cdecl]<napi_env /*env*/, void* /*data*/, void> Handle;
+#if UNMANAGED_DELEGATES
         public napi_async_execute_callback(
             delegate* unmanaged[Cdecl]<napi_env /*env*/, void* /*data*/, void> handle)
-            => Handle = handle;
+            : this((nint)handle) { }
+#endif
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Delegate(napi_env env, void* data);
+
+        public napi_async_execute_callback(napi_async_execute_callback.Delegate callback)
+            : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
     }
 
-    public struct napi_async_complete_callback
+    public record struct napi_async_complete_callback(nint Handle)
     {
-        public delegate* unmanaged[Cdecl]<
-            napi_env /*env*/, napi_status /*status*/, void* /*data*/, void> Handle;
+#if UNMANAGED_DELEGATES
         public napi_async_complete_callback(
             delegate* unmanaged[Cdecl]<
                 napi_env /*env*/, napi_status /*status*/, void* /*data*/, void> handle)
-            => Handle = handle;
+            : this((nint)handle) { }
+#endif
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Delegate(napi_env env, napi_status status, void* data);
+
+        public napi_async_complete_callback(napi_async_complete_callback.Delegate callback)
+            : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
     }
 
-    public struct napi_threadsafe_function_call_js
+    public record struct napi_threadsafe_function_call_js(nint Handle)
     {
-        public nint Handle;
-
-#if !UNMANAGED_DELEGATES
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void Delegate(
-            napi_env env, napi_value js_callback, nint context, nint data);
-
-        public napi_threadsafe_function_call_js(Delegate callback)
-            => Handle = Marshal.GetFunctionPointerForDelegate(callback);
-#else
+#if UNMANAGED_DELEGATES
         public napi_threadsafe_function_call_js(
             delegate* unmanaged[Cdecl]<
                 napi_env /*env*/,
@@ -70,8 +82,15 @@ public unsafe partial class NodejsRuntime
                 nint /*context*/,
                 nint /*data*/,
                 void> handle)
-            => Handle = (nint)handle;
+            : this((nint)handle) { }
 #endif
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Delegate(
+            napi_env env, napi_value js_callback, nint context, nint data);
+
+        public napi_threadsafe_function_call_js(napi_threadsafe_function_call_js.Delegate callback)
+            : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
     }
 
     public struct napi_node_version
@@ -84,24 +103,36 @@ public unsafe partial class NodejsRuntime
 
     public record struct napi_async_cleanup_hook_handle(nint Handle);
 
-    public struct napi_async_cleanup_hook
+    public record struct napi_async_cleanup_hook(nint Handle)
     {
-        public delegate* unmanaged[Cdecl]<
-            napi_async_cleanup_hook_handle /*handle*/, void* /*data*/, void> Handle;
+#if UNMANAGED_DELEGATES
         public napi_async_cleanup_hook(
             delegate* unmanaged[Cdecl]<
                 napi_async_cleanup_hook_handle /*handle*/, void* /*data*/, void> handle)
-            => Handle = handle;
+            : this((nint)handle) { }
+#endif
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Delegate(napi_async_cleanup_hook_handle handle, void* data);
+
+        public napi_async_cleanup_hook(napi_async_cleanup_hook.Delegate callback)
+            : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
     }
 
-    public struct napi_addon_register_func
+    public record struct napi_addon_register_func(nint Handle)
     {
-        public delegate* unmanaged[Cdecl]<
-            napi_env /*env*/, napi_value /*exports*/, napi_value> Handle;
+#if UNMANAGED_DELEGATES
         public napi_addon_register_func(
             delegate* unmanaged[Cdecl]<
                 napi_env /*env*/, napi_value /*exports*/, napi_value> handle)
-            => Handle = handle;
+            : this((nint)handle) { }
+#endif
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate napi_value Delegate(napi_env env, napi_value exports);
+
+        public napi_addon_register_func(napi_async_cleanup_hook.Delegate callback)
+            : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
     }
 
     public struct napi_module

@@ -205,7 +205,9 @@ public class JSThreadSafeFunction
         <napi_env, napi_value, nint, nint, void> s_defaultCallJS = &DefaultCallJS;
 #endif
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe void FinalizeFunctionData(napi_env env, nint _, nint hint)
     {
         GCHandle functionDataHandle = GCHandle.FromIntPtr(hint);
@@ -217,7 +219,9 @@ public class JSThreadSafeFunction
         functionDataHandle.Free();
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe void CustomCallJS(napi_env env, napi_value jsCallback, nint context, nint data)
     {
         if (env.IsNull && jsCallback.IsNull)
@@ -249,7 +253,9 @@ public class JSThreadSafeFunction
         }
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe void DefaultCallJS(napi_env env, napi_value jsCallback, nint context, nint data)
     {
         if (env.IsNull && jsCallback.IsNull)

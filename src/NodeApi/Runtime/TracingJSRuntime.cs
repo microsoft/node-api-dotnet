@@ -375,7 +375,9 @@ public class TracingJSRuntime : JSRuntime
         <napi_env, napi_callback_info, napi_value> s_traceSetterCallback = &TraceSetterCallback;
 #endif
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe napi_value TraceFunctionCallback(napi_env env, napi_callback_info cbinfo)
     {
         using var scope = new JSValueScope(JSValueScopeType.Callback);
@@ -383,7 +385,9 @@ public class TracingJSRuntime : JSRuntime
             scope, cbinfo, (descriptor) => descriptor);
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe napi_value TraceMethodCallback(napi_env env, napi_callback_info cbinfo)
     {
         using var scope = new JSValueScope(JSValueScopeType.Callback);
@@ -395,7 +399,9 @@ public class TracingJSRuntime : JSRuntime
                 propertyDescriptor.ModuleContext));
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe napi_value TraceGetterCallback(napi_env env, napi_callback_info cbinfo)
     {
         using var scope = new JSValueScope(JSValueScopeType.Callback);
@@ -407,7 +413,9 @@ public class TracingJSRuntime : JSRuntime
                 propertyDescriptor.ModuleContext));
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe napi_value TraceSetterCallback(napi_env env, napi_callback_info cbinfo)
     {
         using var scope = new JSValueScope(JSValueScopeType.Callback);
