@@ -136,10 +136,7 @@ internal static class SymbolExtensions
 
         string typeFullName = GetTypeSymbolFullName(namedTypeSymbol);
         ITypeSymbol[] genericArguments = namedTypeSymbol.TypeArguments.ToArray();
-        Type? systemType = typeof(object).Assembly.GetType(typeFullName) ??
-            typeof(JSValue).Assembly.GetType(typeFullName) ??
-            typeof(BigInteger).Assembly.GetType(typeFullName);
-
+        Type? systemType = GetSystemType(namedTypeSymbol);
         if (systemType != null)
         {
             if (genericArguments.Length > 0)
@@ -167,7 +164,7 @@ internal static class SymbolExtensions
 
             if (buildType && symbolicType is TypeBuilder typeBuilder)
             {
-                BuildBaseTypeAndInterfaces((INamedTypeSymbol)typeSymbol);
+                BuildReferencedTypes((INamedTypeSymbol)typeSymbol);
 
                 symbolicType = typeBuilder.CreateType()!;
                 SymbolicTypes[typeFullName] = symbolicType;
@@ -325,7 +322,7 @@ internal static class SymbolExtensions
         }
 
         // Ensure the base type and interfaces are built before building the derived type.
-        BuildBaseTypeAndInterfaces(typeSymbol);
+        BuildReferencedTypes(typeSymbol);
 
         // Ensure this type is only built once.
         if (SymbolicTypes.TryGetValue(typeFullName, out thisType) && thisType is not TypeBuilder)
@@ -337,31 +334,64 @@ internal static class SymbolExtensions
     }
 
     /// <summary>
-    /// Ensures that a type symbol's base type, interface types, and type arguments (if any)
-    /// are built before building the target type.
+    /// Gets the system type for a type symbol, if the type symbol represents a type that is already
+    /// loaded in the current process and therefore doesn't need to be built as a symbolic type.
+    /// </summary>
+    private static Type? GetSystemType(INamedTypeSymbol typeSymbol)
+    {
+        string typeFullName = GetTypeSymbolFullName(typeSymbol);
+        Type? systemType = typeof(object).Assembly.GetType(typeFullName) ??
+            typeof(JSValue).Assembly.GetType(typeFullName) ??
+            typeof(BigInteger).Assembly.GetType(typeFullName);
+        return systemType;
+    }
+
+    /// <summary>
+    /// Ensures that a type symbol's type arguments (if any), base type, interface types,
+    /// property types, and method parameter and return types are built before building the
+    /// target type.
     /// </summary>
     /// <param name="typeSymbol">The symbol that is about to be built as a type.</param>
     /// <param name="referencingSymbols">Optional list of types that led to referencing this one,
     /// used to prevent infinite recursion.</param>
-    private static void BuildBaseTypeAndInterfaces(
+    private static void BuildReferencedTypes(
         INamedTypeSymbol typeSymbol, IEnumerable<INamedTypeSymbol>? referencingSymbols = null)
     {
         static void BuildType(
             INamedTypeSymbol typeSymbol,
             IEnumerable<INamedTypeSymbol> referencingSymbols)
         {
-            BuildBaseTypeAndInterfaces(typeSymbol, referencingSymbols);
+            // Recursively build the types that the current type references.
+            BuildReferencedTypes(typeSymbol, referencingSymbols);
 
+            // Now build the current type (if not already built).
             string typeFullName = GetTypeSymbolFullName(typeSymbol);
             if (SymbolicTypes.TryGetValue(typeFullName, out Type? type) &&
-                type is TypeBuilder baseTypeBuilder)
+                type is TypeBuilder typeBuilder)
             {
-                baseTypeBuilder.CreateType();
+                typeBuilder.CreateType();
             }
         }
 
         referencingSymbols = (referencingSymbols ?? Enumerable.Empty<INamedTypeSymbol>())
             .Append(typeSymbol);
+
+        foreach (INamedTypeSymbol typeArgSymbol in
+            typeSymbol.TypeArguments.OfType<INamedTypeSymbol>())
+        {
+            // Skip self-referential type parameters.
+            if (!referencingSymbols.Any(
+                (s) => SymbolEqualityComparer.Default.Equals(s, typeArgSymbol)))
+            {
+                BuildType(typeArgSymbol, referencingSymbols);
+            }
+        }
+
+        if (GetSystemType(typeSymbol) != null)
+        {
+            // The base type, interface type(s), and parameter types must be already loaded.
+            return;
+        }
 
         if (typeSymbol.BaseType != null)
         {
@@ -373,14 +403,18 @@ internal static class SymbolExtensions
             BuildType(interfaceTypeSymbol, referencingSymbols);
         }
 
-        foreach (INamedTypeSymbol typeArgSymbol in
-            typeSymbol.TypeArguments.OfType<INamedTypeSymbol>())
+        // This also covers property and event types via their get/set/add/remove methods.
+        foreach (INamedTypeSymbol? parameterTypeSymbol in typeSymbol.GetMembers()
+            .OfType<IMethodSymbol>()
+            .Where((m) => m.DeclaredAccessibility == Accessibility.Public)
+            .SelectMany((m) => m.Parameters.Select((p) => p.Type).Append(m.ReturnType))
+            .OfType<INamedTypeSymbol>()
+            .Distinct(SymbolEqualityComparer.Default))
         {
-            // Skip self-referential type parameters.
             if (!referencingSymbols.Any(
-                (s) => SymbolEqualityComparer.Default.Equals(s, typeArgSymbol)))
+                (s) => SymbolEqualityComparer.Default.Equals(s, parameterTypeSymbol)))
             {
-                BuildType(typeArgSymbol, referencingSymbols);
+                BuildType(parameterTypeSymbol!, referencingSymbols);
             }
         }
     }
