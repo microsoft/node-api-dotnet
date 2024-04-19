@@ -75,7 +75,7 @@ internal static partial class HostFxr
         // Scan available hostfxr versions and find the best match to the target version.
         for (int i = 0; i < versionDirs.Length; i++)
         {
-            string versionString = versionDirs[i];
+            string versionString = Path.GetFileName(versionDirs[i]);
             if (allowPrerelease)
             {
                 int hyphenIndex = versionString.IndexOf('-');
@@ -85,7 +85,7 @@ internal static partial class HostFxr
                 }
             }
 
-            if (!Version.TryParse(Path.GetFileName(versionString), out Version? version))
+            if (!Version.TryParse(versionString, out Version? version))
             {
                 // Skip prerelease versions when not allowed (or other unexpected subdir format).
                 continue;
