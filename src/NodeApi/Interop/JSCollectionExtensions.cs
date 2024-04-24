@@ -84,14 +84,14 @@ public static class JSCollectionExtensions
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSSetCollection<T>((JSValue)set, fromJS, toJS);
 
-#if !NETFRAMEWORK
+#if READONLY_SET
     /// <summary>
     /// Creates a read-only set adapter for a JS Set object, without copying.
     /// </summary>
     public static IReadOnlySet<T> AsReadOnlySet<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS)
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSSetReadOnlySet<T>((JSValue)set, fromJS, toJS);
-#endif // !NETFRAMEWORK
+#endif
 
     /// <summary>
     /// Creates a set adapter for a JS Set object, without copying.
@@ -426,7 +426,7 @@ internal class JSSetCollection<T> : JSSetReadOnlyCollection<T>, ICollection<T>
     public bool Remove(T item) => (bool)Value.CallMethod("delete", ToJS(item));
 }
 
-#if !NETFRAMEWORK
+#if READONLY_SET
 internal class JSSetReadOnlySet<T> : JSSetReadOnlyCollection<T>, IReadOnlySet<T>
 {
     internal JSSetReadOnlySet(JSValue value, JSValue.To<T> fromJS, JSValue.From<T> toJS)
@@ -522,7 +522,7 @@ internal class JSMapReadOnlyDictionary<TKey, TValue> :
 
     public bool ContainsKey(TKey key) => (bool)Value.CallMethod("has", KeyToJS(key));
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
     public bool TryGetValue(TKey key, out TValue value)
 #else
     public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)

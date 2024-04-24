@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 // Note while this code is used to load the .NET Framework host, it is compiled using .NET Native AOT.
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
 
 using System;
 using System.Runtime.InteropServices;

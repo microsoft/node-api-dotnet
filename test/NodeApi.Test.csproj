@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Exclude netstandard2.0 from target frameworks for tests. -->
+    <TargetFrameworks Condition=" ! $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net6.0</TargetFrameworks>
+    <TargetFrameworks Condition=" $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net6.0;net472</TargetFrameworks>
+
     <RootNamespace>Microsoft.JavaScript.NodeApi.Test</RootNamespace>
     <AssemblyName>Microsoft.JavaScript.NodeApi.Test</AssemblyName>
     <SelfContained>false</SelfContained>

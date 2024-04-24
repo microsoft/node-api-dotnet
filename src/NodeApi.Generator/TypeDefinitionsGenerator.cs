@@ -225,14 +225,21 @@ dotnet.load(assemblyName);";
         }
 
         // Create a metadata load context that includes a resolver for system assemblies,
-        // referenced assemblies, referenced assemblies, and the target assembly.
+        // referenced assemblies, and the target assembly.
         IEnumerable<string> allReferenceAssemblyPaths = MergeSystemReferenceAssemblies(
             referenceAssemblyPaths, systemReferenceAssemblyDirectories);
-        PathAssemblyResolver assemblyResolver = new(
-            allReferenceAssemblyPaths.Append(assemblyPath));
+        bool isCoreAssembly = Path.GetFileNameWithoutExtension(assemblyPath).Equals(
+            typeof(object).Assembly.GetName().Name, StringComparison.OrdinalIgnoreCase);
+        if (!isCoreAssembly)
+        {
+            allReferenceAssemblyPaths = allReferenceAssemblyPaths.Append(assemblyPath);
+        }
+
+        PathAssemblyResolver assemblyResolver = new(allReferenceAssemblyPaths);
         using MetadataLoadContext loadContext = new(assemblyResolver);
 
-        Assembly assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
+        Assembly assembly = isCoreAssembly ? loadContext.CoreAssembly! :
+            loadContext.LoadFromAssemblyPath(assemblyPath);
 
         Dictionary<string, Assembly> referenceAssemblies = new();
         foreach (string referenceAssemblyPath in referenceAssemblyPaths)
@@ -256,7 +263,7 @@ dotnet.load(assemblyName);";
             string assemblyFileName = Path.GetFileNameWithoutExtension(assemblyPath);
             assemblyDocFilePath = Path.Combine(
                 Path.GetDirectoryName(assemblyPath)!,
-#if NETFRAMEWORK
+#if !STRING_AS_SPAN
                 assemblyFileName.Substring(assemblyFileName.IndexOf('.') + 1) + ".xml");
 #else
                 string.Concat(assemblyFileName.AsSpan(assemblyFileName.IndexOf('.') + 1), ".xml"));
@@ -962,7 +969,7 @@ import { Duplex } from 'stream';
         int genericMarkerIndex = methodNamePrefix.IndexOf('`');
         if (genericMarkerIndex >= 0)
         {
-#if NETFRAMEWORK
+#if !STRING_AS_SPAN
             methodNamePrefix = methodNamePrefix.Substring(0, genericMarkerIndex) + '<';
 #else
             methodNamePrefix = string.Concat(methodNamePrefix.AsSpan(0, genericMarkerIndex), "<");
@@ -1069,8 +1076,7 @@ import { Duplex } from 'stream';
 
     private static bool IsExtensionMember(MemberInfo member)
     {
-        return member.GetCustomAttributesData().Any(
-            (a) => a.AttributeType.FullName == typeof(ExtensionAttribute).FullName);
+        return GetAttribute<ExtensionAttribute>(member) != null;
     }
 
     private static bool IsExtensionTargetTypeSupported(Type targetType)
@@ -1350,9 +1356,25 @@ import { Duplex } from 'stream';
             propertyType = propertyType.GetElementType()!;
         }
 
+        NullabilityInfo nullability = FixNullability(_nullabilityContext.Create(property));
+
+#if NETFRAMEWORK || NETSTANDARD
+        // IEnumerator.Current property is not attributed as nullable but should be.
+        if (property.Name == nameof(System.Collections.IEnumerator.Current) &&
+            property.DeclaringType.FullName == typeof(System.Collections.IEnumerator).FullName)
+        {
+            nullability = new NullabilityInfo(
+                nullability.Type,
+                NullabilityState.Nullable,
+                nullability.WriteState,
+                nullability.ElementType,
+                nullability.GenericTypeArguments);
+        }
+#endif
+
         string tsType = GetTSType(
             propertyType,
-            FixNullability(_nullabilityContext.Create(property)),
+            nullability,
             allowTypeParameters);
 
         if (tsType == "unknown" || tsType.Contains("unknown"))
@@ -1537,7 +1559,16 @@ import { Duplex } from 'stream';
         {
             tsType = specialType;
         }
-#if !NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
+        else if (type.IsGenericTypeParameter())
+        {
+            tsType = allowTypeParams ? type.Name : "any";
+        }
+        else if (type.IsGenericMethodParameter())
+        {
+            tsType = type.Name;
+        }
+#else
         else if (type.IsGenericTypeParameter)
         {
             tsType = allowTypeParams ? type.Name : "any";
@@ -1719,7 +1750,7 @@ import { Duplex } from 'stream';
                 string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 return $"Set<{elementTsType}>";
             }
-#if !NETFRAMEWORK
+#if READONLY_SET
             else if (typeDefinitionName == typeof(IReadOnlySet<>).FullName)
             {
                 string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
@@ -1786,7 +1817,7 @@ import { Duplex } from 'stream';
         }
 
         if (nullability?.ReadState == NullabilityState.Nullable &&
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
             !type.IsGenericTypeParameter && !type.IsGenericMethodParameter &&
 #endif
             !tsType.EndsWith(UndefinedTypeSuffix))
@@ -1849,8 +1880,7 @@ import { Duplex } from 'stream';
 
     private string GetExportName(MemberInfo member)
     {
-        CustomAttributeData? attribute = member.GetCustomAttributesData().FirstOrDefault(
-            (a) => a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
+        CustomAttributeData? attribute = GetAttribute<JSExportAttribute>(member);
         if (attribute != null && attribute.ConstructorArguments.Count > 0 &&
             !string.IsNullOrEmpty(attribute.ConstructorArguments[0].Value as string))
         {
@@ -2025,8 +2055,12 @@ import { Duplex } from 'stream';
         Type[]? genericTypeParams,
         Type[]? genericMethodParams)
     {
-#if NETFRAMEWORK
-        if (type.IsGenericMethodParameter() && genericMethodParams != null)
+#if NETFRAMEWORK || NETSTANDARD
+        if (type.IsGenericTypeParameter() && genericTypeParams != null)
+        {
+            return "`" + Array.IndexOf(genericTypeParams, type);
+        }
+        else if (type.IsGenericMethodParameter() && genericMethodParams != null)
 #else
         if (type.IsGenericTypeParameter && genericTypeParams != null)
         {

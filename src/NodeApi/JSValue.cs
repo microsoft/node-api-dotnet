@@ -310,7 +310,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         {
             value = -value;
         }
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
         int byteCount = value.GetByteCount(isUnsigned: true);
 #else
         byte[] bytes = value.ToByteArray();
@@ -318,7 +318,7 @@ public readonly struct JSValue : IEquatable<JSValue>
 #endif
         int wordCount = (byteCount + sizeof(ulong) - 1) / sizeof(ulong);
         Span<byte> byteSpan = stackalloc byte[wordCount * sizeof(ulong)];
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
         if (!value.TryWriteBytes(byteSpan, out int bytesWritten, isUnsigned: true))
         {
             throw new Exception("Cannot write BigInteger bytes");
@@ -326,7 +326,7 @@ public readonly struct JSValue : IEquatable<JSValue>
 #endif
         fixed (byte* bytePtr = byteSpan)
         {
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
             Marshal.Copy(bytes, 0, (nint)bytePtr, bytes.Length);
 #endif
             ReadOnlySpan<ulong> words = new(bytePtr, wordCount);
@@ -343,7 +343,7 @@ public readonly struct JSValue : IEquatable<JSValue>
         runtime.GetBigIntWords(env, handle, out int sign, words, out _).ThrowIfFailed();
         fixed (ulong* wordPtr = words)
         {
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
             BigInteger result = new(new ReadOnlySpan<byte>(wordPtr, byteCount), isUnsigned: true);
 #else
             byte[] bytes = new byte[byteCount];
@@ -440,7 +440,7 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public unsafe string GetValueStringUtf16()
     {
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
         return new string(GetValueStringUtf16AsCharArray());
 #else
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
@@ -1139,7 +1139,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     public void Seal() => GetRuntime(out napi_env env, out napi_value handle)
         .Seal(env, handle).ThrowIfFailed();
 
-#if NETFRAMEWORK
+#if !UNMANAGED_DELEGATES
     internal static readonly napi_callback.Delegate s_invokeJSCallback = InvokeJSCallback;
     internal static readonly napi_callback.Delegate s_invokeJSMethod = InvokeJSMethod;
     internal static readonly napi_callback.Delegate s_invokeJSGetter = InvokeJSGetter;

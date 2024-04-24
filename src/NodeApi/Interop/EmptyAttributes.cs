@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
 
 // This file provides empty definitions for attributes that are not available in .NET Framework.
 

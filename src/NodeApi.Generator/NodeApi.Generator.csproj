@@ -6,6 +6,7 @@
     <OutputType>Exe</OutputType>
     <IsPackable>true</IsPackable>
     <NoWarn>$(NoWarn);SYSLIB1045</NoWarn><!-- Use GeneratedRegexAttribute -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <SelfContained>false</SelfContained>
@@ -17,24 +18,67 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Package the generator and dependencies in the analyzer directory of the nuget package -->
-    <!-- Use the .NET 6 targeted assembly as the analyzer for broader compatibility. (There's no difference in functionality.) -->
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\$(AssemblyName).dll" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\$(AssemblyName).runtimeconfig.json" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.dll" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.CodeAnalysis.dll" />
-    <None Pack="true" Visible="false" PackagePath="analyzers/dotnet/cs" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\System.Reflection.MetadataLoadContext.dll" />
+    <None Pack="true" PackagePath="\" Include="..\..\README.md" />
+
+    <!--
+      Pack netstandard2.0, net472, and net6.0 versions of the generator and dependencies. The MSBuild targets will pick the right one.
+
+        - netstandard2.0 is used for source-generation in a .NET Framework 4.x based MSBuild / CSC process (building in Visual Studio).
+          net472 cannot be used for source-generation because the compiler does not allow analyzers to reference .NET Framework assemblies.
+
+        - net472 is used for typedefs generation for projects that target .NET Framework 4.x.
+          netstandard2.0 cannot be used for typedefs generation case because it cannot be launched as a command-line executable.
+
+        - net6.0 is used for source-generation in a .NET 6+ based MSBuild / CSC process (building via dotnet CLI),
+          and for typedefs generation for projects that target .NET 6+.
+    -->
+
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\Microsoft.Bcl.AsyncInterfaces.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\Microsoft.CodeAnalysis.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Collections.Immutable.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Memory.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Numerics.Vectors.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Reflection.Metadata.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Reflection.MetadataLoadContext.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Runtime.CompilerServices.Unsafe.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Threading.Tasks.Extensions.dll" />
+
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\$(AssemblyName).exe.config" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\Microsoft.Bcl.AsyncInterfaces.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\Microsoft.CodeAnalysis.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Collections.Immutable.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Memory.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Numerics.Vectors.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Reflection.Metadata.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Reflection.MetadataLoadContext.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Runtime.CompilerServices.Unsafe.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Threading.Tasks.Extensions.dll" />
+
+    <None Pack="true" Visible="false" PackagePath="lib/net6.0" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\System.Reflection.MetadataLoadContext.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net6.0" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.CodeAnalysis.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net6.0" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.dll" />
+    <None Pack="true" Visible="false" PackagePath="lib/net6.0" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" />
+
+    <!-- Pack MSBuild props and targets files that configure and invoke the generator. -->
     <None Pack="true" PackagePath="build\$(AssemblyName).props" Include="NodeApi.Generator.props" />
     <None Pack="true" PackagePath="build\$(AssemblyName).targets" Include="NodeApi.Generator.targets" />
-    <None Pack="true" PackagePath="\" Include="..\..\README.md" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
-    <PackageReference Include="Nullability.Source" Condition=" '$(NetFramework)' == 'true' " />
     <PackageReference Include="System.Reflection.MetadataLoadContext" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" $(NetFramework) OR $(NetStandard) ">
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+    <PackageReference Include="Nullability.Source" />
+    <PackageReference Include="System.Reflection.Emit" />
+    <PackageReference Include="System.Memory" />
   </ItemGroup>
 
   <!--

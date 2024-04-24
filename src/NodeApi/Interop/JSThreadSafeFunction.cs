@@ -82,49 +82,49 @@ public class JSThreadSafeFunction
     // This API may be called from any thread.
     public void BlockingCall()
     {
-        CallInternal(null, napi_threadsafe_function_call_mode.napi_tsfn_blocking).ThrowIfFailed();
+        CallInternal(null, napi_threadsafe_function_call_mode.napi_tsfn_blocking);
     }
 
     // This API may be called from any thread.
     public void BlockingCall(object? data)
     {
-        CallInternal(data, napi_threadsafe_function_call_mode.napi_tsfn_blocking).ThrowIfFailed();
+        CallInternal(data, napi_threadsafe_function_call_mode.napi_tsfn_blocking);
     }
 
     // This API may be called from any thread.
     public void BlockingCall(Action callback)
     {
-        CallInternal(callback, napi_threadsafe_function_call_mode.napi_tsfn_blocking).ThrowIfFailed();
+        CallInternal(callback, napi_threadsafe_function_call_mode.napi_tsfn_blocking);
     }
 
     // This API may be called from any thread.
     public void BlockingCall(Action<JSValue?, object?> callback)
     {
-        CallInternal(callback, napi_threadsafe_function_call_mode.napi_tsfn_blocking).ThrowIfFailed();
+        CallInternal(callback, napi_threadsafe_function_call_mode.napi_tsfn_blocking);
     }
 
     // This API may be called from any thread.
     public bool NonBlockingCall()
     {
-        return NonBlockingCall(CallInternal(null, napi_threadsafe_function_call_mode.napi_tsfn_nonblocking));
+        return CallInternal(null, napi_threadsafe_function_call_mode.napi_tsfn_nonblocking);
     }
 
     // This API may be called from any thread.
     public bool NonBlockingCall(object? data)
     {
-        return NonBlockingCall(CallInternal(data, napi_threadsafe_function_call_mode.napi_tsfn_nonblocking));
+        return CallInternal(data, napi_threadsafe_function_call_mode.napi_tsfn_nonblocking);
     }
 
     // This API may be called from any thread.
     public bool NonBlockingCall(Action callback)
     {
-        return NonBlockingCall(CallInternal(callback, napi_threadsafe_function_call_mode.napi_tsfn_nonblocking));
+        return CallInternal(callback, napi_threadsafe_function_call_mode.napi_tsfn_nonblocking);
     }
 
     // This API may be called from any thread.
     public bool NonBlockingCall(Action<JSValue?, object?> callback)
     {
-        return NonBlockingCall(CallInternal(callback, napi_threadsafe_function_call_mode.napi_tsfn_nonblocking));
+        return CallInternal(callback, napi_threadsafe_function_call_mode.napi_tsfn_nonblocking);
     }
 
     // This API may only be called from the main thread.
@@ -171,20 +171,7 @@ public class JSThreadSafeFunction
             _tsfn, napi_threadsafe_function_release_mode.napi_tsfn_abort);
     }
 
-    private static bool NonBlockingCall(napi_status status)
-    {
-        if (status == napi_status.napi_ok)
-        {
-            return true;
-        }
-        else if (status != napi_status.napi_queue_full)
-        {
-            status.ThrowIfFailed();
-        }
-        return false;
-    }
-
-    private napi_status CallInternal(object? callbackOrData, napi_threadsafe_function_call_mode mode)
+    private bool CallInternal(object? callbackOrData, napi_threadsafe_function_call_mode mode)
     {
         // Do not use AllocGCHandle() because we're calling from another thread.
         GCHandle callbackOrDataHandle = GCHandle.Alloc(callbackOrData);
@@ -196,10 +183,15 @@ public class JSThreadSafeFunction
             callbackOrDataHandle.Free();
         }
 
-        return status;
+        // TODO: Consider throwing exceptions for status codes other than napi_ok.
+        // Note some error statuses are expected:
+        // - napi_queue_full: The queue is full, the nonblocking call should be retried later.
+        // - napi_closing: The thread-safe function is closing (typically due to env shutdown).
+        // - napi_invalid_arg: The TSFN is invalid or disposed (can also occur during shutdown).
+        return status == napi_status.napi_ok;
     }
 
-#if NETFRAMEWORK
+#if !UNMANAGED_DELEGATES
     private static readonly napi_finalize.Delegate s_finalizeFunctionData = FinalizeFunctionData;
     private static readonly napi_threadsafe_function_call_js.Delegate s_customCallJS = CustomCallJS;
     private static readonly napi_threadsafe_function_call_js.Delegate s_defaultCallJS = DefaultCallJS;

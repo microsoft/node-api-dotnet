@@ -18,7 +18,7 @@ using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 using NativeLibrary = Microsoft.JavaScript.NodeApi.Runtime.NativeLibrary;
 #endif
 
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
 using System.Runtime.Loader;
 #endif
 
@@ -31,7 +31,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 {
     private const string ResolvingEventName = "resolving";
 
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
     /// <summary>
     /// Each instance of a managed host uses a separate assembly load context.
     /// That way, static data is not shared across multiple host instances.
@@ -85,7 +85,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// <param name="exports">JS object on which the managed host APIs will be exported.</param>
     public ManagedHost(JSObject exports)
     {
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
         AppDomain.CurrentDomain.AssemblyResolve += OnResolvingAssembly;
 #else
         _loadContext.Resolving += OnResolvingAssembly;
@@ -173,7 +173,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// Called by the native host to initialize the managed host module.
     /// Initializes an instance of the managed host and returns the exports object from it.
     /// </summary>
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
     public static unsafe int InitializeModule(string argument)
     {
         Trace($"> ManagedHost.InitializeModule({argument})");
@@ -237,7 +237,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             JSError.ThrowError(ex);
         }
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
         *pResult = exports;
         return 0;
 #else
@@ -249,7 +249,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// Resolve references to Node API and other assemblies that loaded assemblies depend on.
     /// </summary>
     private Assembly? OnResolvingAssembly(
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
         object sender,
         ResolveEventArgs args)
     {
@@ -354,7 +354,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         {
             _loadingPath = assemblyFilePath;
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
             // TODO: Load module assemblies in separate appdomains.
             assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
@@ -501,7 +501,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         {
             _loadingPath = assemblyFilePath;
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
             // TODO: Load assemblies in a separate appdomain.
             assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
@@ -544,7 +544,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             _rootScope?.Dispose();
             _rootScope = null;
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
             AppDomain.CurrentDomain.AssemblyResolve -= OnResolvingAssembly;
 #else
             AssemblyLoadContext.Default.Resolving -= OnResolvingAssembly;
@@ -555,6 +555,16 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         base.Dispose(disposing);
     }
+
+#if NETSTANDARD
+
+    private class ConsoleTraceListener : TraceListener
+    {
+        public override void Write(string? message) => Console.Write(message);
+        public override void WriteLine(string? message) => Console.WriteLine(message);
+    }
+
+#endif
 
     private class JSConsoleTraceListener : ConsoleTraceListener
     {

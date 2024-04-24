@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and ! $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net6.0</TargetFrameworks>
-    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net6.0;net472</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and ! $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net6.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and $([MSBuild]::IsOsPlatform('Windows')) ">net8.0;net6.0;netstandard2.0;net472</TargetFrameworks>
     <TargetFrameworks Condition=" '$(PublishAot)' == 'true' ">net8.0</TargetFrameworks>
     <LangVersion>12</LangVersion>
     <Nullable>enable</Nullable>
@@ -50,6 +50,21 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(TargetFramework)' != 'net472' ">
     <NetFramework>false</NetFramework>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <DefineConstants>$(DefineConstants);NETSTANDARD</DefineConstants>
+    <NetStandard>true</NetStandard>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(TargetFramework)' != 'netstandard2.0' ">
+    <NetStandard>false</NetStandard>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" !$(NetFramework) AND !$(NetStandard) ">
+    <!-- A few runtime features are unavailable in .NET Framework and require conditional compilation. -->
+    <DefineConstants>$(DefineConstants);UNMANAGED_DELEGATES</DefineConstants>
+    <DefineConstants>$(DefineConstants);STRING_AS_SPAN</DefineConstants>
+    <DefineConstants>$(DefineConstants);STREAM_MEMORY</DefineConstants>
+    <DefineConstants>$(DefineConstants);READONLY_SET</DefineConstants>
   </PropertyGroup>
 
   <Import Project="./rid.props" />

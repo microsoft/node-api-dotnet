@@ -5,7 +5,7 @@
 
 using System;
 using System.Runtime.InteropServices;
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
 using SysNativeLibrary = System.Runtime.InteropServices.NativeLibrary;
 #endif
 
@@ -43,7 +43,7 @@ public static class NativeLibrary
     /// <returns>The OS handle for the loaded native library.</returns>
     public static nint Load(string libraryName)
     {
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
         return LoadLibrary(libraryName);
 #else
         return SysNativeLibrary.Load(libraryName);
@@ -58,7 +58,7 @@ public static class NativeLibrary
     /// <returns>The address of the symbol.</returns>
     public static nint GetExport(nint handle, string name)
     {
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
         return GetProcAddress(handle, name);
 #else
         return SysNativeLibrary.GetExport(handle, name);
@@ -67,7 +67,7 @@ public static class NativeLibrary
 
     public static bool TryGetExport(nint handle, string name, out nint procAddress)
     {
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
         procAddress = GetProcAddress(handle, name);
         return procAddress != default;
 #else

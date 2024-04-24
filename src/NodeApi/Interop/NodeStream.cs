@@ -98,10 +98,10 @@ public partial class NodeStream : Stream
 
     /// <inheritdoc/>
 #pragma warning disable IDE0060 // Unused parameter 'buffer'
-#if NETFRAMEWORK
-    public int Read(Span<byte> buffer)
-#else
+#if STREAM_MEMORY
     public override int Read(Span<byte> buffer)
+#else
+    public int Read(Span<byte> buffer)
 #endif
 #pragma warning restore IDE0060
     {
@@ -120,10 +120,10 @@ public partial class NodeStream : Stream
         => ReadAsync(buffer.AsMemory(offset, count), cancellation).AsTask();
 
     /// <inheritdoc/>
-#if NETFRAMEWORK
-    public async ValueTask<int> ReadAsync(
-#else
+#if STREAM_MEMORY
     public override async ValueTask<int> ReadAsync(
+#else
+    public async ValueTask<int> ReadAsync(
 #endif
         Memory<byte> buffer,
         CancellationToken cancellation = default)
@@ -205,10 +205,10 @@ public partial class NodeStream : Stream
     }
 
     /// <inheritdoc/>
-#if NETFRAMEWORK
-    public async ValueTask WriteAsync(
-#else
+#if STREAM_MEMORY
     public override async ValueTask WriteAsync(
+#else
+    public async ValueTask WriteAsync(
 #endif
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellation = default)

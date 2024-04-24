@@ -47,7 +47,7 @@ internal class TypeProxy
         if (type.IsGenericType && type.Name.IndexOf('`') > 0)
         {
             return prefix +
-#if NETFRAMEWORK
+#if !STRING_AS_SPAN
                 type.Name.Substring(0, type.Name.IndexOf('`')) + '$';
 #else
                 string.Concat(type.Name.AsSpan(0, type.Name.IndexOf('`')), "$");

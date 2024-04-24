@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
 
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
 #pragma warning disable CA1822 // Mark members as static
 
 public class TypeDefsGeneratorTests

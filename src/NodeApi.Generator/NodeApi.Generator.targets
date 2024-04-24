@@ -4,7 +4,16 @@
     <NodeApiTypeDefinitionsFileName Condition=" '$(NodeApiTypeDefinitionsFileName)' == '' ">$(TargetName).d.ts</NodeApiTypeDefinitionsFileName>
 
     <NodeApiGeneratorAssemblyName>Microsoft.JavaScript.NodeApi.Generator</NodeApiGeneratorAssemblyName>
-    <NodeApiGeneratorAssemblyPath>$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/$(NodeApiGeneratorAssemblyName).dll</NodeApiGeneratorAssemblyPath>
+    <NodeApiGeneratorDirectory>$(MSBuildThisFileDirectory)../lib/net6.0/</NodeApiGeneratorDirectory>
+    <NodeApiGeneratorNet4xDirectory>$(MSBuildThisFileDirectory)../lib/net472/</NodeApiGeneratorNet4xDirectory>
+    <NodeApiGeneratorNetStandardDirectory>$(MSBuildThisFileDirectory)../lib/netstandard2.0/</NodeApiGeneratorNetStandardDirectory>
+
+    <!--
+      With .NET Framework 4.x, invoke the generator executable; otherwise use the dotnet CLI (which will check the runtimeconfig.json).
+      The TS generator tool selection is based on the current project target framework, NOT the current MSBuild .NET version.
+    -->
+    <NodeApiGeneratorCommand Condition=" $(TargetFramework.StartsWith('net4')) ">&quot;$(NodeApiGeneratorNet4xDirectory)$(NodeApiGeneratorAssemblyName).exe&quot;</NodeApiGeneratorCommand>
+    <NodeApiGeneratorCommand Condition=" !$(TargetFramework.StartsWith('net4')) ">dotnet &quot;$(NodeApiGeneratorDirectory)$(NodeApiGeneratorAssemblyName).dll&quot;</NodeApiGeneratorCommand>
 
     <!-- Try to infer the module type from package.json in the project directory. Otherwise default to generating both module types.-->
     <NodeApiPackageJson Condition=" '$(NodeApiPackageJson)' == '' ">$(ProjectDir)package.json</NodeApiPackageJson>
@@ -13,6 +22,20 @@
 
     <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiJSModuleType) --framework $(TargetFramework) $(NodeApiTypedefsGeneratorOptions)</NodeApiTypeDefinitionsGeneratorOptions>
   </PropertyGroup>
+
+  <!--
+    Resolves NodeApi source-generator (analyzer) assemblies.
+    The recommended practice is to build analyzers targeting only .NET Standard 2.0, and place them in a special "analyzers" directory
+    in the package where they are found automatically. But this package contains separate targets for .NET Standard 2.0, .NET Framework 4.x,
+    and .NET 6.0 (and later) in the "lib" directory. This task chooses the correct target based on the currnet MSBuild process's .NET version
+    (NOT the current target framework), and adds the assemblies to the Analyzer item group.
+  -->
+  <Target Name="ResolveNodeApiAnalyzer" AfterTargets="ResolvePackageDependenciesForBuild">
+    <ItemGroup>
+      <Analyzer Condition=" $([System.Environment]::Version.Major) &gt; 4 " Include="$(NodeApiGeneratorDirectory)*.dll" />
+      <Analyzer Condition=" $([System.Environment]::Version.Major) &lt;= 4 " Include="$(NodeApiGeneratorNetStandardDirectory)*.dll" />
+    </ItemGroup>
+  </Target>
 
   <Target Name="ConfigureNodeApiTypeDefinitions"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' "
@@ -49,7 +72,7 @@
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="$(NodeApiTypeDefinitionsGeneratorOptions)" />
 
     <!-- Run the generator using args from the response file. Note the '@' indicates the response file NOT an MSBuild item-list. -->
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; &quot;@$(NodeApiGeneratorResponseFile)&quot;"
+    <Exec Command="$(NodeApiGeneratorCommand) &quot;@$(NodeApiGeneratorResponseFile)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
 
@@ -135,7 +158,7 @@
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="$(NodeApiTypeDefinitionsGeneratorOptions)" />
 
     <!-- Run the generator using args from the response file. Note the '@' indicates the response file NOT an MSBuild item-list. -->
-    <Exec Command="dotnet &quot;$(NodeApiGeneratorAssemblyPath)&quot; &quot;@$(NodeApiGeneratorResponseFile)&quot;"
+    <Exec Command="$(NodeApiGeneratorCommand) &quot;@$(NodeApiGeneratorResponseFile)&quot;"
       ConsoleToMSBuild="true" />
   </Target>
 

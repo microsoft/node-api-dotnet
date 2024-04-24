@@ -360,7 +360,7 @@ public sealed class JSRuntimeContext : IDisposable
             wrapperReference = CreateWrapper(obj);
 
             // Use AddOrUpdate() in case the constructor just added the object.
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
             _objectMap.Remove(obj);
             _objectMap.Add(obj, wrapperReference);
 #else
@@ -376,7 +376,7 @@ public sealed class JSRuntimeContext : IDisposable
                 // Create a new wrapper JS object and update the reference in the map.
                 wrapperReference.Dispose();
                 wrapperReference = CreateWrapper(obj);
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
                 _objectMap.Remove(obj);
                 _objectMap.Add(obj, wrapperReference);
 #else
@@ -474,7 +474,7 @@ public sealed class JSRuntimeContext : IDisposable
             });
     }
 
-#if !NETFRAMEWORK
+#if READONLY_SET
     public JSValue GetOrCreateCollectionWrapper<T>(
         IReadOnlySet<T> collection,
         JSValue.From<T> toJS,
@@ -489,7 +489,7 @@ public sealed class JSRuntimeContext : IDisposable
                 return new JSProxy(new JSSet(), proxyHandler, collection);
             });
     }
-#endif // !NETFRAMEWORK
+#endif
 
     public JSValue GetOrCreateCollectionWrapper<T>(
         ISet<T> collection,
@@ -563,7 +563,7 @@ public sealed class JSRuntimeContext : IDisposable
                 wrapperReference.Dispose();
                 wrapper = createWrapper();
                 wrapperReference = new JSReference(wrapper.Value, isWeak: true);
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
                 _objectMap.Remove(collection);
                 _objectMap.Add(collection, wrapperReference);
 #else
@@ -715,7 +715,7 @@ public sealed class JSRuntimeContext : IDisposable
 
         SynchronizationContext.Dispose();
 
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
         // ConditionalWeakTable<> is not enumerable in .NET Framework.
         // The JS references will still be released eventually by their finalizers.
         DisposeReferences(_objectMap.Select((entry) => entry.Value));
@@ -821,7 +821,7 @@ public sealed class JSRuntimeContext : IDisposable
         handle.Free();
     }
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
     private class ReferenceEqualityComparer : IEqualityComparer<object>
     {
         public static ReferenceEqualityComparer Instance { get; } = new();

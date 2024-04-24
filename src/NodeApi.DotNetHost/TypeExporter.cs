@@ -596,7 +596,10 @@ public class TypeExporter
         }
 
         if (
-#if !NETFRAMEWORK // TODO: Find an alternative for .NET Framework.
+#if NETFRAMEWORK || NETSTANDARD
+            !dependencyType.IsGenericTypeParameter() &&
+            !dependencyType.IsGenericMethodParameter() &&
+#else
             !dependencyType.IsGenericTypeParameter &&
             !dependencyType.IsGenericMethodParameter &&
 #endif
@@ -977,13 +980,11 @@ public class TypeExporter
             return false;
         }
 
-#if !NETFRAMEWORK
-        if (type.IsByRefLike)
+        if (IsByRefLikeType(type))
         {
             // ref structs like Span<T> aren't yet supported.
             return false;
         }
-#endif
 
         if (typeof(Stream).IsAssignableFrom(type))
         {
@@ -997,6 +998,16 @@ public class TypeExporter
         }
 
         return true;
+    }
+
+    private static bool IsByRefLikeType(Type type)
+    {
+#if NETFRAMEWORK || NETSTANDARD
+        // https://github.com/dotnet/runtime/issues/20673#issuecomment-434941367
+        return type.GetCustomAttributes().Any((a) => a.GetType().Name == "IsByRefLikeAttribute");
+#else
+        return type.IsByRefLike;
+#endif
     }
 
     private static bool IsSupportedConstructor(ConstructorInfo constructor)

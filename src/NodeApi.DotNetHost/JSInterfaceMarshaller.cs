@@ -129,7 +129,7 @@ internal class JSInterfaceMarshaller
             BuildEventImplementation(typeBuilder, eventInfo);
         }
 
-        implementationType = typeBuilder.CreateType()!;
+        implementationType = typeBuilder.CreateTypeInfo()!;
         _interfaceTypes.TryUpdate(interfaceType, implementationType, typeBuilder);
 
         // Build and assign the implementation delegates after building the type.

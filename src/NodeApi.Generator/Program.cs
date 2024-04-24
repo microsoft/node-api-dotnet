@@ -7,7 +7,11 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-#if !NETFRAMEWORK
+
+#if NETFRAMEWORK || NETSTANDARD
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+#else
 using System.Text.Json;
 #endif
 
@@ -259,26 +263,42 @@ public static class Program
         return true;
     }
 
+#if NETFRAMEWORK || NETSTANDARD
+
+    [DataContract]
+    private class PackageJson
+    {
+        [DataMember(Name = "type")]
+        public string? Type { get; set; }
+    }
+
+#endif
+
     private static TypeDefinitionsGenerator.ModuleType GetModuleTypeFromPackageJson(
         string packageJsonPath)
     {
-#if NETFRAMEWORK
-        // System.Text.Json is not available on .NET Framework.
-        Console.Error.WriteLine(
-            "Inferring module type from package.json is not supported on .NET Framework.");
-#else
         try
         {
+            string? packageModuleType;
+
+#if NETFRAMEWORK || NETSTANDARD
+            var serializer = new DataContractJsonSerializer(typeof(PackageJson));
+            using Stream fileStream = File.OpenRead(packageJsonPath);
+            PackageJson packageJson = (PackageJson)serializer.ReadObject(fileStream);
+            packageModuleType = packageJson.Type;
+#else
             using Stream fileStream = File.OpenRead(packageJsonPath);
             JsonDocument json = JsonDocument.Parse(fileStream);
+            packageModuleType = json.RootElement.TryGetProperty(
+                "type", out JsonElement moduleElement) ? moduleElement.GetString() : null;
+#endif
 
             // https://nodejs.org/api/packages.html#type
-            if (!json.RootElement.TryGetProperty("type", out JsonElement moduleElement) ||
-                moduleElement.GetString() == "commonjs")
+            if (packageModuleType == null || packageModuleType == "commonjs")
             {
                 return TypeDefinitionsGenerator.ModuleType.CommonJS;
             }
-            else if (moduleElement.GetString() == "module")
+            else if (packageModuleType == "module")
             {
                 return TypeDefinitionsGenerator.ModuleType.ES;
             }
@@ -286,7 +306,7 @@ public static class Program
             {
                 Console.Error.WriteLine(
                     "Failed to infer module type from package.json. Unknown module type: " +
-                    moduleElement.GetString());
+                    packageModuleType);
             }
         }
         catch (Exception ex)
@@ -294,7 +314,6 @@ public static class Program
             Console.Error.WriteLine(
                 "Failed to infer module type from package.json. " + ex.Message);
         }
-#endif
 
         return default;
     }
@@ -407,6 +426,12 @@ public static class Program
             if (Directory.Exists(refAssemblyDirectory))
             {
                 s_referenceAssemblyDirectories.Add(refAssemblyDirectory);
+
+                string facadesDirectory = Path.Combine(refAssemblyDirectory, "Facades");
+                if (Directory.Exists(facadesDirectory))
+                {
+                    s_referenceAssemblyDirectories.Add(facadesDirectory);
+                }
             }
         }
         else

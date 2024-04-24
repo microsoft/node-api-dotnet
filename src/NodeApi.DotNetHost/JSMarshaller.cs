@@ -169,8 +169,10 @@ public class JSMarshaller
             type == typeof(ICollection<>) ||
             type == typeof(IReadOnlyCollection<>) ||
             type == typeof(ISet<>) ||
-#if !NETFRAMEWORK
+#if READONLY_SET
             type == typeof(IReadOnlySet<>) ||
+#else
+            // TODO: Support IReadOnlySet on .NET Framework / .NET Standard 2.0.
 #endif
             type == typeof(IList<>) ||
             type == typeof(IReadOnlyList<>) ||
@@ -2771,8 +2773,10 @@ public class JSMarshaller
 
         if (typeDefinition == typeof(IList<>) ||
             typeDefinition == typeof(ICollection<>) ||
-#if !NETFRAMEWORK
+#if READONLY_SET
             typeDefinition == typeof(IReadOnlySet<>) ||
+#else
+            // TODO: Support IReadOnlySet on .NET Framework / .NET Standard 2.0.
 #endif
             typeDefinition == typeof(ISet<>))
         {
@@ -2785,7 +2789,7 @@ public class JSMarshaller
             Type jsCollectionType = typeDefinition.Name.Contains("Set") ?
                 typeof(JSSet) : typeof(JSArray);
             MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
-#if NETFRAMEWORK
+#if !STRING_AS_SPAN
                 "As" + typeDefinition.Name.Substring(1, typeDefinition.Name.IndexOf('`') - 1),
 #else
                 string.Concat("As",
@@ -2816,7 +2820,7 @@ public class JSMarshaller
                 typeof(JSIterable) : typeDefinition == typeof(IAsyncEnumerable<>) ?
                 typeof(JSAsyncIterable) : typeof(JSArray);
             MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
-#if NETFRAMEWORK
+#if !STRING_AS_SPAN
                 "As" + typeDefinition.Name.Substring(1, typeDefinition.Name.IndexOf('`') - 1),
 #else
                 string.Concat("As",
@@ -2905,8 +2909,10 @@ public class JSMarshaller
 
         if (typeDefinition == typeof(IList<>) ||
             typeDefinition == typeof(ICollection<>) ||
-#if !NETFRAMEWORK
+#if READONLY_SET
             typeDefinition == typeof(IReadOnlySet<>) ||
+#else
+    // TODO: Support IReadOnlySet on .NET Framework / .NET Standard 2.0.
 #endif
             typeDefinition == typeof(ISet<>))
         {
@@ -3110,7 +3116,7 @@ public class JSMarshaller
             if (nameEnd >= 0)
             {
                 string typeArgs = string.Join("_", type.GenericTypeArguments.Select(FullTypeName));
-#if NETFRAMEWORK
+#if !STRING_AS_SPAN
                 name = name.Substring(0, nameEnd) + "_of_" + typeArgs;
 #else
                 name = string.Concat(name.AsSpan(0, nameEnd), "_of_", typeArgs);
@@ -3290,7 +3296,7 @@ public class JSMarshaller
     {
         string assemblyName = forType.FullName + "_" + Environment.CurrentManagedThreadId;
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
         bool collectible = false;
 #else
         // Make the dynamic assembly collectible if in a collectible load context.
