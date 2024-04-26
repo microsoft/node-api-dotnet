@@ -20,19 +20,24 @@
   <ItemGroup>
     <None Pack="true" PackagePath="\" Include="..\..\README.md" />
 
-    <!--
-      Pack netstandard2.0, net472, and net6.0 versions of the generator and dependencies. The MSBuild targets will pick the right one.
+    <!-- Pack MSBuild props and targets files that configure and invoke the generator. -->
+    <None Pack="true" PackagePath="build\$(AssemblyName).props" Include="NodeApi.Generator.props" />
+    <None Pack="true" PackagePath="build\$(AssemblyName).targets" Include="NodeApi.Generator.targets" />
+  </ItemGroup>
 
-        - netstandard2.0 is used for source-generation in a .NET Framework 4.x based MSBuild / CSC process (building in Visual Studio).
-          net472 cannot be used for source-generation because the compiler does not allow analyzers to reference .NET Framework assemblies.
+  <!--
+    Pack netstandard2.0, net472, and net6.0 versions of the generator and dependencies. The MSBuild targets will pick the right one.
 
-        - net472 is used for typedefs generation for projects that target .NET Framework 4.x.
-          netstandard2.0 cannot be used for typedefs generation case because it cannot be launched as a command-line executable.
+      - netstandard2.0 is used for source-generation in a .NET Framework 4.x based MSBuild / CSC process (building in Visual Studio).
+        net472 cannot be used for source-generation because the compiler does not allow analyzers to reference .NET Framework assemblies.
 
-        - net6.0 is used for source-generation in a .NET 6+ based MSBuild / CSC process (building via dotnet CLI),
-          and for typedefs generation for projects that target .NET 6+.
-    -->
+      - net472 is used for typedefs generation for projects that target .NET Framework 4.x.
+        netstandard2.0 cannot be used for typedefs generation case because it cannot be launched as a command-line executable.
 
+      - net6.0 is used for source-generation in a .NET 6+ based MSBuild / CSC process (building via dotnet CLI),
+        and for typedefs generation for projects that target .NET 6+.
+  -->
+  <ItemGroup>
     <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\Microsoft.Bcl.AsyncInterfaces.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\Microsoft.CodeAnalysis.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.dll" />
@@ -44,7 +49,8 @@
     <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Reflection.MetadataLoadContext.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Runtime.CompilerServices.Unsafe.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/netstandard2.0" Include="$(OutputPath)\netstandard2.0\$(RuntimeIdentifier)\System.Threading.Tasks.Extensions.dll" />
-
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::IsOsPlatform('Windows'))">
     <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\$(AssemblyName).exe.config" />
     <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\Microsoft.Bcl.AsyncInterfaces.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\Microsoft.CodeAnalysis.dll" />
@@ -57,15 +63,12 @@
     <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Reflection.MetadataLoadContext.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Runtime.CompilerServices.Unsafe.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/net472" Include="$(OutputPath)\net472\$(RuntimeIdentifier)\System.Threading.Tasks.Extensions.dll" />
-
+  </ItemGroup>
+  <ItemGroup>
     <None Pack="true" Visible="false" PackagePath="lib/net6.0" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\System.Reflection.MetadataLoadContext.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/net6.0" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.CodeAnalysis.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/net6.0" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.dll" />
     <None Pack="true" Visible="false" PackagePath="lib/net6.0" Include="$(OutputPath)\net6.0\$(RuntimeIdentifier)\Microsoft.JavaScript.NodeApi.DotNetHost.dll" />
-
-    <!-- Pack MSBuild props and targets files that configure and invoke the generator. -->
-    <None Pack="true" PackagePath="build\$(AssemblyName).props" Include="NodeApi.Generator.props" />
-    <None Pack="true" PackagePath="build\$(AssemblyName).targets" Include="NodeApi.Generator.targets" />
   </ItemGroup>
 
   <ItemGroup>
