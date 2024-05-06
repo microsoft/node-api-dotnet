@@ -382,4 +382,4 @@ internal unsafe partial class NativeHost : IDisposable
     }
 }
 
-#endif // NETFRAMEWORK
+#endif

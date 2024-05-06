@@ -338,4 +338,4 @@ public static class SimpleClassExtensions
         => value.TestMethod();
 }
 
-#endif // !NETFRAMEWORK
+#endif

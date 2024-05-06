@@ -332,4 +332,4 @@ internal static unsafe partial class MSCorEE
     }
 }
 
-#endif // NETFRAMEWORK
+#endif

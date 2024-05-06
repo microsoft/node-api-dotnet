@@ -446,7 +446,7 @@ internal class JSSetReadOnlySet<T> : JSSetReadOnlyCollection<T>, IReadOnlySet<T>
     public bool Overlaps(IEnumerable<T> other) => throw new NotImplementedException();
     public bool SetEquals(IEnumerable<T> other) => throw new NotImplementedException();
 }
-#endif // !NETFRAMEWORK
+#endif
 
 internal class JSSetSet<T> : JSSetCollection<T>, ISet<T>
 {

@@ -373,7 +373,7 @@ internal static class JSCollectionProxies
             },
         };
     }
-#endif // !NETFRAMEWORK
+#endif
 
     /// <summary>
     /// Creates a proxy handler for a proxy that wraps an <see cref="ISet{T}"/>

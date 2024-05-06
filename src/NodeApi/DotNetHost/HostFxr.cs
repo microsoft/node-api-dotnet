@@ -306,4 +306,4 @@ internal static partial class HostFxr
     }
 }
 
-#endif // NETFRAMEWORK
+#endif
