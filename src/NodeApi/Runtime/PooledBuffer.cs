@@ -14,7 +14,7 @@ internal struct PooledBuffer : IDisposable
         Length = 0;
     }
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
 
     // Avoid a dependency on System.Buffers with .NET Framwork.
     // It is available as a nuget package, but might not be installed in the application.

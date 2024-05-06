@@ -22,7 +22,7 @@ internal static class TypeExtensions
     private const BindingFlags PublicStatic = ExactPublic | BindingFlags.Static;
     private const BindingFlags PublicInstance = ExactPublic | BindingFlags.Instance;
 
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
     private static readonly Type[] s_oneGenericMethodParam = new Type[]
     {
         Type.MakeGenericMethodParameter(0),
@@ -97,7 +97,22 @@ internal static class TypeExtensions
                 $"Implicit conversion method for {fromType.Name}->{toType.Name} " +
                 $"not found on type {declaringType.Name}.");
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
+
+    //https://github.com/dotnet/runtime/issues/23493
+    public static bool IsGenericTypeParameter(this Type target)
+    {
+        return target.IsGenericParameter &&
+               target.DeclaringType != null &&
+               target.DeclaringMethod == null;
+    }
+
+    //https://github.com/dotnet/runtime/issues/23493
+    public static bool IsGenericMethodParameter(this Type target)
+    {
+        return target.IsGenericParameter &&
+               target.DeclaringMethod != null;
+    }
 
     public static MethodInfo GetStaticMethod(
         this Type type, string name, Type[] types, Type genericArg)
@@ -182,7 +197,7 @@ internal static class TypeExtensions
         return true;
     }
 
-#else // !NETFRAMEWORK
+#else
 
     public static MethodInfo GetStaticMethod(
         this Type type, string name, Type[] types, Type genericArg)
@@ -242,5 +257,5 @@ internal static class TypeExtensions
             .ToArray();
     }
 
-#endif // !NETFRAMEWORK
+#endif
 }

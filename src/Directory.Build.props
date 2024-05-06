@@ -1,5 +1,5 @@
 <Project>
-    <Import Project="../Directory.Build.props" />
+  <Import Project="../Directory.Build.props" />
 
   <ItemGroup>
     <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />

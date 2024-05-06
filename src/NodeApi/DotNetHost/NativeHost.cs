@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
 
 using System;
 using System.IO;
@@ -137,7 +137,7 @@ internal unsafe partial class NativeHost : IDisposable
             else
             {
                 // .NET 5 or later
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
                 Version dotnetVersion = Version.Parse(targetFramework.Substring(3));
 #else
                 Version dotnetVersion = Version.Parse(targetFramework.AsSpan(3));
@@ -382,4 +382,4 @@ internal unsafe partial class NativeHost : IDisposable
     }
 }
 
-#endif // NETFRAMEWORK
+#endif

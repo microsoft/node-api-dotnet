@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Reflection.Emit" Condition="$(NetStandard)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\NodeApi\NodeApi.csproj" GeneratePathProperty="true" PrivateAssets="all" />
   </ItemGroup>
   

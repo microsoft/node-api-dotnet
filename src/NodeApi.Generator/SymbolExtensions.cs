@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
 using Microsoft.CodeAnalysis;
+using TypeInfo = System.Reflection.TypeInfo;
 
 namespace Microsoft.JavaScript.NodeApi.Generator;
 
@@ -118,14 +119,24 @@ internal static class SymbolExtensions
             {
                 return genericTypeParameters[typeParameterSymbol.Ordinal];
             }
-            else
+            else if (typeParameterSymbol.ContainingSymbol is IMethodSymbol methodSymbol)
             {
-#if NETFRAMEWORK
-                throw new NotSupportedException(
-                    "Generic type parameters are not supported in this context.");
+#if NETFRAMEWORK || NETSTANDARD
+                // There's no .NET Framework API to make a generic method parameter type.
+                // But it isn't needed anyway: the calling method will not request it.
+                throw new InvalidOperationException(
+                    $"Unknown generic type parameter {typeParameterSymbol} " +
+                    $"in method {GetTypeSymbolFullName(typeParameterSymbol.ContainingType)}" +
+                    $".{methodSymbol.Name}()");
 #else
                 return Type.MakeGenericMethodParameter(typeParameterSymbol.Ordinal);
 #endif
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Unknown generic type parameter {typeParameterSymbol} " +
+                    $"in type {GetTypeSymbolFullName(typeParameterSymbol.ContainingType)}");
             }
         }
 
@@ -166,7 +177,7 @@ internal static class SymbolExtensions
             {
                 BuildReferencedTypes((INamedTypeSymbol)typeSymbol);
 
-                symbolicType = typeBuilder.CreateType()!;
+                symbolicType = typeBuilder.CreateTypeInfo()!;
                 SymbolicTypes[typeFullName] = symbolicType;
             }
 
@@ -218,7 +229,7 @@ internal static class SymbolExtensions
         return name;
     }
 
-    private static Type BuildSymbolicEnumType(
+    private static TypeInfo BuildSymbolicEnumType(
         INamedTypeSymbol typeSymbol,
         string typeFullName)
     {
@@ -229,7 +240,7 @@ internal static class SymbolExtensions
         {
             enumBuilder.DefineLiteral(fieldSymbol.Name, fieldSymbol.ConstantValue);
         }
-        return enumBuilder.CreateType()!;
+        return enumBuilder.CreateTypeInfo()!;
     }
 
     private static TypeAttributes GetTypeAttributes(TypeKind typeKind)
@@ -305,7 +316,7 @@ internal static class SymbolExtensions
                         attribute.ConstructorArguments.Select((a) => a.Value).ToArray(),
                         attribute.NamedArguments.Select((a) =>
                             GetAttributeProperty(attributeType, a.Key)).ToArray(),
-                        attribute.NamedArguments.Select((a) => a.Value.Value).ToArray());
+                        attribute.NamedArguments.Select((a) => a.Value.Value).ToArray()!);
                     typeBuilder.SetCustomAttribute(attributeBuilder);
                 }
             }
@@ -330,7 +341,7 @@ internal static class SymbolExtensions
             return thisType;
         }
 
-        return typeBuilder.CreateType()!;
+        return typeBuilder.CreateTypeInfo()!;
     }
 
     /// <summary>
@@ -369,7 +380,7 @@ internal static class SymbolExtensions
             if (SymbolicTypes.TryGetValue(typeFullName, out Type? type) &&
                 type is TypeBuilder typeBuilder)
             {
-                typeBuilder.CreateType();
+                typeBuilder.CreateTypeInfo();
             }
         }
 
@@ -409,7 +420,7 @@ internal static class SymbolExtensions
             .Where((m) => m.DeclaredAccessibility == Accessibility.Public)
             .SelectMany((m) => m.Parameters.Select((p) => p.Type).Append(m.ReturnType))
             .OfType<INamedTypeSymbol>()
-            .Distinct(SymbolEqualityComparer.Default))
+            .Distinct(SymbolEqualityComparer.Default).Cast<INamedTypeSymbol?>())
         {
             if (!referencingSymbols.Any(
                 (s) => SymbolEqualityComparer.Default.Equals(s, parameterTypeSymbol)))
@@ -651,12 +662,18 @@ internal static class SymbolExtensions
 
         // Ensure method parameter and return types are built.
         Type[] typeParameters = type.GetGenericArguments();
+#if NETFRAMEWORK || NETSTANDARD
+        // .NET Framework cannot make generic method parameter types.
+        IEnumerable<Type> methodTypeParameters = Enumerable.Empty<Type>();
+#else
+        IEnumerable<Type> methodTypeParameters = methodSymbol.TypeParameters.Select(
+            (t) => t.AsType(typeParameters, buildType: true));
+#endif
+        typeParameters = typeParameters.Concat(methodTypeParameters).ToArray();
+
         foreach (IParameterSymbol parameter in methodSymbol.Parameters)
         {
-            IEnumerable<Type> methodTypeParameters = methodSymbol.TypeParameters.Select(
-                (t) => t.AsType(typeParameters, buildType: true));
-            parameter.Type.AsType(
-                typeParameters.Concat(methodTypeParameters).ToArray(), buildType: true);
+            parameter.Type.AsType(typeParameters, buildType: true);
         }
         methodSymbol.ReturnType.AsType(type.GenericTypeArguments, buildType: true);
 

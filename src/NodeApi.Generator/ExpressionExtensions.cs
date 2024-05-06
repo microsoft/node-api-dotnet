@@ -59,8 +59,9 @@ internal static class ExpressionExtensions
                 (variables is null ? FormatType(lambda.ReturnType) + " " + lambda.Name + "(" +
                   string.Join(", ", lambda.Parameters.Select((p) => p.ToCS())) + ")\n" :
                 "(" + string.Join(", ", lambda.Parameters.Select((p) => p.ToCS())) + ") =>\n") +
-                ToCS(lambda.Body, path, (variables ?? Enumerable.Empty<string>())
-                    .Union(lambda.Parameters.Select((p) => p.Name!)).ToHashSet()),
+                ToCS(lambda.Body, path, new HashSet<string>(
+                    (variables ?? Enumerable.Empty<string>()).Union(
+                        lambda.Parameters.Select((p) => p.Name!)))),
 
             ParameterExpression parameter =>
                 (parameter.IsByRef && parameter.Name?.StartsWith(OutParameterPrefix) == true) ?
@@ -127,7 +128,7 @@ internal static class ExpressionExtensions
                     WithParentheses(call.Object!, path, variables) + FormatArgs(
                         call.Arguments.Take(call.Arguments.Count - 1), path, variables, "[]") +
                         " = " + ToCS(call.Arguments.Last(), path, variables) :
-#if NETFRAMEWORK
+#if !STRING_AS_SPAN
                 call.Method.Name.StartsWith("get_") ?
                     (call.Method.IsStatic ?
                         FormatType(call.Method.DeclaringType!) +
@@ -139,8 +140,8 @@ internal static class ExpressionExtensions
                         FormatType(call.Method.DeclaringType!) +
                             "." + call.Method.Name.Substring(4) :
                         WithParentheses(call.Object!, path, variables) +
-                            "." + call.Method.Name.Substring(4) +
-                    " = " + ToCS(call.Arguments.Single(), path, variables)) :
+                            "." + call.Method.Name.Substring(4)) +
+                    " = " + ToCS(call.Arguments.Single(), path, variables) :
 #else
                 call.Method.Name.StartsWith("get_") ?
                     (call.Method.IsStatic ?

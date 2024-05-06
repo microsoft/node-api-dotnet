@@ -45,4 +45,3 @@ public partial struct JSAsyncIterable
         readonly ValueTask IAsyncDisposable.DisposeAsync() => default;
     }
 }
-

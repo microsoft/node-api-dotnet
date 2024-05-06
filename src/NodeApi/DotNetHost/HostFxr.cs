@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if !NETFRAMEWORK
+#if !(NETFRAMEWORK || NETSTANDARD)
 
 using System;
 using System.IO;
@@ -306,4 +306,4 @@ internal static partial class HostFxr
     }
 }
 
-#endif // NETFRAMEWORK
+#endif

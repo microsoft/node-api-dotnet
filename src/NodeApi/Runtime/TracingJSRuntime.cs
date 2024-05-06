@@ -231,10 +231,10 @@ public class TracingJSRuntime : JSRuntime
         if (value?.Length > 32)
         {
 
-#if NETFRAMEWORK
-            value = value.Substring(0, 32) + "...";
-#else
+#if STRING_AS_SPAN
             value = string.Concat(value.AsSpan(0, 32), "...");
+#else
+            value = value.Substring(0, 32) + "...";
 #endif
         }
 
@@ -359,7 +359,7 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-#if NETFRAMEWORK
+#if !UNMANAGED_DELEGATES
     private static readonly napi_callback.Delegate s_traceFunctionCallback = TraceFunctionCallback;
     private static readonly napi_callback.Delegate s_traceMethodCallback = TraceMethodCallback;
     private static readonly napi_callback.Delegate s_traceGetterCallback = TraceGetterCallback;

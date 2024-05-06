@@ -28,7 +28,7 @@ internal record struct JSErrorInfo(string? Message, napi_status Status)
 
         if (errorInfo.Value.error_message != null)
         {
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
             string message = PtrToStringUTF8(errorInfo.Value.error_message)!;
 #else
             string message = Marshal.PtrToStringUTF8((nint)errorInfo.Value.error_message)!;
@@ -39,7 +39,7 @@ internal record struct JSErrorInfo(string? Message, napi_status Status)
         return new JSErrorInfo(null, errorInfo.Value.error_code);
     }
 
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD
     private static unsafe string? PtrToStringUTF8(byte* ptr)
     {
         if (ptr == null) return null;

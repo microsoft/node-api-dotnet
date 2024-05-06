@@ -55,7 +55,7 @@ public unsafe partial class NodejsRuntime
     {
         public nint Handle;
 
-#if NETFRAMEWORK
+#if !UNMANAGED_DELEGATES
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void Delegate(
             napi_env env, napi_value js_callback, nint context, nint data);

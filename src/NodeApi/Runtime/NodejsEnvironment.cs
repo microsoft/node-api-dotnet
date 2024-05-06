@@ -108,9 +108,13 @@ public sealed class NodejsEnvironment : IDisposable
 
         // The import keyword is not a function and is only available through use of an
         // external helper module.
+#if NETFRAMEWORK || NETSTANDARD
+        string assemblyLocation = new Uri(typeof(NodejsEnvironment).Assembly.CodeBase).LocalPath;
+#else
 #pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
         string assemblyLocation = typeof(NodejsEnvironment).Assembly.Location;
 #pragma warning restore IL3000
+#endif
         if (!string.IsNullOrEmpty(assemblyLocation))
         {
             string importAdapterModulePath = Path.Combine(
