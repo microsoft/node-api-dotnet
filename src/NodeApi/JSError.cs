@@ -142,9 +142,7 @@ public struct JSError
             }
         }
 
-        var tempError = new JSError(exception.Message);
-        _message = tempError._message;
-        _errorRef = tempError._errorRef;
+        _errorRef = CreateErrorReference(CreateErrorValueForException(exception, out _message));
     }
 
     public string Message
@@ -192,6 +190,49 @@ public struct JSError
         }
     }
 
+    private static JSValue CreateErrorValueForException(Exception exception, out string message)
+    {
+        message = (exception as TargetInvocationException)?.InnerException?.Message
+            ?? exception.Message;
+
+        // If the exception is a JSException for an error value, use that error value;
+        // otherwise construct a new error value from the exception message.
+        JSValue error = (exception as JSException)?.Error?.Value ??
+            JSValue.CreateError(code: null, (JSValue)message);
+
+        // A no-context scope is used when initializing the host. In that case, do not attempt
+        // to override the stack property, because if initialization fails the scope may not
+        // be available for the stack callback.
+        if (JSValueScope.Current.ScopeType != JSValueScopeType.NoContext)
+        {
+            // When running on V8, the `Error.captureStackTrace()` function and `Error.stack`
+            // property can be used to add the .NET stack info to the JS error stack.
+            JSValue captureStackTrace = JSValue.Global["Error"]["captureStackTrace"];
+            if (captureStackTrace.IsFunction())
+            {
+                // Capture the stack trace of the .NET exception, which will be combined with
+                // the JS stack trace when requested.
+                JSValue dotnetStack = exception.StackTrace?.Replace("\r", string.Empty)
+                    ?? string.Empty;
+
+                // Capture the current JS stack trace as an object.
+                // Defer formatting the stack as a string until requested.
+                JSObject jsStack = new();
+                captureStackTrace.Call(default, jsStack);
+
+                // Override the `stack` property of the JS Error object, and add private
+                // properties that the overridden property getter uses to construct the stack.
+                error.DefineProperties(
+                    JSPropertyDescriptor.Accessor(
+                        "stack", GetErrorStack, setter: null, JSPropertyAttributes.DefaultProperty),
+                    JSPropertyDescriptor.ForValue("__dotnetStack", dotnetStack),
+                    JSPropertyDescriptor.ForValue("__jsStack", jsStack));
+            }
+        }
+
+        return error;
+    }
+
     public readonly void ThrowError()
     {
         if (_errorRef is null)
@@ -230,44 +271,7 @@ public struct JSError
     public static void ThrowError(Exception exception)
     {
         // Do not construct a JSError object here, because that would require a runtime context.
-
-        string message = (exception as TargetInvocationException)?.InnerException?.Message
-            ?? exception.Message;
-
-        // If the exception is a JSException for an error value, throw that error value;
-        // otherwise construct a new error value from the exception message.
-        JSValue error = (exception as JSException)?.Error?.Value ??
-            JSValue.CreateError(code: null, (JSValue)message);
-
-        // A no-context scope is used when initializing the host. In that case, do not attempt
-        // to override the stack property, because if initialization fails the scope may not
-        // be available for the stack callback.
-        if (JSValueScope.Current.ScopeType != JSValueScopeType.NoContext)
-        {
-            // When running on V8, the `Error.captureStackTrace()` function and `Error.stack`
-            // property can be used to add the .NET stack info to the JS error stack.
-            JSValue captureStackTrace = JSValue.Global["Error"]["captureStackTrace"];
-            if (captureStackTrace.IsFunction())
-            {
-                // Capture the stack trace of the .NET exception, which will be combined with
-                // the JS stack trace when requested.
-                JSValue dotnetStack = exception.StackTrace?.Replace("\r", string.Empty)
-                    ?? string.Empty;
-
-                // Capture the current JS stack trace as an object.
-                // Defer formatting the stack as a string until requested.
-                JSObject jsStack = new();
-                captureStackTrace.Call(default, jsStack);
-
-                // Override the `stack` property of the JS Error object, and add private
-                // properties that the overridden property getter uses to construct the stack.
-                error.DefineProperties(
-                    JSPropertyDescriptor.Accessor(
-                        "stack", GetErrorStack, setter: null, JSPropertyAttributes.DefaultProperty),
-                    JSPropertyDescriptor.ForValue("__dotnetStack", dotnetStack),
-                    JSPropertyDescriptor.ForValue("__jsStack", jsStack));
-            }
-        }
+        JSValue error = CreateErrorValueForException(exception, out string message);
 
         napi_status status = error.Scope.Runtime.Throw(
             (napi_env)JSValueScope.Current, (napi_value)error);
@@ -275,7 +279,7 @@ public struct JSError
         if (status != napi_status.napi_ok && status != napi_status.napi_pending_exception)
         {
             throw new JSException(
-                $"Failed to throw JS Error. Status: {status}\n{exception.Message}");
+                $"Failed to throw JS Error. Status: {status}\n{message}");
         }
     }
 
@@ -323,6 +327,10 @@ public struct JSError
         {
             jsStack = jsStack.Substring(firstLineEnd + 1);
         }
+        else
+        {
+            jsStack = "";
+        }
 
         // Normalize indentation to 4 spaces, as used by JS. (.NET traces indent with 3 spaces.)
         if (jsStack.StartsWith("    at "))
@@ -330,7 +338,7 @@ public struct JSError
             dotnetStack = dotnetStack.Replace("   at ", "    at ");
         }
 
-        return $"{name}: {message}\n{dotnetStack}\n{jsStack}";
+        return $"{name}: {message}\n{dotnetStack}{(jsStack.Length > 0 ? '\n' : "")}{jsStack}";
     }
 
     [DoesNotReturn]
