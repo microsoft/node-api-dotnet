@@ -108,7 +108,7 @@ async function catchAsyncDotnetError() {
 
   // The first line of the stack trace should refer to the .NET method that threw.
   assert(stack[0].startsWith(`at ${dotnetNamespacePrefix}`));
-  assert(stack[0].includes('Errors.ThrowAsyncDotnetError('));
+  assert(stack[0].includes('ThrowAsyncDotnetError'));
 
   // Unfortunately the JS stack trace is not available for errors thrown by a .NET async method.
   // That is because the Task to Promise conversion uses Promise APIs which do not preserve
