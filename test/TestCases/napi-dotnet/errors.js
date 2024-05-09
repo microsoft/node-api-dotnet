@@ -21,6 +21,7 @@ function catchDotnetError() {
 
   assert(typeof error.stack === 'string');
   console.log(error.stack);
+  console.log();
 
   const stack = error.stack.split('\n').map((line) => line.trim());
 
@@ -56,6 +57,7 @@ function catchJSError() {
 
   assert(typeof error.stack === 'string');
   console.log(error.stack);
+  console.log();
 
   const stack = error.stack.split('\n').map((line) => line.trim());
 
@@ -82,3 +84,34 @@ function catchJSError() {
   assert(stack[0].startsWith(`at ${catchJSError.name} `));
 }
 catchJSError();
+
+async function catchAsyncDotnetError() {
+  let error = undefined;
+  try {
+    await Errors.throwAsyncDotnetError('test');
+  } catch (e) {
+    error = e;
+  }
+
+  assert(error instanceof Error);
+  assert.strictEqual(error.message, 'test');
+
+  assert(typeof error.stack === 'string');
+  console.log(error.stack);
+  console.log();
+
+  const stack = error.stack.split('\n').map((line) => line.trim());
+
+  // The stack should be prefixed with the error type and message.
+  const firstLine = stack.shift();
+  assert.strictEqual(firstLine, 'Error: test');
+
+  // The first line of the stack trace should refer to the .NET method that threw.
+  assert(stack[0].startsWith(`at ${dotnetNamespacePrefix}`));
+  assert(stack[0].includes('ThrowAsyncDotnetError'));
+
+  // Unfortunately the JS stack trace is not available for errors thrown by a .NET async method.
+  // That is because the Task to Promise conversion uses Promise APIs which do not preserve
+  // the JS stack. See https://v8.dev/blog/fast-async#improved-developer-experience
+}
+catchAsyncDotnetError();

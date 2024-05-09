@@ -96,19 +96,21 @@ public readonly struct JSPromise : IEquatable<JSValue>
     public JSPromise(AsyncResolveCallback callback)
     {
         _value = JSValue.CreatePromise(out Deferred deferred);
-        async void AsyncCallback()
+        ResolveDeferred(callback, deferred);
+    }
+
+    private static async void ResolveDeferred(
+        AsyncResolveCallback callback, Deferred deferred)
+    {
+        using var asyncScope = new JSAsyncScope();
+        try
         {
-            using var asyncScope = new JSAsyncScope();
-            try
-            {
-                await callback(deferred.Resolve);
-            }
-            catch (Exception ex)
-            {
-                deferred.Reject(ex);
-            }
+            await callback(deferred.Resolve);
         }
-        AsyncCallback();
+        catch (Exception ex)
+        {
+            deferred.Reject(ex);
+        }
     }
 
     /// <summary>
@@ -124,19 +126,21 @@ public readonly struct JSPromise : IEquatable<JSValue>
     public JSPromise(AsyncResolveRejectCallback callback)
     {
         _value = JSValue.CreatePromise(out Deferred deferred);
-        async void AsyncCallback()
+        ResolveDeferred(callback, deferred);
+    }
+
+    private static async void ResolveDeferred(
+        AsyncResolveRejectCallback callback, Deferred deferred)
+    {
+        using var asyncScope = new JSAsyncScope();
+        try
         {
-            using var asyncScope = new JSAsyncScope();
-            try
-            {
-                await callback(deferred.Resolve, deferred.Reject);
-            }
-            catch (Exception ex)
-            {
-                deferred.Reject(ex);
-            }
+            await callback(deferred.Resolve, deferred.Reject);
         }
-        AsyncCallback();
+        catch (Exception ex)
+        {
+            deferred.Reject(ex);
+        }
     }
 
     /// <summary>
