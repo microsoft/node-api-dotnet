@@ -54,6 +54,7 @@ public class JSReference : IDisposable
     /// <summary>
     /// Gets the value handle, or throws an exception if access from the current thread is invalid.
     /// </summary>
+    /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
     /// <exception cref="JSInvalidThreadAccessException">Access to the reference is not valid on
     /// the current thread.</exception>
     public napi_ref Handle
@@ -110,6 +111,10 @@ public class JSReference : IDisposable
         }
     }
 
+    /// <summary>
+    /// Changes a strong reference into a weak reference, if it is not already weak.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
     public void MakeWeak()
     {
         if (!IsWeak)
@@ -118,6 +123,12 @@ public class JSReference : IDisposable
             IsWeak = true;
         }
     }
+
+    /// <summary>
+    /// Changes a weak reference into a strong reference, if it is not already strong and
+    /// the value is still available.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
     public void MakeStrong()
     {
         if (IsWeak)
@@ -131,6 +142,7 @@ public class JSReference : IDisposable
     /// Gets the referenced JS value, or null if the reference is weak and the value is
     /// no longer available.
     /// </summary>
+    /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
     public JSValue? GetValue()
     {
         JSValueScope.CurrentRuntime.GetReferenceValue(Env, _handle, out napi_value result)
@@ -139,10 +151,17 @@ public class JSReference : IDisposable
     }
 
     /// <summary>
+    /// Gets a value indicating whether the referenced JS value is still available (not released).
+    /// Returns false (does not throw) if the reference is disposed.
+    /// </summary>
+    public bool HasValue => !IsDisposed && (!IsWeak || GetValue().HasValue);
+
+    /// <summary>
     /// Runs an action with the referenced value, using the <see cref="JSSynchronizationContext" />
     /// associated with the reference to switch to the JS thread (if necessary) while operating
     /// on the value.
     /// </summary>
+    /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
     public void Run(Action<JSValue> action)
     {
         void GetValueAndRunAction()
@@ -172,6 +191,7 @@ public class JSReference : IDisposable
     /// associated with the reference to switch to the JS thread (if necessary) while operating
     /// on the value.
     /// </summary>
+    /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
     public T Run<T>(Func<JSValue, T> action)
     {
         T GetValueAndRunAction()
@@ -196,6 +216,14 @@ public class JSReference : IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets a value indicating whether the reference has been disposed.
+    /// </summary>
+    /// <remarks>
+    /// Note that a weakly- referenced JS value may have been released without the JS reference
+    /// itself being disposed. Use <see cref="HasValue"/> to check if the referenced value is
+    /// still available.
+    /// </remarks>
     public bool IsDisposed { get; private set; }
 
     private void ThrowIfDisposed()
