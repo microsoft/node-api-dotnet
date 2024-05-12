@@ -106,26 +106,13 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
     /// returns that JS value.
     /// </summary>
     /// <returns>The JS value, or null if the memory is external to JS.</returns>
-    private static unsafe JSValue? GetJSValueForMemory(ReadOnlyMemory<T> data)
+    private static JSValue? GetJSValueForMemory(ReadOnlyMemory<T> data)
     {
-        // This assumes the owner object of a Memory struct is stored as a reference in the
-        // first (private) field of the struct. If the Memory internal structure ever changes
-        // (in a future major version of the .NET Runtime), this unsafe code could crash.
-        // Unfortunately there's no public API to get the Memory owner object.
-        void* memoryPointer = Unsafe.AsPointer(ref data);
-        object? memoryOwner = Unsafe.Read<object?>(memoryPointer);
-        if (memoryOwner is MemoryManager manager)
+        if (MemoryMarshal.TryGetMemoryManager(data, out MemoryManager? manager, out int index, out int length))
         {
             // The Memory was created from a JS TypedArray.
 
-            // Strip the high bit of the index - it has a special meaning.
-            void* memoryIndexPointer = (byte*)memoryPointer + Unsafe.SizeOf<object?>();
-            int index = Unsafe.Read<int>(memoryIndexPointer) & ~int.MinValue;
-
-            void* memoryLengthPointer = (byte*)memoryIndexPointer + Unsafe.SizeOf<int>();
-            int length = Unsafe.Read<int>(memoryLengthPointer);
-
-            JSValue value = manager.JSValue;
+            JSValue value = manager!.JSValue;
             int valueLength = value.GetTypedArrayLength(out _);
 
             if (index != 0 || length != valueLength)
