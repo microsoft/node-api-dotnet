@@ -767,7 +767,7 @@ public sealed class JSRuntimeContext : IDisposable
 
 #if DEBUG
         string targetType = value?.GetType().Name ?? "null";
-        Debug.WriteLine($"Allocating GC handle {(nint)handle:X16}: {targetType}");
+        Console.WriteLine($"Allocating GC handle {(nint)handle:X16}: {targetType}");
         GCHandleMap[(nint)handle] = new GCHandleInfo
         {
             Value = value,
@@ -789,7 +789,7 @@ public sealed class JSRuntimeContext : IDisposable
 
 #if DEBUG
         string targetType = handle.Target?.GetType().Name ?? "null";
-        Debug.WriteLine($"Freeing GC handle {(nint)handle:X16}: {targetType}");
+        Console.WriteLine($"Freeing GC handle {(nint)handle:X16}: {targetType}");
         if (!GCHandleMap.Remove((nint)handle))
         {
             throw new InvalidOperationException(

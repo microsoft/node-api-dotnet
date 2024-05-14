@@ -1,22 +1,40 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
+using System.Threading.Tasks;
+
 namespace Microsoft.JavaScript.NodeApi.Examples;
 
-/// <summary>
-/// Example Node API module that exports a simple "hello" method.
-/// </summary>
 [JSExport]
-public static class Example
+public static class CounterFactory
 {
-    /// <summary>
-    /// Gets a greeting string.
-    /// </summary>
-    /// <param name="greeter">Name of the greeter.</param>
-    /// <returns>A greeting with the name.</returns>
-    public static string Hello(string greeter)
+    public static Counter CreateCounter() => new Counter();
+}
+
+[JSExport]
+public class Counter
+{
+    public long Count { get; private set; }
+
+    public void Increment()
     {
-        System.Console.WriteLine($"Hello {greeter}!");
-        return $"Hello {greeter}!";
+        Count++;
+
+        if (Count % 100000 == 0)
+        {
+            System.GC.Collect();
+        }
+    }
+
+    public async Task IncrementAsync()
+    {
+        Count++;
+        await Task.Yield();
+
+        if (Count % 100000 == 0)
+        {
+            System.GC.Collect();
+        }
     }
 }

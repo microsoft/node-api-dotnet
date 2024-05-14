@@ -750,6 +750,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
         GCHandle valueHandle = _scope!.RuntimeContext.AllocGCHandle(value);
+        Console.WriteLine($"Wrapping   GC handle {(nint)valueHandle:X16}");
         runtime.Wrap(
             env,
             handle,
@@ -769,6 +770,7 @@ public readonly struct JSValue : IEquatable<JSValue>
     {
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
         GCHandle valueHandle = _scope!.RuntimeContext.AllocGCHandle(value);
+        Console.WriteLine($"Wrapping   GC handle {(nint)valueHandle:X16}");
         runtime.Wrap(
             env,
             handle,
@@ -815,8 +817,26 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
 
         status.ThrowIfFailed();
-        return GCHandle.FromIntPtr(result).Target!;
+
+        if (result != _lastUnwrappedHandle)
+        {
+            Console.WriteLine($"Unwrapping GC handle {result:X16}");
+            _lastUnwrappedHandle = result;
+        }
+
+        try
+        {
+            return GCHandle.FromIntPtr(result).Target!;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error unwrapping {result:X16}: {ex}");
+            Environment.Exit(1);
+            throw;
+        }
     }
+
+    private static nint _lastUnwrappedHandle = -1;
 
     /// <summary>
     /// Detaches an object from this JSValue.

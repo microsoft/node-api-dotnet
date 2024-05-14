@@ -1,10 +1,28 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+import { CounterFactory, Counter } from "./bin/dotnet-module.js";
 
-const Example = require('./bin/dotnet-module').Example;
+// No crash when constructing the counter object directly instead of via factory.
+////count(new Counter());
 
-// Call a method exported by the .NET module.
-const result = Example.hello('.NET');
+count(CounterFactory.createCounter());
 
-const assert = require('assert');
-assert.strictEqual(result, 'Hello .NET!');
+async function count(counter) {
+    while (true) {
+        try {
+            // No crash when not using async. (Or maybe it is just less likely.)
+            ////counter.incrementAsync();
+
+            await counter.incrementAsync();
+
+            if (counter.count % 100000 == 0) {
+                console.log('count: ' + counter.count);
+            }
+
+            if (counter.count % 500000 == 0) {
+                if (global.gc) global.gc();
+            }
+        } catch(err){
+            console.log(err);
+            break;
+        }
+    }
+}
