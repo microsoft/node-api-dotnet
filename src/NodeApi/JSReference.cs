@@ -151,12 +151,6 @@ public class JSReference : IDisposable
     }
 
     /// <summary>
-    /// Gets a value indicating whether the referenced JS value is still available (not released).
-    /// Returns false (does not throw) if the reference is disposed.
-    /// </summary>
-    public bool HasValue => !IsDisposed && (!IsWeak || GetValue().HasValue);
-
-    /// <summary>
     /// Runs an action with the referenced value, using the <see cref="JSSynchronizationContext" />
     /// associated with the reference to switch to the JS thread (if necessary) while operating
     /// on the value.
@@ -220,8 +214,8 @@ public class JSReference : IDisposable
     /// Gets a value indicating whether the reference has been disposed.
     /// </summary>
     /// <remarks>
-    /// Note that a weakly- referenced JS value may have been released without the JS reference
-    /// itself being disposed. Use <see cref="HasValue"/> to check if the referenced value is
+    /// Note that a weakly-referenced JS value may have been released without the JS reference
+    /// itself being disposed. Call <see cref="GetValue()"/> to check if the referenced value is
     /// still available.
     /// </remarks>
     public bool IsDisposed { get; private set; }

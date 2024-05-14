@@ -311,7 +311,7 @@ public sealed class JSRuntimeContext : IDisposable
 
         if (_objectMap.TryGetValue(obj, out JSReference? existingWrapperWeakRef))
         {
-            if (existingWrapperWeakRef.HasValue)
+            if (!existingWrapperWeakRef.IsDisposed && existingWrapperWeakRef.GetValue().HasValue)
             {
                 // If the .NET object is already mapped to a non-released JS object, then
                 // another one should not be created.
@@ -368,41 +368,35 @@ public sealed class JSRuntimeContext : IDisposable
     private JSValue GetOrCreateObjectWrapper<T>(T obj, Func<JSValue> createWrapper)
         where T : class
     {
-        JSValue wrapper;
+        if (_objectMap.TryGetValue(obj, out JSReference? wrapperWeakRef) &&
+            !wrapperWeakRef.IsDisposed)
+        {
+            JSValue? existingWrapper = wrapperWeakRef.GetValue();
+            if (existingWrapper.HasValue)
+            {
+                // Return the JS wrapper that was found in the map.
+                return existingWrapper.Value;
+            }
+            else
+            {
+                // The JS wrapper was released.
+                // The disposed weak reference will be removed from the map below.
+                wrapperWeakRef.Dispose();
+            }
+        }
 
-        if (!_objectMap.TryGetValue(obj, out JSReference? wrapperWeakRef))
-        {
-            // No wrapper was found in the map for the object. Create a new one.
-            wrapper = createWrapper();
-            wrapperWeakRef = new JSReference(wrapper, isWeak: true);
+        // No wrapper was found in the map for the object. Create a new one.
+        JSValue wrapper = createWrapper();
+        wrapperWeakRef = new JSReference(wrapper, isWeak: true);
 
-            // Use AddOrUpdate() in case the constructor just added the object
-            // or a previously-disposed wrapper was in the map.
+        // Use AddOrUpdate() in case the constructor just added the object
+        // or a previously-disposed wrapper was in the map.
 #if NETFRAMEWORK || NETSTANDARD
-            _objectMap.Remove(obj);
-            _objectMap.Add(obj, wrapperWeakRef);
+        _objectMap.Remove(obj);
+        _objectMap.Add(obj, wrapperWeakRef);
 #else
-            _objectMap.AddOrUpdate(obj, wrapperWeakRef);
+        _objectMap.AddOrUpdate(obj, wrapperWeakRef);
 #endif
-        }
-        else if (!wrapperWeakRef.HasValue)
-        {
-            // A reference was found in the map, but the JS object was released.
-            // Create a new wrapper JS object and update the reference in the map.
-            wrapperWeakRef.Dispose();
-            wrapper = createWrapper();
-            wrapperWeakRef = new JSReference(wrapper, isWeak: true);
-#if NETFRAMEWORK || NETSTANDARD
-            _objectMap.Remove(obj);
-            _objectMap.Add(obj, wrapperWeakRef);
-#else
-            _objectMap.AddOrUpdate(obj, wrapperWeakRef);
-#endif
-        }
-        else
-        {
-            wrapper = wrapperWeakRef.GetValue()!.Value;
-        }
 
         return wrapper;
     }
