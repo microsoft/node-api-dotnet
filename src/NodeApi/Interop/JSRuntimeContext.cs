@@ -309,10 +309,23 @@ public sealed class JSRuntimeContext : IDisposable
         // GetOrCreateObjectWrapper() will create a new JS wrapper if requested.
         wrapper.Wrap(obj, out JSReference wrapperWeakRef);
 
-        // There should not be an existing wrapper in the map, because this is the
-        // first initialization of a wrapper for the .NET object.
-        _objectMap.Add(obj, wrapperWeakRef);
+        if (_objectMap.TryGetValue(obj, out JSReference? existingWrapperWeakRef))
+        {
+            if (!existingWrapperWeakRef.IsDisposed && existingWrapperWeakRef.GetValue().HasValue)
+            {
+                // If the .NET object is already mapped to a non-released JS object, then
+                // another one should not be created.
+                throw new InvalidOperationException("Duplicate .NET to JS object mapping.");
+            }
+            else
+            {
+                // An existing wrapper was in the map, but the JS object was released.
+                existingWrapperWeakRef.Dispose();
+                _objectMap.Remove(obj);
+            }
+        }
 
+        _objectMap.Add(obj, wrapperWeakRef);
         return wrapper;
     }
 
@@ -334,12 +347,11 @@ public sealed class JSRuntimeContext : IDisposable
             return JSValue.Undefined;
         }
 
-        JSValue? wrapper = null;
-        JSReference CreateWrapper(T obj)
+        return GetOrCreateObjectWrapper(obj, () =>
         {
             if (obj is Stream stream)
             {
-                wrapper = NodeStream.CreateProxy(stream);
+                return NodeStream.CreateProxy(stream);
             }
             else
             {
@@ -348,44 +360,45 @@ public sealed class JSRuntimeContext : IDisposable
                 // instance of the class.
                 JSValue externalValue = JSValue.CreateExternal(obj);
                 JSValue constructorFunction = GetClassConstructor<T>();
-                wrapper = constructorFunction.CallAsConstructor(externalValue);
+                return constructorFunction.CallAsConstructor(externalValue);
             }
+        });
+    }
 
-            return new(wrapper.Value, isWeak: true);
-        }
-
-        if (!_objectMap.TryGetValue(obj, out JSReference? wrapperReference))
+    private JSValue GetOrCreateObjectWrapper<T>(T obj, Func<JSValue> createWrapper)
+        where T : class
+    {
+        if (_objectMap.TryGetValue(obj, out JSReference? wrapperWeakRef) &&
+            !wrapperWeakRef.IsDisposed)
         {
-            // No wrapper was found in the map for the object. Create a new one.
-            wrapperReference = CreateWrapper(obj);
-
-            // Use AddOrUpdate() in case the constructor just added the object.
-#if NETFRAMEWORK || NETSTANDARD
-            _objectMap.Remove(obj);
-            _objectMap.Add(obj, wrapperReference);
-#else
-            _objectMap.AddOrUpdate(obj, wrapperReference);
-#endif
-        }
-        else
-        {
-            wrapper = wrapperReference.GetValue();
-            if (!wrapper.HasValue)
+            JSValue? existingWrapper = wrapperWeakRef.GetValue();
+            if (existingWrapper.HasValue)
             {
-                // A reference was found in the map, but the JS object was released.
-                // Create a new wrapper JS object and update the reference in the map.
-                wrapperReference.Dispose();
-                wrapperReference = CreateWrapper(obj);
-#if NETFRAMEWORK || NETSTANDARD
-                _objectMap.Remove(obj);
-                _objectMap.Add(obj, wrapperReference);
-#else
-                _objectMap.AddOrUpdate(obj, wrapperReference);
-#endif
+                // Return the JS wrapper that was found in the map.
+                return existingWrapper.Value;
+            }
+            else
+            {
+                // The JS wrapper was released.
+                // The disposed weak reference will be removed from the map below.
+                wrapperWeakRef.Dispose();
             }
         }
 
-        return wrapper!.Value;
+        // No wrapper was found in the map for the object. Create a new one.
+        JSValue wrapper = createWrapper();
+        wrapperWeakRef = new JSReference(wrapper, isWeak: true);
+
+        // Use AddOrUpdate() in case the constructor just added the object
+        // or a previously-disposed wrapper was in the map.
+#if NETFRAMEWORK || NETSTANDARD
+        _objectMap.Remove(obj);
+        _objectMap.Add(obj, wrapperWeakRef);
+#else
+        _objectMap.AddOrUpdate(obj, wrapperWeakRef);
+#endif
+
+        return wrapper;
     }
 
     public JSValue GetOrCreateCollectionWrapper<T>(
@@ -393,7 +406,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.From<T> toJS)
     {
         return collection is JSIterableEnumerable<T> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IEnumerable<T>),
@@ -407,7 +420,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.From<T> toJS)
     {
         return collection is JSIterableEnumerable<T> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IAsyncEnumerable<T>),
@@ -421,7 +434,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.From<T> toJS)
     {
         return collection is JSArrayReadOnlyCollection<T> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IReadOnlyCollection<T>),
@@ -436,7 +449,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.To<T> fromJS)
     {
         return collection is JSArrayCollection<T> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(ICollection<T>),
@@ -450,7 +463,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.From<T> toJS)
     {
         return collection is JSArrayReadOnlyList<T> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IReadOnlyList<T>),
@@ -465,7 +478,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.To<T> fromJS)
     {
         return collection is JSArrayList<T> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IList<T>),
@@ -481,7 +494,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.To<T> fromJS)
     {
         return collection is JSSetReadOnlySet<T> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(IReadOnlySet<T>),
@@ -497,7 +510,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.To<T> fromJS)
     {
         return collection is JSSetSet<T> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                     typeof(ISet<T>),
@@ -513,7 +526,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.To<TKey> keyFromJS)
     {
         return collection is JSMapReadOnlyDictionary<TKey, TValue> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                 typeof(IReadOnlyDictionary<TKey, TValue>),
@@ -531,7 +544,7 @@ public sealed class JSRuntimeContext : IDisposable
         JSValue.To<TValue> valueFromJS)
     {
         return collection is JSMapDictionary<TKey, TValue> adapter ? adapter.Value :
-            GetOrCreateCollectionProxy(collection, () =>
+            GetOrCreateObjectWrapper(collection, () =>
             {
                 JSProxy.Handler proxyHandler = _collectionProxyHandlerMap.GetOrAdd(
                 typeof(IDictionary<TKey, TValue>),
@@ -539,40 +552,6 @@ public sealed class JSRuntimeContext : IDisposable
                         keyToJS, valueToJS, keyFromJS, valueFromJS));
                 return new JSProxy(new JSMap(), proxyHandler, collection);
             });
-    }
-
-    private JSValue GetOrCreateCollectionProxy(
-        object collection,
-        Func<JSValue> createWrapper)
-    {
-        JSValue? wrapper = null;
-
-        if (!_objectMap.TryGetValue(collection, out JSReference? wrapperReference))
-        {
-            // No wrapper was found in the map for the object. Create a new one.
-            wrapper = createWrapper();
-            _objectMap.Add(collection, new JSReference(wrapper.Value, isWeak: true));
-        }
-        else
-        {
-            wrapper = wrapperReference.GetValue();
-            if (!wrapper.HasValue)
-            {
-                // A reference was found in the map, but the JS object was released.
-                // Create a new wrapper JS object and update the reference in the map.
-                wrapperReference.Dispose();
-                wrapper = createWrapper();
-                wrapperReference = new JSReference(wrapper.Value, isWeak: true);
-#if NETFRAMEWORK || NETSTANDARD
-                _objectMap.Remove(collection);
-                _objectMap.Add(collection, wrapperReference);
-#else
-                _objectMap.AddOrUpdate(collection, wrapperReference);
-#endif
-            }
-        }
-
-        return wrapper!.Value;
     }
 
     /// <summary>
