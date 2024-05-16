@@ -382,21 +382,27 @@ public sealed class JSRuntimeContext : IDisposable
                 // The JS wrapper was released.
                 // The disposed weak reference will be removed from the map below.
                 wrapperWeakRef.Dispose();
+                _objectMap.Remove(obj);
             }
         }
 
         // No wrapper was found in the map for the object. Create a new one.
         JSValue wrapper = createWrapper();
-        wrapperWeakRef = new JSReference(wrapper, isWeak: true);
 
-        // Use AddOrUpdate() in case the constructor just added the object
-        // or a previously-disposed wrapper was in the map.
+        // Add the wrapper reference if it is not added by createWrapper().
+        if (!_objectMap.TryGetValue(obj, out wrapperWeakRef) || wrapperWeakRef.IsDisposed)
+        {
+            wrapperWeakRef = new JSReference(wrapper, isWeak: true);
+
+            // Use AddOrUpdate() in case the constructor just added the object
+            // or a previously-disposed wrapper was in the map.
 #if NETFRAMEWORK || NETSTANDARD
-        _objectMap.Remove(obj);
-        _objectMap.Add(obj, wrapperWeakRef);
+            _objectMap.Remove(obj);
+            _objectMap.Add(obj, wrapperWeakRef);
 #else
-        _objectMap.AddOrUpdate(obj, wrapperWeakRef);
+            _objectMap.AddOrUpdate(obj, wrapperWeakRef);
 #endif
+        }
 
         return wrapper;
     }
