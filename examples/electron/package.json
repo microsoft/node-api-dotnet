@@ -1,0 +1,11 @@
+{
+  "name": "node-api-dotnet-examples-electron",
+  "dependencies": {
+    "electron": "^30.0.1",
+    "node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
+  },
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  }
+}
