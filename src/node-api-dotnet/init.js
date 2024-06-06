@@ -42,10 +42,28 @@ function initialize(targetFramework) {
   }
 
   const assemblyName = 'Microsoft.JavaScript.NodeApi';
-  const nativeHostPath = __dirname + `/${rid}/${assemblyName}.node`;
-  const managedHostPath = __dirname + `/${targetFramework}/${assemblyName}.DotNetHost.dll`
+  let nativeHost;
+  switch(rid) {
+    case 'win-x64':
+      nativeHost = require(`./win-x64/${assemblyName}.node`);
+      break;
+    case 'win-arm64':
+      nativeHost = require(`./win-arm64/${assemblyName}.node`);
+      break;
+    case 'osx-x64':
+      nativeHost = require(`./osx-x64/${assemblyName}.node`);
+      break;
+    case 'osx-arm64':
+      nativeHost = require(`./osx-arm64/${assemblyName}.node`);
+      break;
+    case 'linux-x64':
+      nativeHost = require(`./linux-x64/${assemblyName}.node`);
+      break;
+    default:
+      nativeHost = require(__dirname + `/${rid}/${assemblyName}.node`);
+  }
 
-  const nativeHost = require(nativeHostPath);
+  const managedHostPath = __dirname + `/${targetFramework}/${assemblyName}.DotNetHost.dll`
 
   // Pass require() and import() functions to the host initialize() method.
   // Since `import` is a keyword and not a function it has to be wrapped in a function value.
