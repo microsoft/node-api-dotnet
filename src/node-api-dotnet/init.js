@@ -41,6 +41,11 @@ function initialize(targetFramework) {
     targetFramework = defaultTargetFramework;
   }
 
+  /**
+   * Build tools like webpack are not able to package up dynamic includes like the default case.
+   * The switch supports the currently packaged DLLs to work with build tools while maintaining 
+   * potential backwards and future compatibility utilizing the default case. 
+   */
   const assemblyName = 'Microsoft.JavaScript.NodeApi';
   let nativeHost;
   switch(rid) {
@@ -60,6 +65,7 @@ function initialize(targetFramework) {
       nativeHost = require(`./linux-x64/${assemblyName}.node`);
       break;
     default:
+      // Handle unknown platform (Likely will not work with build tools e.g. webpack)
       nativeHost = require(__dirname + `/${rid}/${assemblyName}.node`);
   }
 
