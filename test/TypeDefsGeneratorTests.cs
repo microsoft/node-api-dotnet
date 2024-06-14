@@ -32,14 +32,15 @@ public class TypeDefsGeneratorTests
             docs.Select((pair) => new XElement("member",
                 new XAttribute("name", insertNamespace ? pair.Key.Insert(2, ns) : pair.Key),
                 pair.Value)))));
-        return new TypeDefinitionsGenerator(
+        TypeDefinitionsGenerator generator = new(
             typeof(TypeDefsGeneratorTests).Assembly,
-            assemblyDoc: docsXml,
             referenceAssemblies: new Dictionary<string, Assembly>())
         {
             ExportAll = true,
             SuppressWarnings = true,
         };
+        generator.LoadAssemblyDoc(typeof(TypeDefsGeneratorTests).Assembly.GetName().Name!, docsXml);
+        return generator;
     }
 
     private string GenerateTypeDefinition(

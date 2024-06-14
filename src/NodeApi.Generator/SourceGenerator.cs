@@ -44,6 +44,7 @@ public abstract class SourceGenerator
         UnsupportedIndexer,
         ReferenedTypeNotExported,
         ESModulePropertiesAreConst,
+        DocLoadError,
     }
 
     public static string GetNamespace(ISymbol symbol)
