@@ -186,7 +186,7 @@ dotnet.load(assemblyName);";
     private readonly Assembly _assembly;
     private readonly IDictionary<string, Assembly> _referenceAssemblies;
     private readonly HashSet<string> _imports;
-    private readonly XDocument? _assemblyDoc;
+    private readonly Dictionary<string, XDocument> _assemblyDocs = new();
     private readonly List<MemberInfo> _exportedMembers = new();
     private bool _isModule;
     private bool _autoCamelCase;
@@ -255,38 +255,19 @@ dotnet.load(assemblyName);";
             referenceAssemblies.Add(referenceAssemblyName, referenceAssembly);
         }
 
-        XDocument? assemblyDoc = null;
-        string? assemblyDocFilePath = Path.ChangeExtension(assemblyPath, ".xml");
-        if (!File.Exists(assemblyDocFilePath))
-        {
-            // Some doc XML files are missing the first-level namespace prefix.
-            string assemblyFileName = Path.GetFileNameWithoutExtension(assemblyPath);
-            assemblyDocFilePath = Path.Combine(
-                Path.GetDirectoryName(assemblyPath)!,
-#if !STRING_AS_SPAN
-                assemblyFileName.Substring(assemblyFileName.IndexOf('.') + 1) + ".xml");
-#else
-                string.Concat(assemblyFileName.AsSpan(assemblyFileName.IndexOf('.') + 1), ".xml"));
-#endif
-        }
-
-        if (File.Exists(assemblyDocFilePath))
-        {
-            assemblyDoc = XDocument.Load(assemblyDocFilePath);
-        }
-
         CustomAttributeData? assemblyExportAttribute = assembly.GetCustomAttributesData()
             .FirstOrDefault((a) => a.AttributeType.FullName == typeof(JSExportAttribute).FullName);
 
         try
         {
-            TypeDefinitionsGenerator generator = new(assembly, assemblyDoc, referenceAssemblies)
+            TypeDefinitionsGenerator generator = new(assembly, referenceAssemblies)
             {
                 SuppressWarnings = suppressWarnings,
                 ExportAll = assemblyExportAttribute != null &&
                     GetExportAttributeValue(assemblyExportAttribute),
             };
 
+            generator.LoadAssemblyDocs();
             SourceText generatedSource = generator.GenerateTypeDefinitions();
             File.WriteAllText(typeDefinitionsPath, generatedSource.ToString());
 
@@ -361,7 +342,6 @@ dotnet.load(assemblyName);";
 
     public TypeDefinitionsGenerator(
         Assembly assembly,
-        XDocument? assemblyDoc,
         IDictionary<string, Assembly> referenceAssemblies)
     {
         if (assembly is null)
@@ -374,7 +354,6 @@ dotnet.load(assemblyName);";
         }
 
         _assembly = assembly;
-        _assemblyDoc = assemblyDoc;
         _referenceAssemblies = referenceAssemblies;
         _imports = new HashSet<string>();
     }
@@ -1902,25 +1881,93 @@ import { Duplex } from 'stream';
         }
     }
 
+    /// <summary>
+    /// Loads the XML documentation files for the primary assembly and all reference assemblies.
+    /// (Ignores any missing documentation files.)
+    /// </summary>
+    public void LoadAssemblyDocs()
+    {
+        LoadAssemblyDoc(_assembly);
+        foreach (Assembly referenceAssembly in _referenceAssemblies.Values)
+        {
+            LoadAssemblyDoc(referenceAssembly);
+        }
+    }
+
+    public void LoadAssemblyDoc(Assembly assembly)
+    {
+        string? assemblyDocFilePath = Path.ChangeExtension(assembly.Location, ".xml");
+        if (!LoadAssemblyDoc(assembly.GetName().Name!, assemblyDocFilePath))
+        {
+            // Some doc XML files are missing the first-level namespace prefix.
+            string assemblyFileName = Path.GetFileNameWithoutExtension(assembly.Location);
+            assemblyDocFilePath = Path.Combine(
+                Path.GetDirectoryName(assembly.Location)!,
+#if !STRING_AS_SPAN
+                assemblyFileName.Substring(assemblyFileName.IndexOf('.') + 1) + ".xml");
+#else
+                string.Concat(assemblyFileName.AsSpan(assemblyFileName.IndexOf('.') + 1), ".xml"));
+#endif
+            LoadAssemblyDoc(assembly.GetName().Name!, assemblyDocFilePath);
+        }
+    }
+
+    public bool LoadAssemblyDoc(string assemblyName, string xmlDocFilePath)
+    {
+        XDocument doc;
+        try
+        {
+            doc = XDocument.Load(xmlDocFilePath);
+        }
+        catch (FileNotFoundException)
+        {
+            return false;
+        }
+        catch (Exception ex)
+        {
+            ReportWarning(
+                DiagnosticId.DocLoadError,
+                $"Failed to load assembly documentation XML file '{xmlDocFilePath}': {ex.Message}");
+            return false;
+        }
+
+        LoadAssemblyDoc(assemblyName, doc);
+        return true;
+    }
+
+    public void LoadAssemblyDoc(string assemblyName, XDocument doc)
+    {
+        _assemblyDocs[assemblyName] = doc;
+    }
+
     private void GenerateDocComments(
         ref SourceBuilder s,
         MemberInfo member,
         string? summaryPrefix = null)
     {
-        string memberDocName = member switch
+        if (!_assemblyDocs.TryGetValue(
+            member.Module.Assembly.GetName().Name!, out XDocument? assemblyDoc))
         {
-            Type type => $"T:{type.FullName}",
-            PropertyInfo property => $"P:{property.DeclaringType!.FullName}.{property.Name}",
-            MethodInfo method => $"M:{FormatDocMethodName(method)}" +
-                FormatDocMethodParameters(method),
-            ConstructorInfo constructor => $"M:{constructor.DeclaringType!.FullName}.#ctor" +
-                FormatDocMethodParameters(constructor),
-            FieldInfo field => $"F:{field.DeclaringType!.FullName}.{field.Name}",
-            _ => string.Empty,
-        };
+            return;
+        }
 
-        XElement? memberElement = _assemblyDoc?.Root?.Element("members")?.Elements("member")
+        string memberDocName = GetMemberDocName(member);
+        XElement? memberElement = assemblyDoc?.Root?.Element("members")?.Elements("member")
             .FirstOrDefault((m) => m.Attribute("name")?.Value == memberDocName);
+
+        // If the member doc is inherited, resolve the inherited member and use its assembly doc.
+        MemberInfo? inheritedMember = member;
+        while (memberElement?.Element("inheritdoc") != null && inheritedMember != null)
+        {
+            inheritedMember = GetInheritedMember(inheritedMember);
+            if (inheritedMember != null && _assemblyDocs.TryGetValue(
+                inheritedMember.Module.Assembly.GetName().Name!, out assemblyDoc))
+            {
+                string inheritedMemberDocName = GetMemberDocName(inheritedMember);
+                memberElement = assemblyDoc?.Root?.Element("members")?.Elements("member")
+                    .FirstOrDefault((m) => m.Attribute("name")?.Value == inheritedMemberDocName);
+            }
+        }
 
         XElement? summaryElement = memberElement?.Element("summary");
         XElement? remarksElement = memberElement?.Element("remarks");
@@ -1957,6 +2004,112 @@ import { Duplex } from 'stream';
 
             s += " */";
         }
+    }
+
+    private static string GetMemberDocName(MemberInfo member)
+    {
+        return member switch
+        {
+            Type type => $"T:{type.FullName}",
+            PropertyInfo property => $"P:{property.DeclaringType!.FullName}.{property.Name}",
+            MethodInfo method => $"M:{FormatDocMethodName(method)}" +
+                FormatDocMethodParameters(method),
+            ConstructorInfo constructor => $"M:{constructor.DeclaringType!.FullName}.#ctor" +
+                FormatDocMethodParameters(constructor),
+            FieldInfo field => $"F:{field.DeclaringType!.FullName}.{field.Name}",
+            _ => string.Empty,
+        };
+    }
+
+    /// <summary>
+    /// Gets the inherited declaration of a member from a base class or interface,
+    /// for the purpose of inheriting documentation comments.
+    /// </summary>
+    private static MemberInfo? GetInheritedMember(MemberInfo member)
+    {
+        if (member.DeclaringType == null)
+        {
+            return null;
+        }
+
+        BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.DeclaredOnly |
+            BindingFlags.Public | BindingFlags.NonPublic;
+
+        if (member is PropertyInfo property)
+        {
+            Type[] indexParameterTypes =
+                property.GetIndexParameters().Select((p) => p.ParameterType).ToArray();
+
+            Type? baseType = member.DeclaringType.BaseType;
+            while (baseType != null)
+            {
+                PropertyInfo? baseProperty = baseType.GetProperty(
+                    property.Name,
+                    bindingFlags,
+                    binder: null,
+                    property.PropertyType,
+                    indexParameterTypes,
+                    modifiers: null);
+                if (baseProperty != null)
+                {
+                    return baseProperty;
+                }
+
+                baseType = baseType.BaseType;
+            }
+
+            foreach (Type interfaceType in member.DeclaringType.GetInterfaces())
+            {
+                PropertyInfo? interfaceProperty = interfaceType.GetProperty(
+                    property.Name,
+                    bindingFlags,
+                    binder: null,
+                    property.PropertyType,
+                    indexParameterTypes,
+                    modifiers: null);
+                if (interfaceProperty != null)
+                {
+                    return interfaceProperty;
+                }
+            }
+        }
+        else if (member is MethodInfo method)
+        {
+            Type[] parameterTypes = method.GetParameters().Select((p) => p.ParameterType).ToArray();
+
+            Type? baseType = member.DeclaringType.BaseType;
+            while (baseType != null)
+            {
+                MethodInfo? baseMethod = baseType.GetMethod(
+                    method.Name,
+                    bindingFlags,
+                    binder: null,
+                    parameterTypes,
+                    modifiers: null);
+                if (baseMethod != null)
+                {
+                    return baseMethod;
+                }
+
+                baseType = baseType.BaseType;
+            }
+
+            foreach (Type interfaceType in member.DeclaringType.GetInterfaces())
+            {
+                MethodInfo? interfaceMethod = interfaceType.GetMethod(
+                    method.Name,
+                    bindingFlags,
+                    binder: null,
+                    parameterTypes,
+                    modifiers: null);
+                if (interfaceMethod != null)
+                {
+                    return interfaceMethod;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static string FormatDocText(XNode? node)
