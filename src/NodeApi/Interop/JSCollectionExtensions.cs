@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,6 +13,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates an async enumerable adapter for a JS async-iterable object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned enumerable object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IAsyncEnumerable<T> AsAsyncEnumerable<T>(
         this JSAsyncIterable iterable, JSValue.To<T> fromJS)
         => ((JSValue)iterable).IsNullOrUndefined() ? null! :
@@ -22,6 +26,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates an enumerable adapter for a JS iterable object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned enumerable object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IEnumerable<T> AsEnumerable<T>(this JSIterable iterable, JSValue.To<T> fromJS)
         => ((JSValue)iterable).IsNullOrUndefined() ? null! :
             new JSIterableEnumerable<T>((JSValue)iterable, fromJS);
@@ -29,6 +38,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates an enumerable adapter for a JS Array object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned enumerable object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IEnumerable<T> AsEnumerable<T>(this JSArray array, JSValue.To<T> fromJS)
         => ((JSValue)array).IsNullOrUndefined() ? null! :
             new JSIterableEnumerable<T>((JSValue)array, fromJS);
@@ -36,6 +50,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a read-only collection adapter for a JS Array object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned collection object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IReadOnlyCollection<T> AsReadOnlyCollection<T>(
         this JSArray array, JSValue.To<T> fromJS)
         => ((JSValue)array).IsNullOrUndefined() ? null! :
@@ -44,6 +63,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a collection adapter for a JS Array object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned collection object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static ICollection<T> AsCollection<T>(
         this JSArray array, JSValue.To<T> fromJS, JSValue.From<T> toJS)
         => ((JSValue)array).IsNullOrUndefined() ? null! :
@@ -52,6 +76,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a read-only list adapter for a JS Array object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned list object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IReadOnlyList<T> AsReadOnlyList<T>(this JSArray array, JSValue.To<T> fromJS)
         => ((JSValue)array).IsNullOrUndefined() ? null! :
             new JSArrayReadOnlyList<T>((JSValue)array, fromJS);
@@ -59,6 +88,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a list adapter for a JS Array object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned list object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IList<T> AsList<T>(this JSArray array, JSValue.To<T> fromJS, JSValue.From<T> toJS)
         => ((JSValue)array).IsNullOrUndefined() ? null! :
             new JSArrayList<T>((JSValue)array, fromJS, toJS);
@@ -66,6 +100,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates an enumerable adapter for a JS Set object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned enumerable object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IEnumerable<T> AsEnumerable<T>(this JSSet set, JSValue.To<T> fromJS)
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSIterableEnumerable<T>((JSValue)set, fromJS);
@@ -73,6 +112,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a read-only collection adapter for a JS Set object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned collection object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IReadOnlyCollection<T> AsReadOnlyCollection<T>(this JSSet set, JSValue.To<T> fromJS)
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSSetReadOnlyCollection<T>((JSValue)set, fromJS);
@@ -80,6 +124,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a collection adapter for a JS Set object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned collection object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static ICollection<T> AsCollection<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS)
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSSetCollection<T>((JSValue)set, fromJS, toJS);
@@ -88,6 +137,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a read-only set adapter for a JS Set object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned set object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IReadOnlySet<T> AsReadOnlySet<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS)
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSSetReadOnlySet<T>((JSValue)set, fromJS, toJS);
@@ -96,6 +150,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a set adapter for a JS Set object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned set object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static ISet<T> AsSet<T>(this JSSet set, JSValue.To<T> fromJS, JSValue.From<T> toJS)
         => ((JSValue)set).IsNullOrUndefined() ? null! :
             new JSSetSet<T>((JSValue)set, fromJS, toJS);
@@ -103,6 +162,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a read-only dictionary adapter for a JS Map object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned dictionary object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IReadOnlyDictionary<TKey, TValue> AsReadOnlyDictionary<TKey, TValue>(
         this JSMap map,
         JSValue.To<TKey> keyFromJS,
@@ -114,6 +178,11 @@ public static class JSCollectionExtensions
     /// <summary>
     /// Creates a dictionary adapter for a JS Map object, without copying.
     /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned dictionary object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
     public static IDictionary<TKey, TValue> AsDictionary<TKey, TValue>(
         this JSMap map,
         JSValue.To<TKey> keyFromJS,
@@ -124,117 +193,162 @@ public static class JSCollectionExtensions
             new JSMapDictionary<TKey, TValue>((JSValue)map, keyFromJS, valueFromJS, keyToJS, valueToJS);
 }
 
-internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>
+internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>, IDisposable
 {
-    private readonly JSValue _iterable;
     private readonly JSValue.To<T> _fromJS;
-    private readonly JSValue _iterator;
-    private JSValue? _current;
+    private readonly JSReference _iteratorReference;
+    private JSReference? _currentReference;
 
     internal JSAsyncIterableEnumerator(JSValue iterable, JSValue.To<T> fromJS)
     {
-        _iterable = iterable;
         _fromJS = fromJS;
-        _iterator = _iterable.CallMethod(JSSymbol.AsyncIterator);
-        _current = default;
+        _iteratorReference = new JSReference(iterable.CallMethod(JSSymbol.AsyncIterator));
+        _currentReference = null;
     }
 
     public async ValueTask<bool> MoveNextAsync()
     {
-        var nextPromise = (JSPromise)_iterator.CallMethod("next");
-        JSValue nextResult = await nextPromise.AsTask();
-        JSValue done = nextResult["done"];
-        if (done.IsBoolean() && (bool)done)
+        return await _iteratorReference.Run(async (iterator) =>
         {
-            _current = default;
-            return false;
-        }
-        else
-        {
-            _current = nextResult["value"];
-            return true;
-        }
+            _currentReference?.Dispose();
+
+            JSPromise nextPromise = (JSPromise)iterator.CallMethod("next");
+            JSValue nextResult = await nextPromise.AsTask();
+            JSValue done = nextResult["done"];
+
+            if (done.IsBoolean() && (bool)done)
+            {
+                _currentReference = null;
+                return false;
+            }
+            else
+            {
+                // Save a reference to the next result object rather than the value, because if
+                // the value is a primitive type then it's not possible to directly reference it.
+                _currentReference = new JSReference(nextResult);
+                return true;
+            }
+        });
     }
 
-    public T Current => _current.HasValue ? _fromJS(_current.Value) :
-        throw new InvalidOperationException("Invalid enumerator state");
+    public T Current => _currentReference != null
+        ? _currentReference.Run((result) => _fromJS(result["value"]))
+        : throw new InvalidOperationException("Invalid enumerator state");
 
-    ValueTask IAsyncDisposable.DisposeAsync() => default;
+    public void Dispose()
+    {
+        _currentReference?.Dispose();
+        _iteratorReference.Dispose();
+    }
+
+    ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        _currentReference?.Dispose();
+        _iteratorReference.Dispose();
+        return default;
+    }
 }
 
-internal sealed class JSIterableEnumerator<T> : IEnumerator<T>, System.Collections.IEnumerator
+internal sealed class JSIterableEnumerator<T> :
+    IEnumerator<T>,
+    System.Collections.IEnumerator,
+    IDisposable
 {
-    private readonly JSValue _iterable;
+    private readonly JSReference _iterableReference;
     private readonly JSValue.To<T> _fromJS;
-    private JSValue _iterator;
-    private JSValue? _current;
+    private JSReference _iteratorReference;
+    private JSReference? _currentReference;
 
     internal JSIterableEnumerator(JSValue iterable, JSValue.To<T> fromJS)
     {
-        _iterable = iterable;
+        _iterableReference = new JSReference(iterable);
         _fromJS = fromJS;
-        _iterator = _iterable.CallMethod(JSSymbol.Iterator);
-        _current = default;
+        _iteratorReference = new JSReference(iterable.CallMethod(JSSymbol.Iterator));
+        _currentReference = null;
     }
 
     public bool MoveNext()
     {
-        JSValue nextResult = _iterator.CallMethod("next");
-        JSValue done = nextResult["done"];
-        if (done.IsBoolean() && (bool)done)
+        return _iteratorReference.Run((iterator) =>
         {
-            _current = default;
-            return false;
-        }
-        else
-        {
-            _current = nextResult["value"];
-            return true;
-        }
+            _currentReference?.Dispose();
+
+            JSValue nextResult = iterator.CallMethod("next");
+            JSValue done = nextResult["done"];
+            if (done.IsBoolean() && (bool)done)
+            {
+                _currentReference = null;
+                return false;
+            }
+            else
+            {
+                // Save a reference to the next result object rather than the value, because if
+                // the value is a primitive type then it's not possible to directly reference it.
+                _currentReference = new JSReference(nextResult);
+                return true;
+            }
+        });
     }
 
-    public T Current => _current.HasValue ? _fromJS(_current.Value) :
+    public T Current => _currentReference != null
+        ? _currentReference.Run((result) => _fromJS(result["value"])) :
         throw new InvalidOperationException("Invalid enumerator state");
 
     object? System.Collections.IEnumerator.Current => Current;
 
     void System.Collections.IEnumerator.Reset()
     {
-        _iterator = _iterable.CallMethod(JSSymbol.Iterator);
-        _current = default;
+        _iterableReference.Run((iterable) =>
+        {
+            _currentReference?.Dispose();
+            _currentReference = null;
+            _iteratorReference.Dispose();
+            _iteratorReference = new JSReference(iterable.CallMethod(JSSymbol.Iterator));
+        });
     }
 
-    void IDisposable.Dispose()
+    public void Dispose()
     {
+        _currentReference?.Dispose();
+        _iteratorReference.Dispose();
+        _iterableReference.Dispose();
     }
 }
 
-internal class JSAsyncIterableEnumerable<T> : IAsyncEnumerable<T>, IEquatable<JSValue>
+internal sealed class JSAsyncIterableEnumerable<T> :
+    IAsyncEnumerable<T>,
+    IEquatable<JSValue>,
+    IAsyncDisposable,
+    IDisposable
 {
+    private readonly JSReference _iterableReference;
+    private readonly JSValue.To<T> _fromJS;
+
     internal JSAsyncIterableEnumerable(JSValue iterable, JSValue.To<T> fromJS)
     {
         _iterableReference = new JSReference(iterable);
-        FromJS = fromJS;
+        _fromJS = fromJS;
     }
 
-    private readonly JSReference _iterableReference;
+    bool IEquatable<JSValue>.Equals(JSValue other)
+        => _iterableReference.Run((iterable) => iterable.Equals(other));
 
-    public JSValue Value => _iterableReference.GetValue()!.Value;
-
-    bool IEquatable<JSValue>.Equals(JSValue other) => Value.Equals(other);
-
-    protected JSValue.To<T> FromJS { get; }
-
-#pragma warning disable IDE0060 // Unused parameter
     public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken)
-        => new JSAsyncIterableEnumerator<T>(Value, FromJS);
+    {
+        return _iterableReference.Run(
+            (iterable) => new JSAsyncIterableEnumerator<T>(iterable, _fromJS));
+    }
 
-    public ValueTask DisposeAsync(CancellationToken cancellationToken)
+    public void Dispose()
+    {
+        _iterableReference.Dispose();
+    }
+
+    ValueTask IAsyncDisposable.DisposeAsync()
     {
         _iterableReference.Dispose();
         return default;
     }
-#pragma warning restore IDE0060
 }
 
 internal class JSIterableEnumerable<T> : IEnumerable<T>, IEquatable<JSValue>, IDisposable
@@ -247,13 +361,17 @@ internal class JSIterableEnumerable<T> : IEnumerable<T>, IEquatable<JSValue>, ID
 
     private readonly JSReference _iterableReference;
 
-    public JSValue Value => _iterableReference.GetValue()!.Value;
+    internal JSValue Value => _iterableReference.GetValue()!.Value;
 
-    bool IEquatable<JSValue>.Equals(JSValue other) => Value.Equals(other);
+    protected void Run(Action<JSValue> action) => _iterableReference.Run(action);
+    protected TResult Run<TResult>(Func<JSValue, TResult> action) => _iterableReference.Run(action);
 
     protected JSValue.To<T> FromJS { get; }
 
-    public IEnumerator<T> GetEnumerator() => new JSIterableEnumerator<T>(Value, FromJS);
+    bool IEquatable<JSValue>.Equals(JSValue other) => Run((iterable) => iterable.Equals(other));
+
+    public IEnumerator<T> GetEnumerator()
+        => Run((iterable) => new JSIterableEnumerator<T>(iterable, FromJS));
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         => GetEnumerator();
@@ -292,14 +410,25 @@ internal class JSIterableCollection<T>
 
     public bool Contains(T item)
     {
-        foreach (T value in this)
+        return Run((iterable) =>
         {
-            if (value?.Equals(item) ?? item == null)
+            JSValue iterator = iterable.CallMethod(JSSymbol.Iterator);
+            while (true)
             {
-                return true;
+                JSValue nextResult = iterator.CallMethod("next");
+                JSValue done = nextResult["done"];
+                if (done.IsBoolean() && (bool)done)
+                {
+                    return false;
+                }
+
+                JSValue value = nextResult["value"];
+                if (value.Equals(item))
+                {
+                    return true;
+                }
             }
-        }
-        return false;
+        });
     }
 
     public void CopyTo(T[] array, int arrayIndex) => throw new NotSupportedException();
@@ -315,7 +444,7 @@ internal class JSArrayReadOnlyCollection<T> : JSIterableEnumerable<T>, IReadOnly
     {
     }
 
-    public int Count => Value.GetArrayLength();
+    public int Count => Run((collection) => collection.GetArrayLength());
 }
 
 internal class JSArrayCollection<T> : JSArrayReadOnlyCollection<T>, ICollection<T>
@@ -330,31 +459,47 @@ internal class JSArrayCollection<T> : JSArrayReadOnlyCollection<T>, ICollection<
 
     public bool IsReadOnly => false;
 
-    public void Add(T item) => Value.CallMethod("push", ToJS(item));
+    public void Add(T item) => Run((array) => array.CallMethod("push", ToJS(item)));
 
-    public void Clear() => Value.CallMethod("splice", 0, Count);
+    public void Clear() => Run((array) => array.CallMethod("splice", 0, Count));
 
-    public bool Contains(T item) => (bool)Value.CallMethod("includes", ToJS(item));
+    public bool Contains(T item)
+        => Run((array) => (bool)array.CallMethod("includes", ToJS(item)));
 
     public void CopyTo(T[] array, int arrayIndex)
     {
-        int i = arrayIndex;
-        foreach (T item in this)
+        Run((jsArray) =>
         {
-            array[i++] = item;
-        }
+            int i = arrayIndex;
+            JSValue iterator = jsArray.CallMethod(JSSymbol.Iterator);
+            while (true)
+            {
+                JSValue nextResult = iterator.CallMethod("next");
+                JSValue done = nextResult["done"];
+                if (done.IsBoolean() && (bool)done)
+                {
+                    break;
+                }
+
+                JSValue value = nextResult["value"];
+                array[i++] = FromJS(value);
+            }
+        });
     }
 
     public bool Remove(T item)
     {
-        int index = (int)Value.CallMethod("indexOf", ToJS(item));
-        if (index < 0)
+        return Run((array) =>
         {
-            return false;
-        }
+            int index = (int)array.CallMethod("indexOf", ToJS(item));
+            if (index < 0)
+            {
+                return false;
+            }
 
-        Value.CallMethod("splice", index, 1);
-        return true;
+            array.CallMethod("splice", index, 1);
+            return true;
+        });
     }
 }
 
@@ -364,7 +509,7 @@ internal class JSArrayReadOnlyList<T> : JSArrayReadOnlyCollection<T>, IReadOnlyL
     {
     }
 
-    public T this[int index] => FromJS(Value.GetElement(index));
+    public T this[int index] => Run((list) => FromJS(list.GetElement(index)));
 }
 
 internal class JSArrayList<T> : JSArrayCollection<T>, IList<T>
@@ -376,15 +521,16 @@ internal class JSArrayList<T> : JSArrayCollection<T>, IList<T>
 
     public T this[int index]
     {
-        get => FromJS(Value.GetElement(index));
-        set => Value.SetElement(index, ToJS(value));
+        get => Run((array) => FromJS(array.GetElement(index)));
+        set => Run((array) => array.SetElement(index, ToJS(value)));
     }
 
-    public int IndexOf(T item) => (int)Value.CallMethod("indexOf", ToJS(item));
+    public int IndexOf(T item) => Run((array) => (int)array.CallMethod("indexOf", ToJS(item)));
 
-    public void Insert(int index, T item) => Value.CallMethod("splice", index, 0, ToJS(item));
+    public void Insert(int index, T item)
+        => Run((array) => array.CallMethod("splice", index, 0, ToJS(item)));
 
-    public void RemoveAt(int index) => Value.CallMethod("splice", index, 1);
+    public void RemoveAt(int index) => Run((array) => array.CallMethod("splice", index, 1));
 }
 
 internal class JSSetReadOnlyCollection<T> : JSIterableEnumerable<T>, IReadOnlyCollection<T>
@@ -393,7 +539,7 @@ internal class JSSetReadOnlyCollection<T> : JSIterableEnumerable<T>, IReadOnlyCo
     {
     }
 
-    public int Count => (int)Value["size"];
+    public int Count => Run((@set) => (int)@set["size"]);
 }
 
 internal class JSSetCollection<T> : JSSetReadOnlyCollection<T>, ICollection<T>
@@ -408,22 +554,34 @@ internal class JSSetCollection<T> : JSSetReadOnlyCollection<T>, ICollection<T>
 
     bool ICollection<T>.IsReadOnly => false;
 
-    public void Add(T item) => Value.CallMethod("add", ToJS(item));
+    public void Add(T item) => Run((@set) => @set.CallMethod("add", ToJS(item)));
 
-    public void Clear() => Value.CallMethod("clear");
+    public void Clear() => Run((@set) => @set.CallMethod("clear"));
 
-    public bool Contains(T item) => (bool)Value.CallMethod("has", ToJS(item));
+    public bool Contains(T item) => Run((@set) => (bool)@set.CallMethod("has", ToJS(item)));
 
     public void CopyTo(T[] array, int arrayIndex)
     {
-        int i = arrayIndex;
-        foreach (T item in this)
+        Run((@set) =>
         {
-            array[i++] = item;
-        }
+            int i = arrayIndex;
+            JSValue iterator = @set.CallMethod(JSSymbol.Iterator);
+            while (true)
+            {
+                JSValue nextResult = iterator.CallMethod("next");
+                JSValue done = nextResult["done"];
+                if (done.IsBoolean() && (bool)done)
+                {
+                    break;
+                }
+
+                JSValue value = nextResult["value"];
+                array[i++] = FromJS(value);
+            }
+        });
     }
 
-    public bool Remove(T item) => (bool)Value.CallMethod("delete", ToJS(item));
+    public bool Remove(T item) => Run((@set) => (bool)@set.CallMethod("delete", ToJS(item)));
 }
 
 #if READONLY_SET
@@ -437,7 +595,7 @@ internal class JSSetReadOnlySet<T> : JSSetReadOnlyCollection<T>, IReadOnlySet<T>
 
     protected JSValue.From<T> ToJS { get; }
 
-    public bool Contains(T item) => (bool)Value.CallMethod("has", ToJS(item));
+    public bool Contains(T item) => Run((@set) => (bool)@set.CallMethod("has", ToJS(item)));
 
     public bool IsProperSubsetOf(IEnumerable<T> other) => throw new NotImplementedException();
     public bool IsProperSupersetOf(IEnumerable<T> other) => throw new NotImplementedException();
@@ -468,14 +626,20 @@ internal class JSSetSet<T> : JSSetCollection<T>, ISet<T>
 
     public new bool Add(T item)
     {
-        int countBeforeAdd = Count;
-        Value.CallMethod("add", ToJS(item));
-        return Count > countBeforeAdd;
+        return Run((@set) =>
+        {
+            int sizeBeforeAdd = (int)@set["size"];
+            @set.CallMethod("add", ToJS(item));
+            int sizeAfterAdd = (int)@set["size"];
+            return sizeAfterAdd > sizeBeforeAdd;
+        });
     }
 }
 
 internal class JSMapReadOnlyDictionary<TKey, TValue> :
-    IReadOnlyDictionary<TKey, TValue>, IEquatable<JSValue>, IDisposable
+    IReadOnlyDictionary<TKey, TValue>,
+    IEquatable<JSValue>,
+    IDisposable
 {
     internal JSMapReadOnlyDictionary(
         JSValue map,
@@ -491,36 +655,39 @@ internal class JSMapReadOnlyDictionary<TKey, TValue> :
 
     private readonly JSReference _mapReference;
 
-    public JSValue Value => _mapReference.GetValue()!.Value;
+    protected void Run(Action<JSValue> action) => _mapReference.Run(action);
+    protected TResult Run<TResult>(Func<JSValue, TResult> action) => _mapReference.Run(action);
 
-    bool IEquatable<JSValue>.Equals(JSValue other) => Value.Equals(other);
+    internal JSValue Value => _mapReference.GetValue()!.Value;
+
+    bool IEquatable<JSValue>.Equals(JSValue other) => Run((map) => map.Equals(other));
 
     protected JSValue.To<TKey> KeyFromJS { get; }
     protected JSValue.To<TValue> ValueFromJS { get; }
     protected JSValue.From<TKey> KeyToJS { get; }
 
-    public int Count => (int)Value["size"];
+    public int Count => Run((map) => (int)map["size"]);
 
     public IEnumerable<TKey> Keys
-        => ((JSIterable)Value["keys"]).AsEnumerable<TKey>(KeyFromJS);
+        => Run((map) => ((JSIterable)map["keys"]).AsEnumerable<TKey>(KeyFromJS));
 
     public IEnumerable<TValue> Values
-        => ((JSIterable)Value["values"]).AsEnumerable<TValue>(ValueFromJS);
+        => Run((map) => ((JSIterable)map["values"]).AsEnumerable<TValue>(ValueFromJS));
 
     public TValue this[TKey key]
     {
-        get
+        get => Run((map) =>
         {
-            JSValue value = Value.CallMethod("get", KeyToJS(key));
+            JSValue value = map.CallMethod("get", KeyToJS(key));
             if (value.IsUndefined())
             {
                 throw new KeyNotFoundException();
             }
             return ValueFromJS(value);
-        }
+        });
     }
 
-    public bool ContainsKey(TKey key) => (bool)Value.CallMethod("has", KeyToJS(key));
+    public bool ContainsKey(TKey key) => Run((map) => (bool)map.CallMethod("has", KeyToJS(key)));
 
 #if NETFRAMEWORK || NETSTANDARD
     public bool TryGetValue(TKey key, out TValue value)
@@ -528,23 +695,24 @@ internal class JSMapReadOnlyDictionary<TKey, TValue> :
     public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
 #endif
     {
-        JSValue jsValue = Value.CallMethod("get", KeyToJS(key));
-        if (jsValue.IsUndefined())
+        bool result;
+        (result, value) = Run((map) =>
         {
-            value = default!;
-            return false;
-        }
-        value = ValueFromJS(jsValue);
-        return true;
+            JSValue jsValue = map.CallMethod("get", KeyToJS(key));
+            if (jsValue.IsUndefined())
+            {
+                return (false, default(TValue)!);
+            }
+            return (true, ValueFromJS(jsValue));
+        });
+        return result;
     }
 
     public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
     {
-        foreach (KeyValuePair<JSValue, JSValue> pair in (JSMap)Value)
-        {
-            yield return new KeyValuePair<TKey, TValue>(
-                KeyFromJS(pair.Key), ValueFromJS(pair.Value));
-        }
+        return Run((map) => new JSIterableEnumerator<KeyValuePair<TKey, TValue>>(
+            map, (pair) => new KeyValuePair<TKey, TValue>(
+                KeyFromJS(pair[0]), ValueFromJS(pair[1]))));
     }
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
@@ -582,19 +750,19 @@ internal class JSMapDictionary<TKey, TValue> :
 
     public new TValue this[TKey key]
     {
-        get
+        get => Run((map) =>
         {
-            JSValue value = Value.CallMethod("get", KeyToJS(key));
+            JSValue value = map.CallMethod("get", KeyToJS(key));
             if (value.IsUndefined())
             {
                 throw new KeyNotFoundException();
             }
             return ValueFromJS(value);
-        }
-        set
+        });
+        set => Run((map) =>
         {
-            Value.CallMethod("set", KeyToJS(key), ValueToJS(value));
-        }
+            map.CallMethod("set", KeyToJS(key), ValueToJS(value));
+        });
     }
 
     protected JSValue.From<TValue> ValueToJS { get; }
@@ -611,17 +779,17 @@ internal class JSMapDictionary<TKey, TValue> :
         this[key] = value;
     }
 
-    public bool Remove(TKey key) => (bool)Value.CallMethod("delete", KeyToJS(key));
+    public bool Remove(TKey key) => Run((map) => (bool)map.CallMethod("delete", KeyToJS(key)));
 
-    public void Clear() => Value.CallMethod("clear");
+    public void Clear() => Run((map) => map.CallMethod("clear"));
 
     ICollection<TKey> IDictionary<TKey, TValue>.Keys
-        => new JSIterableCollection<TKey>(
-            (JSIterable)Value["keys"], KeyFromJS, GetCount);
+        => Run((map) => new JSIterableCollection<TKey>(
+            (JSIterable)map["keys"], KeyFromJS, GetCount));
 
     ICollection<TValue> IDictionary<TKey, TValue>.Values
-        => new JSIterableCollection<TValue>(
-            (JSIterable)Value["values"], ValueFromJS, GetCount);
+        => Run((map) => new JSIterableCollection<TValue>(
+            (JSIterable)map["values"], ValueFromJS, GetCount));
 
     bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly => false;
 
@@ -635,14 +803,44 @@ internal class JSMapDictionary<TKey, TValue> :
     void ICollection<KeyValuePair<TKey, TValue>>.CopyTo(
         KeyValuePair<TKey, TValue>[] array, int arrayIndex)
     {
-        int i = arrayIndex;
-        foreach (KeyValuePair<TKey, TValue> pair in this)
+        Run((map) =>
         {
-            array[i++] = pair;
-        }
+            int i = arrayIndex;
+            JSValue iterator = map.CallMethod(JSSymbol.Iterator);
+            while (true)
+            {
+                JSValue nextResult = iterator.CallMethod("next");
+                JSValue done = nextResult["done"];
+                if (done.IsBoolean() && (bool)done)
+                {
+                    break;
+                }
+
+                JSValue pair = nextResult["value"];
+                array[i++] = new KeyValuePair<TKey, TValue>(
+                    KeyFromJS(pair[0]), ValueFromJS(pair[1]));
+            }
+        });
     }
 
     bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> item)
-        => TryGetValue(item.Key, out TValue? value) &&
-            (item.Value?.Equals(value) ?? value == null) && Remove(item.Key);
+    {
+        return Run((map) =>
+        {
+            JSValue jsValue = map.CallMethod("get", KeyToJS(item.Key));
+            if (jsValue.IsUndefined())
+            {
+                return false;
+            }
+
+            TValue value = ValueFromJS(jsValue);
+            if (value?.Equals(item.Value) != true)
+            {
+                return false;
+            }
+
+            map.CallMethod("delete", KeyToJS(item.Key));
+            return true;
+        });
+    }
 }
