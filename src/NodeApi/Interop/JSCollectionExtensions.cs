@@ -198,8 +198,8 @@ internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>, IDispo
 {
     private readonly JSValue.To<T> _fromJS;
     private readonly JSReference _iteratorReference;
+    private readonly CancellationToken _cancellation;
     private JSReference? _currentReference;
-    private CancellationToken _cancellation;
 
     internal JSAsyncIterableEnumerator(
         JSValue iterable,
@@ -208,8 +208,8 @@ internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>, IDispo
     {
         _fromJS = fromJS;
         _iteratorReference = new JSReference(iterable.CallMethod(JSSymbol.AsyncIterator));
-        _currentReference = null;
         _cancellation = cancellation;
+        _currentReference = null;
     }
 
     public async ValueTask<bool> MoveNextAsync()
