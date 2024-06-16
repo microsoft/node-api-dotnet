@@ -199,12 +199,17 @@ internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>, IDispo
     private readonly JSValue.To<T> _fromJS;
     private readonly JSReference _iteratorReference;
     private JSReference? _currentReference;
+    private CancellationToken _cancellation;
 
-    internal JSAsyncIterableEnumerator(JSValue iterable, JSValue.To<T> fromJS)
+    internal JSAsyncIterableEnumerator(
+        JSValue iterable,
+        JSValue.To<T> fromJS,
+        CancellationToken cancellation)
     {
         _fromJS = fromJS;
         _iteratorReference = new JSReference(iterable.CallMethod(JSSymbol.AsyncIterator));
         _currentReference = null;
+        _cancellation = cancellation;
     }
 
     public async ValueTask<bool> MoveNextAsync()
@@ -214,7 +219,7 @@ internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>, IDispo
             _currentReference?.Dispose();
 
             JSPromise nextPromise = (JSPromise)iterator.CallMethod("next");
-            JSValue nextResult = await nextPromise.AsTask();
+            JSValue nextResult = await nextPromise.AsTask(_cancellation);
             JSValue done = nextResult["done"];
 
             if (done.IsBoolean() && (bool)done)
@@ -334,10 +339,10 @@ internal sealed class JSAsyncIterableEnumerable<T> :
     bool IEquatable<JSValue>.Equals(JSValue other)
         => _iterableReference.Run((iterable) => iterable.Equals(other));
 
-    public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken)
+    public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellation)
     {
         return _iterableReference.Run(
-            (iterable) => new JSAsyncIterableEnumerator<T>(iterable, _fromJS));
+            (iterable) => new JSAsyncIterableEnumerator<T>(iterable, _fromJS, cancellation));
     }
 
     public void Dispose()
