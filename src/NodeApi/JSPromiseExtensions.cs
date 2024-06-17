@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.JavaScript.NodeApi;
@@ -27,9 +28,38 @@ public static class TaskExtensions
         return completion.Task;
     }
 
-    public static async Task<T> AsTask<T>(this JSPromise promise, JSValue.To<T> fromJS)
+    public static Task<JSValue> AsTask(this JSPromise promise, CancellationToken cancellation)
+    {
+        TaskCompletionSource<JSValue> completion = new();
+        cancellation.Register(() => completion.TrySetCanceled(cancellation));
+        promise.Then(
+            (JSValue value) =>
+            {
+                completion.TrySetResult(value);
+                return default;
+            },
+            (JSError error) =>
+            {
+                completion.TrySetException(new JSException(error));
+                return default;
+            });
+        return completion.Task;
+    }
+
+    public static async Task<T> AsTask<T>(
+        this JSPromise promise,
+        JSValue.To<T> fromJS)
     {
         Task<JSValue> jsTask = promise.AsTask();
+        return fromJS(await jsTask);
+    }
+
+    public static async Task<T> AsTask<T>(
+        this JSPromise promise,
+        JSValue.To<T> fromJS,
+        CancellationToken cancellation)
+    {
+        Task<JSValue> jsTask = promise.AsTask(cancellation);
         return fromJS(await jsTask);
     }
 
