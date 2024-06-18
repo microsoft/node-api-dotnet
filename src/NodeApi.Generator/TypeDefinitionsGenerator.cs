@@ -193,6 +193,14 @@ dotnet.load(assemblyName);";
     private bool _emitDisposable;
     private bool _emitDuplex;
     private bool _emitType;
+    private bool _emitDateTime;
+    private bool _emitDateTimeOffset;
+
+    /// <summary>
+    /// When generating type definitions for a system assembly, some supplemental type definitions
+    /// need an extra namespace qualifier to prevent conflicts with types in the "System" namespace.
+    /// </summary>
+    private readonly bool _isSystemAssembly;
 
     public static void GenerateTypeDefinitions(
         string assemblyPath,
@@ -356,6 +364,7 @@ dotnet.load(assemblyName);";
         _assembly = assembly;
         _referenceAssemblies = referenceAssemblies;
         _imports = new HashSet<string>();
+        _isSystemAssembly = assembly.GetName().Name!.StartsWith("System.");
     }
 
     public bool ExportAll { get; set; }
@@ -723,9 +732,7 @@ interface IType {
         if (_emitDisposable)
         {
             s.Insert(insertIndex, @"
-interface IDisposable {
-	dispose(): void;
-}
+interface IDisposable { dispose(): void; }
 ");
         }
 
@@ -735,7 +742,26 @@ interface IDisposable {
 import { Duplex } from 'stream';
 ");
         }
+
+        if (_emitDateTimeOffset)
+        {
+            s.Insert(insertIndex, _isSystemAssembly ? @"
+namespace js { type DateTimeOffset = Date | { offset?: number } }
+" : @"
+type DateTimeOffset = Date | { offset?: number }
+");
+        }
+
+        if (_emitDateTime)
+        {
+            s.Insert(insertIndex, _isSystemAssembly ? @"
+namespace js { type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' } }
+" : @"
+type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
+");
+        }
     }
+
     private static string GetGenericParams(Type type)
     {
         string genericParams = string.Empty;
@@ -1512,7 +1538,7 @@ import { Duplex } from 'stream';
             return tsType;
         }
 
-        string? specialType = type.FullName switch
+        string? primitiveType = type.FullName switch
         {
             "System.Void" => "void",
             "System.Boolean" => "boolean",
@@ -1527,16 +1553,15 @@ import { Duplex } from 'stream';
             "System.Single" => "number",
             "System.Double" => "number",
             "System.String" => "string",
-            "System.DateTime" => "Date",
-            "System.TimeSpan" => "string",
+            "System.TimeSpan" => "number",
             "System.Guid" => "string",
             "System.Numerics.BigInteger" => "bigint",
             _ => null,
         };
 
-        if (specialType != null)
+        if (primitiveType != null)
         {
-            tsType = specialType;
+            tsType = primitiveType;
         }
 #if NETFRAMEWORK || NETSTANDARD
         else if (type.IsGenericTypeParameter())
@@ -1635,6 +1660,16 @@ import { Duplex } from 'stream';
         {
             tsType = "Duplex";
             _emitDuplex = true;
+        }
+        else if (type.FullName == typeof(DateTime).FullName)
+        {
+            _emitDateTime = true;
+            tsType = (_isSystemAssembly ? "js." : "") + type.Name;
+        }
+        else if (type.FullName == typeof(DateTimeOffset).FullName)
+        {
+            _emitDateTimeOffset = true;
+            tsType = (_isSystemAssembly ? "js." : "") + type.Name;
         }
         else if (IsExported(type))
         {

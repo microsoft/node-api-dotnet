@@ -198,18 +198,49 @@ ComplexTypes.testEnum = enumType.Two;
 assert.strictEqual(ComplexTypes.testEnum, enumType.Two);
 
 // DateTime
-const dateValue = ComplexTypes.date;
+/** @type {Date | { kind: 'utc' | 'local' | 'unspecified' }} */
+const dateValue = ComplexTypes.dateTime;
 assert(dateValue instanceof Date);
-assert.deepStrictEqual(dateValue, new Date("2023-02-01"));
-ComplexTypes.date = new Date("2024-03-02T11:00");
-assert.deepStrictEqual(ComplexTypes.date, new Date("2024-03-02T11:00"));
+assert.strictEqual(dateValue.valueOf(), new Date('2023-04-05T06:07:08').valueOf());
+assert.strictEqual(dateValue.kind, 'unspecified');
+ComplexTypes.dateTime = new Date('2024-03-02T11:00');
+assert.strictEqual(ComplexTypes.dateTime.valueOf(), new Date('2024-03-02T11:00').valueOf());
+assert.strictEqual(ComplexTypes.dateTime.kind, 'utc');
+/** @type {Date | { kind: 'utc' | 'local' | 'unspecified' }} */
+const dateValue2 = new Date('2024-03-02T11:00');
+dateValue2.kind = 'local';
+ComplexTypes.dateTime = dateValue2;
+assert.strictEqual(ComplexTypes.dateTime.valueOf(), new Date('2024-03-02T11:00').valueOf());
+assert.strictEqual(ComplexTypes.dateTime.kind, 'local');
+assert.strictEqual(ComplexTypes.dateTimeLocal.valueOf(), new Date('2023-04-05T06:07:08').valueOf());
+assert.strictEqual(ComplexTypes.dateTimeLocal.kind, 'local');
+assert.strictEqual(
+  ComplexTypes.dateTimeUtc.valueOf(),
+  new Date(Date.UTC(2023, 3, 5, 6, 7, 8)).valueOf());
+assert.strictEqual(ComplexTypes.dateTimeUtc.kind, 'utc');
 
 // TimeSpan
-const timeValue = ComplexTypes.time;
-assert.strictEqual(typeof timeValue, 'string');
-assert.strictEqual(timeValue, '1.12:30:45');
-ComplexTypes.time = '2.23:34:45';
-assert.strictEqual(ComplexTypes.time, '2.23:34:45');
+const timeValue = ComplexTypes.timeSpan;
+assert.strictEqual(typeof timeValue, 'number');
+assert.strictEqual(timeValue, (36*60*60 + 30*60 + 45) * 1000);
+ComplexTypes.timeSpan = (2*24*60*60 + 23*60*60 + 34*60 + 45) * 1000;
+assert.strictEqual(ComplexTypes.timeSpan, (2*24*60*60 + 23*60*60 + 34*60 + 45) * 1000);
+
+// DateTimeOffset
+/** @type {Date | { offset: number }} */
+const dateTimeOffsetValue = ComplexTypes.dateTimeOffset;
+assert(dateTimeOffsetValue instanceof Date);
+// A negative offset means the UTC time is later than the local time,
+// so the offset is added to the local time to get the expected UTC time here.
+assert.strictEqual(dateTimeOffsetValue.valueOf(), Date.UTC(2023, 3, 5, 6, 7, 8) + 90 * 60 * 1000);
+assert.strictEqual(dateTimeOffsetValue.offset, -90);
+assert.strictEqual(dateTimeOffsetValue.toString(), '2023-04-05 06:07:08.000 -01:30');
+/** @type {Date | { offset: number }} */
+const dateTimeOffsetValue2 = new Date(Date.UTC(2024, 2, 2, 1, 0, 0));
+dateTimeOffsetValue2.offset = 120;
+ComplexTypes.dateTimeOffset = dateTimeOffsetValue2;
+assert.strictEqual(ComplexTypes.dateTimeOffset.valueOf(), dateTimeOffsetValue2.valueOf());
+assert.strictEqual(ComplexTypes.dateTimeOffset.toString(), '2024-03-02 03:00:00.000 +02:00');
 
 // Tuples
 const pairValue = ComplexTypes.pair;

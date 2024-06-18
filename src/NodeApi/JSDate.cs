@@ -38,25 +38,97 @@ public readonly struct JSDate : IEquatable<JSValue>
 
     public static JSDate FromDateTime(DateTime value)
     {
-        long dateValue = new DateTimeOffset(value.ToUniversalTime())
-            .ToUnixTimeMilliseconds();
-        return new JSDate(dateValue);
+        DateTimeKind kind = value.Kind;
+
+        // JS Date values are always represented with a underlying UTC epoch value,
+        // so local times must be converted to UTC. Unspecified kind is treated as local.
+        if (kind != DateTimeKind.Utc)
+        {
+            value = value.ToUniversalTime();
+        }
+
+        long dateValue = new DateTimeOffset(value).ToUnixTimeMilliseconds();
+        JSDate jsDate = new(dateValue);
+
+        // Add an extra property that allows round-tripping the DateTimeKind.
+        jsDate._value.SetProperty("kind", kind.ToString().ToLowerInvariant());
+
+        return jsDate;
     }
 
     public DateTime ToDateTime()
     {
-        return DateTimeOffset.FromUnixTimeMilliseconds(DateValue).UtcDateTime;
+        // JS Date values are always represented with a underlying UTC epoch value.
+        // FromUnixTimeMilliseconds expects a value in UTC and produces a result with 0 offset.
+        DateTimeOffset utcValue = DateTimeOffset.FromUnixTimeMilliseconds(DateValue);
+        DateTime value = utcValue.UtcDateTime;
+
+        // Check for the kind hint. If absent, default to UTC, not Unspecified.
+        JSValue kindHint = _value.GetProperty("kind");
+        if (kindHint.IsString() && Enum.TryParse((string)kindHint, true, out DateTimeKind kind) &&
+            kind != DateTimeKind.Utc)
+        {
+            value = DateTime.SpecifyKind(value.ToLocalTime(), kind);
+        }
+
+        return value;
     }
 
     public static JSDate FromDateTimeOffset(DateTimeOffset value)
     {
         long dateValue = value.ToUnixTimeMilliseconds();
-        return new JSDate(dateValue);
+        JSDate jsDate = new JSDate(dateValue);
+
+        jsDate._value.SetProperty("offset", value.Offset.TotalMinutes);
+        jsDate._value.SetProperty("toString", new JSFunction(JSDateWithOffsetToString));
+
+        return jsDate;
+    }
+
+    private static JSValue JSDateWithOffsetToString(JSCallbackArgs args)
+    {
+        JSValue thisDate = args.ThisArg;
+        JSValue value = thisDate.CallMethod("valueOf");
+        JSValue offset = thisDate.GetProperty("offset");
+
+        if (!offset.IsNumber() || !value.IsNumber() || Double.IsNaN((double)value))
+        {
+            JSValue dateClass = JSRuntimeContext.Current.Import(null, "Date");
+            return dateClass.GetProperty("prototype").GetProperty("toString").Call(thisDate);
+        }
+
+        // Call toISOString on another Date instance with the offset applied.
+        int offsetValue = (int)offset;
+        JSDate offsetDate = new((long)thisDate.CallMethod("valueOf") + offsetValue * 60 * 1000);
+        JSValue isoString = offsetDate._value.CallMethod("toISOString");
+
+        string offsetSign = offsetValue < 0 ? "-" : "+";
+        offsetValue = Math.Abs(offsetValue);
+        int offsetHours = offsetValue / 60;
+        int offsetMinutes = offsetValue % 60;
+
+        // Convert the ISO string to a string with the offset.
+        return ((string)isoString).Replace("T", " ").Replace("Z", "") + " " + offsetSign +
+            offsetHours.ToString("D2") + ":" + offsetMinutes.ToString("D2");
     }
 
     public DateTimeOffset ToDateTimeOffset()
     {
-        return DateTimeOffset.FromUnixTimeMilliseconds(DateValue);
+        JSValue offset = _value.GetProperty("offset");
+        if (offset.IsNumber())
+        {
+            // FromUnixTimeMilliseconds expects a value in UTC and produces a result with 0 offset.
+            // The offset must be added to UTC when constructing the DateTimeOffset.
+            DateTimeOffset utcValue = DateTimeOffset.FromUnixTimeMilliseconds(DateValue);
+            TimeSpan offsetTime = TimeSpan.FromMinutes((double)offset);
+            return new DateTimeOffset(
+                new DateTime(utcValue.DateTime.Add(offsetTime).Ticks),
+                offsetTime);
+        }
+        else
+        {
+            return new DateTimeOffset(ToDateTime());
+        }
     }
 
     /// <summary>

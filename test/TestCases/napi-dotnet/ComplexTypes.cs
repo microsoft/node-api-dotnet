@@ -66,9 +66,19 @@ public static class ComplexTypes
 
     public static TestEnum TestEnum { get; set; }
 
-    public static DateTime Date { get; set; } = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+    public static DateTime DateTime { get; set; }
+        = new DateTime(2023, 4, 5, 6, 7, 8, DateTimeKind.Unspecified);
 
-    public static TimeSpan Time { get; set; } = new TimeSpan(1, 12, 30, 45);
+    public static DateTime DateTimeLocal { get; }
+        = new DateTime(2023, 4, 5, 6, 7, 8, DateTimeKind.Local);
+
+    public static DateTime DateTimeUtc { get; }
+        = new DateTime(2023, 4, 5, 6, 7, 8, DateTimeKind.Utc);
+
+    public static TimeSpan TimeSpan { get; set; } = new TimeSpan(1, 12, 30, 45);
+
+    public static DateTimeOffset DateTimeOffset { get; set; }
+        = new DateTimeOffset(DateTime, -TimeSpan.FromMinutes(90));
 
     public static KeyValuePair<string, int> Pair { get; set; }
         = new KeyValuePair<string, int>("pair", 1);
