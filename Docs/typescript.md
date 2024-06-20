@@ -104,8 +104,8 @@ properties. So C# `(string A, int B)` becomes TypeScript `[string, number]`, not
 
 ### Special types
 
-| C# Type            | TypeScript Projection |
-|--------------------|-----------------------|
+| C# Type            | TypeScript Projection   |
+|--------------------|-------------------------|
 | `Task`             | `Promise<void>`         |
 | `Task<T>`          | `Promise<T>`            |
 | `BigInteger`       | `BigInt`                |

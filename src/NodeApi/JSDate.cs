@@ -77,7 +77,7 @@ public readonly struct JSDate : IEquatable<JSValue>
     public static JSDate FromDateTimeOffset(DateTimeOffset value)
     {
         long dateValue = value.ToUnixTimeMilliseconds();
-        JSDate jsDate = new JSDate(dateValue);
+        JSDate jsDate = new(dateValue);
 
         jsDate._value.SetProperty("offset", value.Offset.TotalMinutes);
         jsDate._value.SetProperty("toString", new JSFunction(JSDateWithOffsetToString));
@@ -91,7 +91,7 @@ public readonly struct JSDate : IEquatable<JSValue>
         JSValue value = thisDate.CallMethod("valueOf");
         JSValue offset = thisDate.GetProperty("offset");
 
-        if (!offset.IsNumber() || !value.IsNumber() || Double.IsNaN((double)value))
+        if (!offset.IsNumber() || !value.IsNumber() || double.IsNaN((double)value))
         {
             JSValue dateClass = JSRuntimeContext.Current.Import(null, "Date");
             return dateClass.GetProperty("prototype").GetProperty("toString").Call(thisDate);
