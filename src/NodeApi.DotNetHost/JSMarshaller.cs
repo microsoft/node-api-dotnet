@@ -2036,13 +2036,24 @@ public class JSMarshaller
             }
             else if (toType == typeof(TimeSpan))
             {
-                MethodInfo asString = typeof(JSValue).GetExplicitConversion(
-                    typeof(JSValue), typeof(string));
+                MethodInfo asDouble = typeof(JSValue).GetExplicitConversion(
+                    typeof(JSValue), typeof(double));
                 MethodInfo toTimeSpan = typeof(TimeSpan).GetStaticMethod(
-                    nameof(TimeSpan.Parse), new[] { typeof(string) });
+                    nameof(TimeSpan.FromMilliseconds));
                 statements = new[]
                 {
-                    Expression.Call(toTimeSpan, Expression.Call(asString, valueParameter)),
+                    Expression.Call(toTimeSpan, Expression.Call(asDouble, valueParameter)),
+                };
+            }
+            else if (toType == typeof(DateTimeOffset))
+            {
+                MethodInfo asJSDate = typeof(JSDate).GetExplicitConversion(
+                    typeof(JSValue), typeof(JSDate));
+                MethodInfo toDateTimeOffset = typeof(JSDate).GetInstanceMethod(
+                    nameof(JSDate.ToDateTimeOffset));
+                statements = new[]
+                {
+                    Expression.Call(Expression.Call(asJSDate, valueParameter), toDateTimeOffset),
                 };
             }
             else if (toType == typeof(Guid))
@@ -2343,13 +2354,24 @@ public class JSMarshaller
             }
             else if (fromType == typeof(TimeSpan))
             {
-                MethodInfo toString = typeof(TimeSpan).GetInstanceMethod(
-                    nameof(TimeSpan.ToString), []);
+                PropertyInfo doubleValue = typeof(TimeSpan).GetInstanceProperty(
+                    nameof(TimeSpan.TotalMilliseconds));
                 MethodInfo asJSValue = typeof(JSValue).GetImplicitConversion(
-                    typeof(string), typeof(JSValue));
+                    typeof(double), typeof(JSValue));
                 statements = new[]
                 {
-                    Expression.Call(asJSValue, Expression.Call(valueParameter, toString)),
+                    Expression.Call(asJSValue, Expression.Property(valueParameter, doubleValue)),
+                };
+            }
+            else if (fromType == typeof(DateTimeOffset))
+            {
+                MethodInfo fromDateTimeOffset = typeof(JSDate).GetStaticMethod(
+                    nameof(JSDate.FromDateTimeOffset));
+                MethodInfo asJSValue = typeof(JSDate).GetImplicitConversion(
+                    typeof(JSDate), typeof(JSValue));
+                statements = new[]
+                {
+                    Expression.Call(asJSValue, Expression.Call(fromDateTimeOffset, valueParameter)),
                 };
             }
             else if (fromType == typeof(Guid))

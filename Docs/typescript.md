@@ -104,20 +104,18 @@ properties. So C# `(string A, int B)` becomes TypeScript `[string, number]`, not
 
 ### Special types
 
-| C# Type            | TypeScript Projection |
-|--------------------|-----------------------|
-| `Task`             | `Promise<void>`       |
-| `Task<T>`          | `Promise<T>`          |
-| `DateTime`         | `Date`                |
-| `DateTimeOffset`   | `[Date, number]`      |
-| `TimeSpan`         | `number`              |
-| `BigInteger`       | `BigInt`              |
-| `Tuple<A, B, ...>` | `[A, B, ...]`         |
-| `Stream`           | `Duplex`              |
+| C# Type            | TypeScript Projection   |
+|--------------------|-------------------------|
+| `Task`             | `Promise<void>`         |
+| `Task<T>`          | `Promise<T>`            |
+| `BigInteger`       | `BigInt`                |
+| `Tuple<A, B, ...>` | `[A, B, ...]`           |
+| `Stream`           | `Duplex`                |
+| `DateTime`         | `Date \| { kind?: 'utc' \| 'local' \| 'unspecified'}` |
+| `DateTimeOffset`   | `Date \| { offset?: number }` (Date is UTC; offset is +/- minutes) |
+| `TimeSpan`         | `number` (milliseconds) |
 
-Dates marshalled from JavaScript will always be `Utc` kind. A `TimeSpan` is projected to JavaScript
-as a decimal number of milliseconds. A `DateTimeOffset` is projected as a tuple of the UTC date-time
-and the offset in (positive or negative) milliseconds.
+For more about date and time marshalling, see [Date and time types in .NET and JavaScript](./dates.md).
 
 ### Methods with `ref` or `out` parameters
 JavaScript does not support `ref` or `out` parameters, so some transformations are applied
