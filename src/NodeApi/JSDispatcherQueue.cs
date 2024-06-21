@@ -44,7 +44,7 @@ public sealed class JSDispatcherQueue
     [ThreadStatic]
     private static JSDispatcherQueue? s_currentQueue;
 
-    public event EventHandler<JSDispatcherQueueShutdownStartingEventArgs>? ShutdownStarting;
+    public event EventHandler<ShutdownStartingEventArgs>? ShutdownStarting;
 
     public event EventHandler? ShutdownCompleted;
 
@@ -183,7 +183,7 @@ public sealed class JSDispatcherQueue
 
             _onShutdownCompleted = completion;
             ShutdownStarting?.Invoke(
-                this, new JSDispatcherQueueShutdownStartingEventArgs(CreateDeferral));
+                this, new ShutdownStartingEventArgs(CreateDeferral));
             DecrementDeferralCount(); // Decrement the initial _deferralCount == 1.
         });
 
@@ -252,6 +252,16 @@ public sealed class JSDispatcherQueue
                 _hasStoppedEnqueueing = true;
             }
         }
+    }
+
+    public sealed class ShutdownStartingEventArgs : EventArgs
+    {
+        private readonly Func<IDisposable> _getDeferral;
+
+        internal ShutdownStartingEventArgs(Func<IDisposable> getDeferral)
+            => _getDeferral = getDeferral;
+
+        public IDisposable GetDeferral() => _getDeferral();
     }
 
     private readonly struct CurrentQueueHolder : IDisposable
@@ -427,14 +437,4 @@ public sealed class JSDispatcherQueueTimer
             Timer.CompleteJob(this);
         }
     }
-}
-
-public sealed class JSDispatcherQueueShutdownStartingEventArgs : EventArgs
-{
-    private readonly Func<IDisposable> _getDeferral;
-
-    internal JSDispatcherQueueShutdownStartingEventArgs(Func<IDisposable> getDeferral)
-        => _getDeferral = getDeferral;
-
-    public IDisposable GetDeferral() => _getDeferral();
 }

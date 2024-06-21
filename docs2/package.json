@@ -7,8 +7,8 @@
   "scripts": {
     "build-dotnet": "node ./tools/build-dotnet-api-docs.js",
     "build-js": "node ./tools/build-js-api-docs.js",
-    "dev": "vitepress dev",
+    "dev": "vitepress dev --host 127.0.0.1",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview --host 127.0.0.1"
   }
 }

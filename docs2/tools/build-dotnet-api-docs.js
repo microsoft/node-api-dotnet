@@ -128,7 +128,7 @@ function processMarkdown(md) {
   // Escape some special chars in markdown tables because they cause problems with vitepress:
   // https://github.com/vuejs/vitepress/issues/449
   md = md
-    .replace(/(?<=\|[^|]*);(?=[^|]*\|)/g, '&semi;')
+    .replace(/(?<=\|[^|]*)(?<!&[a-z]+);(?=[^|]*\|)/g, '&semi;')
     .replace(/(?<=\|[^|]*){(?=[^|]*\|)/g, '&lbrace;')
     .replace(/(?<=\|[^|]*)}(?=[^|]*\|)/g, '&rbrace;');
 
@@ -146,85 +146,134 @@ outline: false
 
 /** Generate navigation data that will be imported into the vitepress sidebar config. */
 function generateNavigationTree(itemType, rootDir, subDir) {
-  const referencePath = '/reference/dotnet/';
   const items = [];
   const currentDir = subDir ? path.join(rootDir, subDir) : rootDir;
+
   fs.readdirSync(currentDir)
     .filter((f) => /\.md$/.test(f))
     .map((f) => f.substr(0, f.length - 3))
     .sort()
     .forEach((file) => {
-      // The top-level markdown files are per-assembly, but the nav should start with namaespaces.
-      let headers = getMarkdownFileHeaders(
-        path.join(currentDir, file + '.md'),
-        subDir ? '#' : '##');
-
-      if (/ \(\d.*\)$/.test(headers[0])) {
-        // Merge overloads into a single item.
-        headers = [headers[0].replace(/ \(\d.*\)$/, '')];
-      }
-
-      headers.forEach((header) => {
-        let link = path.join(referencePath, subDir ?? '', file).replace(/\\/g, '/');
-
-        if (/ namespace$/.test(header)) {
-          // Fix namespace links to point to subheaders in the merged index.
-          link = referencePath + '#' +
-              header.replace(/\.| /g, '-').toLowerCase();
-
-          // Use the namespace name as the file (directory) name when recursing.
-          file = header.replace(/ namespace$/, '');
-        }
-
-        // If there's a matching subdirectory, recurse to find sub-items.
-        let subItems = undefined;
-        if (fs.existsSync(path.join(currentDir, file)) &&
-          fs.lstatSync(path.join(currentDir, file)).isDirectory()
-        ) {
-          const itemType = header.substr(header.indexOf(' ') + 1);
-          subItems = generateNavigationTree(itemType, rootDir, path.join(subDir ?? '', file));
-        }
-
-        // Shorten some header suffixes so they fit better in the sidebar.
-        header = header
-          .replace(/ namespace$/, '')
-          .replace('structure', 'struct')
-          .replace('enumeration', 'enum');
-
-        items.push({
-          text: header,
-          link: link,
-          items: subItems,
-          collapsed: subItems ? true : undefined,
-        });
-      });
+      extractNavItemsFromMarkdown(rootDir, subDir, path.join(currentDir, file + '.md'), items);
   });
+
+  // Look for nested types which are in the same directory as their containing type.
+  if (subDir) {
+    fs.readdirSync(path.dirname(currentDir))
+      .filter((f) => /\.md$/.test(f))
+      .map((f) => f.substr(0, f.length - 3))
+      .filter((f) => f.startsWith(path.basename(currentDir) + '.'))
+      .sort()
+      .forEach((file) => {
+        extractNavItemsFromMarkdown(
+          rootDir,
+          path.dirname(subDir),
+          path.join(path.dirname(currentDir), file + '.md'),
+          items,
+          true);
+    });
+  }
+
   return categorizeNavItems(itemType, items);
 }
 
+function extractNavItemsFromMarkdown(rootDir, subDir, markdownFile, items, allowNested) {
+  const referencePath = '/reference/dotnet/';
+  let file = path.basename(markdownFile, '.md');
+
+  // The top-level markdown files are per-assembly, but the nav should start with namespaces.
+  let headers = getMarkdownFileHeaders(
+    markdownFile,
+    subDir ? '#' : '##');
+
+  if (/ \(\d.*\)$/.test(headers[0])) {
+    // Merge overloads into a single item.
+    headers = [headers[0].replace(/ \(\d.*\)$/, '')];
+  }
+
+  headers.forEach((header) => {
+    let link = path.join(referencePath, subDir ?? '', file).replace(/\\/g, '/');
+
+    if (/ namespace$/.test(header)) {
+      // Fix namespace links to point to subheaders in the merged index.
+      link = referencePath + '#' +
+          header.replace(/\.| /g, '-').toLowerCase();
+
+      // Use the namespace name as the file (directory) name when recursing.
+      file = header.replace(/ namespace$/, '');
+    } else if (file.includes('.')) {
+      if (!allowNested) return;
+      header = header.replace(' ' + file.substr(0, file.indexOf('.')) + '.', '');
+    }
+
+    // If there's a matching subdirectory, recurse to find sub-items.
+    let subItems = undefined;
+    if (fs.existsSync(path.join(path.dirname(markdownFile), file)) &&
+      fs.lstatSync(path.join(path.dirname(markdownFile), file)).isDirectory()
+    ) {
+      const itemType = header.substr(header.indexOf(' ') + 1);
+      subItems = generateNavigationTree(itemType, rootDir, path.join(subDir ?? '', file));
+    }
+
+    // Shorten some header suffixes so they fit better in the sidebar.
+    header = header
+      .replace(/ namespace$/, '')
+      .replace('structure', 'struct')
+      .replace('enumeration', 'enum');
+
+    items.push({
+      text: header,
+      link: link,
+      items: subItems,
+      collapsed: subItems ? true : undefined,
+    });
+  });
+}
+
 function categorizeNavItems(containerType, items) {
+  const typeCategories = [
+    'Interfaces',
+    'Classes',
+    'Structs',
+    'Enums',
+    'Delegates',
+  ];
+  const memberCategories = [
+    'Constructors',
+    'Properties',
+    'Methods',
+    'Operators',
+    'Events',
+    'Fields',
+    'Types',
+  ];
   let categories = [];
   switch (containerType) {
     case 'namespace':
-      categories = ['Interfaces', 'Classes', 'Structs', 'Enums', 'Delegates'];
+      categories = typeCategories;
       break;
     case 'interface':
     case 'class':
     case 'structure':
-      categories = ['Constructors', 'Properties', 'Methods', 'Operators', 'Events', 'Fields'];
+      categories = memberCategories;
       break;
     default:
       return items;
   }
 
-  const categorizedItems = [];
-
-  for (let category of categories) {
-    let categorySuffix = ' ' + (
+  function getCategorySuffix(category) {
+    return  ' ' + (
       category === 'Properties' ? 'property' :
       category === 'Classes' ? 'class' :
       category.toLowerCase().replace(/s$/, ''));
-    const categoryItems = items.filter((i) => i.text.endsWith(categorySuffix));
+  }
+
+  const categorizedItems = [];
+
+  for (let category of categories) {
+    const suffixes = category == 'Types' ?
+      typeCategories.map(getCategorySuffix) : [getCategorySuffix(category)];
+    const categoryItems = items.filter((i) => suffixes.some((s) => i.text.endsWith(s)));
     if (categoryItems.length > 0) {
       categorizedItems.push({
         text: category,

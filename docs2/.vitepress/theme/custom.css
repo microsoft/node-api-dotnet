@@ -6,5 +6,5 @@
 
 :root {
   /* The default sidebar width is 272px. We need extra width for a deep API doc tree. */
-  --vp-sidebar-width: 360px;
+  --vp-sidebar-width: 400px;
 }
