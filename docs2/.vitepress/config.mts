@@ -65,6 +65,7 @@ export default defineConfig({
               { text: 'Arrays & collections', link: '/marshalling/arrays-collections' },
               { text: 'Delegates', link: '/marshalling/delegates' },
               { text: 'Streams', link: '/marshalling/streams' },
+              { text: 'Dates and times', link: '/marshalling/dates' },
               { text: 'Other special types', link: '/marshalling/other-types' },
               { text: 'Async & promises', link: '/marshalling/async-promises' },
               { text: 'Generics', link: '/marshalling/generics' },
