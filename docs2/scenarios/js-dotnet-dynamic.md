@@ -22,12 +22,13 @@ For examples of this scenario, see
    </Project>
    ```
    - The `TargetFramework` should match the version of .NET that the JS application will load.
+   - Add `<PackageReference>` elements for any .NET packages you intend to use from JavaScript.
+   - Add a reference to the `Microsoft.JavaScript.NodeApi.Generator` package to get automatic generation
+     of TS type-definitions for the referenced system assemblies and nuget packages.
+   - Change `NodeApiAssemblyJSModuleType` to `esm` if using ES modules.
    - For convenience the `OutDir` can be simply set to `bin` because there are no object files
      or debug/release builds involved. The referenced assemblies (and their dependencies)
      will be placed there.
-   - The `Microsoft.JavaScript.NodeApi.Generator` package reference enables automatic generation
-     of TS type-definitions for the referenced assemblies.
-   - Change `NodeApiAssemblyJSModuleType` to `esm` if using ES modules.
 
    Build the project to restore the packages, place assemblies in the `bin` directory, and generate
    type definitions:
@@ -35,8 +36,11 @@ For examples of this scenario, see
    dotnet build
    ```
 
-2. Add a dependency on the `node-api-dotnet` npm package to your JavaScript project:
+2. Initialize a JavaScript project if you don't have one already. (It can be in the same directory
+   as the C# project, or a separate directory.) Then add a dependency on the
+   `node-api-dotnet` npm package:
     ```shell
+    npm init
     npm install node-api-dotnet
     ```
 
