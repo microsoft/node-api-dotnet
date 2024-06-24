@@ -68,7 +68,7 @@ public sealed partial class CollabEditBox : UserControl
         {
             JSValue logFunction = JSValue.CreateFunction("send", (args) =>
             {
-                var e = this.marshaller.To<TelemetryBaseEvent>(args[0]);
+                var e = this.marshaller.FromJS<TelemetryBaseEvent>(args[0]);
                 Debug.WriteLine($"[fluid:{e.Category}] {e.EventName}");
                 return JSValue.Undefined;
             });
@@ -89,8 +89,8 @@ public sealed partial class CollabEditBox : UserControl
 
             JSValue tinyliciousClient =
                 this.nodejs.Import("@fluidframework/tinylicious-client", "TinyliciousClient")
-                .CallAsConstructor(this.marshaller.From(clientProps));
-            this.fluidClient = this.marshaller.To<ITinyliciousClient>(tinyliciousClient);
+                .CallAsConstructor(this.marshaller.ToJS(clientProps));
+            this.fluidClient = this.marshaller.FromJS<ITinyliciousClient>(tinyliciousClient);
         });
     }
 
@@ -124,7 +124,7 @@ public sealed partial class CollabEditBox : UserControl
             "sequenceDelta",
             JSValue.CreateFunction("sequenceDelta", OnSharedStringDelta));
 
-        return this.marshaller.To<ISharedString>(sharedString);
+        return this.marshaller.FromJS<ISharedString>(sharedString);
     }
 
     private IDictionary<string, (int, int)> GetSharedSelections()
@@ -431,7 +431,7 @@ public sealed partial class CollabEditBox : UserControl
 
     private JSValue OnSharedStringDelta(JSCallbackArgs args)
     {
-        var deltaEvent = this.marshaller.To<SequenceDeltaEvent>(args[0]);
+        var deltaEvent = this.marshaller.FromJS<SequenceDeltaEvent>(args[0]);
 
         Debug.WriteLine(
             $"SequenceDelta(IsLocal={deltaEvent.IsLocal}, ClientId={deltaEvent.ClientId})");
@@ -527,7 +527,7 @@ public sealed partial class CollabEditBox : UserControl
 
     private JSValue OnSharedMapValueChanged(JSCallbackArgs args)
     {
-        var changedEvent = this.marshaller.To<SharedMapValueChangedEvent>(args[0]);
+        var changedEvent = this.marshaller.FromJS<SharedMapValueChangedEvent>(args[0]);
         bool isLocal = (bool)args[1];
 
         if (!isLocal)
