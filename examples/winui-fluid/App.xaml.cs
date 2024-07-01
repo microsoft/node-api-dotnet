@@ -24,12 +24,11 @@ public partial class App : Application
         // Node.js require() searches for modules/packages relative to the CWD.
         Environment.CurrentDirectory = Path.GetDirectoryName(typeof(App).Assembly.Location)!;
 
-        string libnodePath = Path.Combine(
-            Path.GetDirectoryName(typeof(App).Assembly.Location)!,
-            "libnode.dll");
+        string appDir = Path.GetDirectoryName(typeof(App).Assembly.Location)!;
+        string libnodePath = Path.Combine(appDir, "libnode.dll");
         NodejsPlatform nodejsPlatform = new(libnodePath);
 
-        Nodejs = nodejsPlatform.CreateEnvironment();
+        Nodejs = nodejsPlatform.CreateEnvironment(appDir);
         if (Debugger.IsAttached)
         {
             int pid = Process.GetCurrentProcess().Id;
