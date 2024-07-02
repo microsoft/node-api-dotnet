@@ -29,9 +29,10 @@ parameters:
     - Name: osx_x64
       VMImage: macos-13
       TargetRuntime: osx-x64
-    - Name: osx_arm64
-      VMImage: macos-13-arm64
-      TargetRuntime: osx-arm64
+# Temporary disabling mac arm64 build as CodeQL has a bug with .Net 8: https://dev.azure.com/twcdot/Data/_workitems/edit/138547
+#    - Name: osx_arm64
+#      VMImage: macos-13-arm64
+#      TargetRuntime: osx-arm64
     - Name: linux_x64
       VMImage: ubuntu-latest
       TargetRuntime: linux-x64
@@ -168,10 +169,16 @@ jobs:
         inputs:
           Contents: global.json
 
-      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
+      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
         displayName: CodeSign Binaries
         inputs:
-          ConnectedServiceName: ESRP-JsHost2
+          ConnectedServiceName: ESRP-JsHost
+          AppRegistrationClientId: d40f4525-33c0-4b19-8791-9d25a15c6b64
+          AppRegistrationTenantId: 72f988bf-86f1-41af-91ab-2d7cd011db47
+          AuthAKVName: jshost-esrp-keyvault
+          AuthCertName: esrp-authentication-certificate
+          AuthSignCertName: esrp-request-signing-certificate
+          ServiceEndpointUrl: 'https://api.esrp.microsoft.com/api/v2'
           FolderPath: $(Build.SourcesDirectory)/out/bin/Release
           # Recursively finds files matching these patterns:
           Pattern: |
