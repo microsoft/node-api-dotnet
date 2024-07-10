@@ -138,7 +138,7 @@ public unsafe partial class JSRuntime
         public delegate void Delegate(napi_env env, nint data, nint hint);
 
         public napi_finalize(napi_finalize.Delegate callback)
-            : this (Marshal.GetFunctionPointerForDelegate(callback)) { }
+            : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
     }
 
     public struct napi_error_message_handler
