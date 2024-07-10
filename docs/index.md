@@ -48,11 +48,11 @@ features:
     details: Automatically generate TypeScript type definitions for .NET assemblies.
   - title: .NET Native AOT support
     icon: 🤖
-    link: /features/native-aot
+    link: /features/dotnet-native-aot
     details: Optionally compile a C# library to a fully native Node.js addon that does not depend on the .NET runtime.
   - title: Automatic marshalling
     icon: 🏭
-    link: /features/automatic-marshalling
+    link: /features/js-dotnet-marshalling
     details: Pass classes, collections, streams, and more seamlessly between JS and .NET.
   - title: High performance
     icon: 🚀
@@ -60,6 +60,6 @@ features:
     details: Build-time source-generation or runtime code-generation optimizes interop performance.
   - title: Exception propagation
     icon: 💣
-    link: /marshalling/exceptions
+    link: /reference/exceptions
     details: .NET exceptions convert to/from JS errors, with combined stack traces.
 ---
