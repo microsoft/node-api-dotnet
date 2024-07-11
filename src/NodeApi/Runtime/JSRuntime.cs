@@ -24,8 +24,8 @@ using static NodejsRuntime;
 ///
 /// Guidelines for this API:
 ///   - Use .NET style method names, not napi_* function naming
-///   - Prefer strings, Span<T> and nint over pointers
-///   - Prefer ref & out over pointers, when practical
+///   - Prefer strings, Span, and nint over pointers
+///   - Prefer ref and out over pointers, when practical
 ///   - Use napi_value instead of JSValue, JSObject, JSArray, etc.
 ///   - Do not throw exceptions; return status codes instead
 ///   - Avoid overloads that are purely for convenience

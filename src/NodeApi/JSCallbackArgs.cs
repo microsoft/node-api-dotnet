@@ -7,6 +7,13 @@ using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
+/// <summary>
+/// Provides access to the arguments for a low-level JavaScript function call or callback, along
+/// with the `this` argument and an optional context object.
+/// </summary>
+/// <remarks>
+/// This type is a `ref struct` meaning it can only be used on the call stack.
+/// </remarks>
 public readonly ref struct JSCallbackArgs
 {
     private readonly napi_value _thisArg;
@@ -41,12 +48,28 @@ public readonly ref struct JSCallbackArgs
 
     internal JSValueScope Scope { get; }
 
+    /// <summary>
+    /// Gets the `this` argument for the call.
+    /// </summary>
     public JSValue ThisArg => new(_thisArg, Scope);
 
+    /// <summary>
+    /// Gets the argument at the specified (zero-based) index.
+    /// </summary>
+    /// <remarks>
+    /// If the index is out of range, this property returns `default(JSValue)` which is equivalent
+    /// to JS `undefined`.
+    /// </remarks>
     public JSValue this[int index] => index < _args.Length ? new(_args[index], Scope) : default;
 
+    /// <summary>
+    /// Gets the number of arguments.
+    /// </summary>
     public int Length => _args.Length;
 
+    /// <summary>
+    /// Gets the optional context object that was provided when the callback was registered.
+    /// </summary>
     public object? Data { get; }
 
     internal static void GetDataAndLength(

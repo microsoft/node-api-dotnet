@@ -61,10 +61,12 @@
 
   <PropertyGroup Condition=" !$(NetFramework) AND !$(NetStandard) ">
     <!-- A few runtime features are unavailable in .NET Framework and require conditional compilation. -->
-    <DefineConstants>$(DefineConstants);UNMANAGED_DELEGATES</DefineConstants>
     <DefineConstants>$(DefineConstants);STRING_AS_SPAN</DefineConstants>
     <DefineConstants>$(DefineConstants);STREAM_MEMORY</DefineConstants>
     <DefineConstants>$(DefineConstants);READONLY_SET</DefineConstants>
+
+    <!-- The xmldoc markdown tool doesn't support unmanaged delegates. -->
+    <DefineConstants Condition=" '$(GenerateDocumentationFile)' != 'true' ">$(DefineConstants);UNMANAGED_DELEGATES</DefineConstants>
   </PropertyGroup>
 
   <Import Project="./rid.props" />

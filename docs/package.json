@@ -1,0 +1,14 @@
+{
+  "name": "node-api-dotnet-docs",
+  "devDependencies": {
+    "typedoc": "^0.25.13",
+    "vitepress": "^1.2"
+  },
+  "scripts": {
+    "build-dotnet": "node ./tools/build-dotnet-api-docs.js",
+    "build-js": "node ./tools/build-js-api-docs.js",
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  }
+}

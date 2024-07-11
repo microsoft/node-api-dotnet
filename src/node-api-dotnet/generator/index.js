@@ -4,7 +4,7 @@
 // Licensed under the MIT License.
 
 const path = require('path');
-const assemblyDir = path.join(__dirname, 'net6.0');
+const assemblyDir = path.join(__dirname, 'net8.0');
 
 const dotnet = require('node-api-dotnet');
 

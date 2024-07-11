@@ -156,6 +156,12 @@ public class JSReference : IDisposable
     /// on the value.
     /// </summary>
     /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
+    /// <exception cref="NullReferenceException">The reference is weak and the value is not
+    /// available.</exception>
+    /// <remarks>
+    /// This method may be called from any thread. The <paramref name="action" /> delegate is
+    /// invoked on the JS thread.
+    /// </remarks>
     public void Run(Action<JSValue> action)
     {
         void GetValueAndRunAction()
@@ -186,6 +192,12 @@ public class JSReference : IDisposable
     /// on the value.
     /// </summary>
     /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
+    /// <exception cref="NullReferenceException">The reference is weak and the value is not
+    /// available.</exception>
+    /// <remarks>
+    /// This method may be called from any thread. The <paramref name="action" /> delegate is
+    /// invoked on the JS thread.
+    /// </remarks>
     public T Run<T>(Func<JSValue, T> action)
     {
         T GetValueAndRunAction()

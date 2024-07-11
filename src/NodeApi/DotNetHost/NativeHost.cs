@@ -16,7 +16,7 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 
 /// <summary>
 /// When AOT-compiled, exposes a native entry-point that supports loading the .NET runtime
-/// and the Node API <see cref="ManagedHost" />.
+/// and the Node API managed host.
 /// </summary>
 internal unsafe partial class NativeHost : IDisposable
 {

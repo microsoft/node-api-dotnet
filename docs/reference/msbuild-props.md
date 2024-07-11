@@ -1,0 +1,15 @@
+# MSBuild Properties
+
+The following properties can be used to customize the build processes for generating and packaging .NET projects for use from JavaScript.
+
+| Property Name                                 | Description |
+|-----------------------------------------------|-------------|
+| `GenerateNodeApiTypeDefinitions`              | Set to `true` to generate TypeScript type definitions for .NET APIs in the current project. (This is enabled by default when referencing the `Microsoft.JavaScript.NodeApi.Generator` package.) See [Develop a Node.js addon module](../scenarios/js-dotnet-module). |
+| `GenerateNodeApiTypeDefinitionsForReferences` | Set to `true` to generate TypeScript type definitions for .NET APIs in assemblies referenced by the current project. (This is enabled by default when **_an empty project_** references the `Microsoft.JavaScript.NodeApi.Generator` package.) See [Dynamically invoke .NET APIs from JavaScript](../scenarios/js-dotnet-dynamic). |
+| `NodeApiTypeDefinitionsFileName`              | Name of the type-definitions file generated for a project. Defaults to `$(TargetName).d.ts`. |
+| `NodeApiJSModuleType`                         | Set to either `commonjs` or `esm` to specify the module system used by the generated type definitions. If unspecified, the module type is detected automatically from `package.json`, which is usually correct. |
+| `PublishNodeModule`                           | Set to `true` to produce a Native AOT `.node` binary and `.js` module-loader script when building the `Publish` target. The files will be placed in the directory indicated by the `PublishDir` variable. See [Develop a Node.js addon module with .NET Native AOT](../scenarios/js-aot-module). |
+| `PublishMultiPlatformNodeModule`              | If `true`, the published `.node` binary file will be placed in a sub-directory according to the targeted [`RuntimeIdentifier`](https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#runtimeidentifier), for example `win-x64`. Then the publish process may be run spearately for multiple runtime-identifiers, and the module-loader script chooses the approrpriate one at runtime. |
+| `PackNpmPackage`                              | Set to `true` to run `npm pack` when building the `Publish` target. Requires a `package.json` file in the project directory. The npm package will be placed in the directory indicated by the `PackageOutputPath` variable. (Note this does not use the MSBuild "Pack" target because "Pack" runs before "Publish", while npm packaging must use the Native AOT binaries produced by the "Publish".) |
+| `EmitCompilerGeneratedFiles`                  | If `true` (the default), the generated C# code (`*.g.cs`) for a node module project will be emitted under `$(IntermediateOutputPath)/generated`. This can be helpful for debugging the generated code for marshalling .NET APIs to/from JS. |
+

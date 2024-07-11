@@ -1181,7 +1181,9 @@ public readonly struct JSValue : IEquatable<JSValue>
         <napi_env, nint, nint, void> s_callFinalizeAction = &CallFinalizeAction;
 #endif
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     internal static unsafe napi_value InvokeJSCallback(
         napi_env env, napi_callback_info callbackInfo)
     {
@@ -1189,7 +1191,9 @@ public readonly struct JSValue : IEquatable<JSValue>
             env, callbackInfo, JSValueScopeType.Callback, (descriptor) => descriptor);
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -1200,7 +1204,9 @@ public readonly struct JSValue : IEquatable<JSValue>
                 propertyDescriptor.ModuleContext));
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -1211,7 +1217,9 @@ public readonly struct JSValue : IEquatable<JSValue>
                 propertyDescriptor.ModuleContext));
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static napi_value InvokeJSSetter(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -1222,7 +1230,9 @@ public readonly struct JSValue : IEquatable<JSValue>
                 propertyDescriptor.ModuleContext));
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     internal static unsafe napi_value InvokeJSCallbackNoContext(
         napi_env env, napi_callback_info callbackInfo)
     {
@@ -1230,7 +1240,9 @@ public readonly struct JSValue : IEquatable<JSValue>
             env, callbackInfo, JSValueScopeType.NoContext, (descriptor) => descriptor);
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe napi_value InvokeJSMethodNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -1241,7 +1253,9 @@ public readonly struct JSValue : IEquatable<JSValue>
                 propertyDescriptor.ModuleContext));
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe napi_value InvokeJSGetterNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -1252,7 +1266,9 @@ public readonly struct JSValue : IEquatable<JSValue>
                 propertyDescriptor.ModuleContext));
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static napi_value InvokeJSSetterNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
@@ -1286,7 +1302,9 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     internal static unsafe void FinalizeGCHandle(napi_env env, nint data, nint hint)
     {
         GCHandle handle = GCHandle.FromIntPtr(data);
@@ -1302,7 +1320,9 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     internal static unsafe void FinalizeGCHandleToDisposable(napi_env env, nint data, nint hint)
     {
         GCHandle handle = GCHandle.FromIntPtr(data);
@@ -1325,7 +1345,9 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     internal static unsafe void FinalizeGCHandleToPinnedMemory(napi_env env, nint data, nint hint)
     {
         // The GC handle is passed via the hint parameter.
@@ -1342,7 +1364,9 @@ public readonly struct JSValue : IEquatable<JSValue>
         }
     }
 
+#if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
     private static unsafe void CallFinalizeAction(napi_env env, nint data, nint hint)
     {
         GCHandle gcHandle = GCHandle.FromIntPtr(data);
