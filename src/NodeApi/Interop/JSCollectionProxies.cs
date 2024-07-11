@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Generic;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
@@ -244,14 +245,17 @@ internal static class JSCollectionProxies
             {
                 IReadOnlyList<T> list = target.Unwrap<IReadOnlyList<T>>();
 
-                if (property.IsNumber())
-                {
-                    return toJS(list[(int)property]);
-                }
-                else if (property.IsString())
+                if (property.IsString())
                 {
                     string propertyName = (string)property;
-                    if (propertyName == "length")
+
+                    // Check for array indexes. (All properties are strings or symbols.)
+                    if (int.TryParse(propertyName, out int index) &&
+                        index >= 0 && index < list.Count)
+                    {
+                        return toJS(list[index]);
+                    }
+                    else if (propertyName == "length")
                     {
                         return list.Count;
                     }
@@ -281,14 +285,17 @@ internal static class JSCollectionProxies
             {
                 IList<T> list = target.Unwrap<IList<T>>();
 
-                if (property.IsNumber())
-                {
-                    return toJS(list[(int)property]);
-                }
-                else if (property.IsString())
+                if (property.IsString())
                 {
                     string propertyName = (string)property;
-                    if (propertyName == "length")
+
+                    // Check for array indexes. (All properties are strings or symbols.)
+                    if (int.TryParse(propertyName, out int index) &&
+                        index >= 0 && index < list.Count)
+                    {
+                        return toJS(list[index]);
+                    }
+                    else if (propertyName == "length")
                     {
                         return list.Count;
                     }
@@ -298,17 +305,25 @@ internal static class JSCollectionProxies
             },
             Set = (JSObject target, JSValue property, JSValue value, JSObject receiver) =>
             {
-                var list = (IList<T>)((JSValue)target).Unwrap(typeof(IList<T>).Name);
+                IList<T> list = target.Unwrap<IList<T>>();
 
-                if (property.IsNumber())
-                {
-                    list[(int)property] = fromJS(value);
-                    return true;
-                }
-                else if (property.IsString())
+                if (property.IsString())
                 {
                     string propertyName = (string)property;
-                    if (propertyName == "length")
+
+                    if (int.TryParse(propertyName, out int index) &&
+                        index >= 0)
+                    {
+                        // Allow setting a value at an index beyond the current length.
+                        while (index >= list.Count)
+                        {
+                            list.Add(default!);
+                        }
+
+                        list[index] = fromJS(value);
+                        return true;
+                    }
+                    else if (propertyName == "length")
                     {
                         int newLength = (int)value;
 
@@ -354,19 +369,39 @@ internal static class JSCollectionProxies
                 if (property.IsString())
                 {
                     string propertyName = (string)property;
-                    if (propertyName == "size")
+                    switch (propertyName)
                     {
-                        return set.Count;
+                        case "size":
+                            return set.Count;
+                        case "has":
+                            return JSValue.CreateFunction("has", (args) =>
+                            {
+                                return set.Contains(fromJS(args[0]));
+                            });
+                        case "keys":
+                        case "values":
+                            // Keys and values are the same for Set.
+                            return JSValue.CreateFunction(propertyName, (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    (IReadOnlyCollection<T>)set, toJS);
+                            });
+                        case "entries":
+                            return JSValue.CreateFunction(propertyName, (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    (IReadOnlyCollection<T>)set,
+                                    (value) =>
+                                    {
+                                        JSArray jsPair = new(2)
+                                        {
+                                            [0] = toJS(value),
+                                            [1] = toJS(value),
+                                        };
+                                        return jsPair;
+                                    });
+                            });
                     }
-                    else if (propertyName == "has")
-                    {
-                        return JSValue.CreateFunction("has", (args) =>
-                        {
-                            return set.Contains(fromJS(args[0]));
-                        });
-                    }
-
-                    // TODO: More Set methods: keys(), entries(), forEach()
                 }
 
                 return ProxyIterableGet(set, target, property, toJS);
@@ -401,7 +436,6 @@ internal static class JSCollectionProxies
                     {
                         case "size":
                             return set.Count;
-
                         case "has":
                             return JSValue.CreateFunction("has", (args) =>
                             {
@@ -423,8 +457,29 @@ internal static class JSCollectionProxies
                                 set.Clear();
                                 return JSValue.Undefined;
                             });
-
-                            // TODO: More Set methods: keys(), entries(), forEach()
+                        case "keys":
+                        case "values":
+                            // Keys and values are the same for Set.
+                            return JSValue.CreateFunction(propertyName, (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    (IReadOnlyCollection<T>)set, toJS);
+                            });
+                        case "entries":
+                            return JSValue.CreateFunction(propertyName, (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    (IReadOnlyCollection<T>)set,
+                                    (value) =>
+                                    {
+                                        JSArray jsPair = new(2)
+                                        {
+                                            [0] = toJS(value),
+                                            [1] = toJS(value),
+                                        };
+                                        return jsPair;
+                                    });
+                            });
                     }
                 }
 
@@ -457,27 +512,49 @@ internal static class JSCollectionProxies
                 if (property.IsString())
                 {
                     string propertyName = (string)property;
-                    if (propertyName == "size")
+                    switch (propertyName)
                     {
-                        return dictionary.Count;
+                        case "size":
+                            return dictionary.Count;
+                        case "has":
+                            return JSValue.CreateFunction("has", (args) =>
+                            {
+                                return dictionary.ContainsKey(keyFromJS(args[0]));
+                            });
+                        case "get":
+                            return JSValue.CreateFunction("get", (args) =>
+                            {
+                                return dictionary.TryGetValue(keyFromJS(args[0]), out TValue? value) ?
+                                    valueToJS(value!) : JSValue.Undefined;
+                            });
+                        case "keys":
+                            return JSValue.CreateFunction("keys", (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    dictionary.Keys, keyToJS);
+                            });
+                        case "values":
+                            return JSValue.CreateFunction("values", (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    dictionary.Values, valueToJS);
+                            });
+                        case "entries":
+                            return JSValue.CreateFunction("entries", (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    (IReadOnlyCollection<KeyValuePair<TKey, TValue>>)dictionary,
+                                    (pair) =>
+                                    {
+                                        JSArray jsPair = new(2)
+                                        {
+                                            [0] = keyToJS(pair.Key),
+                                            [1] = valueToJS(pair.Value),
+                                        };
+                                        return jsPair;
+                                    });
+                            });
                     }
-                    else if (propertyName == "has")
-                    {
-                        return JSValue.CreateFunction("has", (args) =>
-                        {
-                            return dictionary.ContainsKey(keyFromJS(args[0]));
-                        });
-                    }
-                    else if (propertyName == "get")
-                    {
-                        return JSValue.CreateFunction("get", (args) =>
-                        {
-                            return dictionary.TryGetValue(keyFromJS(args[0]), out TValue? value) ?
-                                valueToJS(value!) : JSValue.Undefined;
-                        });
-                    }
-
-                    // TODO: More Map methods: keys(), values(), forEach()
                 }
 
                 return ProxyIterableGet(dictionary, target, property, keyToJS, valueToJS);
@@ -513,7 +590,6 @@ internal static class JSCollectionProxies
                     {
                         case "size":
                             return dictionary.Count;
-
                         case "has":
                             return JSValue.CreateFunction("has", (args) =>
                             {
@@ -528,8 +604,8 @@ internal static class JSCollectionProxies
                         case "set":
                             return JSValue.CreateFunction("set", (args) =>
                             {
-                                dictionary.Add(keyFromJS(args[0]), valueFromJS(args[1]));
-                                return target;
+                                dictionary[keyFromJS(args[0])] = valueFromJS(args[1]);
+                                return args.ThisArg;
                             });
                         case "delete":
                             return JSValue.CreateFunction("delete", (args) =>
@@ -542,8 +618,33 @@ internal static class JSCollectionProxies
                                 dictionary.Clear();
                                 return JSValue.Undefined;
                             });
-
-                            // TODO: More Map methods: keys(), values(), forEach()
+                        case "keys":
+                            return JSValue.CreateFunction("keys", (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    dictionary.Keys, keyToJS);
+                            });
+                        case "values":
+                            return JSValue.CreateFunction("values", (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    dictionary.Values, valueToJS);
+                            });
+                        case "entries":
+                            return JSValue.CreateFunction("entries", (args) =>
+                            {
+                                return JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+                                    (IReadOnlyCollection<KeyValuePair<TKey, TValue>>)dictionary,
+                                    (pair) =>
+                                    {
+                                        JSArray jsPair = new(2)
+                                        {
+                                            [0] = keyToJS(pair.Key),
+                                            [1] = valueToJS(pair.Value),
+                                        };
+                                        return jsPair;
+                                    });
+                            });
                     }
                 }
 
@@ -567,7 +668,7 @@ internal static class JSCollectionProxies
                 JSArray jsPair = new(2)
                 {
                     [0] = keyToJS(pair.Key),
-                    [1] = valueToJS(pair.Value)
+                    [1] = valueToJS(pair.Value),
                 };
                 return jsPair;
             });
