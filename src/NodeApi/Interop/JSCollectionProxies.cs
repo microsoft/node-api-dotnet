@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Generic;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
@@ -244,14 +245,17 @@ internal static class JSCollectionProxies
             {
                 IReadOnlyList<T> list = target.Unwrap<IReadOnlyList<T>>();
 
-                if (property.IsNumber())
-                {
-                    return toJS(list[(int)property]);
-                }
-                else if (property.IsString())
+                if (property.IsString())
                 {
                     string propertyName = (string)property;
-                    if (propertyName == "length")
+
+                    // Check for array indexes. (All properties are strings or symbols.)
+                    if (Int32.TryParse(propertyName, out int index) &&
+                        index >= 0 && index < list.Count)
+                    {
+                        return toJS(list[index]);
+                    }
+                    else if (propertyName == "length")
                     {
                         return list.Count;
                     }
@@ -281,14 +285,17 @@ internal static class JSCollectionProxies
             {
                 IList<T> list = target.Unwrap<IList<T>>();
 
-                if (property.IsNumber())
-                {
-                    return toJS(list[(int)property]);
-                }
-                else if (property.IsString())
+                if (property.IsString())
                 {
                     string propertyName = (string)property;
-                    if (propertyName == "length")
+
+                    // Check for array indexes. (All properties are strings or symbols.)
+                    if (Int32.TryParse(propertyName, out int index) &&
+                        index >= 0 && index < list.Count)
+                    {
+                        return toJS(list[index]);
+                    }
+                    else if (propertyName == "length")
                     {
                         return list.Count;
                     }
@@ -298,17 +305,25 @@ internal static class JSCollectionProxies
             },
             Set = (JSObject target, JSValue property, JSValue value, JSObject receiver) =>
             {
-                var list = (IList<T>)((JSValue)target).Unwrap(typeof(IList<T>).Name);
+                IList<T> list = target.Unwrap<IList<T>>();
 
-                if (property.IsNumber())
-                {
-                    list[(int)property] = fromJS(value);
-                    return true;
-                }
-                else if (property.IsString())
+                if (property.IsString())
                 {
                     string propertyName = (string)property;
-                    if (propertyName == "length")
+
+                    if (Int32.TryParse(propertyName, out int index) &&
+                        index >= 0)
+                    {
+                        // Allow setting a value at an index beyond the current length.
+                        while (index >= list.Count)
+                        {
+                            list.Add(default!);
+                        }
+
+                        list[index] = fromJS(value);
+                        return true;
+                    }
+                    else if (propertyName == "length")
                     {
                         int newLength = (int)value;
 
