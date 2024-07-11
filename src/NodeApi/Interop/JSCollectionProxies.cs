@@ -250,7 +250,7 @@ internal static class JSCollectionProxies
                     string propertyName = (string)property;
 
                     // Check for array indexes. (All properties are strings or symbols.)
-                    if (Int32.TryParse(propertyName, out int index) &&
+                    if (int.TryParse(propertyName, out int index) &&
                         index >= 0 && index < list.Count)
                     {
                         return toJS(list[index]);
@@ -290,7 +290,7 @@ internal static class JSCollectionProxies
                     string propertyName = (string)property;
 
                     // Check for array indexes. (All properties are strings or symbols.)
-                    if (Int32.TryParse(propertyName, out int index) &&
+                    if (int.TryParse(propertyName, out int index) &&
                         index >= 0 && index < list.Count)
                     {
                         return toJS(list[index]);
@@ -311,7 +311,7 @@ internal static class JSCollectionProxies
                 {
                     string propertyName = (string)property;
 
-                    if (Int32.TryParse(propertyName, out int index) &&
+                    if (int.TryParse(propertyName, out int index) &&
                         index >= 0)
                     {
                         // Allow setting a value at an index beyond the current length.
