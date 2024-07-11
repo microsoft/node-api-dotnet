@@ -116,6 +116,14 @@ function processMarkdownFiles(directory) {
   fs.readdirSync(directory, { recursive: true}).forEach((file) => {
     if (/\.md$/.test(file)) {
       const filePath = path.join(directory, file);
+
+      if (/\.napi_[a-z_]+\/Handle.md$/.test(file)) {
+        // Omit "Handle" properties from napi_ record structs.
+        // (They are not relevant for users, and cause problems with the VitePress build.)
+        fs.rmSync(filePath);
+        return;
+      }
+
       let markdown = fs.readFileSync(filePath, 'utf8');
       markdown = processMarkdown(markdown);
       fs.writeFileSync(filePath, markdown);
@@ -134,6 +142,9 @@ function processMarkdown(md) {
 
   // Strip [Obsolete] attributes on ref structs.
   md = md.replace(/\[Obsolete\("Types with embedded references[^"]*"\)\]\r?\n/g, '');
+
+  // Strip "Handle" properties from napi_ record structs.
+  md = md.replace(/\| \[Handle\]\(\w+\.napi_.*\|\n/, '');
 
   md = md.replace(/```csharp/g, '```C#');
 
