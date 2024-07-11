@@ -1,7 +1,7 @@
 # Sample workflow for building and deploying a VitePress site to GitHub Pages
 # Reference: https://vitepress.dev/guide/deploy#github-pages
 
-name: Deploy VitePress site to Pages
+name: Publish Docs
 
 on:
   # Runs on pushes targeting the `main` branch. Change this to `master` if you're
@@ -24,11 +24,6 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
-defaults:
-  run:
-    # All jobs in this workflow run from the docs directory
-    working-directory: docs
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,6 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Not needed if lastUpdated is not enabled
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -48,20 +44,31 @@ jobs:
           dotnet-version: 8.0.x
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
       - name: Install npm packages
+        working-directory: ./docs
         run: npm ci
+
       - name: Build JS API docs
+        working-directory: ./docs
         run: npm run build-js
+
       - name: Build .NET API docs
+        working-directory: ./docs
         run: npm run build-dotnet
+
       - name: Render docs with VitePress
+        working-directory: ./docs
         run: npm run build
+
       - name: Copy images
+        working-directory: ./docs
         run: cp -r images .vitepress/dist/images
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .vitepress/dist
+          path: ./docs/.vitepress/dist
 
   deploy:
     environment:
