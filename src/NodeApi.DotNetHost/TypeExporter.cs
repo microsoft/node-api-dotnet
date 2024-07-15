@@ -125,7 +125,7 @@ public class TypeExporter
                 if (_namespaces != null)
                 {
                     // Add a property on the namespaces JS object.
-                    JSObject namespacesObject = (JSObject)_namespaces.GetValue()!.Value;
+                    JSObject namespacesObject = (JSObject)_namespaces.GetValue();
                     namespacesObject[namespaceParts[0]] = parentNamespace.Value;
                 }
             }

@@ -105,7 +105,7 @@ internal unsafe partial class NativeHost : IDisposable
                 // Normally this shouldn't happen because the host package initialization
                 // script would only be loaded once by require(). But certain situations like
                 // drive letter or path casing inconsistencies can cause it to be loaded twice.
-                return _exports.GetValue()!.Value;
+                return _exports.GetValue();
             }
             else
             {

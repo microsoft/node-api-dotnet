@@ -311,7 +311,7 @@ public sealed class JSRuntimeContext : IDisposable
 
         if (_objectMap.TryGetValue(obj, out JSReference? existingWrapperWeakRef))
         {
-            if (!existingWrapperWeakRef.IsDisposed && existingWrapperWeakRef.GetValue().HasValue)
+            if (!existingWrapperWeakRef.IsDisposed && existingWrapperWeakRef.TryGetValue(out _))
             {
                 // If the .NET object is already mapped to a non-released JS object, then
                 // another one should not be created.
@@ -626,6 +626,9 @@ public sealed class JSRuntimeContext : IDisposable
 
         JSReference reference = _importMap.GetOrAdd((module, property), (_) =>
         {
+            // TODO: Consider what to do if the imported property is undefined
+            // or not a referenceable type.
+
             if (module == null || module == "global")
             {
                 // Importing a built-in object from `global`.
@@ -656,9 +659,8 @@ public sealed class JSRuntimeContext : IDisposable
                     return new JSReference(propertyValue);
                 }
             }
-
         });
-        return reference.GetValue() ?? JSValue.Undefined;
+        return reference.GetValue();
     }
 
     /// <summary>

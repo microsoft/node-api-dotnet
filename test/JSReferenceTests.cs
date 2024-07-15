@@ -25,7 +25,7 @@ public class JSReferenceTests
 
         JSValue value = JSValue.CreateObject();
         JSReference reference = new(value);
-        Assert.True(reference.GetValue()?.IsObject() ?? false);
+        Assert.True(reference.GetValue().IsObject());
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class JSReferenceTests
             reference = new JSReference(value);
         }
 
-        Assert.True(reference.GetValue()?.IsObject() ?? false);
+        Assert.True(reference.GetValue().IsObject());
     }
 
     [Fact]
@@ -72,5 +72,40 @@ public class JSReferenceTests
             using JSValueScope rootScope2 = TestScope(JSValueScopeType.Root);
             Assert.Throws<JSInvalidThreadAccessException>(() => reference.GetValue());
         }).Wait();
+    }
+
+    [Fact]
+    public void GetWeakReferenceUnavailable()
+    {
+        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+
+        JSValue value = JSValue.CreateObject();
+        var reference = new JSReference(value, isWeak: true);
+
+        _mockRuntime.MockReleaseWeakReferenceValue(reference.Handle);
+        Assert.Throws<NullReferenceException>(() => reference.GetValue());
+    }
+
+    [Fact]
+    public void TryGetWeakReferenceValue()
+    {
+        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+
+        JSValue value = JSValue.CreateObject();
+        JSReference reference = new(value);
+        Assert.True(reference.TryGetValue(out JSValue result));
+        Assert.True(result.IsObject());
+    }
+
+    [Fact]
+    public void TryGetWeakReferenceUnavailable()
+    {
+        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+
+        JSValue value = JSValue.CreateObject();
+        var reference = new JSReference(value, isWeak: true);
+
+        _mockRuntime.MockReleaseWeakReferenceValue(reference.Handle);
+        Assert.False(reference.TryGetValue(out _));
     }
 }

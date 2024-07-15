@@ -187,6 +187,17 @@ internal class MockJSRuntime : JSRuntime
         return _references.Remove(@ref.Handle) ? napi_ok : napi_invalid_arg;
     }
 
+    /// <summary>
+    /// Simulates the behavior of the JS runtime when a weakly-referenced value is released.
+    /// </summary>
+    public void MockReleaseWeakReferenceValue(napi_ref @ref)
+    {
+        if (_references.TryGetValue(@ref.Handle, out MockJSRef? mockRef))
+        {
+            mockRef.ValueHandle = 0;
+        }
+    }
+
     // Mocking the sync context prevents the runtime mock from having to implement APIs
     // to support initializing the thread-safe-function for the sync context.
     // Unit tests that use the mock runtime don't currently use the sync context.

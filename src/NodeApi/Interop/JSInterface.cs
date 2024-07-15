@@ -31,7 +31,7 @@ public abstract class JSInterface
     /// <summary>
     /// Gets the underlying JS value.
     /// </summary>
-    protected JSValue Value => ValueReference.GetValue()!.Value;
+    protected JSValue Value => ValueReference.GetValue();
 
     /// <summary>
     /// Dynamically invokes an interface method JS adapter delegate after obtaining the JS `this`

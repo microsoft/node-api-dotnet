@@ -345,7 +345,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         if (_loadedModules.TryGetValue(assemblyFilePath, out JSReference? exportsRef))
         {
             Trace("< ManagedHost.LoadModule() => already loaded");
-            return exportsRef.GetValue()!.Value;
+            return exportsRef.GetValue();
         }
 
         Assembly assembly;

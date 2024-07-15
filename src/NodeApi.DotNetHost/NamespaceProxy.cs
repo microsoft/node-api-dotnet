@@ -90,7 +90,7 @@ internal class NamespaceProxy
     {
         if (_valueReference != null)
         {
-            return (JSProxy)_valueReference.GetValue()!.Value;
+            return (JSProxy)_valueReference.GetValue();
         }
 
         JSProxy proxy = new(new JSObject(), CreateProxyHandler());
@@ -102,7 +102,7 @@ internal class NamespaceProxy
     {
         if (_tostringReference != null)
         {
-            return (JSFunction)_tostringReference.GetValue()!.Value;
+            return (JSFunction)_tostringReference.GetValue();
         }
 
         // Calling `toString()` on a namespace returns the full namespace name.
