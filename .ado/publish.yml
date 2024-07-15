@@ -45,25 +45,15 @@ jobs:
 
       variables:
         DotNetMoniker: net8.0
-        # Temporary variables to collect CodeQL info to debug OSX ARM64 build issue.
-        # They must be removed as soon as they not needed to save storage.
+        # Temporary disable CodeQL for OSX ARM64.
+        # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
         ${{ if eq( matrixEntry.TargetRuntime, 'osx-arm64' ) }}:
-          Codeql.PublishDatabaseLog: true
-          Codeql.Cadence: 0
+          Codeql.Enabled: false
 
       pool:
         vmImage: ${{ matrixEntry.VMImage }}
 
       steps:
-        # To debug OSX ARM64 CodeQL build issue.
-        - script: csrutil status
-          displayName: System Integrity Protection status
-          condition: eq( '${{ matrixEntry.TargetRuntime }}', 'osx-arm64' )
-
-        - script: echo "Codeql.PublishDatabaseLog = ${{ variables['Codeql.PublishDatabaseLog'] }}; Codeql.Cadence = ${{ variables['Codeql.Cadence'] }}"
-          displayName: Print CodeQL debug info variable
-          condition: eq( '${{ matrixEntry.TargetRuntime }}', 'osx-arm64' )
-
         - checkout: self
           displayName: Deep git fetch for version generation
           fetchDepth: 0 # Use deep fetch for the version calculation by Nerdbank.GitVersioning
