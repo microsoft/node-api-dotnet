@@ -97,7 +97,7 @@ public partial class NodeStream
         {
             if (s_duplexStreamAdapterReference != null)
             {
-                return s_duplexStreamAdapterReference.GetValue()!.Value;
+                return s_duplexStreamAdapterReference.GetValue();
             }
 
             var streamAdapter = new JSObject
@@ -116,7 +116,7 @@ public partial class NodeStream
         {
             if (s_readableStreamAdapterReference != null)
             {
-                return s_readableStreamAdapterReference.GetValue()!.Value;
+                return s_readableStreamAdapterReference.GetValue();
             }
 
             var streamAdapter = new JSObject
@@ -132,7 +132,7 @@ public partial class NodeStream
         {
             if (s_writableStreamAdapterReference != null)
             {
-                return s_writableStreamAdapterReference.GetValue()!.Value;
+                return s_writableStreamAdapterReference.GetValue();
             }
 
             var streamAdapter = new JSObject
@@ -181,7 +181,7 @@ public partial class NodeStream
             int count = await stream.ReadAsync(buffer, 0, ReadChunkSize);
 #endif
 
-            nodeStream = nodeStreamReference.GetValue()!.Value;
+            nodeStream = nodeStreamReference.GetValue();
             nodeStream.CallMethod(
                 "push", count == 0 ? JSValue.Null : new JSTypedArray<byte>(buffer, 0, count));
         }
@@ -189,7 +189,7 @@ public partial class NodeStream
         {
             try
             {
-                nodeStream = nodeStreamReference.GetValue()!.Value;
+                nodeStream = nodeStreamReference.GetValue();
                 nodeStream.CallMethod("destroy", new JSError(ex).Value);
             }
             catch (Exception)
@@ -253,7 +253,7 @@ public partial class NodeStream
             await stream.WriteAsync(chunk.ToArray(), 0, chunk.Length);
 #endif
 
-            callback = callbackReference.GetValue()!.Value;
+            callback = callbackReference.GetValue();
             callback.Call();
         }
         catch (Exception ex)
@@ -261,7 +261,7 @@ public partial class NodeStream
             bool isExceptionPending5 = JSError.IsExceptionPending();
             try
             {
-                callback = callbackReference.GetValue()!.Value;
+                callback = callbackReference.GetValue();
                 callback.Call(thisArg: JSValue.Undefined, new JSError(ex).Value);
             }
             catch (Exception)
@@ -292,14 +292,14 @@ public partial class NodeStream
         {
             await stream.FlushAsync();
 
-            callback = callbackReference.GetValue()!.Value;
+            callback = callbackReference.GetValue();
             callback.Call();
         }
         catch (Exception ex)
         {
             try
             {
-                callback = callbackReference.GetValue()!.Value;
+                callback = callbackReference.GetValue();
                 callback.Call(thisArg: JSValue.Undefined, new JSError(ex).Value);
             }
             catch (Exception)

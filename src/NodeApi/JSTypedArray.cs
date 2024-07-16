@@ -217,8 +217,7 @@ public readonly struct JSTypedArray<T> : IEquatable<JSValue> where T : struct
             _typedArrayReference = new JSReference(typedArray);
         }
 
-        public JSValue JSValue => _typedArrayReference.GetValue() ??
-            throw new ObjectDisposedException(nameof(JSTypedArray<T>));
+        public JSValue JSValue => _typedArrayReference.GetValue();
 
         public override Span<T> GetSpan()
         {

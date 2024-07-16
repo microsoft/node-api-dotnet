@@ -90,7 +90,7 @@ public readonly struct JSAbortSignal : IEquatable<JSValue>
                 JSSynchronizationContext syncContext = JSSynchronizationContext.Current!;
                 cancellation.Register(() => syncContext.Post(() =>
                 {
-                    controllerReference.GetValue()!.Value.CallMethod("abort");
+                    controllerReference.GetValue().CallMethod("abort");
                     controllerReference.Dispose();
                 }));
                 return new JSAbortSignal(controller["signal"]);

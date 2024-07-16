@@ -367,7 +367,7 @@ internal class JSIterableEnumerable<T> : IEnumerable<T>, IEquatable<JSValue>, ID
 
     private readonly JSReference _iterableReference;
 
-    internal JSValue Value => _iterableReference.GetValue()!.Value;
+    internal JSValue Value => _iterableReference.GetValue();
 
     protected void Run(Action<JSValue> action) => _iterableReference.Run(action);
     protected TResult Run<TResult>(Func<JSValue, TResult> action) => _iterableReference.Run(action);
@@ -664,7 +664,7 @@ internal class JSMapReadOnlyDictionary<TKey, TValue> :
     protected void Run(Action<JSValue> action) => _mapReference.Run(action);
     protected TResult Run<TResult>(Func<JSValue, TResult> action) => _mapReference.Run(action);
 
-    internal JSValue Value => _mapReference.GetValue()!.Value;
+    internal JSValue Value => _mapReference.GetValue();
 
     bool IEquatable<JSValue>.Equals(JSValue other) => Run((map) => map.Equals(other));
 

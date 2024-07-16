@@ -18,9 +18,13 @@ namespace Microsoft.JavaScript.NodeApi;
 /// <see cref="JSReference"/> to maintain a reference to a JS value beyond a single scope.
 /// <para/>
 /// A <see cref="JSReference"/> should be disposed when no longer needed; this allows the JS value
-/// to be collected by the GC if it has no other references. The <see cref="JSReference"/> class
+/// to be collected by the JS GC if it has no other references. The <see cref="JSReference"/> class
 /// also has a finalizer so that the reference will be released when the C# object is GC'd. However
 /// explicit disposal is still preferable when possible.
+/// <para/>
+/// A "strong" reference ensures the JS value is available at least until the reference is disposed.
+/// A "weak" reference does not prevent the JS value from being released collected by the JS
+/// garbage-collector, but allows the value to be optimistically retrieved until then.
 /// </remarks>
 public class JSReference : IDisposable
 {
@@ -28,8 +32,16 @@ public class JSReference : IDisposable
     private readonly napi_env _env;
     private readonly JSRuntimeContext? _context;
 
-    public bool IsWeak { get; private set; }
-
+    /// <summary>
+    /// Creates a new instance of a <see cref="JSReference"/> that holds a strong or weak
+    /// reference to a JS value.
+    /// </summary>
+    /// <param name="value">The JavaScript value to reference.</param>
+    /// <param name="isWeak">True if the reference will be "weak", meaning the reference does not
+    /// prevent the value from being released and collected by the JS garbage-collector. The
+    /// default is false, meaning the value will remain available at least until the "strong"
+    /// reference is disposed.
+    /// </param>
     public JSReference(JSValue value, bool isWeak = false)
         : this(value.Runtime.CreateReference(
                   (napi_env)JSValueScope.Current,
@@ -40,6 +52,13 @@ public class JSReference : IDisposable
     {
     }
 
+    /// <summary>
+    /// Creates a new instance of a <see cref="JSReference"/> that holds a strong or weak
+    /// reference to a JS value.
+    /// </summary>
+    /// <param name="handle">The reference handle.</param>
+    /// <param name="isWeak">True if the handle is for a weak reference. This must match
+    /// the existing state of the handle.</param>
     public JSReference(napi_ref handle, bool isWeak = false)
     {
         JSValueScope currentScope = JSValueScope.Current;
@@ -50,6 +69,12 @@ public class JSReference : IDisposable
         _context = currentScope.RuntimeContext;
         IsWeak = isWeak;
     }
+
+    /// <summary>
+    /// Gets a value indicating whether the reference is weak.
+    /// </summary>
+    /// <returns>True if the reference is weak, false if it is strong.
+    public bool IsWeak { get; private set; }
 
     /// <summary>
     /// Gets the value handle, or throws an exception if access from the current thread is invalid.
@@ -73,6 +98,16 @@ public class JSReference : IDisposable
         return reference.Handle;
     }
 
+    /// <summary>
+    /// Creates a reference to a JS value, if the value is an object, function, or symbol.
+    /// </summary>
+    /// <param name="value">The JS value to reference.</param>
+    /// <param name="isWeak">True to create a weak reference, false to create a strong
+    /// reference.</param>
+    /// <param name="result">Returns the created reference, or <c>default(JSValue)</c>, equivalent
+    /// to <c>undefined</c>, if the value is not a referencable type.</param>
+    /// <returns>True if the reference was created, false if the reference could not be created
+    /// because the value is not a supported type for references.</returns>
     public static bool TryCreateReference(
         JSValue value, bool isWeak, [NotNullWhen(true)] out JSReference? result)
     {
@@ -139,15 +174,52 @@ public class JSReference : IDisposable
     }
 
     /// <summary>
-    /// Gets the referenced JS value, or null if the reference is weak and the value is
-    /// no longer available.
+    /// Gets the referenced JS value.
     /// </summary>
+    /// <returns>The referenced JS value.</returns>
     /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
-    public JSValue? GetValue()
+    /// <exception cref="NullReferenceException">The reference is weak and the weakly-referenced
+    /// JS value is not available.</exception>
+    /// <remarks>
+    /// Use this method with strong references when the referenced value is expected to be always
+    /// available. For weak references, use <see cref="TryGetValue(out JSValue)" /> instead.
+    /// </remarks>
+    public JSValue GetValue()
     {
         JSValueScope.CurrentRuntime.GetReferenceValue(Env, _handle, out napi_value result)
             .ThrowIfFailed();
+
+        // napi_get_reference_value() returns a null handle if the weak reference is invalid.
+        if (result == default)
+        {
+            throw new NullReferenceException("The weakly-referenced JS value not available.");
+        }
+
         return result;
+    }
+
+    /// <summary>
+    /// Attempts to get the referenced JS value.
+    /// </summary>
+    /// <param name="value">Returns the referenced JS value, or <c>default(JSValue)</c>, equivalent
+    /// to <c>undefined</c>, if the reference is weak and the value is not available.</param>
+    /// <returns>True if the value was obtained, false if the reference is weak and the value is
+    /// not available.</returns>
+    /// <exception cref="ObjectDisposedException">The reference is disposed.</exception>
+    public bool TryGetValue(out JSValue value)
+    {
+        JSValueScope.CurrentRuntime.GetReferenceValue(Env, _handle, out napi_value result)
+            .ThrowIfFailed();
+
+        // napi_get_reference_value() returns a null handle if the weak reference is invalid.
+        if (result == default)
+        {
+            value = default;
+            return false;
+        }
+
+        value = new JSValue(result);
+        return true;
     }
 
     /// <summary>

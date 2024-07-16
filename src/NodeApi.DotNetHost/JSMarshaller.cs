@@ -892,7 +892,7 @@ public class JSMarshaller
          * var __valueRef = new JSReference(__value);
          * var __syncContext = JSSynchronizationContext.Current;
          * return (...args) => __syncContext.Run(() =>
-         *     __valueRef.GetValue().Value.Call(...args));
+         *     __valueRef.GetValue().Call(...args));
          */
         ParameterExpression valueParameter = Expression.Parameter(typeof(JSValue), "__value");
         ParameterExpression valueRefVariable = Expression.Variable(
@@ -912,11 +912,9 @@ public class JSMarshaller
             syncContextVariable,
             Expression.Property(null, typeof(JSSynchronizationContext).GetStaticProperty(
                 nameof(JSSynchronizationContext.Current))));
-        Expression getValueExpression = Expression.Property(
-            Expression.Call(
+        Expression getValueExpression = Expression.Call(
                 valueRefVariable,
-                typeof(JSReference).GetInstanceMethod(nameof(JSReference.GetValue))),
-            "Value");
+                typeof(JSReference).GetInstanceMethod(nameof(JSReference.GetValue)));
 
         ParameterExpression[] parameters = invokeMethod.GetParameters()
             .Select(Parameter).ToArray();

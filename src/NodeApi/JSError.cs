@@ -153,7 +153,7 @@ public struct JSError
             {
                 try
                 {
-                    _message = (string?)_errorRef.GetValue()?["message"];
+                    _message = (string?)_errorRef.GetValue()["message"];
                 }
                 catch
                 {

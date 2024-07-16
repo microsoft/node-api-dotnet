@@ -18,7 +18,7 @@ public partial class NodeStream : Stream
 
     public static explicit operator NodeStream(JSValue value) => new(value);
     public static implicit operator JSValue(NodeStream stream)
-        => stream._valueReference.GetValue() ?? default;
+        => stream._valueReference.GetValue();
 
     private NodeStream(JSValue value)
     {
@@ -53,8 +53,7 @@ public partial class NodeStream : Stream
         }));
     }
 
-    private JSValue Value => _valueReference.GetValue() ??
-        throw new ObjectDisposedException(nameof(NodeStream));
+    private JSValue Value => _valueReference.GetValue();
 
     public override bool CanRead => Value.HasProperty("read");
 

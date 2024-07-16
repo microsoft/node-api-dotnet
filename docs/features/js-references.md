@@ -4,16 +4,13 @@ The [`JSReference`](../reference/dotnet/Microsoft.JavaScript.NodeApi/JSReference
 or weak reference to a JavaScript value. Use a reference to save a JS value on the .NET heap and
 enable it to be accessed later from a different [scope](./js-value-scopes).
 
-::: warning
-The example code below might need to be updated after
-https://github.com/microsoft/node-api-dotnet/issues/197 is resolved.
-:::
-
 ## Using strong references
 
 A common practice is to save a reference as a member variable to support using the referenced
 JS value in a later callback. A strong reference prevents the JS value from being released
-until the reference is disposed.
+until the reference is disposed. The referenced value can be retrieved later via the
+[`JSReference.GetValue()`](../reference/dotnet/Microsoft.JavaScript.NodeApi/JSReference/GetValue)
+method.
 
 ```C#
 [JSExport]
@@ -23,17 +20,17 @@ public class ReferenceExample : IDisposable
 
     public ReferenceExample(JSArray data)
     {
-        // The constructor must have been invoked from JS, or from .NET
-        // on the JS thread. Save a reference to the JS value parameter.
+        // The constructor must have been invoked from JS, or from .NET on the JS thread.
+        // Save a reference to the JS value parameter. DO NOT store the JSArray directly
+        // as a member because it will be invalid as soon as this method returns.
         _dataReference = new JSReference(data);
     }
 
     public double GetSum()
     {
         // Access the saved data value via the reference.
-        // Since the reference is strong, it never returns null.
-        // (It throws ObjectDisposedException if disposed.)
-        JSArray data = (JSArray)_dataReference.GetValue()!.Value;
+        // (It throws ObjectDisposedException if the reference is disposed.)
+        JSArray data = (JSArray)_dataReference.GetValue();
 
         // JSArray implements IList<JSValue>.
         return data.Sum((JSValue value) => (double)value);
@@ -50,12 +47,12 @@ public class ReferenceExample : IDisposable
 
 ## Using weak references
 
-A weak reference does not prevent the JS value from being released. Therefore it is
-necessary to check for null when getting the referenced value:
+A weak reference does not prevent the JS value from being released. Use
+[`JSReference.TryGetValue(out JSValue)`](../reference/dotnet/Microsoft.JavaScript.NodeApi/JSReference/TryGetValue)
+to conditionally retrieve a weakly-referenced value if it is still available.
 
 ```C#
-JSValue? value = reference.GetValue();
-if (value != null)
+if (weakReference.TryGetValue(out JSValue value))
 {
     // Do something with the value.
 }
@@ -64,3 +61,13 @@ else
     // The JS value was released and is no longer available.
 }
 ```
+
+## Reference limitations
+
+Currently only values of type `object`, `function`, and `symbol` can be referenced. It is not
+possible to create a reference to other value types such as `string`, `number`, `boolean`, or
+`undefined`.
+
+If the type of a value to be referenced is not known, use
+[`JSReference.TryCreateReference()`](../reference/dotnet/Microsoft.JavaScript.NodeApi/JSReference/TryCreateReference)
+and check the return value.

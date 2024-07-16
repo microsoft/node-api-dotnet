@@ -217,7 +217,7 @@ public abstract class Benchmarks
     [Benchmark]
     public void ReferenceGet()
     {
-        _ = _reference.GetValue()!.Value;
+        _ = _reference.GetValue();
     }
 
     [Benchmark]

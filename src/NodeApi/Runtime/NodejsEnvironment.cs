@@ -90,7 +90,7 @@ public sealed class NodejsEnvironment : IDisposable
         JSReference originalRequireRef = new(originalRequire);
         JSFunction envRequire = new("require", (modulePath) =>
         {
-            JSValue require = originalRequireRef.GetValue()!.Value;
+            JSValue require = originalRequireRef.GetValue();
             JSValue resolvedPath = ResolveModulePath(require, modulePath, baseDir);
             return require.Call(thisArg: default, resolvedPath);
         });
@@ -99,7 +99,7 @@ public sealed class NodejsEnvironment : IDisposable
         JSValue requireObject = (JSValue)envRequire;
         requireObject["resolve"] = new JSFunction("resolve", (modulePath) =>
         {
-            JSValue require = originalRequireRef.GetValue()!.Value;
+            JSValue require = originalRequireRef.GetValue();
             return ResolveModulePath(require, modulePath, baseDir);
         });
 
@@ -126,10 +126,10 @@ public sealed class NodejsEnvironment : IDisposable
                 JSReference originalImportRef = new(originalImport);
                 JSFunction envImport = new("import", (modulePath) =>
                 {
-                    JSValue require = originalRequireRef.GetValue()!.Value;
+                    JSValue require = originalRequireRef.GetValue();
                     JSValue resolvedPath = ResolveModulePath(require, modulePath, baseDir);
                     JSValue moduleUri = "file://" + (string)resolvedPath;
-                    JSValue import = originalImportRef.GetValue()!.Value;
+                    JSValue import = originalImportRef.GetValue();
                     return import.Call(thisArg: default, moduleUri);
                 });
 
@@ -286,7 +286,7 @@ public sealed class NodejsEnvironment : IDisposable
 
     private void RemoveUnhandledPromiseRejectionListener()
     {
-        JSValue listener = _unhandledPromiseRejectionListener!.GetValue()!.Value;
+        JSValue listener = _unhandledPromiseRejectionListener!.GetValue();
         JSValue.Global["process"].CallMethod("off", "unhandledRejection", listener);
         _unhandledPromiseRejectionListener.Dispose();
         _unhandledPromiseRejectionListener = null;
