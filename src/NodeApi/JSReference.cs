@@ -18,9 +18,13 @@ namespace Microsoft.JavaScript.NodeApi;
 /// <see cref="JSReference"/> to maintain a reference to a JS value beyond a single scope.
 /// <para/>
 /// A <see cref="JSReference"/> should be disposed when no longer needed; this allows the JS value
-/// to be collected by the GC if it has no other references. The <see cref="JSReference"/> class
+/// to be collected by the JS GC if it has no other references. The <see cref="JSReference"/> class
 /// also has a finalizer so that the reference will be released when the C# object is GC'd. However
 /// explicit disposal is still preferable when possible.
+/// <para/>
+/// A "strong" reference ensures the JS value is available at least until the reference is disposed.
+/// A "weak" reference does not prevent the JS value from being released collected by the JS
+/// garbage-collector, but allows the value to be optimistically retrieved until then.
 /// </remarks>
 public class JSReference : IDisposable
 {
@@ -34,8 +38,9 @@ public class JSReference : IDisposable
     /// </summary>
     /// <param name="value">The JavaScript value to reference.</param>
     /// <param name="isWeak">True if the reference will be "weak", meaning the reference does not
-    /// prevent the value from being released and garbage-collected. The default is false,
-    /// meaning the value will remain available at least until the "strong" reference is disposed.
+    /// prevent the value from being released and collected by the JS garbage-collector. The
+    /// default is false, meaning the value will remain available at least until the "strong"
+    /// reference is disposed.
     /// </param>
     public JSReference(JSValue value, bool isWeak = false)
         : this(value.Runtime.CreateReference(
