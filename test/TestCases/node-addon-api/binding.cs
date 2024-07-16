@@ -26,7 +26,7 @@ public class Binding
     {
         if (_testObjects.TryGetValue(typeof(T), out JSReference? testRef))
         {
-            return testRef.GetValue() ?? JSValue.Undefined;
+            return testRef.GetValue();
         }
 
         JSValue obj = new T().Init();
