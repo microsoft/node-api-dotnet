@@ -3,7 +3,7 @@
 This project enables advanced interoperability between .NET and JavaScript in the same process.
 
  - Load .NET assemblies and call .NET APIs in-proc from a JavaScript application.
- - Load JavaScript packages call JS APIs in-proc from a .NET application.
+ - Load JavaScript packages and call JS APIs in-proc from a .NET application.
 
 Interop is [high-performance](./features/performance) and supports [TypeScript type-definitions
 generation](./features/type-definitions), [async (tasks/promises)](./features/js-threading-async),
@@ -17,7 +17,7 @@ limitations around the edges, and there may still be minor breaking API changes.
 ### Minimal example - JS calling .NET
 ```JavaScript
 const Console = require('node-api-dotnet').System.Console;
-Console.WriteLine('Hello from .NET!');
+Console.WriteLine('Hello from .NET!'); // JS writes to the .NET console API
 ```
 
 ### Minimal example - .NET calling JS
@@ -25,9 +25,10 @@ Console.WriteLine('Hello from .NET!');
 interface IConsole { void Log(string message); }
 
 var nodejs = new NodejsPlatform(libnodePath).CreateEnvironment();
-nodejs.Run(() => {
+nodejs.Run(() =>
+{
     var console = nodejs.Import<IConsole>("global", "console");
-    console.Log("Hello from JS!");
+    console.Log("Hello from JS!"); // C# writes to the JS console API
 });
 ```
 
