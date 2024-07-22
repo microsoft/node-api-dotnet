@@ -2196,7 +2196,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             }
         }
 
-        var text = node?.ToString() ?? string.Empty;
+        string text = node?.ToString() ?? string.Empty;
         text = s_newlineRegex.Replace(text.Replace("\r", ""), " ");
 
         // Remove end-comment tokens to prevent them from ending the JS doc-comments.
