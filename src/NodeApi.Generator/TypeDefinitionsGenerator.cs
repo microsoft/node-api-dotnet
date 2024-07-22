@@ -2196,8 +2196,14 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             }
         }
 
-        return s_newlineRegex.Replace(
-            (node?.ToString() ?? string.Empty).Replace("\r", "").Trim(), " ");
+        var text = node?.ToString() ?? string.Empty;
+        text = s_newlineRegex.Replace(text.Replace("\r", ""), " ");
+
+        // Remove end-comment tokens to prevent them from ending the JS doc-comments.
+        text = text.Replace("*/", string.Empty);
+
+        text = text.Trim();
+        return text;
     }
 
     private static string FormatDocMethodName(MethodInfo method)

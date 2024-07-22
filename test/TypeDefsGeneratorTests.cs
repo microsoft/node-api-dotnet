@@ -156,7 +156,7 @@ public class TypeDefsGeneratorTests
             """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(TestEnum), new Dictionary<string, string>
         {
-            ["T:TestEnum"] = "enum",
+            ["T:TestEnum"] = "enum */",
             ["F:TestEnum.Zero"] = "zero",
             ["F:TestEnum.One"] = "one",
         }));
