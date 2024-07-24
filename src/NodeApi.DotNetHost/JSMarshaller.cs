@@ -2622,7 +2622,7 @@ public class JSMarshaller
         Type delegateType = typeof(JSValue.From<>).MakeGenericType(fromType);
         string delegateName = "from_" + FullTypeName(fromType);
 
-        Expression ConvertPromiseToJSValueExpression(Expression promiseExpression)
+        static Expression ConvertPromiseToJSValueExpression(Expression promiseExpression)
         {
             return Expression.Convert(
                 promiseExpression,
