@@ -117,13 +117,12 @@ public class JSMarshaller
             ?? throw new NotImplementedException("JSValue.TryUnwrap");
 
     private static readonly MethodInfo s_getOrCreateObjectWrapper =
-        typeof(JSRuntimeContext).GetInstanceMethod(nameof(JSRuntimeContext.GetOrCreateObjectWrapper))
-            ?? throw new NotImplementedException("JSRuntimeContext.GetOrCreateObjectWrapper");
+        typeof(JSRuntimeContext).GetInstanceMethod(
+            nameof(JSRuntimeContext.GetOrCreateObjectWrapper));
 
     private static readonly MethodInfo s_asVoidPromise =
         typeof(TaskExtensions).GetStaticMethod(
-            nameof(TaskExtensions.AsPromise), new[] { typeof(Task) })
-            ?? throw new NotImplementedException("TaskExtensions.AsPromise");
+            nameof(TaskExtensions.AsPromise), new[] { typeof(Task) });
 
     /// <summary>
     /// Gets or sets a value indicating whether the marshaller automatically converts
@@ -149,6 +148,7 @@ public class JSMarshaller
             type == typeof(string) ||
             type == typeof(Array) ||
             type == typeof(Task) ||
+            type == typeof(ValueTask) ||
             type == typeof(CancellationToken) ||
             type == typeof(DateTime) ||
             type == typeof(TimeSpan) ||
@@ -164,7 +164,9 @@ public class JSMarshaller
         }
 
         if (type.IsGenericTypeDefinition &&
-            (type == typeof(IEnumerable<>) ||
+            (type == typeof(Task<>) ||
+            type == typeof(ValueTask<>) ||
+            type == typeof(IEnumerable<>) ||
             type == typeof(IAsyncEnumerable<>) ||
             type == typeof(ICollection<>) ||
             type == typeof(IReadOnlyCollection<>) ||
@@ -275,8 +277,9 @@ public class JSMarshaller
 
         try
         {
-            if (toType == typeof(Task) ||
-                (toType.IsGenericType && toType.GetGenericTypeDefinition() == typeof(Task<>)))
+            if (toType == typeof(Task) || toType == typeof(ValueTask) ||
+                (toType.IsGenericType && toType.GetGenericTypeDefinition() == typeof(Task<>)) ||
+                (toType.IsGenericType && toType.GetGenericTypeDefinition() == typeof(ValueTask<>)))
             {
                 return _fromJSExpressions.GetOrAdd(toType, BuildConvertFromJSPromiseExpression);
             }
@@ -307,10 +310,12 @@ public class JSMarshaller
 
         try
         {
-            if (fromType == typeof(Task) ||
-                (fromType.IsGenericType && fromType.GetGenericTypeDefinition() == typeof(Task<>)))
+            if (fromType == typeof(Task) || fromType == typeof(ValueTask) ||
+                (fromType.IsGenericType && fromType.GetGenericTypeDefinition() == typeof(Task<>)) ||
+                (fromType.IsGenericType &&
+                    fromType.GetGenericTypeDefinition() == typeof(ValueTask<>)))
             {
-                return _fromJSExpressions.GetOrAdd(fromType, BuildConvertToJSPromiseExpression);
+                return _toJSExpressions.GetOrAdd(fromType, BuildConvertToJSPromiseExpression);
             }
             else
             {
@@ -1825,14 +1830,39 @@ public class JSMarshaller
                 GetCastToJSValueMethod(typeof(JSPromise))!,
                 Expression.Call(s_asVoidPromise, resultVariable));
         }
-
-        if (resultType.IsGenericType && resultType.GetGenericTypeDefinition() == typeof(Task<>))
+        else if (resultType == typeof(ValueTask))
+        {
+            return Expression.Call(
+                GetCastToJSValueMethod(typeof(JSPromise))!,
+                Expression.Call(
+                    typeof(TaskExtensions).GetStaticMethod(
+                        nameof(TaskExtensions.AsPromise), new[] { typeof(ValueTask) }),
+                    resultVariable));
+        }
+        else if (resultType.IsGenericType &&
+            resultType.GetGenericTypeDefinition() == typeof(Task<>))
         {
             Type asyncResultType = resultType;
             resultType = resultType.GenericTypeArguments[0];
             MethodInfo asPromiseMethod = typeof(TaskExtensions).GetStaticMethod(
                 nameof(TaskExtensions.AsPromise),
                 new[] { typeof(Task<>), typeof(JSValue.From<>) },
+                resultType);
+            return Expression.Call(
+                GetCastToJSValueMethod(typeof(JSPromise))!,
+                Expression.Call(
+                    asPromiseMethod,
+                    resultVariable,
+                    GetToJSValueExpression(resultType)));
+        }
+        else if (resultType.IsGenericType &&
+            resultType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+        {
+            Type asyncResultType = resultType;
+            resultType = resultType.GenericTypeArguments[0];
+            MethodInfo asPromiseMethod = typeof(TaskExtensions).GetStaticMethod(
+                nameof(TaskExtensions.AsPromise),
+                new[] { typeof(ValueTask<>), typeof(JSValue.From<>) },
                 resultType);
             return Expression.Call(
                 GetCastToJSValueMethod(typeof(JSPromise))!,
@@ -2521,6 +2551,10 @@ public class JSMarshaller
         string delegateName = "to_" + FullTypeName(toType);
 
         ParameterExpression valueParameter = Expression.Parameter(typeof(JSValue), "value");
+        Expression valueAsPromise = Expression.Convert(
+            valueParameter,
+            typeof(JSPromise),
+            typeof(JSPromise).GetExplicitConversion(typeof(JSValue), typeof(JSPromise)));
         Expression asTaskExpression;
 
         if (toType == typeof(Task))
@@ -2531,10 +2565,7 @@ public class JSMarshaller
             asTaskExpression = Expression.Call(
                 typeof(TaskExtensions).GetStaticMethod(
                     nameof(TaskExtensions.AsTask), new[] { typeof(JSPromise) }),
-                Expression.Convert(
-                    valueParameter,
-                    typeof(JSPromise),
-                    typeof(JSPromise).GetExplicitConversion(typeof(JSValue), typeof(JSPromise))));
+                valueAsPromise);
         }
         else if (toType.IsGenericType && toType.GetGenericTypeDefinition() == typeof(Task<>))
         {
@@ -2546,11 +2577,31 @@ public class JSMarshaller
                 typeof(TaskExtensions).GetStaticMethod(
                     nameof(TaskExtensions.AsTask),
                     new[] { typeof(JSPromise), typeof(JSValue.To<>) }, resultType),
-                Expression.Convert(
-                    valueParameter,
-                    typeof(JSPromise),
-                    typeof(JSPromise).GetExplicitConversion(typeof(JSValue), typeof(JSPromise))),
-                    GetFromJSValueExpression(resultType));
+                valueAsPromise,
+                GetFromJSValueExpression(resultType));
+        }
+        else if (toType == typeof(ValueTask))
+        {
+            /*
+             * ((JSPromise)value).AsValueTask()
+             */
+            asTaskExpression = Expression.Call(
+                typeof(TaskExtensions).GetStaticMethod(
+                    nameof(TaskExtensions.AsValueTask), new[] { typeof(JSPromise) }),
+                valueAsPromise);
+        }
+        else if (toType.IsGenericType && toType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+        {
+            /*
+             * ((JSPromise)value).AsValueTask<T>((value) => (T)value)
+             */
+            Type resultType = toType.GenericTypeArguments[0];
+            asTaskExpression = Expression.Call(
+                typeof(TaskExtensions).GetStaticMethod(
+                    nameof(TaskExtensions.AsValueTask),
+                    new[] { typeof(JSPromise), typeof(JSValue.To<>) }, resultType),
+                valueAsPromise,
+                GetFromJSValueExpression(resultType));
         }
         else
         {
@@ -2571,6 +2622,14 @@ public class JSMarshaller
         Type delegateType = typeof(JSValue.From<>).MakeGenericType(fromType);
         string delegateName = "from_" + FullTypeName(fromType);
 
+        Expression ConvertPromiseToJSValueExpression(Expression promiseExpression)
+        {
+            return Expression.Convert(
+                promiseExpression,
+                typeof(JSValue),
+                typeof(JSPromise).GetImplicitConversion(typeof(JSPromise), typeof(JSValue)));
+        }
+
         ParameterExpression valueParameter = Expression.Parameter(fromType, "value");
         Expression asPromiseExpression;
 
@@ -2579,13 +2638,11 @@ public class JSMarshaller
             /*
              * (JSValue)value.AsPromise()
              */
-            asPromiseExpression = Expression.Convert(
+            asPromiseExpression = ConvertPromiseToJSValueExpression(
                 Expression.Call(
                     typeof(TaskExtensions).GetStaticMethod(
-                        nameof(TaskExtensions.AsPromise), new[] { typeof(Task) }),
-                    valueParameter),
-                typeof(JSValue),
-                typeof(JSPromise).GetImplicitConversion(typeof(JSPromise), typeof(JSValue)));
+                            nameof(TaskExtensions.AsPromise), new[] { typeof(Task) }),
+                    valueParameter));
         }
         else if (fromType.IsGenericType && fromType.GetGenericTypeDefinition() == typeof(Task<>))
         {
@@ -2593,15 +2650,39 @@ public class JSMarshaller
              * (JSValue)value.AsPromise<T>((value) => (JSValue)value)
              */
             Type resultType = fromType.GenericTypeArguments[0];
-            asPromiseExpression = Expression.Convert(
+            asPromiseExpression = ConvertPromiseToJSValueExpression(
                 Expression.Call(
                     typeof(TaskExtensions).GetStaticMethod(
                         nameof(TaskExtensions.AsPromise),
-                        new[] { typeof(Task), typeof(JSValue.From<>) }),
+                        new[] { typeof(Task<>), typeof(JSValue.From<>) }),
                     valueParameter,
-                    GetToJSValueExpression(resultType)),
-                typeof(JSValue),
-                typeof(JSPromise).GetImplicitConversion(typeof(JSPromise), typeof(JSValue)));
+                    GetToJSValueExpression(resultType)));
+        }
+        if (fromType == typeof(ValueTask))
+        {
+            /*
+             * (JSValue)value.AsPromise()
+             */
+            asPromiseExpression = ConvertPromiseToJSValueExpression(
+                Expression.Call(
+                    typeof(TaskExtensions).GetStaticMethod(
+                        nameof(TaskExtensions.AsPromise), new[] { typeof(ValueTask) }),
+                    valueParameter));
+        }
+        else if (fromType.IsGenericType &&
+            fromType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+        {
+            /*
+             * (JSValue)value.AsPromise<T>((value) => (JSValue)value)
+             */
+            Type resultType = fromType.GenericTypeArguments[0];
+            asPromiseExpression = ConvertPromiseToJSValueExpression(
+                Expression.Call(
+                    typeof(TaskExtensions).GetStaticMethod(
+                        nameof(TaskExtensions.AsPromise),
+                        new[] { typeof(ValueTask<>), typeof(JSValue.From<>) }),
+                    valueParameter,
+                    GetToJSValueExpression(resultType)));
         }
         else
         {
