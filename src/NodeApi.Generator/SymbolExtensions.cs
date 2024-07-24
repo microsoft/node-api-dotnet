@@ -162,7 +162,7 @@ internal static class SymbolExtensions
 
         // Generating the containing type will also generate the nested type,
         // so it should be found in the SymbolicTypes dictionary afterward.
-        typeSymbol.ContainingType?.AsType(genericTypeParameters: null, buildType);
+        typeSymbol.ContainingType?.AsType(genericTypeParameters, buildType);
 
         if (SymbolicTypes.TryGetValue(typeFullName, out Type? symbolicType))
         {

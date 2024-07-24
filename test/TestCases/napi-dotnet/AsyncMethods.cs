@@ -50,6 +50,20 @@ public static class AsyncMethods
             return $"Hey {greeter}!";
         }
     }
+
+
+    [JSExport("async_method_valuetask")]
+    public static async ValueTask ValueTaskTest()
+    {
+        await Task.Yield();
+    }
+
+    [JSExport("async_method_valuetask_of_string")]
+    public static async ValueTask<string> ValueTaskTest(string greeter)
+    {
+        await Task.Delay(50);
+        return $"Hey {greeter}!";
+    }
 }
 
 [JSExport]

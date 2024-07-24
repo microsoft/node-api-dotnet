@@ -63,6 +63,35 @@ public static class TaskExtensions
         return fromJS(await jsTask);
     }
 
+    public static async ValueTask<JSValue> AsValueTask(this JSPromise promise)
+    {
+        return await promise.AsTask();
+    }
+
+    public static async ValueTask<JSValue> AsValueTask(
+        this JSPromise promise,
+        CancellationToken cancellation)
+    {
+        return await promise.AsTask(cancellation);
+    }
+
+    public static async ValueTask<T> AsValueTask<T>(
+        this JSPromise promise,
+        JSValue.To<T> fromJS)
+    {
+        ValueTask<JSValue> jsTask = promise.AsValueTask();
+        return fromJS(await jsTask);
+    }
+
+    public static async ValueTask<T> AsValueTask<T>(
+        this JSPromise promise,
+        JSValue.To<T> fromJS,
+        CancellationToken cancellation)
+    {
+        ValueTask<JSValue> jsTask = promise.AsValueTask(cancellation);
+        return fromJS(await jsTask);
+    }
+
     public static JSPromise AsPromise(this Task task)
     {
         if (task.Status == TaskStatus.RanToCompletion)

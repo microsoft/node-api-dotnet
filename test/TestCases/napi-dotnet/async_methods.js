@@ -27,5 +27,10 @@ common.runTest(async () => {
   // A JS object that implements an interface can be returned from C#.
   binding.async_interface = asyncInterfaceImpl;
   assert.strictEqual(binding.async_interface, asyncInterfaceImpl);
+
+  // Invoke C# methods that return ValueTask.
+  await binding.async_method_valuetask();
+  const result5 = await binding.async_method_valuetask_of_string('buddy');
+  assert.strictEqual(result5, 'Hey buddy!');
 });
 
