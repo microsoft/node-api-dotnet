@@ -371,11 +371,10 @@ public sealed class JSRuntimeContext : IDisposable
         if (_objectMap.TryGetValue(obj, out JSReference? wrapperWeakRef) &&
             !wrapperWeakRef.IsDisposed)
         {
-            JSValue? existingWrapper = wrapperWeakRef.GetValue();
-            if (existingWrapper.HasValue)
+            if (wrapperWeakRef.TryGetValue(out JSValue existingWrapper))
             {
                 // Return the JS wrapper that was found in the map.
-                return existingWrapper.Value;
+                return existingWrapper;
             }
             else
             {
