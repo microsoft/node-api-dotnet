@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RestorePackagesPath>$(MSBuildThisFileDirectory)/pkg</RestorePackagesPath>
+    <OutDir>bin</OutDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="./ClassLib/ClassLib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="$(NodeApiDotnetPackageVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Prevent .cs files under ClassLib from being compiled in this project. -->
+    <Compile Remove="ClassLib/**/*" />
+  </ItemGroup>
+</Project>

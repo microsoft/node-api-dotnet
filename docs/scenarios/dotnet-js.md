@@ -1,6 +1,6 @@
 # Embed a JS runtime in a .NET application
 
-::: warning
+::: warning :warning: WARNING
 This functionality is still experimental. It works, but the process is not as streamlined as it
 should be.
 :::

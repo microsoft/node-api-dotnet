@@ -1,8 +1,10 @@
 # Dynamically invoke .NET APIs from JavaScript
 
-For examples of this scenario, see
-[/examples/dynamic-invoke/](https://github.com/microsoft/node-api-dotnet/blob/main/examples/dynamic-invoke/) or
-[/examples/semantic-kernel/](https://github.com/microsoft/node-api-dotnet/blob/main/examples/semantic-kernel/).
+For examples of this scenario, see one of these directories in the repo:
+ - [/examples/dotnet-dynamic/](https://github.com/microsoft/node-api-dotnet/blob/main/examples/dotnet-dynamic/)
+ - [/examples/dotnet-dynamic-classlib/](https://github.com/microsoft/node-api-dotnet/blob/main/examples/dotnet-dynamic-classlib/)
+ - [/examples/semantic-kernel/](https://github.com/microsoft/node-api-dotnet/blob/main/examples/semantic-kernel/)
+---
 
 1. Create a `.csproj` project (without any `.cs` source files) that will manage restoring nuget
    packages for .NET assemblies used by JS:
@@ -16,18 +18,26 @@ For examples of this scenario, see
      <ItemGroup>
        <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.5.*" /> // [!code highlight]
        <PackageReference Include="Example.Package" Version="1.2.3" />
-       <PackageReference Include="Example.Package.Two" Version="2.3.4" />
+       <ProjectReference Include="../ClassLib/ClassLib.csproj" />
      </ItemGroup>
    </Project>
    ```
    - The `TargetFramework` should match the version of .NET that the JS application will load.
-   - Add `<PackageReference>` elements for any .NET packages you intend to use from JavaScript.
-   - Add a reference to the `Microsoft.JavaScript.NodeApi.Generator` package to get automatic generation
-     of TS type-definitions for the referenced system assemblies and nuget packages.
+   - Add `<PackageReference>` elements for any .NET packages to be used from JavaScript.
+   - Add `<ProjectReference>` elements for any locally-built .NET projects to be used from
+     JavaScript.
+   - Add a reference to the `Microsoft.JavaScript.NodeApi.Generator` package to get automatic
+     generation of TS type-definitions for the referenced system assemblies, nuget packages, and
+     projects.
    - Change `NodeApiAssemblyJSModuleType` to `esm` if using ES modules.
-   - For convenience the `OutDir` can be simply set to `bin` because there are no object files
-     or debug/release builds involved. The referenced assemblies (and their dependencies)
-     will be placed there.
+   - The `OutDir` is set to just `bin` to make it easier for JavaScript code to locate the
+     .NET assemblies. Otherwise the JS code will need to use a different path for debug or
+     release builds.
+
+   ::: tip :sparkles: TIP
+   Ensure referenced projects have `<GenerateDocumentationFile>true</GenerateDocumentationFile>`
+   to enable doc-comments in the generated type definitions.
+   :::
 
    Build the project to restore the packages, place assemblies in the `bin` directory, and generate
    type definitions:
@@ -84,8 +94,10 @@ For examples of this scenario, see
     require('./bin/Example.Package.Two.js');
     ```
     :::
-   :warning: Do not assign the results of these `require`/`import` statements. The assemblies are
+   ::: warning :warning: WARNING
+   Do not assign the results of these `require`/`import` statements. The assemblies are
    all loaded into the `dotnet` object  (explained in the next step).
+   :::
 
    If any of the loaded assemblies depends on other assemblies outside the core framework, they
    will be automatically loaded from the same directory. Building the `.csproj` should take care
