@@ -31,6 +31,10 @@ public readonly struct JSPropertyDescriptor
     public JSCallback? Setter { get; }
     public JSValue? Value { get; }
     public JSPropertyAttributes Attributes { get; }
+
+    /// <summary>
+    /// Gets the optional context data object to be passed to getter/setter or method callbacks.
+    /// </summary>
     public object? Data { get; }
 
     /// <summary>
@@ -82,7 +86,7 @@ public readonly struct JSPropertyDescriptor
     /// <summary>
     /// Creates a property descriptor with a value.
     /// </summary>
-    public static JSPropertyDescriptor Property(
+    public static JSPropertyDescriptor DataProperty(
         string name,
         JSValue value,
         JSPropertyAttributes attributes = JSPropertyAttributes.Default,
@@ -95,7 +99,7 @@ public readonly struct JSPropertyDescriptor
     /// Creates a property descriptor with getter and/or setter callbacks.
     /// </summary>
     /// <exception cref="ArgumentException">Both getter and setter are null.</exception>
-    public static JSPropertyDescriptor Accessor(
+    public static JSPropertyDescriptor AccessorProperty(
         string name,
         JSCallback? getter = null,
         JSCallback? setter = null,
@@ -104,7 +108,8 @@ public readonly struct JSPropertyDescriptor
     {
         if (getter == null && setter == null)
         {
-            throw new ArgumentException($"Either `{nameof(getter)}` or `{nameof(setter)}` or both must be not null");
+            throw new ArgumentException(
+                $"Either `{nameof(getter)}` or `{nameof(setter)}` or both must be not null");
         }
 
         return new JSPropertyDescriptor(name, null, getter, setter, null, attributes, data);

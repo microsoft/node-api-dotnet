@@ -163,7 +163,7 @@ internal class NamespaceProxy
             if (Namespaces.TryGetValue(propertyName, out NamespaceProxy? ns))
             {
                 // Child namespace.
-                return JSPropertyDescriptor.Property(
+                return JSPropertyDescriptor.DataProperty(
                     propertyName,
                     ns.Value,
                     JSPropertyAttributes.DefaultProperty & ~JSPropertyAttributes.Writable);
@@ -171,7 +171,7 @@ internal class NamespaceProxy
             else if (Types.TryGetValue(propertyName, out TypeProxy? type))
             {
                 // Type in the namespace.
-                return JSPropertyDescriptor.Property(
+                return JSPropertyDescriptor.DataProperty(
                     propertyName,
                     type.Value ?? default,
                     JSPropertyAttributes.DefaultProperty & ~JSPropertyAttributes.Writable);

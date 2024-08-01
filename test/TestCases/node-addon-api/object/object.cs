@@ -81,23 +81,29 @@ public partial class TestObject : TestHelper, ITestObject
         };
 
         obj.DefineProperties(
-            JSPropertyDescriptor.Accessor("readonlyAccessor", TestGetter),
-            JSPropertyDescriptor.Accessor("readWriteAccessor", TestGetter, TestSetter),
-            JSPropertyDescriptor.Accessor("readonlyAccessorWithUserData",
-                                          TestGetterWithUserData,
-                                          data: holder),
-            JSPropertyDescriptor.Accessor("readWriteAccessorWithUserData",
-                                          TestGetterWithUserData,
-                                          TestSetterWithUserData,
-                                          data: holder),
-            JSPropertyDescriptor.ForValue("readonlyValue", trueValue),
-            JSPropertyDescriptor.ForValue("readWriteValue", trueValue, JSPropertyAttributes.Writable),
-            JSPropertyDescriptor.ForValue("enumerableValue", trueValue, JSPropertyAttributes.Enumerable),
-            JSPropertyDescriptor.ForValue("configurableValue", trueValue, JSPropertyAttributes.Configurable),
+            JSPropertyDescriptor.AccessorProperty("readonlyAccessor", TestGetter),
+            JSPropertyDescriptor.AccessorProperty("readWriteAccessor", TestGetter, TestSetter),
+            JSPropertyDescriptor.AccessorProperty(
+                "readonlyAccessorWithUserData",
+                TestGetterWithUserData,
+                data: holder),
+            JSPropertyDescriptor.AccessorProperty(
+                "readWriteAccessorWithUserData",
+                TestGetterWithUserData,
+                TestSetterWithUserData,
+                data: holder),
+            JSPropertyDescriptor.DataProperty("readonlyValue", trueValue),
+            JSPropertyDescriptor.DataProperty(
+                "readWriteValue", trueValue, JSPropertyAttributes.Writable),
+            JSPropertyDescriptor.DataProperty(
+                "enumerableValue", trueValue, JSPropertyAttributes.Enumerable),
+            JSPropertyDescriptor.DataProperty(
+                "configurableValue", trueValue, JSPropertyAttributes.Configurable),
             JSPropertyDescriptor.Function("function", TestFunction),
-            JSPropertyDescriptor.Function("functionWithUserData",
-                                          TestFunctionWithUserData,
-                                          data: holder)
+            JSPropertyDescriptor.Function(
+                "functionWithUserData",
+                TestFunctionWithUserData,
+                data: holder)
         );
         return JSValue.Undefined;
     }

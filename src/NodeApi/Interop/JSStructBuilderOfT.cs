@@ -25,7 +25,7 @@ public class JSStructBuilder<T> where T : struct
         string name,
         JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
-        Properties.Add(JSPropertyDescriptor.Property(name, JSValue.Undefined, attributes));
+        Properties.Add(JSPropertyDescriptor.DataProperty(name, JSValue.Undefined, attributes));
         return this;
     }
 
@@ -37,7 +37,7 @@ public class JSStructBuilder<T> where T : struct
         JSValue value,
         JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
-        Properties.Add(JSPropertyDescriptor.Property(name, value, attributes));
+        Properties.Add(JSPropertyDescriptor.DataProperty(name, value, attributes));
         return this;
     }
 
@@ -51,7 +51,8 @@ public class JSStructBuilder<T> where T : struct
         JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty,
         object? data = null)
     {
-        Properties.Add(JSPropertyDescriptor.Accessor(name, getter, setter, attributes, data));
+        Properties.Add(JSPropertyDescriptor.AccessorProperty(
+            name, getter, setter, attributes, data));
         return this;
     }
 

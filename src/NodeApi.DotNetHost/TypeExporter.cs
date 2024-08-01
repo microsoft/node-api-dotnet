@@ -688,7 +688,7 @@ public class TypeExporter
                                 _marshaller.BuildFromJSPropertyGetExpression(property).Compile();
                             JSCallback? setter = property.SetMethod == null ? null :
                                 _marshaller.BuildFromJSPropertySetExpression(property).Compile();
-                            args.ThisArg.DefineProperties(JSPropertyDescriptor.Accessor(
+                            args.ThisArg.DefineProperties(JSPropertyDescriptor.AccessorProperty(
                                 property.Name, getter, setter, propertyAttributes));
 
                             ExportTypeIfSupported(property.PropertyType, deferMembers: true);
@@ -714,7 +714,7 @@ public class TypeExporter
                                 _marshaller.BuildFromJSPropertyGetExpression(property).Compile();
                             JSCallback setter =
                                 _marshaller.BuildFromJSPropertySetExpression(property).Compile();
-                            args.ThisArg.DefineProperties(JSPropertyDescriptor.Accessor(
+                            args.ThisArg.DefineProperties(JSPropertyDescriptor.AccessorProperty(
                                 property.Name, getter, setter, propertyAttributes));
 
                             ExportTypeIfSupported(property.PropertyType, deferMembers: true);

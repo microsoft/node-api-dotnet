@@ -409,14 +409,14 @@ internal static class JSCollectionProxies
                 if (int.TryParse(propertyName, out int index) &&
                     index >= 0 && index < getCount(target))
                 {
-                    return JSPropertyDescriptor.Property(
+                    return JSPropertyDescriptor.DataProperty(
                         propertyName,
                         getValue(target, index),
                         JSPropertyAttributes.DefaultProperty);
                 }
                 else if (propertyName == "length")
                 {
-                    return JSPropertyDescriptor.Property(
+                    return JSPropertyDescriptor.DataProperty(
                         propertyName,
                         getCount(target),
                         JSPropertyAttributes.Writable);
