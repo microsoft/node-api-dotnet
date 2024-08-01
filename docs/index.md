@@ -3,6 +3,13 @@
 # Browse the rendered documentation at https://microsoft.github.io/node-api-dotnet
 
 # https://vitepress.dev/reference/default-theme-home-page
+
+head:
+  # Google Search Console site verification
+  - - meta
+    - name: google-site-verification
+      content: WEl34DrQveQB8qaqvdfR3lybAx4ZGlaW9eOnU8KIW3Y
+
 layout: home
 
 hero:
