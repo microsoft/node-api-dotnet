@@ -2891,7 +2891,7 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildFromJSToCollectionInterfaceExpressions(
         Type toType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         Type elementType = toType.GenericTypeArguments[0];
@@ -3027,7 +3027,7 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildFromJSToCollectionClassExpressions(
         Type toType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         Type elementType = toType.GenericTypeArguments[0];
@@ -3196,7 +3196,7 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildToJSFromCollectionInterfaceExpressions(
         Type fromType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         Type elementType = fromType.GenericTypeArguments[0];
@@ -3321,7 +3321,7 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildToJSFromCollectionClassExpressions(
         Type fromType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         Type elementType = fromType.GenericTypeArguments[0];
