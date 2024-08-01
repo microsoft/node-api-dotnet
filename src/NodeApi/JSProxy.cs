@@ -85,7 +85,8 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
     public delegate bool DefineProperty(JSObject target, JSValue property, JSObject descriptor);
     public delegate bool DeleteProperty(JSObject target, JSValue property);
     public delegate JSValue Get(JSObject target, JSValue property, JSObject receiver);
-    public delegate JSObject GetOwnPropertyDescriptor(JSObject target, JSValue property);
+    public delegate JSPropertyDescriptor GetOwnPropertyDescriptor(
+        JSObject target, JSValue property);
     public delegate JSObject GetPrototypeOf(JSObject target);
     public delegate bool Has(JSObject target, JSValue property);
     public delegate bool IsExtensible(JSObject target);
@@ -182,7 +183,7 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
             {
                 properties.Add(JSPropertyDescriptor.Function(
                     "getOwnPropertyDescriptor",
-                    (args) => GetOwnPropertyDescriptor((JSObject)args[0], args[1])));
+                    (args) => (JSObject)GetOwnPropertyDescriptor((JSObject)args[0], args[1])));
             }
 
             if (GetPrototypeOf != null)

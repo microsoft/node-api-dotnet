@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
@@ -179,7 +180,17 @@ public class JSMarshaller
             type == typeof(IList<>) ||
             type == typeof(IReadOnlyList<>) ||
             type == typeof(IDictionary<,>) ||
-            type == typeof(IReadOnlyDictionary<,>)))
+            type == typeof(IReadOnlyDictionary<,>) ||
+            type == typeof(List<>) ||
+            type == typeof(Stack<>) ||
+            type == typeof(Queue<>) ||
+            type == typeof(HashSet<>) ||
+            type == typeof(SortedSet<>) ||
+            type == typeof(Dictionary<,>) ||
+            type == typeof(SortedDictionary<,>) ||
+            type == typeof(Collection<>) ||
+            type == typeof(ReadOnlyCollection<>) ||
+            type == typeof(ReadOnlyDictionary<,>)))
         {
             return true;
         }
@@ -2146,6 +2157,12 @@ public class JSMarshaller
                         valueParameter),
                 };
             }
+            else if (toType.IsGenericType &&
+                (toType.Namespace == typeof(List<>).Namespace ||
+                toType.Namespace == typeof(Collection<>).Namespace))
+            {
+                statements = BuildFromJSToCollectionClassExpressions(toType, variables, valueParameter);
+            }
             else if (toType.IsGenericType && toType.Name.StartsWith("Tuple`"))
             {
                 /*
@@ -2178,7 +2195,7 @@ public class JSMarshaller
         }
         else if (toType.IsInterface && toType.Namespace == typeof(ICollection<>).Namespace)
         {
-            statements = BuildFromJSToCollectionExpressions(toType, variables, valueParameter);
+            statements = BuildFromJSToCollectionInterfaceExpressions(toType, variables, valueParameter);
         }
         else if (toType.IsInterface)
         {
@@ -2462,6 +2479,13 @@ public class JSMarshaller
                         typeof(JSValue)),
                 };
             }
+            else if (fromType.IsGenericType &&
+                (fromType.Namespace == typeof(List<>).Namespace ||
+                fromType.Namespace == typeof(Collection<>).Namespace))
+            {
+                statements = BuildToJSFromCollectionClassExpressions(
+                    fromType, variables, valueExpression);
+            }
             else if (fromType.IsGenericType && fromType.Name.StartsWith("Tuple`") == true)
             {
                 /*
@@ -2497,7 +2521,8 @@ public class JSMarshaller
         }
         else if (fromType.IsInterface && fromType.Namespace == typeof(ICollection<>).Namespace)
         {
-            statements = BuildToJSFromCollectionExpressions(fromType, variables, valueExpression);
+            statements = BuildToJSFromCollectionInterfaceExpressions(
+                fromType, variables, valueExpression);
         }
         else if (fromType.IsInterface)
         {
@@ -2705,7 +2730,7 @@ public class JSMarshaller
         /*
          * JSArray jsArray = (JSArray)value;
          * ElementType[] array = new ElementType[jsArray.Length];
-         * jsArray.CopyTo(array, 0, (item) => (ElementType)item);
+         * jsArray.CopyTo(array, 0, (item) => (T)item);
          * return array;
          */
         ParameterExpression jsArrayVariable = Expression.Parameter(typeof(JSArray), "jsArray");
@@ -2864,9 +2889,9 @@ public class JSMarshaller
         yield return jsValueVariable;
     }
 
-    private IEnumerable<Expression> BuildFromJSToCollectionExpressions(
+    private IEnumerable<Expression> BuildFromJSToCollectionInterfaceExpressions(
         Type toType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         Type elementType = toType.GenericTypeArguments[0];
@@ -2948,7 +2973,7 @@ public class JSMarshaller
              *     ((JSMap)value).AsDictionary<TKey, TValue>(
              *         (key) => (TKey)key,
              *         (value) => (TValue)value,
-             *         (key) => (JSValue)key);
+             *         (key) => (JSValue)key,
              *         (value) => (JSValue)value);
              */
             MethodInfo asDictionaryMethod = typeof(JSCollectionExtensions).GetStaticMethod(
@@ -3000,9 +3025,179 @@ public class JSMarshaller
         }
     }
 
-    private IEnumerable<Expression> BuildToJSFromCollectionExpressions(
+    private IEnumerable<Expression> BuildFromJSToCollectionClassExpressions(
+        Type toType,
+        List<ParameterExpression> variables,
+        Expression valueExpression)
+    {
+        Type elementType = toType.GenericTypeArguments[0];
+        Type typeDefinition = toType.GetGenericTypeDefinition();
+
+        if (typeDefinition == typeof(List<>) ||
+            typeDefinition == typeof(Queue<>) ||
+            typeDefinition == typeof(Stack<>) ||
+            typeDefinition == typeof(HashSet<>) ||
+            typeDefinition == typeof(SortedSet<>))
+        {
+            /*
+             * value.TryUnwrap() as List<T> ??
+             *     new List<T>(((JSIterable)value).AsEnumerable<T>((value) => (T)value)));
+             */
+            Type jsIterableType = typeof(JSIterable);
+            MethodInfo asEnumerableMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                nameof(JSCollectionExtensions.AsEnumerable),
+                new[] { jsIterableType, typeof(JSValue.To<>) },
+                elementType);
+            MethodInfo asJSIterableMethod = jsIterableType.GetExplicitConversion(
+                typeof(JSValue), jsIterableType);
+            ConstructorInfo collectionConstructor = toType.GetConstructor(
+                new[] { typeof(IEnumerable<>).MakeGenericType(elementType) })!;
+            yield return Expression.Coalesce(
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
+                Expression.New(
+                    collectionConstructor,
+                    Expression.Call(
+                        asEnumerableMethod,
+                        Expression.Convert(valueExpression, jsIterableType, asJSIterableMethod),
+                        GetFromJSValueExpression(elementType))));
+        }
+        else if (typeDefinition == typeof(Dictionary<,>))
+        {
+            Type keyType = elementType;
+            Type valueType = toType.GenericTypeArguments[1];
+
+            /*
+             * value.TryUnwrap() as Dictionary<TKey, TValue> ??
+             *     new Dictionary<TKey, TValue>(((JSMap)value).AsDictionary<TKey, TValue>(
+             *         (key) => (TKey)key,
+             *         (value) => (TValue)value,
+             *         (key) => (JSValue)key,
+             *         (value) => (JSValue)value);
+             */
+            MethodInfo asDictionaryMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                nameof(JSCollectionExtensions.AsDictionary))!.MakeGenericMethod(
+                    keyType, valueType);
+            MethodInfo asJSMapMethod = typeof(JSMap).GetExplicitConversion(
+                typeof(JSValue), typeof(JSMap));
+            ConstructorInfo dictionaryConstructor = toType.GetConstructor(
+                new[] { typeof(IDictionary<,>).MakeGenericType(keyType, valueType) })!;
+            yield return Expression.Coalesce(
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
+                Expression.New(
+                    dictionaryConstructor,
+                    Expression.Call(
+                        asDictionaryMethod,
+                        Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
+                        GetFromJSValueExpression(keyType),
+                        GetFromJSValueExpression(valueType),
+                        GetToJSValueExpression(keyType),
+                        GetToJSValueExpression(valueType))));
+        }
+        else if (typeDefinition == typeof(SortedDictionary<,>))
+        {
+            Type keyType = elementType;
+            Type valueType = toType.GenericTypeArguments[1];
+
+            /*
+             * value.TryUnwrap() as SortedDictionary<TKey, TValue> ??
+             *     new SortedDictionary<TKey, TValue>(((JSMap)value).AsDictionary<TKey, TValue>(
+             *         (key) => (TKey)key,
+             *         (value) => (TValue)value,
+             *         (key) => (JSValue)key,
+             *         (value) => (JSValue)value));
+             */
+            MethodInfo asDictionaryMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                nameof(JSCollectionExtensions.AsDictionary))!.MakeGenericMethod(
+                    keyType, valueType);
+            MethodInfo asJSMapMethod = typeof(JSMap).GetExplicitConversion(
+                typeof(JSValue), typeof(JSMap));
+            // SortedDictionary doesn't have a constructor that takes IEnumerable<KeyValuePair<>>.
+            ConstructorInfo dictionaryConstructor = toType.GetConstructor(
+                new[] { typeof(IDictionary<,>).MakeGenericType(keyType, valueType) })!;
+            yield return Expression.Coalesce(
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
+                Expression.New(
+                    dictionaryConstructor,
+                    Expression.Call(
+                        asDictionaryMethod,
+                        Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
+                        GetFromJSValueExpression(keyType),
+                        GetFromJSValueExpression(valueType),
+                        GetToJSValueExpression(keyType),
+                        GetToJSValueExpression(valueType))));
+        }
+        else if (typeDefinition == typeof(Collection<>) ||
+            typeDefinition == typeof(ReadOnlyCollection<>))
+        {
+            /*
+             * value.TryUnwrap() as Collection<T> ??
+             *     new Collection<T>(((JSArray)value).AsList<T>(
+             *         (value) => (T)value,
+             *         (value) => (JSValue)value));
+             */
+            Type jsCollectionType = typeof(JSArray);
+            MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                nameof(JSCollectionExtensions.AsList),
+                new[] { jsCollectionType, typeof(JSValue.To<>), typeof(JSValue.From<>) },
+                elementType);
+            MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
+                typeof(JSValue), jsCollectionType);
+            ConstructorInfo collectionConstructor = toType.GetConstructor(
+                new[] { typeof(IList<>).MakeGenericType(elementType) })!;
+            yield return Expression.Coalesce(
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
+                Expression.New(
+                    collectionConstructor,
+                    Expression.Call(
+                        asCollectionMethod,
+                        Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
+                        GetFromJSValueExpression(elementType),
+                        GetToJSValueExpression(elementType))));
+
+        }
+        else if (typeDefinition == typeof(ReadOnlyDictionary<,>))
+        {
+            Type keyType = elementType;
+            Type valueType = toType.GenericTypeArguments[1];
+
+            /*
+             * value.TryUnwrap() as ReadOnlyDictionary<TKey, TValue> ??
+             *     new Dictionary<TKey, TValue>(((JSMap)value).AsDictionary<TKey, TValue>(
+             *         (key) => (TKey)key,
+             *         (value) => (TValue)value,
+             *         (key) => (JSValue)key,
+             *         (value) => (JSValue)value));
+             */
+            MethodInfo asDictionaryMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                nameof(JSCollectionExtensions.AsDictionary))!.MakeGenericMethod(keyType, valueType);
+            MethodInfo asJSMapMethod = typeof(JSMap).GetExplicitConversion(
+                typeof(JSValue), typeof(JSMap));
+            ConstructorInfo dictionaryConstructor = toType.GetConstructor(
+                new[] { typeof(IDictionary<,>).MakeGenericType(keyType, valueType) })!;
+            yield return Expression.Coalesce(
+                Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
+                Expression.New(
+                    dictionaryConstructor,
+                    Expression.Call(
+                        asDictionaryMethod,
+                        Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
+                        GetFromJSValueExpression(keyType),
+                        GetFromJSValueExpression(valueType),
+                        GetToJSValueExpression(keyType),
+                        GetToJSValueExpression(valueType))));
+        }
+        else
+        {
+            // Marshal the unknown collection type as undefined.
+            // Throwing an exception here might be helpful in some cases, but in other
+            // cases it may block use of the rest of the (supported) members of the type.
+            yield return Expression.Default(toType);
+        }
+    }
+
+    private IEnumerable<Expression> BuildToJSFromCollectionInterfaceExpressions(
         Type fromType,
-        ICollection<ParameterExpression> variables,
+        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         Type elementType = fromType.GenericTypeArguments[0];
@@ -3019,7 +3214,7 @@ public class JSMarshaller
         {
             /*
              * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
-             *     value, (value) => (JSValue)value, (value) => (ElementType)value);
+             *     value, (value) => (JSValue)value, (value) => (T)value);
              */
             MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
                     nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
@@ -3044,22 +3239,6 @@ public class JSMarshaller
             MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
                     nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
                     new[] { typeDefinition, typeof(JSValue.From<>) },
-                    elementType);
-            yield return Expression.Call(
-                Expression.Property(null, s_context),
-                wrapMethod,
-                valueExpression,
-                GetToJSValueExpression(elementType));
-        }
-        else if (typeDefinition == typeof(System.Collections.ObjectModel.ReadOnlyCollection<>))
-        {
-            /*
-             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
-             *     (IReadOnlyCollection<T>)value, (value) => (JSValue)value);
-             */
-            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
-                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
-                    new[] { typeof(IReadOnlyCollection<>), typeof(JSValue.From<>) },
                     elementType);
             yield return Expression.Call(
                 Expression.Property(null, s_context),
@@ -3128,6 +3307,158 @@ public class JSMarshaller
                 Expression.Property(null, s_context),
                 wrapMethod,
                 valueExpression,
+                GetToJSValueExpression(keyType),
+                GetToJSValueExpression(valueType),
+                GetFromJSValueExpression(keyType));
+        }
+        else
+        {
+            // Marshal the unknown collection type as null.
+            // Throwing an exception here might be helpful in some cases, but in other
+            // cases it may block use of the rest of the (supported) members of the type.
+            yield return Expression.Default(typeof(JSValue));
+        }
+    }
+
+    private IEnumerable<Expression> BuildToJSFromCollectionClassExpressions(
+        Type fromType,
+        List<ParameterExpression> variables,
+        Expression valueExpression)
+    {
+        Type elementType = fromType.GenericTypeArguments[0];
+        Type typeDefinition = fromType.GetGenericTypeDefinition();
+
+        if (typeDefinition == typeof(List<>) ||
+            typeDefinition == typeof(Queue<>) ||
+            typeDefinition == typeof(Stack<>) ||
+            typeDefinition == typeof(HashSet<>) ||
+            typeDefinition == typeof(SortedSet<>))
+        {
+            /*
+             * JSArray jsArray = new JSArray();
+             * jsArray.AddRange(value, (item) => (JSValue)item);
+             * return jsArray;
+             */
+            ParameterExpression jsArrayVariable = Expression.Variable(typeof(JSArray), "jsArray");
+            variables.Add(jsArrayVariable);
+
+            PropertyInfo countProperty = fromType.GetProperty("Count")!;
+            ConstructorInfo jsArrayConstructor =
+                typeof(JSArray).GetConstructor([])!;
+            yield return Expression.Assign(jsArrayVariable, Expression.New(jsArrayConstructor));
+
+            MethodInfo addRangeMethod = typeof(JSArray).GetInstanceMethod(
+                nameof(JSArray.AddRange),
+                new[] { typeof(IEnumerable<>), typeof(JSValue.From<>) },
+                elementType);
+            yield return Expression.Call(
+                jsArrayVariable,
+                addRangeMethod,
+                valueExpression,
+                GetToJSValueExpression(elementType));
+
+            MethodInfo cast = GetCastToJSValueMethod(typeof(JSArray))!;
+            yield return Expression.Convert(jsArrayVariable, typeof(JSValue), cast);
+        }
+        else if (typeDefinition == typeof(Dictionary<,>) ||
+            typeDefinition == typeof(SortedDictionary<,>))
+        {
+            Type keyType = elementType;
+            Type valueType = fromType.GenericTypeArguments[1];
+
+            /*
+             * JSMap jsMap = new JSMap();
+             * jsMap.AddRange(value, (key) => (JSValue)key, (value) => (JSValue)value);
+             * return jsMap;
+             */
+            ParameterExpression jsMapVariable = Expression.Variable(typeof(JSMap), "jsMap");
+            variables.Add(jsMapVariable);
+
+            ConstructorInfo jsMapConstructor = typeof(JSMap).GetConstructor([])!;
+            yield return Expression.Assign(jsMapVariable, Expression.New(jsMapConstructor));
+
+            MethodInfo addRangeMethod = typeof(JSMap).GetMethod(nameof(JSMap.AddRange))!
+                .MakeGenericMethod(keyType, valueType);
+            yield return Expression.Call(
+                jsMapVariable,
+                addRangeMethod,
+                valueExpression,
+                GetToJSValueExpression(keyType),
+                GetToJSValueExpression(valueType));
+
+            MethodInfo cast = GetCastToJSValueMethod(typeof(JSMap))!;
+            yield return Expression.Convert(jsMapVariable, typeof(JSValue), cast);
+        }
+        else if (typeDefinition == typeof(Collection<>))
+        {
+            /*
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+             *     (IList<T>)value,
+             *     (value) => (JSValue)value,
+             *     (value) => (T)value);
+             */
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
+                    new[] { typeof(IList<>), typeof(JSValue.From<>), typeof(JSValue.To<>) },
+                    elementType);
+            yield return Expression.Call(
+                Expression.Property(null, s_context),
+                wrapMethod,
+                Expression.Convert(
+                    valueExpression,
+                    typeof(IList<>).MakeGenericType(elementType)),
+                GetToJSValueExpression(elementType),
+                GetFromJSValueExpression(elementType));
+        }
+        else if (typeDefinition == typeof(ReadOnlyCollection<>))
+        {
+            /*
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+             *     (IReadOnlyList<T>)value,
+             *     (value) => (JSValue)value,
+             *     (value) => (T)value);
+             */
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
+                    new[] { typeof(IReadOnlyList<>), typeof(JSValue.From<>) },
+                    elementType);
+            yield return Expression.Call(
+                Expression.Property(null, s_context),
+                wrapMethod,
+                Expression.Convert(
+                    valueExpression,
+                    typeof(IReadOnlyList<>).MakeGenericType(elementType)),
+                GetToJSValueExpression(elementType));
+        }
+        else if (typeDefinition == typeof(ReadOnlyDictionary<,>))
+        {
+            Type keyType = elementType;
+            Type valueType = fromType.GenericTypeArguments[1];
+
+            /*
+             * JSRuntimeContext.Current.GetOrCreateCollectionWrapper(
+             *     (IReadOnlyDictionary<TKey, TValue>)value,
+             *     (key) => (JSValue)key,
+             *     (value) => (JSValue)value,
+             *     (key) => (KeyType)key)
+             */
+            MethodInfo wrapMethod = typeof(JSRuntimeContext).GetInstanceMethod(
+                    nameof(JSRuntimeContext.GetOrCreateCollectionWrapper),
+                    new[]
+                    {
+                        typeof(IReadOnlyDictionary<,>),
+                        typeof(JSValue.From<>),
+                        typeof(JSValue.From<>),
+                        typeof(JSValue.To<>),
+                    },
+                    keyType,
+                    valueType);
+            yield return Expression.Call(
+                Expression.Property(null, s_context),
+                wrapMethod,
+                Expression.Convert(
+                    valueExpression,
+                    typeof(IReadOnlyDictionary<,>).MakeGenericType(keyType, valueType)),
                 GetToJSValueExpression(keyType),
                 GetToJSValueExpression(valueType),
                 GetFromJSValueExpression(keyType));

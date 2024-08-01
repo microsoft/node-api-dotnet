@@ -29,6 +29,18 @@ public readonly struct JSSymbol : IEquatable<JSValue>
         _value = JSValue.CreateSymbol(description ?? JSValue.Undefined);
     }
 
+    /// <summary>
+    /// Gets the symbol's description, or null if it does not have one.
+    /// </summary>
+    public string? Description
+    {
+        get
+        {
+            JSValue descriptionValue = _value["description"];
+            return descriptionValue.IsString() ? (string)descriptionValue : null;
+        }
+    }
+
     public static JSSymbol For(string name)
     {
         return new JSSymbol(JSValue.SymbolFor(name));

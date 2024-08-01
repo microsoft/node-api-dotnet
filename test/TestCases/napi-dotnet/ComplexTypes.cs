@@ -30,40 +30,6 @@ public static class ComplexTypes
 
     public static ClassObject? NullableClassObject { get; set; }
 
-    public static string[] StringArray { get; set; } = Array.Empty<string>();
-
-    public static byte[] ByteArray { get; set; } = new[] { (byte)0, (byte)1, (byte)2 };
-
-    public static int[] Int32Array { get; set; } = new int[] { 0, 1, 2 };
-
-    public static Memory<byte> ByteMemory { get; set; } = new Memory<byte>(ByteArray);
-
-    public static Memory<int> Int32Memory { get; set; } = new Memory<int>(Int32Array);
-
-    public static IEnumerable<int> Enumerable { get; set; } = Int32Array;
-
-    public static ICollection<int> Collection { get; set; } = new List<int>(Int32Array);
-
-    public static IReadOnlyCollection<int> ReadOnlyCollection { get; set; } = Int32Array;
-
-    public static IList<int> List { get; set; } = new List<int>();
-
-    public static IReadOnlyList<int> ReadOnlyList { get; set; } = new List<int>().AsReadOnly();
-
-    public static ISet<int> Set { get; set; } = new HashSet<int>();
-
-#if !NETFRAMEWORK
-    public static IReadOnlySet<int> ReadOnlySet { get; set; } = new HashSet<int>();
-#endif
-
-    public static IDictionary<int, string> Dictionary { get; set; } = new Dictionary<int, string>();
-
-    public static IDictionary<string, IList<ClassObject>> ObjectListDictionary { get; set; }
-        = new Dictionary<string, IList<ClassObject>>();
-
-    public static Memory<int> Slice(Memory<int> array, int start, int length)
-        => array.Slice(start, length);
-
     public static TestEnum TestEnum { get; set; }
 
     public static DateTime DateTime { get; set; }

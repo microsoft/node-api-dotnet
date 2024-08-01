@@ -61,6 +61,22 @@ public readonly partial struct JSArray : IList<JSValue>, IEquatable<JSValue>
     /// <inheritdoc/>
     public void Add(JSValue item) => _value["push"].Call(_value, item);
 
+    public void AddRange(IEnumerable<JSValue> items)
+    {
+        foreach (JSValue item in items)
+        {
+            Add(item);
+        }
+    }
+
+    public void AddRange<T>(IEnumerable<T> items, JSValue.From<T> toJS)
+    {
+        foreach (T item in items)
+        {
+            Add(toJS(item));
+        }
+    }
+
     /// <inheritdoc/>
     public void CopyTo(JSValue[] array, int arrayIndex)
     {

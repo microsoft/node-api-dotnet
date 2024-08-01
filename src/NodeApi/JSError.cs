@@ -223,10 +223,10 @@ public struct JSError
                 // Override the `stack` property of the JS Error object, and add private
                 // properties that the overridden property getter uses to construct the stack.
                 error.DefineProperties(
-                    JSPropertyDescriptor.Accessor(
+                    JSPropertyDescriptor.AccessorProperty(
                         "stack", GetErrorStack, setter: null, JSPropertyAttributes.DefaultProperty),
-                    JSPropertyDescriptor.ForValue("__dotnetStack", dotnetStack),
-                    JSPropertyDescriptor.ForValue("__jsStack", jsStack));
+                    JSPropertyDescriptor.DataProperty("__dotnetStack", dotnetStack),
+                    JSPropertyDescriptor.DataProperty("__jsStack", jsStack));
             }
         }
 

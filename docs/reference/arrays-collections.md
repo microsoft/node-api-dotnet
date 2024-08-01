@@ -6,43 +6,101 @@
 |----------|--------------------|
 | `T[]`    | `T[]` (`Array<T>`) |
 
-.NET arrays are marshalled by value to or from JS. (This would not be the preferred design, but
+.NET arrays are **marshalled by value** to or from JS. (This would not be the preferred design, but
 unfortunately there is no way to create a .NET array over "external" memory, that is memory not
-allocated / managed by the .NET runtime.) This means that whenever a .NET array instqance is
+allocated / managed by the .NET runtime.) This means that whenever a .NET array instance is
 marshalled to or from JS, all the array items are copied. Use `IList<T>` or another collection
 interface to avoid copying the items.
 
-## Collections
+## Generic Interfaces
 
-| C# Type                     | JS Type               |
-|-----------------------------|-----------------------|
-| `IEnumerable<T>`            | `Iterable<T>`         |
-| `IAsyncEnumerable<T>`       | `AsyncIterable<T>`    |
-| `IReadOnlyCollection<T>`    | `ReadonlySet<T>`      |
-| `ICollection<T>`            | `Set<T>`              |
-| `IReadOnlySet<T>`           | `ReadonlySet<T>`      |
-| `ISet<T>`                   | `Set<T>`              |
-| `IReadOnlyList<T>`          | `readonly T[]` (`ReadonlyArray<T>`) |
-| `IList<T>`                  | `T[]` (`Array<T>`)    |
-| `IReadOnlyDictionary<T>`    | `ReadonlyMap<T>`      |
-| `IDictionary<T>`            | `Map<T>`              |
-| `KeyValuePair<TKey, TValue>`| `[TKey, TValue]`      |
+| C# Type                             | JS Type                     |
+|-------------------------------------|-----------------------------|
+| `IEnumerable<T>`                    | `Iterable<T>`               |
+| `IAsyncEnumerable<T>`               | `AsyncIterable<T>`          |
+| `IReadOnlyCollection<T>`            | `Iterable<T> \| { length }` |
+| `ICollection<T>`                    | `Iterable<T> \| { length, add(), delete() }` |
+| `IReadOnlySet<T>`                   | `ReadonlySet<T>`            |
+| `ISet<T>`                           | `Set<T>`                    |
+| `IReadOnlyList<T>`                  | `readonly T[]` (`ReadonlyArray<T>`) |
+| `IList<T>`                          | `T[]` (`Array<T>`)          |
+| `IReadOnlyDictionary<TKey, TValue>` | `ReadonlyMap<TKey, TValue>` |
+| `IDictionary<TKey, TValue>`         | `Map<TKey, TValue>`         |
 
-Collections (other than .NET arrays) are marshalled by reference. This means passing an instance of
-a collection between .NET and JS does not immediately copy any values, and any modifications to the
-collection affect both .NET and JS.
+Generic collection interfaces in the `System.Collections.Generics` namespace are **marshalled by
+reference**. This means passing an instance of a collection between .NET and JS does not immediately
+copy any values, and any modifications to the collection affect both .NET and JS.
 
 JavaScript collections can be adapted to .NET collection interfaces using the extension methods
 in [`JSCollectionExtensions`](./dotnet/Microsoft.JavaScript.NodeApi.Interop/JSCollectionExtensions).
 
-Concrete collection classes like `List<T>`, `Dictionary<T>`, `ReadOnlyCollection<T>` are
-[not yet implemented](https://github.com/microsoft/node-api-dotnet/issues/242). If and when
-they are supported they will have major limitations so are not recommended. Use interfaces instead,
-which is standard practice for public APIs anyway.
+## Generic classes
 
-Non-generic collection interfaces in the `System.Collections` namespace are
+| C# Type                          | JS Type               |
+|----------------------------------|-----------------------|
+| `List<T>`                        | `T[]` (`Array<T>`)    |
+| `Queue<T>`                       | `T[]` (`Array<T>`)    |
+| `Stack<T>`                       | `T[]` (`Array<T>`)    |
+| `HashSet<T>`                     | `Set<T>`              |
+| `SortedSet<T>`                   | `Set<T>`              |
+| `Dictionary<TKey, TValue>`       | `Map<TKey, TValue>`   |
+| `SortedDictionary<TKey, TValue>` | `Map<TKey, TValue>`   |
+| `SortedList<TKey, TValue>`       | _not yet implemented_ |
+| `LinkedList<T>`                  | _not yet implemented_ |
+| `PriorityQueue<T, TPriority>`    | _not yet implemented_ |
+| `SynchronizedCollection<T>`      | _not yet implemented_ |
+
+Generic collection classes in the `System.Collections.Generics` namespace are **marshalled by
+value**. (This is because the classes are `sealed` and cannot be overridden to proxy calls to JS.)
+To avoid copying, usse collection interfaces instead, which is the
+[recommended practice for public APIs](https://learn.microsoft.com/en-us/archive/blogs/kcwalina/why-we-dont-recommend-using-listt-in-public-apis)
+anyway.
+
+## ObjectModel classes
+
+| C# Type                             | JS Type                    |
+|-------------------------------------|----------------------------|
+| `Collection<T>`                    | `T[]` (`Array<T>`)          |
+| `ReadOnlyCollection<T>`            | `readonly T[]` (`ReadonlyArray<T>`) |
+| `ReadOnlyDictionary<TKey, TValue>` | `ReadonlyMap<TKey, TValue>` |
+| `KeyedCollection<TKey, TValue>`    | _not yet implemented_       |
+| `ObservableCollection<T>`          | _not yet implemented_       |
+| `ReadOnlyObservableCollection<T>`  | _not yet implemented_       |
+
+Some generic collection classes in the `System.Collections.ObjectModel` namespace are supported
+and are **marshalled by reference**. However, using collection interfaces instead is still
+recommended.
+
+## Generic key-value pair
+
+| C# Type                             | JS Type               |
+|-------------------------------------|-----------------------|
+| `KeyValuePair<TKey, TValue>`        | `[TKey, TValue]`      |
+
+A generic key-value pair is marshalled as a JavaScript array-tuple. This is the same element
+structure as that used by JavaScript's `Map.entries()` API.
+
+(For .NET tuple types, see [Tuples](./structs-tuples.md#tuples).)
+
+## Non-generic interfaces and classes
+
+| C# Type       | JS Type               |
+|---------------|-----------------------|
+| `IEnumerable` | _not yet implemented_ |
+| `ICollection` | _not yet implemented_ |
+| `IList`       | _not yet implemented_ |
+| `IDictionary` | _not yet implemented_ |
+| `ArrayList`   | _not yet implemented_ |
+| `BitArray`    | _not yet implemented_ |
+| `Hashtable`   | _not yet implemented_ |
+| `Queue`       | _not yet implemented_ |
+| `SortedList`  | _not yet implemented_ |
+| `Stack`       | _not yet implemented_ |
+
+Non-generic collection types in the `System.Collections` namespace are
 [not yet implemented](https://github.com/microsoft/node-api-dotnet/issues/243), since they are
-rarely used in modern C# code.
+rarely used in modern C# code, moreover the lack of strong typing would require more complex
+dynamic marshalling.
 
 ## Typed arrays
 

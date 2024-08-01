@@ -163,22 +163,18 @@ internal class NamespaceProxy
             if (Namespaces.TryGetValue(propertyName, out NamespaceProxy? ns))
             {
                 // Child namespace.
-                return new JSObject
-                {
-                    ["enumerable"] = true,
-                    ["configurable"] = true,
-                    ["value"] = ns.Value,
-                };
+                return JSPropertyDescriptor.DataProperty(
+                    propertyName,
+                    ns.Value,
+                    JSPropertyAttributes.DefaultProperty & ~JSPropertyAttributes.Writable);
             }
             else if (Types.TryGetValue(propertyName, out TypeProxy? type))
             {
                 // Type in the namespace.
-                return new JSObject
-                {
-                    ["enumerable"] = true,
-                    ["configurable"] = true,
-                    ["value"] = type.Value ?? default,
-                };
+                return JSPropertyDescriptor.DataProperty(
+                    propertyName,
+                    type.Value ?? default,
+                    JSPropertyAttributes.DefaultProperty & ~JSPropertyAttributes.Writable);
             }
 
             // Unknown type.

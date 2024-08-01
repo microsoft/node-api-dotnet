@@ -688,7 +688,7 @@ public class TypeExporter
                                 _marshaller.BuildFromJSPropertyGetExpression(property).Compile();
                             JSCallback? setter = property.SetMethod == null ? null :
                                 _marshaller.BuildFromJSPropertySetExpression(property).Compile();
-                            args.ThisArg.DefineProperties(JSPropertyDescriptor.Accessor(
+                            args.ThisArg.DefineProperties(JSPropertyDescriptor.AccessorProperty(
                                 property.Name, getter, setter, propertyAttributes));
 
                             ExportTypeIfSupported(property.PropertyType, deferMembers: true);
@@ -714,7 +714,7 @@ public class TypeExporter
                                 _marshaller.BuildFromJSPropertyGetExpression(property).Compile();
                             JSCallback setter =
                                 _marshaller.BuildFromJSPropertySetExpression(property).Compile();
-                            args.ThisArg.DefineProperties(JSPropertyDescriptor.Accessor(
+                            args.ThisArg.DefineProperties(JSPropertyDescriptor.AccessorProperty(
                                 property.Name, getter, setter, propertyAttributes));
 
                             ExportTypeIfSupported(property.PropertyType, deferMembers: true);
@@ -971,13 +971,19 @@ public class TypeExporter
         if (type.IsPointer ||
             type == typeof(void) ||
             type.Namespace == "System.Reflection" ||
-            (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Memory<>)) ||
-            (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ReadOnlyMemory<>)) ||
             (type.Namespace?.StartsWith("System.Collections.") == true && !type.IsGenericType) ||
             (type.Namespace?.StartsWith("System.Threading.") == true && type != typeof(Task) &&
             !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))))
         {
             return false;
+        }
+
+        if (type.IsGenericType &&
+            (type.GetGenericTypeDefinition() == typeof(Memory<>) ||
+            type.GetGenericTypeDefinition() == typeof(ReadOnlyMemory<>)))
+        {
+            Type elementType = type.GetGenericArguments()[0];
+            return elementType.IsPrimitive;
         }
 
         if (IsByRefLikeType(type))

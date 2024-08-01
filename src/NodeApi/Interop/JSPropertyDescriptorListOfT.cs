@@ -28,7 +28,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
         string name,
         JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
-        Properties.Add(JSPropertyDescriptor.ForValue(name, JSValue.Undefined, attributes));
+        Properties.Add(JSPropertyDescriptor.DataProperty(name, JSValue.Undefined, attributes));
         return (TDerived)(object)this;
     }
 
@@ -40,7 +40,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
       JSValue value,
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
-        Properties.Add(JSPropertyDescriptor.ForValue(name, value, attributes));
+        Properties.Add(JSPropertyDescriptor.DataProperty(name, value, attributes));
         return (TDerived)(object)this;
     }
 
@@ -54,7 +54,7 @@ public abstract class JSPropertyDescriptorList<TDerived, TObject>
       JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty,
       object? data = null)
     {
-        Properties.Add(JSPropertyDescriptor.Accessor(name, getter, setter, attributes, data));
+        Properties.Add(JSPropertyDescriptor.AccessorProperty(name, getter, setter, attributes, data));
         return (TDerived)(object)this;
     }
 
