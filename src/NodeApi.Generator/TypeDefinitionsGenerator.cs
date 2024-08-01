@@ -1733,6 +1733,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
                 typeDefinitionName == typeof(Queue<>).FullName ||
                 typeDefinitionName == typeof(Stack<>).FullName ||
                 typeDefinitionName == typeof(Collection<>).FullName ||
+                typeDefinitionName == typeof(Dictionary<,>.KeyCollection).FullName ||
                 typeDefinitionName == typeof(ReadOnlyDictionary<,>.KeyCollection).FullName)
             {
                 string elementType =
@@ -1743,7 +1744,8 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
                 }
                 tsType = elementType + "[]";
             }
-            else if (typeDefinitionName == typeof(ReadOnlyDictionary<,>.ValueCollection).FullName)
+            else if (typeDefinitionName == typeof(Dictionary<,>.ValueCollection).FullName ||
+                typeDefinitionName == typeof(ReadOnlyDictionary<,>.ValueCollection).FullName)
             {
                 string elementType =
                     GetTSType(typeArgs[1], typeArgsNullability?[0], allowTypeParams);
@@ -1826,6 +1828,14 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
                 IEnumerable<string> itemTSTypes = typeArgs.Select((typeArg, index) =>
                     GetTSType(typeArg, typeArgsNullability?[index], allowTypeParams));
                 tsType = $"[{string.Join(", ", itemTSTypes)}]";
+            }
+            else if (type.IsNested && type.IsValueType &&
+                type.GetInterfaces().FirstOrDefault((i) => i.IsGenericType &&
+                    i.GetGenericTypeDefinition().FullName == typeof(IEnumerator<>).FullName)
+                is Type enumeratorType)
+            {
+                // Convert specialized enumerator structs to the regular enumerator interface.
+                tsType = GetTSType(enumeratorType, null);
             }
             else
             {
