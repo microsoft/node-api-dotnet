@@ -25,7 +25,7 @@ public class JSStructBuilder<T> where T : struct
         string name,
         JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
-        Properties.Add(JSPropertyDescriptor.ForValue(name, JSValue.Undefined, attributes));
+        Properties.Add(JSPropertyDescriptor.Property(name, JSValue.Undefined, attributes));
         return this;
     }
 
@@ -37,7 +37,7 @@ public class JSStructBuilder<T> where T : struct
         JSValue value,
         JSPropertyAttributes attributes = JSPropertyAttributes.DefaultProperty)
     {
-        Properties.Add(JSPropertyDescriptor.ForValue(name, value, attributes));
+        Properties.Add(JSPropertyDescriptor.Property(name, value, attributes));
         return this;
     }
 

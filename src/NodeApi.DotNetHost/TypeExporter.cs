@@ -971,13 +971,19 @@ public class TypeExporter
         if (type.IsPointer ||
             type == typeof(void) ||
             type.Namespace == "System.Reflection" ||
-            (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Memory<>)) ||
-            (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ReadOnlyMemory<>)) ||
             (type.Namespace?.StartsWith("System.Collections.") == true && !type.IsGenericType) ||
             (type.Namespace?.StartsWith("System.Threading.") == true && type != typeof(Task) &&
             !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))))
         {
             return false;
+        }
+
+        if (type.IsGenericType &&
+            (type.GetGenericTypeDefinition() == typeof(Memory<>) ||
+            type.GetGenericTypeDefinition() == typeof(ReadOnlyMemory<>)))
+        {
+            Type elementType = type.GetGenericArguments()[0];
+            return elementType.IsPrimitive;
         }
 
         if (IsByRefLikeType(type))

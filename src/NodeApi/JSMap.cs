@@ -85,6 +85,17 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
 
     public void Clear() => _value.CallMethod("clear");
 
+    public void AddRange<TKey, TValue>(
+        IEnumerable<KeyValuePair<TKey, TValue>> items,
+        JSValue.From<TKey> keyToJS,
+        JSValue.From<TValue> valueToJS)
+    {
+        foreach (KeyValuePair<TKey, TValue> item in items)
+        {
+            Add(keyToJS(item.Key), valueToJS(item.Value));
+        }
+    }
+
     ICollection<JSValue> IDictionary<JSValue, JSValue>.Keys => Keys;
 
     ICollection<JSValue> IDictionary<JSValue, JSValue>.Values => Values;

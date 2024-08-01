@@ -1093,6 +1093,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             targetType.IsArray ||
             (targetType.GetInterface(nameof(System.Collections.IEnumerable)) != null &&
              (targetType.Namespace == typeof(System.Collections.IEnumerable).Namespace ||
+              targetType.Namespace == typeof(Collection<>).Namespace ||
               targetType.Namespace == typeof(IEnumerable<>).Namespace)) ||
             targetType.Name.StartsWith("IAsyncEnumerable`") ||
             targetType.Name == nameof(Tuple) || targetType.Name.StartsWith(nameof(Tuple) + '`') ||
@@ -1727,7 +1728,12 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
                     _ => "unknown",
                 };
             }
-            else if (typeDefinitionName == typeof(IList<>).FullName)
+            else if (typeDefinitionName == typeof(IList<>).FullName ||
+                typeDefinitionName == typeof(List<>).FullName ||
+                typeDefinitionName == typeof(Queue<>).FullName ||
+                typeDefinitionName == typeof(Stack<>).FullName ||
+                typeDefinitionName == typeof(Collection<>).FullName ||
+                typeDefinitionName == typeof(ReadOnlyDictionary<,>.KeyCollection).FullName)
             {
                 string elementType =
                     GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
@@ -1737,7 +1743,18 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
                 }
                 tsType = elementType + "[]";
             }
-            else if (typeDefinitionName == typeof(IReadOnlyList<>).FullName)
+            else if (typeDefinitionName == typeof(ReadOnlyDictionary<,>.ValueCollection).FullName)
+            {
+                string elementType =
+                    GetTSType(typeArgs[1], typeArgsNullability?[0], allowTypeParams);
+                if (elementType.EndsWith(UndefinedTypeSuffix))
+                {
+                    elementType = $"({elementType})";
+                }
+                tsType = elementType + "[]";
+            }
+            else if (typeDefinitionName == typeof(IReadOnlyList<>).FullName ||
+                typeDefinitionName == typeof(ReadOnlyCollection<>).FullName)
             {
                 string elementType =
                     GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
@@ -1750,16 +1767,17 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             else if (typeDefinitionName == typeof(ICollection<>).FullName)
             {
                 string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
-                return $"Iterable<{elementTsType}> & {{ length: number, " +
+                return $"Iterable<{elementTsType}> | {{ length: number, " +
                     $"add(item: {elementTsType}): void, delete(item: {elementTsType}): boolean }}";
             }
-            else if (typeDefinitionName == typeof(IReadOnlyCollection<>).FullName ||
-                typeDefinitionName == typeof(ReadOnlyCollection<>).FullName)
+            else if (typeDefinitionName == typeof(IReadOnlyCollection<>).FullName)
             {
                 string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
-                return $"Iterable<{elementTsType}> & {{ length: number }}";
+                return $"Iterable<{elementTsType}> | {{ length: number }}";
             }
-            else if (typeDefinitionName == typeof(ISet<>).FullName)
+            else if (typeDefinitionName == typeof(ISet<>).FullName ||
+                typeDefinitionName == typeof(HashSet<>).FullName ||
+                typeDefinitionName == typeof(SortedSet<>).FullName)
             {
                 string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 return $"Set<{elementTsType}>";
@@ -1776,13 +1794,21 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
                 string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 return $"Iterable<{elementTsType}>";
             }
-            else if (typeDefinitionName == typeof(IDictionary<,>).FullName)
+            else if (typeDefinitionName == typeof(IAsyncEnumerable<>).FullName)
+            {
+                string elementTsType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
+                return $"AsyncIterable<{elementTsType}>";
+            }
+            else if (typeDefinitionName == typeof(IDictionary<,>).FullName ||
+                typeDefinitionName == typeof(Dictionary<,>).FullName ||
+                typeDefinitionName == typeof(SortedDictionary<,>).FullName)
             {
                 string keyTSType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 string valueTSType = GetTSType(typeArgs[1], typeArgsNullability?[1], allowTypeParams);
                 tsType = $"Map<{keyTSType}, {valueTSType}>";
             }
-            else if (typeDefinitionName == typeof(IReadOnlyDictionary<,>).FullName)
+            else if (typeDefinitionName == typeof(IReadOnlyDictionary<,>).FullName ||
+                typeDefinitionName == typeof(ReadOnlyDictionary<,>).FullName)
             {
                 string keyTSType = GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
                 string valueTSType = GetTSType(typeArgs[1], typeArgsNullability?[1], allowTypeParams);

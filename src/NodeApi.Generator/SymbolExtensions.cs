@@ -353,7 +353,8 @@ internal static class SymbolExtensions
         string typeFullName = GetTypeSymbolFullName(typeSymbol);
         Type? systemType = typeof(object).Assembly.GetType(typeFullName) ??
             typeof(JSValue).Assembly.GetType(typeFullName) ??
-            typeof(BigInteger).Assembly.GetType(typeFullName);
+            typeof(BigInteger).Assembly.GetType(typeFullName) ??
+            typeof(Stack<>).Assembly.GetType(typeFullName);
         return systemType;
     }
 
@@ -694,7 +695,6 @@ internal static class SymbolExtensions
     {
         Type type = propertySymbol.ContainingType.AsType();
 
-        Type propertyType = propertySymbol.Type.AsType(type.GenericTypeArguments, buildType: true);
         Type[] parameterTypes = propertySymbol.Parameters.Select(
             (p) => p.Type.AsType(type.GenericTypeArguments, buildType: true)).ToArray();
 
@@ -703,10 +703,10 @@ internal static class SymbolExtensions
         PropertyInfo? propertyInfo = type.GetProperty(
             propertySymbol.Name,
             bindingFlags,
-            null,
-            propertyType,
+            binder: null,
+            returnType: null,
             parameterTypes,
-            null);
+            modifiers: null);
         return propertyInfo ?? throw new InvalidOperationException(
                 $"Property not found: {type.Name}.{propertySymbol.Name}");
     }

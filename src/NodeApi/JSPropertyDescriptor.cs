@@ -7,6 +7,11 @@ using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
+/// <summary>
+/// Describes a property of a JavaScript object, including its name, value, and attributes.
+/// Can be converted to a JavaScript property descriptor object using the <see cref="ToObject"/>
+/// method.
+/// </summary>
 [DebuggerDisplay("{Name,nq}")]
 public readonly struct JSPropertyDescriptor
 {
@@ -28,6 +33,9 @@ public readonly struct JSPropertyDescriptor
     public JSPropertyAttributes Attributes { get; }
     public object? Data { get; }
 
+    /// <summary>
+    /// Creates a property descriptor with a string name.
+    /// </summary>
     public JSPropertyDescriptor(
         string name,
         JSCallback? method = null,
@@ -48,6 +56,9 @@ public readonly struct JSPropertyDescriptor
         Data = data;
     }
 
+    /// <summary>
+    /// Creates a property descriptor with a name that can be either a string or symbol value.
+    /// </summary>
     public JSPropertyDescriptor(
         JSValue name,
         JSCallback? method = null,
@@ -68,6 +79,22 @@ public readonly struct JSPropertyDescriptor
         Data = data;
     }
 
+    /// <summary>
+    /// Creates a property descriptor with a value.
+    /// </summary>
+    public static JSPropertyDescriptor Property(
+        string name,
+        JSValue value,
+        JSPropertyAttributes attributes = JSPropertyAttributes.Default,
+        object? data = null)
+    {
+        return new JSPropertyDescriptor(name, null, null, null, value, attributes, data);
+    }
+
+    /// <summary>
+    /// Creates a property descriptor with getter and/or setter callbacks.
+    /// </summary>
+    /// <exception cref="ArgumentException">Both getter and setter are null.</exception>
     public static JSPropertyDescriptor Accessor(
         string name,
         JSCallback? getter = null,
@@ -83,15 +110,9 @@ public readonly struct JSPropertyDescriptor
         return new JSPropertyDescriptor(name, null, getter, setter, null, attributes, data);
     }
 
-    public static JSPropertyDescriptor ForValue(
-        string name,
-        JSValue value,
-        JSPropertyAttributes attributes = JSPropertyAttributes.Default,
-        object? data = null)
-    {
-        return new JSPropertyDescriptor(name, null, null, null, value, attributes, data);
-    }
-
+    /// <summary>
+    /// Creates a property descriptor with a method callback.
+    /// </summary>
     public static JSPropertyDescriptor Function(
         string name,
         JSCallback method,
@@ -100,4 +121,56 @@ public readonly struct JSPropertyDescriptor
     {
         return new JSPropertyDescriptor(name, method, null, null, null, attributes, data);
     }
+
+    /// <summary>
+    /// Converts the structure to a JavaScript property descriptor object.
+    /// </summary>
+    public JSObject ToObject()
+    {
+        JSObject descriptor = new();
+
+        if (Value != null)
+        {
+            descriptor["value"] = Value.Value;
+        }
+        else if (Method != null)
+        {
+            descriptor["value"] =
+                JSValue.CreateFunction(Name, Method);
+        }
+        else
+        {
+            if (Getter != null)
+            {
+                descriptor["get"] =
+                    JSValue.CreateFunction(Name, Getter);
+            }
+            if (Setter != null)
+            {
+                descriptor["set"] =
+                    JSValue.CreateFunction(Name, Setter);
+            }
+        }
+
+        if (Attributes.HasFlag(JSPropertyAttributes.Writable))
+        {
+            descriptor["writable"] = true;
+        }
+        if (Attributes.HasFlag(JSPropertyAttributes.Enumerable))
+        {
+            descriptor["enumerable"] = true;
+        }
+        if (Attributes.HasFlag(JSPropertyAttributes.Configurable))
+        {
+            descriptor["configurable"] = true;
+        }
+
+        return descriptor;
+    }
+
+    /// <summary>
+    /// Converts the structure to a JavaScript property descriptor object.
+    /// </summary>
+    public static explicit operator JSObject(JSPropertyDescriptor descriptor)
+        => descriptor.ToObject();
 }

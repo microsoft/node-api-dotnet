@@ -225,8 +225,8 @@ public struct JSError
                 error.DefineProperties(
                     JSPropertyDescriptor.Accessor(
                         "stack", GetErrorStack, setter: null, JSPropertyAttributes.DefaultProperty),
-                    JSPropertyDescriptor.ForValue("__dotnetStack", dotnetStack),
-                    JSPropertyDescriptor.ForValue("__jsStack", jsStack));
+                    JSPropertyDescriptor.Property("__dotnetStack", dotnetStack),
+                    JSPropertyDescriptor.Property("__jsStack", jsStack));
             }
         }
 

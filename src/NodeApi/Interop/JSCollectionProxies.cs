@@ -263,6 +263,11 @@ internal static class JSCollectionProxies
 
                 return ProxyIterableGet(list, target, property, toJS);
             },
+            Has = ProxyArrayHas((target) => target.Unwrap<IReadOnlyList<T>>().Count),
+            OwnKeys = ProxyArrayOwnKeys((target) => target.Unwrap<IReadOnlyList<T>>().Count),
+            GetOwnPropertyDescriptor = ProxyArrayGetOwnPropertyDescriptor(
+                (target) => target.Unwrap<IReadOnlyList<T>>().Count,
+                (target, index) => toJS(target.Unwrap<IReadOnlyList<T>>()[index])),
         };
     }
 
@@ -343,6 +348,82 @@ internal static class JSCollectionProxies
 
                 return false;
             },
+            Has = ProxyArrayHas((target) => target.Unwrap<IList<T>>().Count),
+            OwnKeys = ProxyArrayOwnKeys((target) => target.Unwrap<IList<T>>().Count),
+            GetOwnPropertyDescriptor = ProxyArrayGetOwnPropertyDescriptor(
+                (target) => target.Unwrap<IList<T>>().Count,
+                (target, index) => toJS(target.Unwrap<IList<T>>()[index])),
+        };
+    }
+
+    private static JSProxy.Has ProxyArrayHas(Func<JSObject, int> getCount)
+    {
+        return (JSObject target, JSValue property) =>
+        {
+            if (property.IsString())
+            {
+                string propertyName = (string)property;
+
+                if (int.TryParse(propertyName, out int index) &&
+                    index >= 0 && index < getCount(target))
+                {
+                    return true;
+                }
+                else if (propertyName == "length")
+                {
+                    return true;
+                }
+            }
+
+            return ((JSValue)target).HasProperty(property);
+        };
+    }
+
+    private static JSProxy.OwnKeys ProxyArrayOwnKeys(Func<JSObject, int> getCount)
+    {
+        return (JSObject target) =>
+        {
+            int count = getCount(target);
+
+            JSArray keys = new();
+            for (int i = 0; i < count; i++)
+            {
+                keys.Add(i.ToString());
+            }
+
+            keys.Add("length");
+
+            return keys;
+        };
+    }
+
+    private static JSProxy.GetOwnPropertyDescriptor ProxyArrayGetOwnPropertyDescriptor(
+        Func<JSObject, int> getCount,
+        Func<JSObject, int, JSValue> getValue)
+    {
+        return (JSObject target, JSValue property) =>
+        {
+            if (property.IsString())
+            {
+                string propertyName = (string)property;
+                if (int.TryParse(propertyName, out int index) &&
+                    index >= 0 && index < getCount(target))
+                {
+                    return JSPropertyDescriptor.Property(
+                        propertyName,
+                        getValue(target, index),
+                        JSPropertyAttributes.DefaultProperty);
+                }
+                else if (propertyName == "length")
+                {
+                    return JSPropertyDescriptor.Property(
+                        propertyName,
+                        getCount(target),
+                        JSPropertyAttributes.Writable);
+                }
+            }
+
+            return default;
         };
     }
 
