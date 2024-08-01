@@ -3068,19 +3068,19 @@ public class JSMarshaller
 
             /*
              * value.TryUnwrap() as Dictionary<TKey, TValue> ??
-             *     new Dictionary<TKey, TValue>(((JSMap)value).AsReadOnlyDictionary<TKey, TValue>(
+             *     new Dictionary<TKey, TValue>(((JSMap)value).AsDictionary<TKey, TValue>(
              *         (key) => (TKey)key,
              *         (value) => (TValue)value,
-             *         (key) => (JSValue)key));
+             *         (key) => (JSValue)key,
+             *         (value) => (JSValue)value);
              */
             MethodInfo asDictionaryMethod = typeof(JSCollectionExtensions).GetStaticMethod(
-                nameof(JSCollectionExtensions.AsReadOnlyDictionary))!.MakeGenericMethod(
+                nameof(JSCollectionExtensions.AsDictionary))!.MakeGenericMethod(
                     keyType, valueType);
             MethodInfo asJSMapMethod = typeof(JSMap).GetExplicitConversion(
                 typeof(JSValue), typeof(JSMap));
             ConstructorInfo dictionaryConstructor = toType.GetConstructor(
-                new[] { typeof(IEnumerable<>).MakeGenericType(
-                    typeof(KeyValuePair<,>).MakeGenericType(keyType, valueType)) })!;
+                new[] { typeof(IDictionary<,>).MakeGenericType(keyType, valueType) })!;
             yield return Expression.Coalesce(
                 Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
                 Expression.New(
@@ -3090,7 +3090,8 @@ public class JSMarshaller
                         Expression.Convert(valueExpression, typeof(JSMap), asJSMapMethod),
                         GetFromJSValueExpression(keyType),
                         GetFromJSValueExpression(valueType),
-                        GetToJSValueExpression(keyType))));
+                        GetToJSValueExpression(keyType),
+                        GetToJSValueExpression(valueType))));
         }
         else if (typeDefinition == typeof(SortedDictionary<,>))
         {

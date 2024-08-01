@@ -353,8 +353,10 @@ internal static class SymbolExtensions
         string typeFullName = GetTypeSymbolFullName(typeSymbol);
         Type? systemType = typeof(object).Assembly.GetType(typeFullName) ??
             typeof(JSValue).Assembly.GetType(typeFullName) ??
-            typeof(BigInteger).Assembly.GetType(typeFullName) ??
-            typeof(Stack<>).Assembly.GetType(typeFullName);
+            typeof(BigInteger).Assembly.GetType(typeFullName) ?? // System.Runtime.Numerics
+            typeof(Stack<>).Assembly.GetType(typeFullName) ?? // System.Collections
+            typeof(System.Collections.ObjectModel.ReadOnlyDictionary<,>)
+                .Assembly.GetType(typeFullName); // System.ObjectModel
         return systemType;
     }
 
