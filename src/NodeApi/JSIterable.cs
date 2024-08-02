@@ -32,12 +32,14 @@ public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JS
 #if NET7_0_OR_GREATER
     static JSIterable IJSValue<JSIterable>.CreateUnchecked(JSValue value) => new(value);
 #else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
     private static JSIterable CreateUnchecked(JSValue value) => new(value);
+#pragma warning restore IDE0051
 #endif
 
     public JSValue AsJSValue() => _value;
 
-#endregion
+    #endregion
 
     public Enumerator GetEnumerator() => new(_value);
 

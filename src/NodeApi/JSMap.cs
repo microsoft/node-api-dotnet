@@ -49,7 +49,9 @@ public readonly partial struct JSMap : IJSValue<JSMap>, IDictionary<JSValue, JSV
 #if NET7_0_OR_GREATER
     static JSMap IJSValue<JSMap>.CreateUnchecked(JSValue value) => new(value);
 #else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
     private static JSMap CreateUnchecked(JSValue value) => new(value);
+#pragma warning restore IDE0051
 #endif
 
     public JSValue AsJSValue() => _value;

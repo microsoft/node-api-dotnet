@@ -32,12 +32,14 @@ public readonly partial struct JSObject : IJSValue<JSObject>, IDictionary<JSValu
 #if NET7_0_OR_GREATER
     static JSObject IJSValue<JSObject>.CreateUnchecked(JSValue value) => new(value);
 #else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
     private static JSObject CreateUnchecked(JSValue value) => new(value);
+#pragma warning restore IDE0051
 #endif
 
     public JSValue AsJSValue() => _value;
 
-#endregion
+    #endregion
 
     public JSObject(IEnumerable<KeyValuePair<JSValue, JSValue>> properties) : this()
     {

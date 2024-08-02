@@ -37,12 +37,14 @@ public readonly struct JSSymbol : IJSValue<JSSymbol>
 #if NET7_0_OR_GREATER
     static JSSymbol IJSValue<JSSymbol>.CreateUnchecked(JSValue value) => new(value);
 #else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
     private static JSSymbol CreateUnchecked(JSValue value) => new(value);
+#pragma warning restore IDE0051
 #endif
 
     public JSValue AsJSValue() => _value;
 
-#endregion
+    #endregion
 
     /// <summary>
     /// Gets the symbol's description, or null if it does not have one.

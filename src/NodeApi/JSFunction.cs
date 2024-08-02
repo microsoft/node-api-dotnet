@@ -275,12 +275,14 @@ public readonly struct JSFunction : IJSValue<JSFunction>
 #if NET7_0_OR_GREATER
     static JSFunction IJSValue<JSFunction>.CreateUnchecked(JSValue value) => new(value);
 #else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
     private static JSFunction CreateUnchecked(JSValue value) => new(value);
+#pragma warning restore IDE0051
 #endif
 
     public JSValue AsJSValue() => _value;
 
-#endregion
+    #endregion
 
     /// <summary>
     /// Gets the name of the function, or an empty string if the function is unnamed.
