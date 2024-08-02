@@ -41,10 +41,9 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
 
     #region IJSValue<JSAbortSignal> implementation
 
-    public static bool CanCreateFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value) => value.IsObject() && value.InstanceOf(JSValue.Global["JSAbortSignal"]);
 
 #if NET7_0_OR_GREATER
-    // TODO: (vmoroz) Implement
     static JSAbortSignal IJSValue<JSAbortSignal>.CreateUnchecked(JSValue value) => new(value);
 #else
 #pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.

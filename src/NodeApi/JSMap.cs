@@ -43,8 +43,8 @@ public readonly partial struct JSMap : IJSValue<JSMap>, IDictionary<JSValue, JSV
 
     #region IJSValue<JSMap> implementation
 
-    // TODO: (vmoroz) Implement using instanceof
-    public static bool CanCreateFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value)
+        => value.IsObject() && value.InstanceOf(JSValue.Global["Map"]);
 
 #if NET7_0_OR_GREATER
     static JSMap IJSValue<JSMap>.CreateUnchecked(JSValue value) => new(value);

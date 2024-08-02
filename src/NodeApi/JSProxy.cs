@@ -69,7 +69,8 @@ public readonly partial struct JSProxy : IJSValue<JSProxy>
     #region IJSValue<JSProxy> implementation
 
     // TODO: (vmoroz) Implement using instanceof
-    public static bool CanCreateFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value)
+        => value.IsObject() && value.InstanceOf(JSValue.Global["Proxy"]);
 
 #if NET7_0_OR_GREATER
     static JSProxy IJSValue<JSProxy>.CreateUnchecked(JSValue value) => new(value);

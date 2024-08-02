@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.JavaScript.NodeApi;
 
+//TODO: Add support for Uint8ClampedArray
 public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     where T : struct
 {
@@ -46,6 +47,21 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
         ulong => JSTypedArrayType.BigUInt64,
         float => JSTypedArrayType.Float32,
         double => JSTypedArrayType.Float64,
+        _ => throw new InvalidCastException("Invalid typed-array type: " + typeof(T)),
+    };
+
+    private static string JSTypeName { get; } = default(T) switch
+    {
+        sbyte => "Int8Array",
+        byte => "Uint8Array",
+        short => "Int16Array",
+        ushort => "Uint16Array",
+        int => "Int32Array",
+        uint => "Uint32Array",
+        long => "BigInt64Array",
+        ulong => "BigUint64Array",
+        float => "Float32Array",
+        double => "Float64Array",
         _ => throw new InvalidCastException("Invalid typed-array type: " + typeof(T)),
     };
 
@@ -106,8 +122,8 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
 
     #region IJSValue<JSTypedArray<T>> implementation
 
-    //TODO: (vmoroz) Implement correctly
-    public static bool CanCreateFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value)
+        => value.IsObject() && value.InstanceOf(JSValue.Global[JSTypeName]);
 
 #if NET7_0_OR_GREATER
     static JSTypedArray<T> IJSValue<JSTypedArray<T>>.CreateUnchecked(JSValue value) => new(value);

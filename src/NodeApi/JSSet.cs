@@ -48,7 +48,8 @@ public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
     #region IJSValue<JSSet> implementation
 
     // TODO: (vmoroz) Implement using instanceof
-    public static bool CanCreateFrom(JSValue value) => value.IsObject();
+    public static bool CanCreateFrom(JSValue value)
+        => value.IsObject() && value.InstanceOf(JSValue.Global["Set"]);
 
 #if NET7_0_OR_GREATER
     static JSSet IJSValue<JSSet>.CreateUnchecked(JSValue value) => new(value);
