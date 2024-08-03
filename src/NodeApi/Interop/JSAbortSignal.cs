@@ -24,7 +24,7 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
     public static explicit operator JSAbortSignal(JSValue value) => value.CastTo<JSAbortSignal>();
 
     public static explicit operator JSAbortSignal(JSObject obj) => (JSAbortSignal)(JSValue)obj;
-    public static implicit operator JSObject(JSAbortSignal promise) => (JSObject)promise._value;
+    public static implicit operator JSObject(JSAbortSignal signal) => (JSObject)signal._value;
 
     private JSAbortSignal(JSValue value)
     {
@@ -41,7 +41,8 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
 
     #region IJSValue<JSAbortSignal> implementation
 
-    public static bool CanCreateFrom(JSValue value) => value.IsObject() && value.InstanceOf(JSValue.Global["JSAbortSignal"]);
+    public static bool CanCreateFrom(JSValue value)
+        => value.IsObject() && value.InstanceOf(JSValue.Global["AbortSignal"]);
 
 #if NET7_0_OR_GREATER
     static JSAbortSignal IJSValue<JSAbortSignal>.CreateUnchecked(JSValue value) => new(value);
