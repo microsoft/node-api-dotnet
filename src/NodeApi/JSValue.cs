@@ -400,10 +400,10 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public TValue? As<TValue>() where TValue : struct, IJSValue<TValue>
 #if NET7_0_OR_GREATER
-        => TValue.CanCreateFrom(this) ? TValue.CreateUnchecked(this) : default;
+        => TValue.CanCreateFrom(this) ? TValue.CreateUnchecked(this) : default(TValue?);
 #else
         => IJSValueShim<TValue>.CanCreateFrom(this)
-            ? IJSValueShim<TValue>.CreateUnchecked(this) : default;
+            ? IJSValueShim<TValue>.CreateUnchecked(this) : default(TValue?);
 #endif
 
     public TValue AsUnchecked<TValue>() where TValue : struct, IJSValue<TValue>
