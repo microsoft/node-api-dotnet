@@ -29,7 +29,7 @@ public readonly partial struct JSAsyncIterable :
     #region IJSValue<JSAsyncIterable> implementation
 
     public static bool CanCreateFrom(JSValue value)
-        => value.IsObject() && value.HasProperty(JSValue.Global["Symbol"]["asyncIterator"]);
+        => value.IsObject() && value.HasProperty(JSSymbol.AsyncIterator);
 
 #if NET7_0_OR_GREATER
     static JSAsyncIterable IJSValue<JSAsyncIterable>.CreateUnchecked(JSValue value) => new(value);
