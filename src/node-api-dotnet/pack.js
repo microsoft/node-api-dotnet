@@ -70,6 +70,7 @@ function packMainPackage() {
     `NodeApi/${assemblyName}.runtimeconfig.json`,
     `NodeApi/${assemblyName}.dll`,
     `NodeApi.DotNetHost/${assemblyName}.DotNetHost.dll`,
+    `NodeApi/Microsoft.Bcl.AsyncInterfaces.dll`,
     `NodeApi/System.Memory.dll`,
     `NodeApi/System.Runtime.CompilerServices.Unsafe.dll`,
     `NodeApi/System.Threading.Tasks.Extensions.dll`,
@@ -170,6 +171,12 @@ function copyFrameworkSpecificBinaries(targetFrameworks, packageStageDir, ...bin
         tfm.includes('.') &&
         binFileName.startsWith('System.') &&
         !binFileName.includes('MetadataLoadContext')
+      ) return;
+      
+      // Exclude Microsoft.Bcl.AsyncInterfaces from new platforms
+      if (
+        tfm.includes('.') &&
+        binFileName.startsWith('Microsoft.Bcl.AsyncInterfaces')
       ) return;
 
       const binPath = path.join(outBinDir, projectName, tfm, rids[0], binFileName);
