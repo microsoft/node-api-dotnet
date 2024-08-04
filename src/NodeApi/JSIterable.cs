@@ -27,7 +27,7 @@ public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JS
     #region IJSValue<JSIterable> implementation
 
     public static bool CanCreateFrom(JSValue value)
-        => value.IsObject() && value.HasProperty(JSValue.Global["Symbol"]["iterator"]);
+        => value.IsObject() && value.HasProperty(JSSymbol.Iterator);
 
 #if NET7_0_OR_GREATER
     static JSIterable IJSValue<JSIterable>.CreateUnchecked(JSValue value) => new(value);
