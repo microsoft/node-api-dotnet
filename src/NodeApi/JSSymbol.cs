@@ -54,6 +54,14 @@ public readonly struct JSSymbol : IJSValue<JSSymbol>
     #region IJSValue<JSSymbol> implementation
 
     /// <summary>
+    /// Converts the <see cref="JSSymbol" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSSymbol" />.
+    /// </returns>
+    public JSValue AsJSValue() => _value;
+
+    /// <summary>
     /// Determines whether a <see cref="JSSymbol" /> can be created from
     /// the specified <see cref="JSValue" />.
     /// </summary>
@@ -62,7 +70,14 @@ public readonly struct JSSymbol : IJSValue<JSSymbol>
     /// <c>true</c> if a <see cref="JSSymbol" /> can be created from
     /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
     /// </returns>
-    public static bool CanCreateFrom(JSValue value) => value.IsSymbol();
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSSymbol>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
+        => value.IsSymbol();
 
     /// <summary>
     /// Creates a new instance of <see cref="JSSymbol" /> from
@@ -82,14 +97,6 @@ public readonly struct JSSymbol : IJSValue<JSSymbol>
     private static JSSymbol CreateUnchecked(JSValue value) => new(value);
 #pragma warning restore IDE0051
 #endif
-
-    /// <summary>
-    /// Converts the <see cref="JSSymbol" /> to a <see cref="JSValue" />.
-    /// </summary>
-    /// <returns>
-    /// The <see cref="JSValue" /> representation of the <see cref="JSSymbol" />.
-    /// </returns>
-    public JSValue AsJSValue() => _value;
 
     #endregion
 

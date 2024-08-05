@@ -48,14 +48,14 @@ public interface IJSValue<TSelf> : IEquatable<JSValue> where TSelf : struct, IJS
 internal static class IJSValueShim<T> where T : struct, IJSValue<T>
 {
     /// <summary>
-    /// A static field to keep a reference to the CanCreateFrom public method.
+    /// A static field to keep a reference to the CanCreateFrom private method.
     /// </summary>
     private static readonly Func<JSValue, bool> s_canBeCreatedFrom =
         (Func<JSValue, bool>)Delegate.CreateDelegate(
             typeof(Func<JSValue, bool>),
             typeof(T).GetMethod(
                 "CanCreateFrom",
-                BindingFlags.Static | BindingFlags.Public)!);
+                BindingFlags.Static | BindingFlags.NonPublic)!);
 
     /// <summary>
     /// A static field to keep a reference to the CreateUnchecked private method.

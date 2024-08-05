@@ -77,7 +77,13 @@ public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
     /// <c>true</c> if a <see cref="JSSet" /> can be created from
     /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
     /// </returns>
-    public static bool CanCreateFrom(JSValue value)
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSSet>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
         => value.IsObject() && value.InstanceOf(JSValue.Global["Set"]);
 
     /// <summary>

@@ -48,6 +48,14 @@ public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JS
     #region IJSValue<JSIterable> implementation
 
     /// <summary>
+    /// Converts the <see cref="JSIterable" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSIterable" />.
+    /// </returns>
+    public JSValue AsJSValue() => _value;
+
+    /// <summary>
     /// Determines whether a <see cref="JSIterable" /> can be created from
     /// the specified <see cref="JSValue" />.
     /// </summary>
@@ -56,7 +64,13 @@ public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JS
     /// <c>true</c> if a <see cref="JSIterable" /> can be created from
     /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
     /// </returns>
-    public static bool CanCreateFrom(JSValue value)
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSIterable>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
         => value.IsObject() && value.HasProperty(JSSymbol.Iterator);
 
     /// <summary>
@@ -77,14 +91,6 @@ public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JS
     private static JSIterable CreateUnchecked(JSValue value) => new(value);
 #pragma warning restore IDE0051
 #endif
-
-    /// <summary>
-    /// Converts the <see cref="JSIterable" /> to a <see cref="JSValue" />.
-    /// </summary>
-    /// <returns>
-    /// The <see cref="JSValue" /> representation of the <see cref="JSIterable" />.
-    /// </returns>
-    public JSValue AsJSValue() => _value;
 
     #endregion
 

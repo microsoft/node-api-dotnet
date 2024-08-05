@@ -146,6 +146,14 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     #region IJSValue<JSTypedArray<T>> implementation
 
     /// <summary>
+    /// Converts the <see cref="JSTypedArray&lt;T&gt;" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSTypedArray&lt;T&gt;" />.
+    /// </returns>
+    public JSValue AsJSValue() => _value;
+
+    /// <summary>
     /// Determines whether a <see cref="JSTypedArray&lt;T&gt;" /> can be created from
     /// the specified <see cref="JSValue" />.
     /// </summary>
@@ -154,7 +162,13 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     /// <c>true</c> if a <see cref="JSTypedArray&lt;T&gt;" /> can be created from
     /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
     /// </returns>
-    public static bool CanCreateFrom(JSValue value)
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSTypedArray<T>>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
         => value.IsObject() && value.InstanceOf(JSValue.Global[JSTypeName]);
 
     /// <summary>
@@ -175,14 +189,6 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     private static JSTypedArray<T> CreateUnchecked(JSValue value) => new(value);
 #pragma warning restore IDE0051
 #endif
-
-    /// <summary>
-    /// Converts the <see cref="JSTypedArray&lt;T&gt;" /> to a <see cref="JSValue" />.
-    /// </summary>
-    /// <returns>
-    /// The <see cref="JSValue" /> representation of the <see cref="JSTypedArray&lt;T&gt;" />.
-    /// </returns>
-    public JSValue AsJSValue() => _value;
 
     #endregion
 

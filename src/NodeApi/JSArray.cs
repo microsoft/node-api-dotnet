@@ -70,6 +70,14 @@ public readonly partial struct JSArray : IJSValue<JSArray>, IList<JSValue>
     #region IJSValue<JSArray> implementation
 
     /// <summary>
+    /// Converts the <see cref="JSArray" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSArray" />.
+    /// </returns>
+    public JSValue AsJSValue() => _value;
+
+    /// <summary>
     /// Determines whether a <see cref="JSArray" /> can be created from
     /// the specified <see cref="JSValue" />.
     /// </summary>
@@ -78,7 +86,14 @@ public readonly partial struct JSArray : IJSValue<JSArray>, IList<JSValue>
     /// <c>true</c> if a <see cref="JSArray" /> can be created from
     /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
     /// </returns>
-    public static bool CanCreateFrom(JSValue value) => value.IsArray();
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSArray>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
+        => value.IsArray();
 
     /// <summary>
     /// Creates a new instance of <see cref="JSArray" /> from
@@ -98,14 +113,6 @@ public readonly partial struct JSArray : IJSValue<JSArray>, IList<JSValue>
     private static JSArray CreateUnchecked(JSValue value) => new(value);
 #pragma warning restore IDE0051
 #endif
-
-    /// <summary>
-    /// Converts the <see cref="JSArray" /> to a <see cref="JSValue" />.
-    /// </summary>
-    /// <returns>
-    /// The <see cref="JSValue" /> representation of the <see cref="JSArray" />.
-    /// </returns>
-    public JSValue AsJSValue() => _value;
 
     #endregion
 

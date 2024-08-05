@@ -168,6 +168,14 @@ public readonly struct JSPromise : IJSValue<JSPromise>
     #region IJSValue<JSPromise> implementation
 
     /// <summary>
+    /// Converts the <see cref="JSPromise" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSPromise" />.
+    /// </returns>
+    public JSValue AsJSValue() => _value;
+
+    /// <summary>
     /// Determines whether a <see cref="JSPromise" /> can be created from
     /// the specified <see cref="JSValue" />.
     /// </summary>
@@ -176,7 +184,14 @@ public readonly struct JSPromise : IJSValue<JSPromise>
     /// <c>true</c> if a <see cref="JSPromise" /> can be created from
     /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
     /// </returns>
-    public static bool CanCreateFrom(JSValue value) => value.IsPromise();
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSPromise>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
+        => value.IsPromise();
 
     /// <summary>
     /// Creates a new instance of <see cref="JSPromise" /> from
@@ -196,14 +211,6 @@ public readonly struct JSPromise : IJSValue<JSPromise>
     private static JSPromise CreateUnchecked(JSValue value) => new(value);
 #pragma warning restore IDE0051
 #endif
-
-    /// <summary>
-    /// Converts the <see cref="JSPromise" /> to a <see cref="JSValue" />.
-    /// </summary>
-    /// <returns>
-    /// The <see cref="JSValue" /> representation of the <see cref="JSPromise" />.
-    /// </returns>
-    public JSValue AsJSValue() => _value;
 
     #endregion
 
