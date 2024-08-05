@@ -12,8 +12,29 @@ public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JS
 {
     private readonly JSValue _value;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSIterable" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSIterable" /> to convert.</param>
     public static implicit operator JSValue(JSIterable value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSIterable" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSIterable" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSIterable?(JSValue value) => value.As<JSIterable>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSIterable" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSIterable" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSIterable(JSValue value) => value.CastTo<JSIterable>();
 
     public static explicit operator JSIterable(JSObject obj) => (JSIterable)(JSValue)obj;
@@ -26,9 +47,29 @@ public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JS
 
     #region IJSValue<JSIterable> implementation
 
+    /// <summary>
+    /// Determines whether a <see cref="JSIterable" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSIterable" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
     public static bool CanCreateFrom(JSValue value)
         => value.IsObject() && value.HasProperty(JSSymbol.Iterator);
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSIterable" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSIterable" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSIterable" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSIterable IJSValue<JSIterable>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -37,6 +78,12 @@ public readonly partial struct JSIterable : IJSValue<JSIterable>, IEnumerable<JS
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSIterable" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSIterable" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion

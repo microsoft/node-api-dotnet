@@ -19,8 +19,29 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
 {
     private readonly JSValue _value;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSAbortSignal" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSAbortSignal" /> to convert.</param>
     public static implicit operator JSValue(JSAbortSignal value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSAbortSignal" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSAbortSignal" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSAbortSignal?(JSValue value) => value.As<JSAbortSignal>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSAbortSignal" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSAbortSignal" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSAbortSignal(JSValue value) => value.CastTo<JSAbortSignal>();
 
     public static explicit operator JSAbortSignal(JSObject obj) => (JSAbortSignal)(JSValue)obj;
@@ -36,14 +57,35 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
 
     public static explicit operator JSAbortSignal(CancellationToken cancellation)
         => FromCancellationToken(cancellation);
+
     public static explicit operator JSAbortSignal(CancellationToken? cancellation)
         => cancellation.HasValue ? FromCancellationToken(cancellation.Value) : default;
 
     #region IJSValue<JSAbortSignal> implementation
 
-    public static bool CanCreateFrom(JSValue value)
-        => value.IsObject() && value.InstanceOf(JSValue.Global["AbortSignal"]);
+    /// <summary>
+    /// Determines whether a <see cref="JSAbortSignal" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSAbortSignal" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
+    public static bool CanCreateFrom(JSValue value) =>
+        value.IsObject() && value.InstanceOf(JSValue.Global["AbortSignal"]);
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSAbortSignal" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSAbortSignal" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSAbortSignal" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSAbortSignal IJSValue<JSAbortSignal>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -52,6 +94,12 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSAbortSignal" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSAbortSignal" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion

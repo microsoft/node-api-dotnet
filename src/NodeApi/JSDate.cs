@@ -11,8 +11,29 @@ public readonly struct JSDate : IJSValue<JSDate>
 {
     private readonly JSValue _value;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSDate" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSDate" /> to convert.</param>
     public static implicit operator JSValue(JSDate value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSDate" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSDate" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSDate?(JSValue value) => value.As<JSDate>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSDate" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSDate" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSDate(JSValue value) => value.CastTo<JSDate>();
 
     private JSDate(JSValue value)
@@ -39,8 +60,28 @@ public readonly struct JSDate : IJSValue<JSDate>
 
     #region IJSValue<JSDate> implementation
 
+    /// <summary>
+    /// Determines whether a <see cref="JSDate" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSDate" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
     public static bool CanCreateFrom(JSValue value) => value.IsDate();
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSDate" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSDate" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSDate" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSDate IJSValue<JSDate>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -49,6 +90,12 @@ public readonly struct JSDate : IJSValue<JSDate>
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSDate" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSDate" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion

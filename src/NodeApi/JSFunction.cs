@@ -13,8 +13,29 @@ public readonly struct JSFunction : IJSValue<JSFunction>
 {
     private readonly JSValue _value;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSFunction" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSFunction" /> to convert.</param>
     public static implicit operator JSValue(JSFunction value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSFunction" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSFunction" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSFunction?(JSValue value) => value.As<JSFunction>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSFunction" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSFunction" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSFunction(JSValue value) => value.CastTo<JSFunction>();
 
     private JSFunction(JSValue value)
@@ -270,8 +291,28 @@ public readonly struct JSFunction : IJSValue<JSFunction>
 
     #region IJSValue<JSFunction> implementation
 
+    /// <summary>
+    /// Determines whether a <see cref="JSFunction" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSFunction" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
     public static bool CanCreateFrom(JSValue value) => value.IsFunction();
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSFunction" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSFunction" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSFunction" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSFunction IJSValue<JSFunction>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -280,6 +321,12 @@ public readonly struct JSFunction : IJSValue<JSFunction>
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSFunction" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSFunction" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion

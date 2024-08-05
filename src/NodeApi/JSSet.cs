@@ -13,8 +13,29 @@ public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
 {
     private readonly JSValue _value;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSSet" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSSet" /> to convert.</param>
     public static implicit operator JSValue(JSSet value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSSet" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSSet" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSSet?(JSValue value) => value.As<JSSet>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSSet" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSSet" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSSet(JSValue value) => value.CastTo<JSSet>();
 
     public static explicit operator JSSet(JSObject obj) => (JSSet)(JSValue)obj;
@@ -47,10 +68,29 @@ public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
 
     #region IJSValue<JSSet> implementation
 
-    // TODO: (vmoroz) Implement using instanceof
+    /// <summary>
+    /// Determines whether a <see cref="JSSet" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSSet" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
     public static bool CanCreateFrom(JSValue value)
         => value.IsObject() && value.InstanceOf(JSValue.Global["Set"]);
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSSet" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSSet" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSSet" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSSet IJSValue<JSSet>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -59,6 +99,12 @@ public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSSet" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSSet" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion

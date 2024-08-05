@@ -12,8 +12,29 @@ public readonly partial struct JSMap : IJSValue<JSMap>, IDictionary<JSValue, JSV
 {
     private readonly JSValue _value;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSMap" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSMap" /> to convert.</param>
     public static implicit operator JSValue(JSMap value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSMap" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSMap" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSMap?(JSValue value) => value.As<JSMap>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSMap" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSMap" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSMap(JSValue value) => value.CastTo<JSMap>();
 
     public static explicit operator JSMap(JSObject obj) => (JSMap)(JSValue)obj;
@@ -43,9 +64,29 @@ public readonly partial struct JSMap : IJSValue<JSMap>, IDictionary<JSValue, JSV
 
     #region IJSValue<JSMap> implementation
 
+    /// <summary>
+    /// Determines whether a <see cref="JSMap" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSMap" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
     public static bool CanCreateFrom(JSValue value)
         => value.IsObject() && value.InstanceOf(JSValue.Global["Map"]);
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSMap" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSMap" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSMap" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSMap IJSValue<JSMap>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -54,6 +95,12 @@ public readonly partial struct JSMap : IJSValue<JSMap>, IDictionary<JSValue, JSV
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSMap" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSMap" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion

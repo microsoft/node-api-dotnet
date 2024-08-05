@@ -12,8 +12,29 @@ public readonly partial struct JSObject : IJSValue<JSObject>, IDictionary<JSValu
 {
     private readonly JSValue _value;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSObject" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSObject" /> to convert.</param>
     public static implicit operator JSValue(JSObject value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSObject" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSObject" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSObject?(JSValue value) => value.As<JSObject>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSObject" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSObject" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSObject(JSValue value) => value.CastTo<JSObject>();
 
     private JSObject(JSValue value)
@@ -27,8 +48,28 @@ public readonly partial struct JSObject : IJSValue<JSObject>, IDictionary<JSValu
 
     #region IJSValue<JSObject> implementation
 
+    /// <summary>
+    /// Determines whether a <see cref="JSObject" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSObject" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
     public static bool CanCreateFrom(JSValue value) => value.IsObject();
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSObject" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSObject" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSObject" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSObject IJSValue<JSObject>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -37,6 +78,12 @@ public readonly partial struct JSObject : IJSValue<JSObject>, IDictionary<JSValu
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSObject" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSObject" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion

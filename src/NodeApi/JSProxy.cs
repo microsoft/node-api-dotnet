@@ -17,8 +17,29 @@ public readonly partial struct JSProxy : IJSValue<JSProxy>
     private readonly JSValue _value;
     private readonly JSValue _revoke = default;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSProxy" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSProxy" /> to convert.</param>
     public static implicit operator JSValue(JSProxy value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSProxy" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSProxy" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSProxy?(JSValue value) => value.As<JSProxy>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSProxy" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSProxy" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSProxy(JSValue value) => value.CastTo<JSProxy>();
 
     private JSProxy(JSValue value)
@@ -68,9 +89,33 @@ public readonly partial struct JSProxy : IJSValue<JSProxy>
 
     #region IJSValue<JSProxy> implementation
 
-    // According to JavaScript specification we cannot differentiate Proxy instance from other objects.
-    public static bool CanCreateFrom(JSValue value) => value.IsObject();
+    /// <summary>
+    /// Determines whether a <see cref="JSProxy" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSProxy" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
+    public static bool CanCreateFrom(JSValue value)
+    {
+        // According to JavaScript specification we cannot differentiate Proxy instance
+        // from other objects.
+        return value.IsObject();
+    }
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSProxy" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSProxy" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSProxy" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSProxy IJSValue<JSProxy>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -79,6 +124,12 @@ public readonly partial struct JSProxy : IJSValue<JSProxy>
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSProxy" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSProxy" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion

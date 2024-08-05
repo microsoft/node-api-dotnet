@@ -11,8 +11,29 @@ public readonly struct JSBigInt : IJSValue<JSBigInt>
 {
     private readonly JSValue _value;
 
+    /// <summary>
+    /// Implicitly converts a <see cref="JSBigInt" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSBigInt" /> to convert.</param>
     public static implicit operator JSValue(JSBigInt value) => value.AsJSValue();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSBigInt" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSBigInt" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
     public static explicit operator JSBigInt?(JSValue value) => value.As<JSBigInt>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSBigInt" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSBigInt" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
     public static explicit operator JSBigInt(JSValue value) => value.CastTo<JSBigInt>();
 
     public static implicit operator JSBigInt(BigInteger value) => new(value);
@@ -42,8 +63,28 @@ public readonly struct JSBigInt : IJSValue<JSBigInt>
 
     #region IJSValue<JSBigInt> implementation
 
+    /// <summary>
+    /// Determines whether a <see cref="JSBigInt" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSBigInt" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
     public static bool CanCreateFrom(JSValue value) => value.IsBigInt();
 
+    /// <summary>
+    /// Creates a new instance of <see cref="JSBigInt" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSBigInt" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSBigInt" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
 #if NET7_0_OR_GREATER
     static JSBigInt IJSValue<JSBigInt>.CreateUnchecked(JSValue value) => new(value);
 #else
@@ -52,6 +93,12 @@ public readonly struct JSBigInt : IJSValue<JSBigInt>
 #pragma warning restore IDE0051
 #endif
 
+    /// <summary>
+    /// Converts the <see cref="JSBigInt" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <returns>
+    /// The <see cref="JSValue" /> representation of the <see cref="JSBigInt" />.
+    /// </returns>
     public JSValue AsJSValue() => _value;
 
     #endregion
