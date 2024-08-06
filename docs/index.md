@@ -30,7 +30,7 @@ hero:
       link: /features/type-definitions
     - theme: alt
       text: JS / .NET Mappings
-      link: /reference/js-dotnet-types1
+      link: /reference/js-dotnet-types
     - theme: alt
       text: JS API Reference
       link: /reference/js/
