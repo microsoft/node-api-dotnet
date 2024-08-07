@@ -15,7 +15,7 @@ using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly struct JSValue : IEquatable<JSValue>
+public readonly struct JSValue : IJSValue<JSValue>
 {
     private readonly napi_value _handle = default;
     private readonly JSValueScope? _scope = null;
@@ -391,6 +391,8 @@ public readonly struct JSValue : IEquatable<JSValue>
 
     public bool IsBigInt() => TypeOf() == JSValueType.BigInt;
 
+    #region IJSValue<JSValue> implementation
+
     /// <summary>
     /// Checks if the T struct can be created from this `JSValue`.
     /// </summary>
@@ -442,6 +444,25 @@ public readonly struct JSValue : IEquatable<JSValue>
     public T CastTo<T>() where T : struct, IJSValue<T>
         => As<T>()
         ?? throw new InvalidCastException("JSValue cannot be casted to target type.");
+
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSValue>.CanCreateFrom(JSValue _)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue _)
+#pragma warning restore IDE0051
+#endif
+        => true;
+
+#if NET7_0_OR_GREATER
+    static JSValue IJSValue<JSValue>.CreateUnchecked(JSValue value) => value;
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static JSValue CreateUnchecked(JSValue value) => value;
+#pragma warning restore IDE0051
+#endif
+
+    #endregion
 
     public double GetValueDouble() => GetRuntime(out napi_env env, out napi_value handle)
         .GetValueDouble(env, handle, out double result).ThrowIfFailed(result);

@@ -19,7 +19,7 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     /// Implicitly converts a <see cref="JSTypedArray&lt;T&gt;" /> to a <see cref="JSValue" />.
     /// </summary>
     /// <param name="value">The <see cref="JSTypedArray&lt;T&gt;" /> to convert.</param>
-    public static implicit operator JSValue(JSTypedArray<T> value) => value.AsJSValue();
+    public static implicit operator JSValue(JSTypedArray<T> array) => array._value;
 
     /// <summary>
     /// Explicitly converts a <see cref="JSValue" /> to a
@@ -146,12 +146,47 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     #region IJSValue<JSTypedArray<T>> implementation
 
     /// <summary>
-    /// Converts the <see cref="JSTypedArray&lt;T&gt;" /> to a <see cref="JSValue" />.
+    /// Checks if the T struct can be created from this instance`.
     /// </summary>
+    /// <typeparam name="TOther">A struct that implements IJSValue interface.</typeparam>
     /// <returns>
-    /// The <see cref="JSValue" /> representation of the <see cref="JSTypedArray&lt;T&gt;" />.
+    /// `true` if the T struct can be created from this instance. Otherwise it returns `false`.
     /// </returns>
-    public JSValue AsJSValue() => _value;
+    public bool Is<TOther>() where TOther : struct, IJSValue<TOther>
+        => _value.Is<TOther>();
+
+    /// <summary>
+    /// Tries to create a T struct from this instance.
+    /// It returns `null` if the T struct cannot be created.
+    /// </summary>
+    /// <typeparam name="TOther">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// Nullable value that contains T struct if it was successfully created
+    /// or `null` if it was failed.
+    /// </returns>
+    public TOther? As<TOther>() where TOther : struct, IJSValue<TOther>
+        => _value.As<TOther>();
+
+    /// <summary>
+    /// Creates a T struct from this instance without checking the enclosed handle type.
+    /// It must be used only when the handle type is known to be correct.
+    /// </summary>
+    /// <typeparam name="TOther">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    public TOther AsUnchecked<TOther>() where TOther : struct, IJSValue<TOther>
+        => _value.AsUnchecked<TOther>();
+
+    /// <summary>
+    /// Creates a T struct from this instance.
+    /// It throws `InvalidCastException` in case of failure.
+    /// </summary>
+    /// <typeparam name="TOther">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be crated based on this instance.
+    /// </exception>
+    public TOther CastTo<TOther>() where TOther : struct, IJSValue<TOther>
+        => _value.CastTo<TOther>();
 
     /// <summary>
     /// Determines whether a <see cref="JSTypedArray&lt;T&gt;" /> can be created from

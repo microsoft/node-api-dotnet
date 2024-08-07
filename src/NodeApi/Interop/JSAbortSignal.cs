@@ -23,7 +23,7 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
     /// Implicitly converts a <see cref="JSAbortSignal" /> to a <see cref="JSValue" />.
     /// </summary>
     /// <param name="value">The <see cref="JSAbortSignal" /> to convert.</param>
-    public static implicit operator JSValue(JSAbortSignal value) => value.AsJSValue();
+    public static implicit operator JSValue(JSAbortSignal signal) => signal._value;
 
     /// <summary>
     /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSAbortSignal" />.
@@ -64,12 +64,43 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
     #region IJSValue<JSAbortSignal> implementation
 
     /// <summary>
-    /// Converts the <see cref="JSAbortSignal" /> to a <see cref="JSValue" />.
+    /// Checks if the T struct can be created from this instance`.
     /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
     /// <returns>
-    /// The <see cref="JSValue" /> representation of the <see cref="JSAbortSignal" />.
+    /// `true` if the T struct can be created from this instance. Otherwise it returns `false`.
     /// </returns>
-    public JSValue AsJSValue() => _value;
+    public bool Is<T>() where T : struct, IJSValue<T> => _value.Is<T>();
+
+    /// <summary>
+    /// Tries to create a T struct from this instance.
+    /// It returns `null` if the T struct cannot be created.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// Nullable value that contains T struct if it was successfully created
+    /// or `null` if it was failed.
+    /// </returns>
+    public T? As<T>() where T : struct, IJSValue<T> => _value.As<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance without checking the enclosed handle type.
+    /// It must be used only when the handle type is known to be correct.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    public T AsUnchecked<T>() where T : struct, IJSValue<T> => _value.AsUnchecked<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance.
+    /// It throws `InvalidCastException` in case of failure.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be crated based on this instance.
+    /// </exception>
+    public T CastTo<T>() where T : struct, IJSValue<T> => _value.CastTo<T>();
 
     /// <summary>
     /// Determines whether a <see cref="JSAbortSignal" /> can be created from

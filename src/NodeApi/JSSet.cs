@@ -17,7 +17,7 @@ public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
     /// Implicitly converts a <see cref="JSSet" /> to a <see cref="JSValue" />.
     /// </summary>
     /// <param name="value">The <see cref="JSSet" /> to convert.</param>
-    public static implicit operator JSValue(JSSet value) => value.AsJSValue();
+    public static implicit operator JSValue(JSSet set) => set._value;
 
     /// <summary>
     /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSSet" />.
@@ -69,6 +69,45 @@ public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
     #region IJSValue<JSSet> implementation
 
     /// <summary>
+    /// Checks if the T struct can be created from this instance`.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// `true` if the T struct can be created from this instance. Otherwise it returns `false`.
+    /// </returns>
+    public bool Is<T>() where T : struct, IJSValue<T> => _value.Is<T>();
+
+    /// <summary>
+    /// Tries to create a T struct from this instance.
+    /// It returns `null` if the T struct cannot be created.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// Nullable value that contains T struct if it was successfully created
+    /// or `null` if it was failed.
+    /// </returns>
+    public T? As<T>() where T : struct, IJSValue<T> => _value.As<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance without checking the enclosed handle type.
+    /// It must be used only when the handle type is known to be correct.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    public T AsUnchecked<T>() where T : struct, IJSValue<T> => _value.AsUnchecked<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance.
+    /// It throws `InvalidCastException` in case of failure.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be crated based on this instance.
+    /// </exception>
+    public T CastTo<T>() where T : struct, IJSValue<T> => _value.CastTo<T>();
+
+    /// <summary>
     /// Determines whether a <see cref="JSSet" /> can be created from
     /// the specified <see cref="JSValue" />.
     /// </summary>
@@ -104,14 +143,6 @@ public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
     private static JSSet CreateUnchecked(JSValue value) => new(value);
 #pragma warning restore IDE0051
 #endif
-
-    /// <summary>
-    /// Converts the <see cref="JSSet" /> to a <see cref="JSValue" />.
-    /// </summary>
-    /// <returns>
-    /// The <see cref="JSValue" /> representation of the <see cref="JSSet" />.
-    /// </returns>
-    public JSValue AsJSValue() => _value;
 
     #endregion
 
