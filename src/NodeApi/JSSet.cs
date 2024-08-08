@@ -9,12 +9,34 @@ using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
+public readonly partial struct JSSet : IJSValue<JSSet>, ISet<JSValue>
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSSet(JSValue value) => new(value);
+    /// <summary>
+    /// Implicitly converts a <see cref="JSSet" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSSet" /> to convert.</param>
     public static implicit operator JSValue(JSSet set) => set._value;
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSSet" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSSet" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
+    public static explicit operator JSSet?(JSValue value) => value.As<JSSet>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSSet" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSSet" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
+    public static explicit operator JSSet(JSValue value) => value.CastTo<JSSet>();
 
     public static explicit operator JSSet(JSObject obj) => (JSSet)(JSValue)obj;
     public static implicit operator JSObject(JSSet set) => (JSObject)set._value;
@@ -43,6 +65,86 @@ public readonly partial struct JSSet : ISet<JSValue>, IEquatable<JSValue>
     {
         _value = JSRuntimeContext.Current.Import(null, "Set").CallAsConstructor(iterable);
     }
+
+    #region IJSValue<JSSet> implementation
+
+    /// <summary>
+    /// Checks if the T struct can be created from this instance`.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// `true` if the T struct can be created from this instance. Otherwise it returns `false`.
+    /// </returns>
+    public bool Is<T>() where T : struct, IJSValue<T> => _value.Is<T>();
+
+    /// <summary>
+    /// Tries to create a T struct from this instance.
+    /// It returns `null` if the T struct cannot be created.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// Nullable value that contains T struct if it was successfully created
+    /// or `null` if it was failed.
+    /// </returns>
+    public T? As<T>() where T : struct, IJSValue<T> => _value.As<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance without checking the enclosed handle type.
+    /// It must be used only when the handle type is known to be correct.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    public T AsUnchecked<T>() where T : struct, IJSValue<T> => _value.AsUnchecked<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance.
+    /// It throws `InvalidCastException` in case of failure.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be crated based on this instance.
+    /// </exception>
+    public T CastTo<T>() where T : struct, IJSValue<T> => _value.CastTo<T>();
+
+    /// <summary>
+    /// Determines whether a <see cref="JSSet" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSSet" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSSet>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
+        => value.IsObject() && value.InstanceOf(JSValue.Global["Set"]);
+
+    /// <summary>
+    /// Creates a new instance of <see cref="JSSet" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSSet" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSSet" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
+#if NET7_0_OR_GREATER
+    static JSSet IJSValue<JSSet>.CreateUnchecked(JSValue value) => new(value);
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static JSSet CreateUnchecked(JSValue value) => new(value);
+#pragma warning restore IDE0051
+#endif
+
+    #endregion
 
     public int Count => (int)_value["size"];
 

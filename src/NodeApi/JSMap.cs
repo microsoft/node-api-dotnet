@@ -8,12 +8,34 @@ using Microsoft.JavaScript.NodeApi.Interop;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable<JSValue>
+public readonly partial struct JSMap : IJSValue<JSMap>, IDictionary<JSValue, JSValue>
 {
     private readonly JSValue _value;
 
-    public static explicit operator JSMap(JSValue value) => new(value);
+    /// <summary>
+    /// Implicitly converts a <see cref="JSMap" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSMap" /> to convert.</param>
     public static implicit operator JSValue(JSMap map) => map._value;
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSMap" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSMap" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
+    public static explicit operator JSMap?(JSValue value) => value.As<JSMap>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSMap" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSMap" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
+    public static explicit operator JSMap(JSValue value) => value.CastTo<JSMap>();
 
     public static explicit operator JSMap(JSObject obj) => (JSMap)(JSValue)obj;
     public static implicit operator JSObject(JSMap map) => (JSObject)map._value;
@@ -39,6 +61,86 @@ public readonly partial struct JSMap : IDictionary<JSValue, JSValue>, IEquatable
     {
         _value = JSRuntimeContext.Current.Import(null, "Map").CallAsConstructor(iterable);
     }
+
+    #region IJSValue<JSMap> implementation
+
+    /// <summary>
+    /// Checks if the T struct can be created from this instance`.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// `true` if the T struct can be created from this instance. Otherwise it returns `false`.
+    /// </returns>
+    public bool Is<T>() where T : struct, IJSValue<T> => _value.Is<T>();
+
+    /// <summary>
+    /// Tries to create a T struct from this instance.
+    /// It returns `null` if the T struct cannot be created.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// Nullable value that contains T struct if it was successfully created
+    /// or `null` if it was failed.
+    /// </returns>
+    public T? As<T>() where T : struct, IJSValue<T> => _value.As<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance without checking the enclosed handle type.
+    /// It must be used only when the handle type is known to be correct.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    public T AsUnchecked<T>() where T : struct, IJSValue<T> => _value.AsUnchecked<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance.
+    /// It throws `InvalidCastException` in case of failure.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be crated based on this instance.
+    /// </exception>
+    public T CastTo<T>() where T : struct, IJSValue<T> => _value.CastTo<T>();
+
+    /// <summary>
+    /// Determines whether a <see cref="JSMap" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSMap" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSMap>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
+        => value.IsObject() && value.InstanceOf(JSValue.Global["Map"]);
+
+    /// <summary>
+    /// Creates a new instance of <see cref="JSMap" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSMap" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSMap" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
+#if NET7_0_OR_GREATER
+    static JSMap IJSValue<JSMap>.CreateUnchecked(JSValue value) => new(value);
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static JSMap CreateUnchecked(JSValue value) => new(value);
+#pragma warning restore IDE0051
+#endif
+
+    #endregion
 
     public int Count => (int)_value["size"];
 

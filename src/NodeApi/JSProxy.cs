@@ -12,13 +12,35 @@ namespace Microsoft.JavaScript.NodeApi;
 /// <summary>
 /// Enables creation of JS Proxy objects with C# handler callbacks.
 /// </summary>
-public readonly partial struct JSProxy : IEquatable<JSValue>
+public readonly partial struct JSProxy : IJSValue<JSProxy>
 {
     private readonly JSValue _value;
     private readonly JSValue _revoke = default;
 
-    public static explicit operator JSProxy(JSValue value) => new(value);
+    /// <summary>
+    /// Implicitly converts a <see cref="JSProxy" /> to a <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSProxy" /> to convert.</param>
     public static implicit operator JSValue(JSProxy proxy) => proxy._value;
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a nullable <see cref="JSProxy" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns>
+    /// The <see cref="JSProxy" /> if it was successfully created or `null` if it was failed.
+    /// </returns>
+    public static explicit operator JSProxy?(JSValue value) => value.As<JSProxy>();
+
+    /// <summary>
+    /// Explicitly converts a <see cref="JSValue" /> to a <see cref="JSProxy" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to convert.</param>
+    /// <returns><see cref="JSProxy" /> struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be created based on this `JSValue`.
+    /// </exception>
+    public static explicit operator JSProxy(JSValue value) => value.CastTo<JSProxy>();
 
     private JSProxy(JSValue value)
     {
@@ -64,6 +86,90 @@ public readonly partial struct JSProxy : IEquatable<JSValue>
             _value = proxyConstructor.CallAsConstructor(jsTarget, handler.JSHandler);
         }
     }
+
+    #region IJSValue<JSProxy> implementation
+
+    /// <summary>
+    /// Checks if the T struct can be created from this instance`.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// `true` if the T struct can be created from this instance. Otherwise it returns `false`.
+    /// </returns>
+    public bool Is<T>() where T : struct, IJSValue<T> => _value.Is<T>();
+
+    /// <summary>
+    /// Tries to create a T struct from this instance.
+    /// It returns `null` if the T struct cannot be created.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// Nullable value that contains T struct if it was successfully created
+    /// or `null` if it was failed.
+    /// </returns>
+    public T? As<T>() where T : struct, IJSValue<T> => _value.As<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance without checking the enclosed handle type.
+    /// It must be used only when the handle type is known to be correct.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    public T AsUnchecked<T>() where T : struct, IJSValue<T> => _value.AsUnchecked<T>();
+
+    /// <summary>
+    /// Creates a T struct from this instance.
+    /// It throws `InvalidCastException` in case of failure.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this instance.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be crated based on this instance.
+    /// </exception>
+    public T CastTo<T>() where T : struct, IJSValue<T> => _value.CastTo<T>();
+
+    /// <summary>
+    /// Determines whether a <see cref="JSProxy" /> can be created from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">The <see cref="JSValue" /> to check.</param>
+    /// <returns>
+    /// <c>true</c> if a <see cref="JSProxy" /> can be created from
+    /// the specified <see cref="JSValue" />; otherwise, <c>false</c>.
+    /// </returns>
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSProxy>.CanCreateFrom(JSValue value)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue value)
+#pragma warning restore IDE0051
+#endif
+    {
+        // According to JavaScript specification we cannot differentiate Proxy instance
+        // from other objects.
+        return value.IsObject();
+    }
+
+    /// <summary>
+    /// Creates a new instance of <see cref="JSProxy" /> from
+    /// the specified <see cref="JSValue" />.
+    /// </summary>
+    /// <param name="value">
+    /// The <see cref="JSValue" /> to create a <see cref="JSProxy" /> from.
+    /// </param>
+    /// <returns>
+    /// A new instance of <see cref="JSProxy" /> created from
+    /// the specified <see cref="JSValue" />.
+    /// </returns>
+#if NET7_0_OR_GREATER
+    static JSProxy IJSValue<JSProxy>.CreateUnchecked(JSValue value) => new(value);
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static JSProxy CreateUnchecked(JSValue value) => new(value);
+#pragma warning restore IDE0051
+#endif
+
+    #endregion
 
     /// <summary>
     /// Revokes the proxy, so that further access to the target is no longer trapped by

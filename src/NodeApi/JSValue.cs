@@ -15,7 +15,7 @@ using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
-public readonly struct JSValue : IEquatable<JSValue>
+public readonly struct JSValue : IJSValue<JSValue>
 {
     private readonly napi_value _handle = default;
     private readonly JSValueScope? _scope = null;
@@ -390,6 +390,80 @@ public readonly struct JSValue : IEquatable<JSValue>
     public bool IsExternal() => TypeOf() == JSValueType.External;
 
     public bool IsBigInt() => TypeOf() == JSValueType.BigInt;
+
+    #region IJSValue<JSValue> implementation
+
+    /// <summary>
+    /// Checks if the T struct can be created from this `JSValue`.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// `true` if the T struct can be created from this `JSValue`. Otherwise it returns `false`.
+    /// </returns>
+    public bool Is<T>() where T : struct, IJSValue<T>
+#if NET7_0_OR_GREATER
+        => T.CanCreateFrom(this);
+#else
+        => IJSValueShim<T>.CanCreateFrom(this);
+#endif
+
+    /// <summary>
+    /// Tries to create a T struct from this `JSValue`.
+    /// It returns `null` if the T struct cannot be created.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>
+    /// Nullable value that contains T struct if it was successfully created
+    /// or `null` if it was failed.
+    /// </returns>
+    public T? As<T>() where T : struct, IJSValue<T>
+        => Is<T>() ? AsUnchecked<T>() : default(T?);
+
+    /// <summary>
+    /// Creates a T struct from this `JSValue` without checking the enclosed handle type.
+    /// It must be used only when the handle type is known to be correct.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this `JSValue`.</returns>
+    public T AsUnchecked<T>() where T : struct, IJSValue<T>
+#if NET7_0_OR_GREATER
+        => T.CreateUnchecked(this);
+#else
+        => IJSValueShim<T>.CreateUnchecked(this);
+#endif
+
+    /// <summary>
+    /// Creates a T struct from this `JSValue`.
+    /// It throws `InvalidCastException` in case of failure.
+    /// </summary>
+    /// <typeparam name="T">A struct that implements IJSValue interface.</typeparam>
+    /// <returns>T struct created based on this `JSValue`.</returns>
+    /// <exception cref="InvalidCastException">
+    /// Thrown when the T struct cannot be crated based on this `JSValue`.
+    /// </exception>
+    public T CastTo<T>() where T : struct, IJSValue<T>
+        => As<T>()
+        ?? throw new InvalidCastException(
+            $"JSValue cannot be casted to target type {typeof(T).Name}.");
+
+#if NET7_0_OR_GREATER
+    static bool IJSValue<JSValue>.CanCreateFrom(JSValue _)
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static bool CanCreateFrom(JSValue _)
+#pragma warning restore IDE0051
+#endif
+        => true;
+
+#if NET7_0_OR_GREATER
+    static JSValue IJSValue<JSValue>.CreateUnchecked(JSValue value) => value;
+#else
+#pragma warning disable IDE0051 // It is used by the IJSValueShim<T> class through reflection.
+    private static JSValue CreateUnchecked(JSValue value) => value;
+#pragma warning restore IDE0051
+#endif
+
+    #endregion
 
     public double GetValueDouble() => GetRuntime(out napi_env env, out napi_value handle)
         .GetValueDouble(env, handle, out double result).ThrowIfFailed(result);
