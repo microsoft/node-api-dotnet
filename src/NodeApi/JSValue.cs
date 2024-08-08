@@ -443,7 +443,8 @@ public readonly struct JSValue : IJSValue<JSValue>
     /// </exception>
     public T CastTo<T>() where T : struct, IJSValue<T>
         => As<T>()
-        ?? throw new InvalidCastException("JSValue cannot be casted to target type.");
+        ?? throw new InvalidCastException(
+            $"JSValue cannot be casted to target type {typeof(T).Name}.");
 
 #if NET7_0_OR_GREATER
     static bool IJSValue<JSValue>.CanCreateFrom(JSValue _)
