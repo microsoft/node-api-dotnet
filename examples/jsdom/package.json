@@ -1,0 +1,7 @@
+{
+  "name": "node-api-dotnet-examples-jsdom",
+  "dependencies": {
+    "jsdom": "^24.1.1",
+    "node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
+  }
+}
