@@ -197,6 +197,11 @@ internal static class ExpressionExtensions
             LabelExpression label => label.DefaultValue != null ?
                 ToCS(label.DefaultValue, path, variables) : "???",
 
+            MemberInitExpression init => "new " + FormatType(init.Type) + "\n{\n" +
+                string.Concat(init.Bindings.Select((b) => b.Member.Name + " = " +
+                    ToCS(((MemberAssignment)b).Expression, path, variables) + ",\n")) +
+                "}",
+
             _ => throw new NotImplementedException(
                 "Expression type not implemented: " +
                 $"{expression.GetType().Name} ({expression.NodeType}) at {path}"),
@@ -276,6 +281,7 @@ internal static class ExpressionExtensions
         if (expression.NodeType == ExpressionType.Assign)
         {
             BinaryExpression assignment = (BinaryExpression)expression;
+
             if (assignment.Left is ParameterExpression variable &&
                 !variables.Contains(variable.Name!))
             {
@@ -286,7 +292,9 @@ internal static class ExpressionExtensions
 
         s += ToCS(expression, path, variables);
 
-        if (!s.EndsWith('}'))
+        if (!s.EndsWith('}') ||
+            (expression.NodeType == ExpressionType.Assign &&
+            ((BinaryExpression)expression).Right.NodeType == ExpressionType.MemberInit))
         {
             s += ';';
         }

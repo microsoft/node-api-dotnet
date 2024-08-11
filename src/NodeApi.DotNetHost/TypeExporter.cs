@@ -450,12 +450,11 @@ public class TypeExporter
         try
         {
             bool isStatic = type.IsAbstract && type.IsSealed;
-            Type classBuilderType =
-                (type.IsValueType ? typeof(JSStructBuilder<>) : typeof(JSClassBuilder<>))
+            Type classBuilderType = typeof(JSClassBuilder<>)
                 .MakeGenericType(isStatic ? typeof(object) : type);
 
             object classBuilder;
-            if (type.IsInterface || isStatic || type.IsValueType)
+            if (type.IsInterface || isStatic)
             {
                 classBuilder = classBuilderType.CreateInstance(
                     new[] { typeof(string) }, new[] { type.Name });

@@ -457,7 +457,6 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             s += $".AddProperty(\"{exportName}\",";
             s.IncreaseIndent();
 
-            string typeFullName = GetFullName(type);
             if (type.TypeKind == TypeKind.Interface)
             {
                 // Interfaces do not have constructors.
@@ -472,45 +471,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             else
             {
                 s += $"new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\",";
-
-                ConstructorInfo[] constructors = type.GetMembers()
-                    .OfType<IMethodSymbol>()
-                    .Where((m) => m.MethodKind == MethodKind.Constructor &&
-                        m.DeclaredAccessibility == Accessibility.Public)
-                    .Select((c) => c.AsConstructorInfo())
-                    .ToArray();
-                if (constructors.Length == 0)
-                {
-                    s += $"\t() => throw new {typeof(JSException).Namespace}" +
-                        $".{typeof(JSException).Name}(" +
-                        $"\"Class '{type.Name}' does not have a public constructor.\"))";
-                }
-                else if (constructors.Length == 1 && constructors[0].GetParameters().Length == 0)
-                {
-                    s += $"\t() => new {typeFullName}())";
-                }
-                else if (constructors.Length == 1 &&
-                    constructors[0].GetParameters()[0].ParameterType == typeof(JSCallbackArgs))
-                {
-                    s += $"\t(args) => new {typeFullName}(args))";
-                }
-                else
-                {
-                    // An adapter method supports arbitrary parameters or overloads.
-                    LambdaExpression adapter;
-                    if (constructors.Length == 1)
-                    {
-                        adapter = _marshaller.BuildFromJSConstructorExpression(constructors[0]);
-                        s += $"\t{adapter.Name})";
-                    }
-                    else
-                    {
-                        adapter = _marshaller.BuildConstructorOverloadDescriptorExpression(
-                            constructors);
-                        s += $"\t{adapter.Name}())";
-                    }
-                    _callbackAdapters.Add(adapter.Name!, adapter);
-                }
+                ExportConstructor(ref s, type);
             }
 
             // Export all the class members, then define the class.
@@ -526,8 +487,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             s += $".AddProperty(\"{exportName}\",";
             s.IncreaseIndent();
 
-            string ns = GetNamespace(type);
-            s += $"new JSStructBuilder<{GetFullName(type)}>(\"{exportName}\")";
+            s += $"new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\",";
+            ExportConstructor(ref s, type);
 
             ExportMembers(ref s, type);
             s += $".DefineStruct(){propertyAttributes})";
@@ -547,6 +508,58 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         else if (type.TypeKind == TypeKind.Delegate)
         {
             ExportDelegate(type);
+        }
+    }
+
+    private void ExportConstructor(
+        ref SourceBuilder s,
+        ITypeSymbol type)
+    {
+        ConstructorInfo[] constructors = type.GetMembers()
+            .OfType<IMethodSymbol>()
+            .Where((m) => m.MethodKind == MethodKind.Constructor &&
+                m.DeclaredAccessibility == Accessibility.Public)
+            .Select((c) => c.AsConstructorInfo())
+            .ToArray();
+
+        if (constructors.Length == 0)
+        {
+            s += $"\t() => throw new {typeof(JSException).Namespace}" +
+                $".{typeof(JSException).Name}(" +
+                $"\"Class '{type.Name}' does not have a public constructor.\"))";
+        }
+        else if (constructors.Length == 1 && constructors[0].GetParameters().Length == 0)
+        {
+            if (type.IsValueType)
+            {
+                s += $"\t(args) => args.ThisArg)";
+            }
+            else
+            {
+                s += $"\t() => new {GetFullName(type)}())";
+            }
+        }
+        else if (constructors.Length == 1 &&
+            constructors[0].GetParameters()[0].ParameterType == typeof(JSCallbackArgs))
+        {
+            s += $"\t(args) => new {GetFullName(type)}(args))";
+        }
+        else
+        {
+            // An adapter method supports arbitrary parameters or overloads.
+            LambdaExpression adapter;
+            if (constructors.Length == 1)
+            {
+                adapter = _marshaller.BuildFromJSConstructorExpression(constructors[0]);
+                s += $"\t{adapter.Name})";
+            }
+            else
+            {
+                adapter = _marshaller.BuildConstructorOverloadDescriptorExpression(
+                    constructors);
+                s += $"\t{adapter.Name}())";
+            }
+            _callbackAdapters.Add(adapter.Name!, adapter);
         }
     }
 

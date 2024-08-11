@@ -202,8 +202,18 @@ public class JSMarshaller
     /// Converts from a JS value to a specified type.
     /// </summary>
     /// <typeparam name="T">The type the value will be converted to.</typeparam>
+    /// <param name="value">The JavaScript value to be converted.</param>
     /// <exception cref="NotSupportedException">The type cannot be converted.</exception>
     public T FromJS<T>(JSValue value) => GetFromJSValueDelegate<T>()(value);
+
+    /// <summary>
+    /// Converts from a JS value to a specified type.
+    /// </summary>
+    /// <param name="type">The type the value will be converted to.</param>
+    /// <param name="value">The JavaScript value to be converted.</param>
+    /// <exception cref="NotSupportedException">The type cannot be converted.</exception>
+    public object FromJS(Type type, JSValue value) =>
+        GetFromJSValueDelegate(type).DynamicInvoke(value)!;
 
     /// <summary>
     /// Converts from a specified type to a JS value.
@@ -211,6 +221,16 @@ public class JSMarshaller
     /// <typeparam name="T">The type the value will be converted from.</typeparam>
     /// <exception cref="NotSupportedException">The type cannot be converted.</exception>
     public JSValue ToJS<T>(T value) => GetToJSValueDelegate<T>()(value);
+
+    /// <summary>
+    /// Converts from a specified type to a JS value.
+    /// </summary>
+    /// <param name="type">The type the value will be converted from.</param>
+    /// <param name="value">The value to be converted. Must be an instance (or subtype of) the
+    /// <paramref name="type"/>.</param>
+    /// <exception cref="NotSupportedException">The type cannot be converted.</exception>
+    public JSValue ToJS(Type type, object value) =>
+        (JSValue)GetToJSValueDelegate(type).DynamicInvoke(value)!;
 
     /// <summary>
     /// Gets a delegate that converts from a JS value to a specified type.
@@ -223,7 +243,21 @@ public class JSMarshaller
     /// </remarks>
     public JSValue.To<T> GetFromJSValueDelegate<T>()
     {
-        return (JSValue.To<T>)_fromJSDelegates.GetOrAdd(typeof(T), (toType) =>
+        return (JSValue.To<T>)GetFromJSValueDelegate(typeof(T));
+    }
+
+    /// <summary>
+    /// Gets a delegate that converts from a JS value to a specified type.
+    /// </summary>
+    /// <param name="type">The type the value will be converted to.</param>
+    /// <exception cref="NotSupportedException">The type cannot be converted.</exception>
+    /// <remarks>
+    /// Type conversion delegates are built on created and then cached, so it is efficient
+    /// to call this method multiple times for the same type.
+    /// </remarks>
+    public Delegate GetFromJSValueDelegate(Type type)
+    {
+        return _fromJSDelegates.GetOrAdd(type, (toType) =>
         {
             LambdaExpression fromJSExpression = GetFromJSValueExpression(toType);
             return fromJSExpression.Compile();
@@ -241,7 +275,21 @@ public class JSMarshaller
     /// </remarks>
     public JSValue.From<T> GetToJSValueDelegate<T>()
     {
-        return (JSValue.From<T>)_toJSDelegates.GetOrAdd(typeof(T), (fromType) =>
+        return (JSValue.From<T>)GetToJSValueDelegate(typeof(T));
+    }
+
+    /// <summary>
+    /// Gets a delegate that converts from a specified type to a JS value.
+    /// </summary>
+    /// <param name="type">The type the value will be converted from.</param>
+    /// <exception cref="NotSupportedException">The type cannot be converted.</exception>
+    /// <remarks>
+    /// Type conversion delegates are built on demand and then cached, so it is efficient
+    /// to call this method multiple times for the same type.
+    /// </remarks>
+    public Delegate GetToJSValueDelegate(Type type)
+    {
+        return _toJSDelegates.GetOrAdd(type, (fromType) =>
         {
             LambdaExpression toJSExpression = GetToJSValueExpression(fromType);
             return toJSExpression.Compile();
@@ -342,14 +390,15 @@ public class JSMarshaller
 
     /// <summary>
     /// Builds a lambda expression for a JS callback adapter that constructs an instance of
-    /// a .NET class. When invoked, the expression will marshal the constructor arguments
-    /// from JS, invoke the constructor, then return the new instance of the class.
+    /// a .NET class or struct. When invoked, the expression will marshal the constructor arguments
+    /// from JS, invoke the constructor, then return the new instance either as a wrapped
+    /// .NET class or a JS object marshalled from the struct.
     /// </summary>
     /// <remarks>
-    /// The returned expression takes a <see cref="JSCallbackArgs"/> parameter and returns an
-    /// instance of the class as an external JS value. The lambda expression may be converted to
-    /// a delegate with <see cref="LambdaExpression.Compile()"/>, and used as the constructor
-    /// callback parameter for a <see cref="JSClassBuilder{T}"/>.
+    /// The returned expression takes a <see cref="JSCallbackArgs"/> parameter and returns a JS
+    /// value for the constructed instance. The lambda expression may be converted to a delegate
+    /// with <see cref="LambdaExpression.Compile()"/>, and used as the constructor callback
+    /// parameter for a <see cref="JSClassBuilder{T}"/>.
     /// </remarks>
 #pragma warning disable CA1822 // Mark members as static
     public Expression<JSCallback> BuildFromJSConstructorExpression(ConstructorInfo constructor)
@@ -368,7 +417,7 @@ public class JSMarshaller
 
         ParameterInfo[] parameters = constructor.GetParameters();
         ParameterExpression[] argVariables = new ParameterExpression[parameters.Length];
-        IEnumerable<ParameterExpression> variables;
+        List<ParameterExpression> variables;
         List<Expression> statements = new(parameters.Length + 2);
 
         for (int i = 0; i < parameters.Length; i++)
@@ -380,14 +429,26 @@ public class JSMarshaller
 
         ParameterExpression resultVariable = Expression.Variable(
             constructor.DeclaringType!, "__result");
-        variables = argVariables.Append(resultVariable);
+        variables = new List<ParameterExpression>(argVariables.Append(resultVariable));
         statements.Add(Expression.Assign(resultVariable,
             Expression.New(constructor, argVariables)));
 
-        MethodInfo createExternalMethod = typeof(JSValue)
-            .GetStaticMethod(nameof(JSValue.CreateExternal));
-        statements.Add(Expression.Call(
-            createExternalMethod, resultVariable));
+        if (constructor.DeclaringType!.IsValueType)
+        {
+            // For structs, use the object from __args.ThisArg and marshal the result struct
+            // to a JS object (by value).
+            Expression thisExpression = Expression.Property(
+                s_argsParameter, nameof(JSCallbackArgs.ThisArg));
+            statements.AddRange(BuildToJSFromStructExpressions(
+                constructor.DeclaringType!, variables, resultVariable, thisExpression));
+        }
+        else
+        {
+            MethodInfo createExternalMethod = typeof(JSValue)
+                .GetStaticMethod(nameof(JSValue.CreateExternal));
+            statements.Add(Expression.Call(
+                createExternalMethod, resultVariable));
+        }
 
         return (Expression<JSCallback>)Expression.Lambda(
             delegateType: typeof(JSCallback),
@@ -2805,16 +2866,17 @@ public class JSMarshaller
         ParameterExpression valueVariable)
     {
         /*
-         * StructName obj = default;
-         * obj.Property0 = (Property0Type)value["property0"];
-         * ...
+         * StructName obj = new()
+         * {
+         *     Property0 = (Property0Type)value["property0"],
+         *     ...
+         * };
          * return obj;
          */
         ParameterExpression objVariable = Expression.Variable(toType, "obj");
         variables.Add(objVariable);
 
-        yield return Expression.Assign(objVariable, Expression.Default(toType));
-
+        List<MemberBinding> memberBindings = new();
         foreach (PropertyInfo property in toType.GetProperties(
             BindingFlags.Public | BindingFlags.Instance))
         {
@@ -2825,13 +2887,14 @@ public class JSMarshaller
             }
 
             Expression propertyName = Expression.Constant(ToCamelCase(property.Name));
-            yield return Expression.Assign(
-                Expression.Property(objVariable, property),
-                InlineOrInvoke(
-                    GetFromJSValueExpression(property.PropertyType),
-                    Expression.Property(valueVariable, s_valueItem, propertyName),
-                    nameof(BuildFromJSToStructExpressions)));
+            memberBindings.Add(Expression.Bind(property, InlineOrInvoke(
+                GetFromJSValueExpression(property.PropertyType),
+                Expression.Property(valueVariable, s_valueItem, propertyName),
+                nameof(BuildFromJSToStructExpressions))));
         }
+
+        yield return Expression.Assign(
+            objVariable, Expression.MemberInit(Expression.New(toType), memberBindings));
 
         yield return objVariable;
     }
@@ -2839,7 +2902,8 @@ public class JSMarshaller
     private IEnumerable<Expression> BuildToJSFromStructExpressions(
         Type fromType,
         List<ParameterExpression> variables,
-        Expression valueExpression)
+        Expression valueExpression,
+        Expression? thisExpression = null)
     {
         /*
          * JSValue jsValue = JSRuntimeContext.Current.CreateStruct<StructName>();
@@ -2857,6 +2921,10 @@ public class JSMarshaller
                 .GetStaticMethod(nameof(JSValue.CreateObject));
             yield return Expression.Assign(
                 jsValueVariable, Expression.Call(createObjectMethod));
+        }
+        else if (thisExpression != null)
+        {
+            yield return Expression.Assign(jsValueVariable, thisExpression);
         }
         else
         {

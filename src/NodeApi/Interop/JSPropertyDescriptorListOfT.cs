@@ -8,7 +8,7 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 
 public abstract class JSPropertyDescriptorList<TDerived, TObject>
   where TDerived : class
-  where TObject : class
+  where TObject : notnull
 {
     public delegate TObject? Unwrap(JSCallbackArgs args);
 

@@ -17,14 +17,18 @@ are _marshalled by value_. This has a few implications:
    the .NET instance method, though the `struct` gets entirely copied/marshalled from JS to .NET
    before every .NET method invocation.
 
+### Read-only properties
+
+Read-only properties of .NET `struct` types are supported by the marshaller if they are
+_initializable_, that is if they are defined as `{ get; init; }` and not just `{ get; }`. When
+marshalling a JS object to a .NET `struct`, the .NET properties are all initialized by marshalling
+the property values from the JS object.
+
+### Static members
+
 Static properties and methods on a .NET `struct` work the same as on a `class`, since static members
 do not deal with an instance that gets marshalled by value. (The `struct` _type_ object is still
 marshalled by reference.)
-
-### Read-only structs and properties
-
-.NET `struct` types that are `readonly`, or read-only properties of non-`readonly structs` are
-[not yet implemented](https://github.com/microsoft/node-api-dotnet/issues/132).
 
 ## Tuples
 

@@ -22,6 +22,9 @@ public static class ComplexTypes
 
     public static StructObject StructObject { get; set; } = new() { Value = "test" };
 
+    public static ReadonlyStructObject ReadonlyStructObject { get; set; } =
+        new() { Value = "test" };
+
     public static StructObject? NullableStructObject { get; set; }
 
     public static ClassObject ClassObject { get; set; } = new() { Value = "test" };
@@ -65,6 +68,13 @@ public static class ComplexTypes
 [JSExport]
 public struct StructObject
 {
+    public StructObject() : this(null) {}
+
+    public StructObject(string? value)
+    {
+        Value = value;
+    }
+
     public string? Value { get; set; }
 
     public override readonly bool Equals(object? obj)
@@ -84,6 +94,12 @@ public struct StructObject
     public static bool operator ==(StructObject left, StructObject right) => left.Equals(right);
 
     public static bool operator !=(StructObject left, StructObject right) => !(left == right);
+}
+
+[JSExport]
+public readonly struct ReadonlyStructObject
+{
+    public string? Value { get; init; }
 }
 
 /// <summary>
@@ -109,6 +125,13 @@ public interface ITestInterface
 [JSExport]
 public class ClassObject : ITestInterface
 {
+    public ClassObject() : this(null) {}
+
+    public ClassObject(string? value)
+    {
+        Value = value;
+    }
+
     public string? Value { get; set; }
 
     public override bool Equals(object? obj)
