@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
-public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> where T : class
+public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> where T : notnull
 {
     private readonly JSCallbackDescriptor? _constructorDescriptor;
 
@@ -59,6 +59,11 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
     /// <exception cref="InvalidOperationException">A constructor was not provided.</exception>
     public JSValue DefineClass(JSValue? baseClass = null)
     {
+        if (!typeof(T).IsClass)
+        {
+            throw new InvalidOperationException("Type must be a class.");
+        }
+
         if (_constructorDescriptor == null)
         {
             throw new InvalidOperationException("A class constructor is required.");
@@ -124,7 +129,43 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
                 baseClass.Value.GetProperty("prototype"));
         }
 
-        return context.RegisterClass<T>(classObject);
+        return context.RegisterClass(typeof(T), classObject);
+    }
+
+    public JSValue DefineStruct()
+    {
+        if (!typeof(T).IsValueType)
+        {
+            throw new InvalidOperationException("Type must be a struct.");
+        }
+
+        AddTypeToString();
+
+        JSValue classObject;
+        if (_constructorDescriptor != null)
+        {
+            classObject = JSValue.DefineClass(
+                ClassName,
+                new JSCallbackDescriptor(
+                    ClassName,
+                    (args) => _constructorDescriptor.Value.Callback(args),
+                    _constructorDescriptor.Value.Data),
+                Properties.ToArray());
+        }
+        else
+        {
+            // Note this does not use Wrap() because structs are passed by value.
+            classObject = JSValue.DefineClass(
+                ClassName,
+                new JSCallbackDescriptor(ClassName, (args) => args.ThisArg),
+                Properties.ToArray());
+        }
+
+        // The class object wraps the Type, so it can be easily converted when passed
+        // to APIs that require a Type.
+        classObject.Wrap(typeof(T));
+
+        return JSRuntimeContext.Current.RegisterStruct(typeof(T), classObject);
     }
 
     /// <summary>
@@ -134,6 +175,12 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
     /// </summary>
     public JSValue DefineStaticClass()
     {
+        // Static classes cannot be used as type parameters, so they use object instead.
+        if (typeof(T) != typeof(object))
+        {
+            throw new InvalidOperationException("Type must be a static class.");
+        }
+
         if (_constructorDescriptor != null)
         {
             throw new InvalidOperationException("A static class may not have a constructor.");
@@ -166,6 +213,11 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
     /// </remarks>
     public JSValue DefineInterface()
     {
+        if (!typeof(T).IsInterface)
+        {
+            throw new InvalidOperationException("Type must be an interface.");
+        }
+
         if (_constructorDescriptor != null)
         {
             throw new InvalidOperationException("An interface may not have a constructor.");
@@ -196,7 +248,7 @@ public class JSClassBuilder<T> : JSPropertyDescriptorList<JSClassBuilder<T>, T> 
             }),
             Properties.ToArray());
         obj.Wrap(typeof(T));
-        return JSRuntimeContext.Current.RegisterClass<T>(obj);
+        return JSRuntimeContext.Current.RegisterClass(typeof(T), obj);
     }
 
     /// <summary>

@@ -241,16 +241,17 @@ public sealed class JSRuntimeContext : IDisposable
     /// <summary>
     /// Registers a class JS constructor, enabling automatic JS wrapping of instances of the class.
     /// </summary>
+    /// <param name="classType">Type of the class to be registered.</param>
     /// <param name="constructorFunction">JS class constructor function returned from
     /// <see cref="JSRuntime.DefineClass"/></param>
     /// <returns>The JS constructor.</returns>
-    internal JSValue RegisterClass<T>(JSValue constructorFunction) where T : class
+    internal JSValue RegisterClass(Type classType, JSValue constructorFunction)
     {
         _classMap.AddOrUpdate(
-            typeof(T),
+            classType,
             (_) => new JSReference(constructorFunction, isWeak: false),
             (_, _) => throw new InvalidOperationException(
-                "Class already registered for JS export: " + typeof(T)));
+                "Class already registered for JS export: " + classType.Name));
         return constructorFunction;
     }
 
@@ -279,7 +280,7 @@ public sealed class JSRuntimeContext : IDisposable
         if (!_classMap.TryGetValue(typeof(T), out JSReference? constructorReference))
         {
             throw new InvalidOperationException(
-                "Class not registered for JS export: " + typeof(T));
+                "Class not registered for JS export: " + typeof(T).Name);
         }
 
         JSValue? constructorFunction = constructorReference!.GetValue();
@@ -560,18 +561,19 @@ public sealed class JSRuntimeContext : IDisposable
     }
 
     /// <summary>
-    /// Registers a struct JS constructor, enabling instantiation of JS wrappers for the struct.
+    /// Registers a struct JS constructor, enabling instantiation of JS objects for the struct.
     /// </summary>
+    /// <param name="structType">Type of the struct to be registered.</param>
     /// <param name="constructorFunction">JS struct constructor function returned from
     /// <see cref="JSRuntime.DefineClass"/></param>
     /// <returns>The JS constructor.</returns>
-    internal JSValue RegisterStruct<T>(JSValue constructorFunction) where T : struct
+    internal JSValue RegisterStruct(Type structType, JSValue constructorFunction)
     {
         _structMap.AddOrUpdate(
-            typeof(T),
+            structType,
             (_) => new JSReference(constructorFunction, isWeak: false),
             (_, _) => throw new InvalidOperationException(
-                "Struct already registered for JS export: " + typeof(T)));
+                "Struct already registered for JS export: " + structType.Name));
         return constructorFunction;
     }
 
@@ -584,7 +586,7 @@ public sealed class JSRuntimeContext : IDisposable
         if (!_structMap.TryGetValue(typeof(T), out JSReference? constructorReference))
         {
             throw new InvalidOperationException(
-                "Struct not registered for JS export: " + typeof(T));
+                "Struct not registered for JS export: " + typeof(T).Name);
         }
 
         JSValue? constructorFunction = constructorReference!.GetValue();

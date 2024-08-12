@@ -24,10 +24,12 @@ assert.strictEqual(ComplexTypes.nullableString, undefined);
 // Test an exported class.
 const ClassObject = binding.ClassObject;
 assert.strictEqual(typeof ClassObject, 'function');
-const classInstance = new ClassObject();
+let classInstance = new ClassObject();
 assert.strictEqual(classInstance.value, undefined);
 classInstance.value = 'test';
 assert.strictEqual(classInstance.value, 'test');
+classInstance = new ClassObject('test1');
+assert.strictEqual(classInstance.value, 'test1');
 
 // Class instances are passed by reference, so a property change on
 // one reference should be reflected on the other.
@@ -46,14 +48,14 @@ assert.strictEqual(iterfaceInstance.value, 'test2');
 // Test an exported struct.
 const StructObject = binding.StructObject;
 assert.strictEqual(typeof StructObject, 'function');
-
-// Constructing the object in JS does NOT immediately construct a C# instance.
-const structInstance = new StructObject();
-
-// This should be null, after struct initialize callback code is generated.
+let structInstance = ComplexTypes.structObject;
+assert.strictEqual(structInstance.value, 'test');
+structInstance = new StructObject();
 assert.strictEqual(structInstance.value, undefined);
 structInstance.value = 'test';
 assert.strictEqual(structInstance.value, 'test');
+structInstance = new StructObject('test1');
+assert.strictEqual(structInstance.value, 'test1');
 
 // Struct instances are passed by value, so a property change on
 // one reference should NOT be reflected on the other.
@@ -61,7 +63,12 @@ const structInstance2 = structInstance.thisObject();
 assert.notStrictEqual(structInstance2, structInstance);
 structInstance2.value = 'test2';
 assert.strictEqual(structInstance2.value, 'test2');
-assert.strictEqual(structInstance.value, 'test');
+assert.strictEqual(structInstance.value, 'test1');
+
+const readonlyStructInstance = ComplexTypes.readonlyStructObject;
+assert.strictEqual(readonlyStructInstance.value, 'test');
+ComplexTypes.readonlyStructObject = { value: 'test2' };
+assert.strictEqual(ComplexTypes.readonlyStructObject.value, 'test2');
 
 // C# enums are projected as objects with two-way value mappings.
 const enumType = binding.TestEnum;
