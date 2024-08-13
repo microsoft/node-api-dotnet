@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -355,6 +356,7 @@ internal static class SymbolExtensions
             typeof(JSValue).Assembly.GetType(typeFullName) ??
             typeof(BigInteger).Assembly.GetType(typeFullName) ?? // System.Runtime.Numerics
             typeof(Stack<>).Assembly.GetType(typeFullName) ?? // System.Collections
+            typeof(Expression).Assembly.GetType(typeFullName) ?? // System.Linq.Expressions
             typeof(System.Collections.ObjectModel.ReadOnlyDictionary<,>)
                 .Assembly.GetType(typeFullName); // System.ObjectModel
         return systemType;
@@ -387,18 +389,20 @@ internal static class SymbolExtensions
             }
         }
 
+        if (referencingSymbols?.Any(
+            (s) => SymbolEqualityComparer.Default.Equals(s, typeSymbol)) == true)
+        {
+            // Skip self-referential type symbols.
+            return;
+        }
+
         referencingSymbols = (referencingSymbols ?? Enumerable.Empty<INamedTypeSymbol>())
             .Append(typeSymbol);
 
         foreach (INamedTypeSymbol typeArgSymbol in
             typeSymbol.TypeArguments.OfType<INamedTypeSymbol>())
         {
-            // Skip self-referential type parameters.
-            if (!referencingSymbols.Any(
-                (s) => SymbolEqualityComparer.Default.Equals(s, typeArgSymbol)))
-            {
-                BuildType(typeArgSymbol, referencingSymbols);
-            }
+            BuildType(typeArgSymbol, referencingSymbols);
         }
 
         if (GetSystemType(typeSymbol) != null)
@@ -425,11 +429,7 @@ internal static class SymbolExtensions
             .OfType<INamedTypeSymbol>()
             .Distinct(SymbolEqualityComparer.Default).Cast<INamedTypeSymbol?>())
         {
-            if (!referencingSymbols.Any(
-                (s) => SymbolEqualityComparer.Default.Equals(s, parameterTypeSymbol)))
-            {
-                BuildType(parameterTypeSymbol!, referencingSymbols);
-            }
+            BuildType(parameterTypeSymbol!, referencingSymbols);
         }
     }
 
