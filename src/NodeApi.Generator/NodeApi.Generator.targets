@@ -139,10 +139,6 @@
     Outputs="@(NodeApiReferenceAssemblies->'$(TargetDir)%(Filename).d.ts')"
     Condition=" '$(GenerateNodeApiTypeDefinitions)' == 'true' AND '$(Compile)' == '' "
   >
-    <PropertyGroup Condition=" '$(EnableTSGenerationWarnings)' != 'true' ">
-      <_SuppressTSGenerationWarnings>--nowarn</_SuppressTSGenerationWarnings>
-    </PropertyGroup>
-
     <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
       <NodeApiSystemReferenceAssembly Include="mscorlib" />
       <NodeApiSystemReferenceAssembly Include="System" />
@@ -172,6 +168,7 @@
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--assemblies &quot;$(_NodeApiGeneratorAssemblyReferences)&quot;" Overwrite="true" />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--packs &quot;$(_NodeApiGeneratorTargetingPacks)&quot;" />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--typedefs &quot;$(_NodeApiGeneratorTypeDefs)&quot;" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--nowarn" Condition=" '$(NodeApiTypeDefinitionsEnableWarnings)' != 'true' " />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="$(NodeApiTypeDefinitionsGeneratorOptions)" />
 
     <!-- Run the generator using args from the response file. Note the '@' indicates the response file NOT an MSBuild item-list. -->

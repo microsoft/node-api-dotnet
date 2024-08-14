@@ -2332,12 +2332,66 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
 
     private static string TSIdentifier(string? identifier)
     {
-        return identifier switch
-        {
-            // A method parameter named "function" is valid in C# but invalid in TS.
-            "function" => "_" + identifier,
-            null => "_",
-            _ => identifier,
-        };
+        return string.IsNullOrEmpty(identifier) ? "_" :
+            s_tsReservedWords.Contains(identifier) ? "_" + identifier : identifier;
     }
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#reserved_words
+    private static readonly HashSet<string> s_tsReservedWords = new()
+    {
+        "arguments",
+        "as",
+        "async",
+        "await",
+        "break",
+        "case",
+        "catch",
+        "class",
+        "const",
+        "continue",
+        "debugger",
+        "default",
+        "delete",
+        "do",
+        "else",
+        "enum",
+        "eval",
+        "export",
+        "extends",
+        "false",
+        "finally",
+        "for",
+        "from",
+        "function",
+        "get",
+        "if",
+        "implements",
+        "import",
+        "in",
+        "instanceof",
+        "interface",
+        "let",
+        "new",
+        "null",
+        "of",
+        "package",
+        "private",
+        "protected",
+        "public",
+        "return",
+        "set",
+        "static",
+        "super",
+        "switch",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typeof",
+        "var",
+        "void",
+        "while",
+        "with",
+        "yield",
+    };
 }
