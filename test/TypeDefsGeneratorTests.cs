@@ -71,14 +71,14 @@ public class TypeDefsGeneratorTests
             	TestProperty: string;
 
             	/** method */
-            	TestMethod(): string;
+            	TestMethod(_default: string | undefined): string;
             }
             """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(SimpleInterface), new Dictionary<string, string>
         {
             ["T:SimpleInterface"] = "interface",
             ["P:SimpleInterface.TestProperty"] = "property",
-            ["M:SimpleInterface.TestMethod"] = "method",
+            ["M:SimpleInterface.TestMethod(System.String)"] = "method",
         }));
     }
 
@@ -96,7 +96,7 @@ public class TypeDefsGeneratorTests
             	TestProperty: string;
 
             	/** method */
-            	TestMethod(): string;
+            	TestMethod(_default: string | undefined): string;
             }
             """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(SimpleClass), new Dictionary<string, string>
@@ -104,7 +104,7 @@ public class TypeDefsGeneratorTests
             ["T:SimpleClass"] = "class",
             ["M:SimpleClass.#ctor"] = "constructor",
             ["P:SimpleClass.TestProperty"] = "property",
-            ["M:SimpleClass.TestMethod"] = "method",
+            ["M:SimpleClass.TestMethod(System.String)"] = "method",
         }));
     }
 
@@ -120,7 +120,7 @@ public class TypeDefsGeneratorTests
     [Fact]
     public void GenerateSimpleMethod()
     {
-        Assert.Equal(@"TestMethod(): string;",
+        Assert.Equal(@"TestMethod(_default: string | undefined): string;",
             GenerateMemberDefinition(
                 typeof(SimpleClass).GetMethod(nameof(SimpleClass.TestMethod))!,
                 new Dictionary<string, string>()));
@@ -250,7 +250,7 @@ public class TypeDefsGeneratorTests
             export interface SimpleInterface {
             	TestProperty: string;
 
-            	TestMethod(): string;
+            	TestMethod(_default: string | undefined): string;
             }
             """.ReplaceLineEndings(),
         GenerateTypeDefinition(typeof(SimpleInterface), new Dictionary<string, XElement>
@@ -296,13 +296,13 @@ public class TypeDefsGeneratorTests
 public interface SimpleInterface
 {
     string TestProperty { get; set; }
-    string TestMethod();
+    string TestMethod(string? @default); // 'default' is a reserved word in JS
 }
 
 public class SimpleClass : SimpleInterface
 {
     public string TestProperty { get; set; } = null!;
-    public string TestMethod() { return string.Empty; }
+    public string TestMethod(string? @default) { return @default ?? string.Empty; }
 }
 
 public delegate void SimpleDelegate(string arg);
@@ -334,9 +334,9 @@ public delegate T GenericDelegate<T>(T arg);
 public static class SimpleClassExtensions
 {
     public static void TestExtensionA(this SimpleClass value)
-        => value.TestMethod();
+        => value.TestMethod(null);
     public static void TestExtensionB(this SimpleClass value)
-        => value.TestMethod();
+        => value.TestMethod(null);
 }
 
 #endif
