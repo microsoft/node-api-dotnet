@@ -2,9 +2,6 @@
 // Licensed under the MIT License.
 
 import dotnet from 'node-api-dotnet';
-import './bin/System.Text.Encodings.Web.js';
-import './bin/Microsoft.Extensions.DependencyInjection.js';
-import './bin/Microsoft.Extensions.Logging.Abstractions.js';
 import './bin/Microsoft.SemanticKernel.Abstractions.js';
 import './bin/Microsoft.SemanticKernel.Core.js';
 import './bin/Microsoft.SemanticKernel.Connectors.OpenAI.js';

@@ -39,17 +39,6 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     private readonly AssemblyLoadContext _loadContext = new(name: default);
 #endif
 
-    /// <summary>
-    /// Path to the assembly currently being loaded, or null when not loading.
-    /// </summary>
-    /// <remarks>
-    /// This is used to automatically load dependency assemblies from the same directory as
-    /// the initially loaded assembly, if there was no location provided by a resolve handler.
-    /// Note since a .NET host cannot be shared by multiple JS threads (workers), only one
-    /// assembly can be loaded at a time.
-    /// </remarks>
-    private string? _loadingPath;
-
     private JSValueScope? _rootScope;
 
     /// <summary>
@@ -67,6 +56,11 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// loaded assemblies.
     /// </summary>
     private readonly Dictionary<string, Assembly> _loadedAssembliesByName = new();
+
+    /// <summary>
+    /// Tracks names of assemblies that have been exported to JS.
+    /// </summary>
+    private readonly HashSet<string> _exportedAssembliesByName = new();
 
     /// <summary>
     /// Mapping from assembly file paths to strong references to module exports.
@@ -139,16 +133,11 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
                 Environment.GetEnvironmentVariable("NODE_API_DELAYLOAD") != "0"
         };
 
-        // Export the System.Runtime and System.Console assemblies by default.
-        _typeExporter.ExportAssemblyTypes(typeof(object).Assembly);
-        _loadedAssembliesByName.Add(
-            typeof(object).Assembly.GetName().Name!, typeof(object).Assembly);
-
+        // System.Runtime and System.Console assembly types are auto-exported on first use.
+        _exportedAssembliesByName.Add(typeof(object).Assembly.GetName().Name!);
         if (typeof(Console).Assembly != typeof(object).Assembly)
         {
-            _typeExporter.ExportAssemblyTypes(typeof(Console).Assembly);
-            _loadedAssembliesByName.Add(
-                typeof(Console).Assembly.GetName().Name!, typeof(Console).Assembly);
+            _exportedAssembliesByName.Add(typeof(Console).Assembly.GetName().Name!);
         }
     }
 
@@ -276,40 +265,63 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             return typeof(ManagedHost).Assembly;
         }
 
-        Trace($"    Resolving assembly: {assemblyName} {assemblyVersion}");
-        Emit(ResolvingEventName, assemblyName, assemblyVersion!);
+        Trace($"> ManagedHost.OnResolvingAssembly({assemblyName}, {assemblyVersion})");
 
-        // Resolve listeners may call load(assemblyFilePath) to load the requested assembly.
-        // The version of the loaded assembly might not match the requested version.
-        if (_loadedAssembliesByName.TryGetValue(assemblyName, out Assembly? assembly))
+        // Try to load the named assembly from .NET system directories.
+        Assembly? assembly;
+        try
         {
-            Trace($"        Resolved at: {assembly.Location}");
-            return assembly;
+            assembly = LoadAssembly(assemblyName, allowNativeLibrary: false);
+        }
+        catch (FileNotFoundException)
+        {
+            // The assembly was not found in the system directories.
+            // Emit a resolving event to allow listeners to load the assembly.
+            // Resolve listeners may call load(assemblyFilePath) to load the requested assembly.
+            Emit(
+                ResolvingEventName,
+                assemblyName,
+                assemblyVersion!,
+                new JSFunction(ResolveAssembly));
+            _loadedAssembliesByName.TryGetValue(assemblyName, out assembly);
         }
 
-        if (!string.IsNullOrEmpty(_loadingPath))
+        if (assembly == null)
         {
             // The dependency assembly was not resolved by an event-handler.
-            // Look for it in the same directory as the initially loaded assembly.
-            string adjacentPath = Path.Combine(
-                Path.GetDirectoryName(_loadingPath) ?? string.Empty,
-                assemblyName + ".dll");
-            try
+            // Look for it in the same directory as any already-loaded assemblies.
+            foreach (string? loadedAssemblyFile in
+                _loadedModules.Keys.Concat(_loadedAssembliesByPath.Keys))
             {
-                assembly = LoadAssembly(adjacentPath);
+                string assemblyDirectory =
+                    Path.GetDirectoryName(loadedAssemblyFile) ?? string.Empty;
+                if (!string.IsNullOrEmpty(assemblyDirectory))
+                {
+                    string adjacentPath = Path.Combine(assemblyDirectory, assemblyName + ".dll");
+                    try
+                    {
+                        assembly = LoadAssembly(adjacentPath, allowNativeLibrary: false);
+                        break;
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        Trace($"  ManagedHost.OnResolvingAssembly(" +
+                            $"{assemblyName}) not found at {adjacentPath}");
+                    }
+                }
             }
-            catch (FileNotFoundException)
-            {
-                Trace($"    Assembly not found at: {adjacentPath}");
-                return default;
-            }
-
-            Trace($"        Resolved at: {assembly.Location}");
-            return assembly;
         }
 
-        Trace($"    Assembly not resolved: {assemblyName}");
-        return default;
+        if (assembly != null)
+        {
+            Trace($"< ManagedHost.OnResolvingAssembly({assemblyName}) => {assembly.Location}");
+            return assembly;
+        }
+        else
+        {
+            Trace($"< ManagedHost.OnResolvingAssembly({assemblyName}) => not resolved");
+            return default;
+        }
     }
 
     public static JSValue GetRuntimeVersion(JSCallbackArgs _)
@@ -349,22 +361,13 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         }
 
         Assembly assembly;
-        string? previousLoadingPath = _loadingPath;
-        try
-        {
-            _loadingPath = assemblyFilePath;
 
 #if NETFRAMEWORK || NETSTANDARD
-            // TODO: Load module assemblies in separate appdomains.
-            assembly = Assembly.LoadFrom(assemblyFilePath);
+        // TODO: Load module assemblies in separate appdomains.
+        assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
-            assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+        assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
-        }
-        finally
-        {
-            _loadingPath = previousLoadingPath;
-        }
 
         MethodInfo? initializeMethod = null;
 
@@ -455,16 +458,33 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     {
         string assemblyNameOrFilePath = (string)args[0];
 
-        if (!_loadedAssembliesByPath.ContainsKey(assemblyNameOrFilePath) &&
-            !_loadedAssembliesByName.ContainsKey(assemblyNameOrFilePath))
+        if (!_loadedAssembliesByPath.TryGetValue(assemblyNameOrFilePath, out Assembly? assembly) &&
+            !_loadedAssembliesByName.TryGetValue(assemblyNameOrFilePath, out assembly))
         {
-            LoadAssembly(assemblyNameOrFilePath, allowNativeLibrary: true);
+            assembly = LoadAssembly(assemblyNameOrFilePath, allowNativeLibrary: true);
+        }
+
+        if (!_exportedAssembliesByName.Contains(assembly.GetName().Name!))
+        {
+            _typeExporter.ExportAssemblyTypes(assembly);
+            _exportedAssembliesByName.Add(assembly.GetName().Name!);
         }
 
         return default;
     }
 
-    private Assembly LoadAssembly(string assemblyNameOrFilePath, bool allowNativeLibrary = false)
+    /// <summary>
+    /// Callback from the 'resolving' event which completes the resolve operation by loading an
+    /// assembly from a file path specified by the event listener.
+    /// </summary>
+    private JSValue ResolveAssembly(JSCallbackArgs args)
+    {
+        string assemblyFilePath = (string)args[0];
+        LoadAssembly(assemblyFilePath, allowNativeLibrary: false);
+        return default;
+    }
+
+    private Assembly LoadAssembly(string assemblyNameOrFilePath, bool allowNativeLibrary)
     {
         Trace($"> ManagedHost.LoadAssembly({assemblyNameOrFilePath})");
 
@@ -477,14 +497,21 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
                 Path.GetDirectoryName(typeof(object).Assembly.Location)!,
                 assemblyFilePath + ".dll");
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            // Also support loading ASP.NET system assemblies.
+            string assemblyFilePath2 = assemblyFilePath.Replace(
+                    "Microsoft.NETCore.App", "Microsoft.AspNetCore.App");
+            if (File.Exists(assemblyFilePath2))
+            {
+                assemblyFilePath = assemblyFilePath2;
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 // Also support loading Windows-specific system assemblies.
-                string assemblyFilePath2 = assemblyFilePath.Replace(
+                string assemblyFilePath3 = assemblyFilePath.Replace(
                     "Microsoft.NETCore.App", "Microsoft.WindowsDesktop.App");
-                if (File.Exists(assemblyFilePath2))
+                if (File.Exists(assemblyFilePath3))
                 {
-                    assemblyFilePath = assemblyFilePath2;
+                    assemblyFilePath = assemblyFilePath3;
                 }
             }
         }
@@ -496,19 +523,14 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         }
 
         Assembly assembly;
-        string? previousLoadingPath = _loadingPath;
         try
         {
-            _loadingPath = assemblyFilePath;
-
 #if NETFRAMEWORK || NETSTANDARD
             // TODO: Load assemblies in a separate appdomain.
             assembly = Assembly.LoadFrom(assemblyFilePath);
 #else
             assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
 #endif
-
-            _typeExporter.ExportAssemblyTypes(assembly);
         }
         catch (BadImageFormatException)
         {
@@ -522,18 +544,19 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             // any later DllImport operations for the same library name.
             NativeLibrary.Load(assemblyFilePath);
 
-            Trace("< ManagedHost.LoadAssembly() => loaded native library");
+            Trace($"< ManagedHost.LoadAssembly() => {assemblyFilePath} (native library)");
             return null!;
         }
-        finally
+        catch (FileNotFoundException fnfex)
         {
-            _loadingPath = previousLoadingPath;
+            throw new FileNotFoundException(
+                $"Assembly file not found: {assemblyNameOrFilePath}", fnfex);
         }
 
         _loadedAssembliesByPath.Add(assemblyFilePath, assembly);
         _loadedAssembliesByName.Add(assembly.GetName().Name!, assembly);
 
-        Trace("< ManagedHost.LoadAssembly() => newly loaded");
+        Trace($"< ManagedHost.LoadAssembly() => {assemblyFilePath}, {assembly.GetName().Version}");
         return assembly;
     }
 
