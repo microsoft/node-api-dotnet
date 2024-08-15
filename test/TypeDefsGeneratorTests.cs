@@ -198,7 +198,7 @@ public class TypeDefsGeneratorTests
             /** generic-class */
             export class GenericClass$1<T> implements GenericInterface$1<T> {
             	/** constructor */
-            	new(value: T): GenericClass$1<T>;
+            	constructor(value: T);
 
             	/** instance-property */
             	TestProperty: T;

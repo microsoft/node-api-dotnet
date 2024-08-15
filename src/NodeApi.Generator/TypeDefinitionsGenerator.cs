@@ -1897,9 +1897,12 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
         NullabilityInfo? nullability,
         bool allowTypeParams = true)
     {
+        // Types exported from a module are not namespaced.
+        string nsPrefix = !_isModule && type.Namespace != null ? type.Namespace + '.' : "";
+
         string tsType = type.IsNested ?
             GetTSType(type.DeclaringType!, null, allowTypeParams) + '.' + type.Name :
-            (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
+            nsPrefix + type.Name;
 
         int typeNameEnd = tsType.IndexOf('`');
         if (typeNameEnd > 0)
