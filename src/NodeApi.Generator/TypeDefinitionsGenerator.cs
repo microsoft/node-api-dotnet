@@ -822,7 +822,8 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
         GenerateDocComments(ref s, type);
 
         bool isStaticClass = type.IsAbstract && type.IsSealed && !type.IsGenericTypeDefinition;
-        bool isStreamSubclass = type.BaseType?.FullName == typeof(Stream).FullName;
+        bool isStreamSubclass = type.BaseType?.FullName == typeof(Stream).FullName ||
+            type.BaseType?.BaseType?.FullName == typeof(Stream).FullName;
         string classKind = type.IsInterface ? "interface" : isStaticClass ? "namespace" : "class";
         string implementsKind = type.IsInterface ? "extends" : "implements";
 
@@ -863,10 +864,14 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             }
         }
 
-        if (isStreamSubclass)
+        if (type.BaseType?.FullName == typeof(Stream).FullName)
         {
             implements = " extends Duplex" + implements;
-            _emitDuplex = true;
+        }
+        else if (type.BaseType != null && type.BaseType.FullName != typeof(object).FullName)
+        {
+            // Don't use GetTSType() here: Avoid converting to JS types like Task => Promise<void>.
+            implements = $" extends {FormatTSType(type.BaseType, null)}" + implements;
         }
 
         string exportPrefix = "export ";
@@ -892,30 +897,42 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
 
         if (!isStreamSubclass)
         {
-            foreach (PropertyInfo property in type.GetProperties(
-                BindingFlags.Public | BindingFlags.Instance |
+            BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Instance |
                 (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface ? default : BindingFlags.Static)).Where(IsExported))
+                (type.IsInterface ? default : BindingFlags.Static);
+
+            // Include only properties declared by the current type.
+            foreach (PropertyInfo property in
+                type.GetProperties(bindingFlags | BindingFlags.DeclaredOnly)
+                .Where((p) => IsExported(p) && !IsExcluded(p)))
             {
                 // Indexed properties are not implemented.
-                if (!IsExcluded(property) && property.GetIndexParameters().Length == 0)
+                if (property.GetIndexParameters().Length == 0)
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, property);
                 }
             }
 
-            foreach (MethodInfo method in type.GetMethods(
-                BindingFlags.Public | BindingFlags.Instance |
-                (isStaticClass ? BindingFlags.DeclaredOnly : default) |
-                (type.IsInterface ? default : BindingFlags.Static)).Where(IsExported))
+            // Include methods that are declared on the current type or the same name as a method
+            // declared on the current type. This ensures the full set of overloads is included.
+            string[] declaredMethodNames =
+                type.GetMethods(bindingFlags | BindingFlags.DeclaredOnly)
+                .Where(IsExported)
+                .Select((m) => m.Name).ToArray();
+            foreach (MethodInfo method in type.GetMethods(bindingFlags)
+                .Where((m) => IsExported(m) && !IsExcluded(m)))
             {
-                if (!IsExcluded(method))
+                if (method.DeclaringType == type || declaredMethodNames.Contains(method.Name))
                 {
                     if (isFirstMember) isFirstMember = false; else s++;
                     ExportTypeMember(ref s, method);
                 }
             }
+        }
+        else
+        {
+            _emitDuplex = true;
         }
 
         s += "}";
@@ -1120,18 +1137,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
         {
             GenerateDocComments(ref s, constructor);
             string parameters = GetTSParameters(constructor.GetParameters());
-
-            if (declaringType.IsGenericTypeDefinition)
-            {
-                string exportName = GetExportName(declaringType);
-                Type[] typeArgs = declaringType.GetGenericArguments();
-                string typeParams = string.Join(", ", typeArgs.Select((t) => t.Name));
-                s += $"new({parameters}): {exportName}${typeArgs.Length}<{typeParams}>;";
-            }
-            else
-            {
-                s += $"constructor({parameters});";
-            }
+            s += $"constructor({parameters});";
         }
         else if (member is PropertyInfo property)
         {
@@ -1246,6 +1252,11 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
 
         Type type = member as Type ?? member.DeclaringType!;
 
+        if (type.BaseType != null && IsExcluded(type.BaseType))
+        {
+            return true;
+        }
+
         // While most types in InteropServices are excluded, safe handle classes are useful
         // to include because they are extended by handle classes in other assemblies.
         if (type.FullName == typeof(System.Runtime.InteropServices.SafeHandle).FullName ||
@@ -1259,6 +1270,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
         return type.Namespace switch
         {
             "System.Runtime.CompilerServices" or
+            "System.Runtime.Hosting" or
             "System.Runtime.InteropServices" or
             "System.Runtime.Remoting.Messaging" or
             "System.Runtime.Serialization" or
@@ -1283,7 +1295,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
         return false;
     }
 
-    private static bool IsExcluded(MethodBase method)
+    private bool IsExcluded(MethodBase method)
     {
         // Exclude "special" methods like property get/set and event add/remove.
         if (method is MethodInfo && method.IsSpecialName)
@@ -1320,13 +1332,44 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             return true;
         }
 
-        if (method.GetParameters().Any((p) => IsExcluded(p.ParameterType)) ||
-            (method is MethodInfo methodWithReturn && IsExcluded(methodWithReturn.ReturnType)))
+        bool isExcluded = false;
+        foreach (ParameterInfo parameter in method.GetParameters())
         {
-            return true;
+            if (IsExcluded(parameter.ParameterType))
+            {
+                ReportWarning(
+                    DiagnosticId.UnsupportedMethodParameterType,
+                    $"Method {method.DeclaringType!.Name}.{method.Name}() has unsupported " +
+                    $"parameter type: {parameter.ParameterType.Name}");
+                isExcluded = true;
+            }
         }
 
-        return false;
+        if (method is MethodInfo methodWithReturn && IsExcluded(methodWithReturn.ReturnType))
+        {
+            ReportWarning(
+                DiagnosticId.UnsupportedMethodReturnType,
+                $"Method {method.DeclaringType!.Name}.{method.Name}() has unsupported " +
+                $"return type: {methodWithReturn.ReturnType.Name}");
+            isExcluded = true;
+        }
+
+        if (IsExtensionMember(method))
+        {
+            Type extensionTargetType = method.GetParameters()[0].ParameterType;
+            if (extensionTargetType.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Any((m) => m.Name == method.Name))
+            {
+                ReportWarning(
+                    DiagnosticId.UnsupportedExtensionMethod,
+                    $"Extension method {method.DeclaringType!.Name}.{method.Name}() with target " +
+                    $"type {extensionTargetType.Name} is not supported because it overloads a " +
+                    "method on the target type.");
+                isExcluded = true;
+            }
+        }
+
+        return isExcluded;
     }
 
     private void GenerateEnumDefinition(ref SourceBuilder s, Type type)
@@ -1632,11 +1675,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             }
             else if (IsExported(type))
             {
-                // Types exported from a module are not namespaced.
-                string nsPrefix = !_isModule && type.Namespace != null ? type.Namespace + '.' : "";
-
-                tsType = (type.IsNested ? GetTSType(type.DeclaringType!, null) + '.' : nsPrefix) +
-                    (_isModule ? GetExportName(type) : type.Name);
+                tsType = FormatTSType(type, nullability, allowTypeParams);
             }
         }
         else if (type.FullName == typeof(ValueTuple).FullName)
@@ -1682,9 +1721,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
         }
         else if (_referenceAssemblies.ContainsKey(type.Assembly.GetName().Name!))
         {
-            tsType = type.IsNested ?
-                GetTSType(type.DeclaringType!, null, allowTypeParams) + '.' + type.Name :
-                (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
+            tsType = FormatTSType(type, nullability, allowTypeParams);
             _imports.Add(type.Assembly.GetName().Name!);
         }
 
@@ -1839,30 +1876,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             }
             else
             {
-                int typeNameEnd = tsType.IndexOf('`');
-                if (typeNameEnd > 0)
-                {
-                    tsType = tsType.Substring(0, typeNameEnd);
-
-                    string typeParams = string.Join(", ", typeArgs.Select(
-                        (t, i) => GetTSType(t, typeArgsNullability?[i], allowTypeParams)));
-                    tsType = $"{tsType}${typeArgs.Length}<{typeParams}>";
-                }
-                else if (type.IsNested && type.DeclaringType!.IsGenericTypeDefinition)
-                {
-                    int genericParamsStart = tsType.IndexOf('$');
-                    int genericParamsEnd = tsType.IndexOf('>');
-                    if (genericParamsStart > 0 && genericParamsEnd > 0)
-                    {
-                        // TS doesn't support nested types (static properties) on a generic class.
-                        // For now, move the generic type parameters onto the nested class.
-                        string declaringType = tsType.Substring(0, genericParamsStart);
-                        string genericParams = tsType.Substring(
-                                genericParamsStart, genericParamsEnd + 1 - genericParamsStart);
-                        string nestedType = tsType.Substring(genericParamsEnd + 1);
-                        tsType = $"{declaringType}{nestedType}{genericParams}";
-                    }
-                }
+                tsType = FormatTSType(type, nullability, allowTypeParams);
             }
         }
 
@@ -1873,6 +1887,51 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
             !tsType.EndsWith(UndefinedTypeSuffix))
         {
             tsType += UndefinedTypeSuffix;
+        }
+
+        return tsType;
+    }
+
+    private string FormatTSType(
+        Type type,
+        NullabilityInfo? nullability,
+        bool allowTypeParams = true)
+    {
+        string tsType = type.IsNested ?
+            GetTSType(type.DeclaringType!, null, allowTypeParams) + '.' + type.Name :
+            (type.Namespace != null ? type.Namespace + '.' + type.Name : type.Name);
+
+        int typeNameEnd = tsType.IndexOf('`');
+        if (typeNameEnd > 0)
+        {
+            Type[] typeArgs = type.GetGenericArguments();
+            NullabilityInfo[]? typeArgsNullability = nullability?.GenericTypeArguments;
+            if (typeArgsNullability?.Length < typeArgs.Length)
+            {
+                // NullabilityContext doesn't handle generic type arguments of by-ref parameters.
+                typeArgsNullability = null;
+            }
+
+            tsType = tsType.Substring(0, typeNameEnd);
+
+            string typeParams = string.Join(", ", typeArgs.Select(
+                (t, i) => GetTSType(t, typeArgsNullability?[i], allowTypeParams)));
+            tsType = $"{tsType}${typeArgs.Length}<{typeParams}>";
+        }
+        else if (type.IsNested && type.DeclaringType!.IsGenericTypeDefinition)
+        {
+            int genericParamsStart = tsType.IndexOf('$');
+            int genericParamsEnd = tsType.IndexOf('>');
+            if (genericParamsStart > 0 && genericParamsEnd > 0)
+            {
+                // TS doesn't support nested types (static properties) on a generic class.
+                // For now, move the generic type parameters onto the nested class.
+                string declaringType = tsType.Substring(0, genericParamsStart);
+                string genericParams = tsType.Substring(
+                        genericParamsStart, genericParamsEnd + 1 - genericParamsStart);
+                string nestedType = tsType.Substring(genericParamsEnd + 1);
+                tsType = $"{declaringType}{nestedType}{genericParams}";
+            }
         }
 
         return tsType;
@@ -2333,7 +2392,7 @@ type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
     private static string TSIdentifier(string? identifier)
     {
         return string.IsNullOrEmpty(identifier) ? "_" :
-            s_tsReservedWords.Contains(identifier) ? "_" + identifier : identifier;
+            s_tsReservedWords.Contains(identifier!) ? "_" + identifier : identifier!;
     }
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#reserved_words

@@ -55,6 +55,9 @@ public readonly struct JSAbortSignal : IJSValue<JSAbortSignal>
     public static explicit operator CancellationToken(JSAbortSignal signal)
         => signal.ToCancellationToken();
 
+    public static explicit operator CancellationToken(JSAbortSignal? signal)
+        => signal?.ToCancellationToken() ?? default;
+
     public static explicit operator JSAbortSignal(CancellationToken cancellation)
         => FromCancellationToken(cancellation);
 

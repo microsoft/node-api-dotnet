@@ -2181,9 +2181,9 @@ public class JSMarshaller
             else if (toType == typeof(CancellationToken))
             {
                 MethodInfo toAbortSignal = typeof(JSAbortSignal).GetExplicitConversion(
-                    typeof(JSValue), typeof(JSAbortSignal));
+                    typeof(JSValue), typeof(JSAbortSignal?));
                 MethodInfo toCancellationToken = typeof(JSAbortSignal).GetExplicitConversion(
-                    typeof(JSAbortSignal), typeof(CancellationToken));
+                    typeof(JSAbortSignal?), typeof(CancellationToken));
                 statements = new[]
                 {
                     Expression.Call(
