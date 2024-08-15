@@ -290,7 +290,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         {
             // The dependency assembly was not resolved by an event-handler.
             // Look for it in the same directory as any already-loaded assemblies.
-            foreach (var loadedAssemblyFile in
+            foreach (string? loadedAssemblyFile in
                 _loadedModules.Keys.Concat(_loadedAssembliesByPath.Keys))
             {
                 string assemblyDirectory =
@@ -458,8 +458,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     {
         string assemblyNameOrFilePath = (string)args[0];
 
-        Assembly? assembly;
-        if (!_loadedAssembliesByPath.TryGetValue(assemblyNameOrFilePath, out assembly) &&
+        if (!_loadedAssembliesByPath.TryGetValue(assemblyNameOrFilePath, out Assembly? assembly) &&
             !_loadedAssembliesByName.TryGetValue(assemblyNameOrFilePath, out assembly))
         {
             assembly = LoadAssembly(assemblyNameOrFilePath, allowNativeLibrary: true);
