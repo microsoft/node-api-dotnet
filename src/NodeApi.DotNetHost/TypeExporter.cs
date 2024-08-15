@@ -70,6 +70,11 @@ public class TypeExporter
         if (namespaces != null)
         {
             _namespaces = new JSReference(namespaces.Value);
+
+            namespaces.Value.DefineProperties(JSPropertyDescriptor.AccessorProperty(
+                "System",
+                getter: AutoExportBaseTypes,
+                attributes: JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable));
         }
     }
 
@@ -78,6 +83,23 @@ public class TypeExporter
     /// is delayed until first use. The default is true.
     /// </summary>
     public bool IsDelayLoadEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Automatically export base types like `System.Object` and `System.Console` as soon as the
+    /// 'System' namespace is referenced.
+    /// </summary>
+    /// <param name="args"></param>
+    /// <returns></returns>
+    private JSValue AutoExportBaseTypes(JSCallbackArgs args)
+    {
+        ExportAssemblyTypes(typeof(object).Assembly);
+        if (typeof(Console).Assembly != typeof(object).Assembly)
+        {
+            ExportAssemblyTypes(typeof(Console).Assembly);
+        }
+
+        return _namespaces!.GetValue()["System"];
+    }
 
     /// <summary>
     /// Exports all types from a .NET assembly to JavaScript.
@@ -124,9 +146,13 @@ public class TypeExporter
 
                 if (_namespaces != null)
                 {
-                    // Add a property on the namespaces JS object.
+                    // Define a property on the namespaces JS object.
                     JSObject namespacesObject = (JSObject)_namespaces.GetValue();
-                    namespacesObject[namespaceParts[0]] = parentNamespace.Value;
+                    namespacesObject.DefineProperties(
+                        JSPropertyDescriptor.DataProperty(
+                            namespaceParts[0],
+                            parentNamespace.Value,
+                            JSPropertyAttributes.Enumerable));
                 }
             }
 

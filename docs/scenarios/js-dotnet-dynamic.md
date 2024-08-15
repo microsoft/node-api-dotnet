@@ -104,9 +104,9 @@ For examples of this scenario, see one of these directories in the repo:
    of bin-placing all dependencies together. If some dependencies are are in another location,
    set up a `resolving` event handler _before_ loading the target assembly:
    ```JavaScript
-   dotnet.addListener('resolving', (name, version) => {
+   dotnet.addListener('resolving', (name, version, resolve) => {
        const filePath = path.join(__dirname, 'bin', name + '.dll');
-       if (fs.existsSync(filePath)) dotnet.load(filePath);
+       if (fs.existsSync(filePath)) resolve(filePath);
    });
    ```
 

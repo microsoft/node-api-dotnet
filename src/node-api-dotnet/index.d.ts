@@ -71,12 +71,20 @@ export function load(assemblyNameOrFilePath: string): void;
 
 /**
  * Adds a listener for the `resolving` event, which is raised when a .NET assembly requires
- * an additional dependent assembly to be resolved and loaded. The listener must call `load()`
- * to load the requested assembly file.
+ * an additional dependent assembly to be resolved and loaded. The listener may call `resolve()`
+ * to load the requested assembly from a resolved file path. If the listener does not call
+ * `resolve()`, the runtime will then attempt to resolve the assembly by searching in the same
+ * application directory as other already-loaded assemblies, if there were any.
  */
 export function addListener(
   event: 'resolving',
-  listener: (assemblyName: string, assemblyVersion: string) => void,
+  /**
+   * Resolving event listener funciton to be invokved when a .NET assembly is being resolved.
+   * @param assemblyName Name of the assembly to be resolved.
+   * @param assemblyVersion Version of the assembly to be resolved.
+   * @param resolve Callback to invoke with the full path to the resolved assembly file.
+   */
+  listener: (assemblyName: string, assemblyVersion: string, resolve: (string) => void) => void,
 ): void;
 
 /**
