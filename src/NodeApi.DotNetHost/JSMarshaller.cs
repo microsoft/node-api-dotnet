@@ -577,8 +577,9 @@ public class JSMarshaller
             string name = method.Name;
             if (method.DeclaringType!.IsInterface)
             {
-                name = method.DeclaringType.Namespace + '.' +
-                    method.DeclaringType.Name + '.' + name;
+                string nsPrefix = method.DeclaringType.Namespace != null ?
+                    method.DeclaringType.Namespace + '.' : string.Empty;
+                name = nsPrefix + method.DeclaringType.Name + '.' + name;
             }
 
             ParameterInfo[] allMethodParameters = method.GetParameters();
@@ -1097,8 +1098,9 @@ public class JSMarshaller
             string name = "get_" + property.Name;
             if (property.DeclaringType!.IsInterface)
             {
-                name = property.DeclaringType.Namespace + '.' +
-                    property.DeclaringType.Name + '.' + name;
+                string nsPrefix = property.DeclaringType.Namespace != null ?
+                    property.DeclaringType.Namespace + '.' : string.Empty;
+                name = nsPrefix + property.DeclaringType.Name + '.' + name;
             }
 
             ParameterExpression thisParameter = Expression.Parameter(typeof(JSValue), "__this");
@@ -1167,8 +1169,9 @@ public class JSMarshaller
             string name = "set_" + property.Name;
             if (property.DeclaringType!.IsInterface)
             {
-                name = property.DeclaringType.Namespace + '.' +
-                    property.DeclaringType.Name + '.' + name;
+                string nsPrefix = property.DeclaringType.Namespace != null ?
+                    property.DeclaringType.Namespace + '.' : string.Empty;
+                name = nsPrefix + property.DeclaringType.Name + '.' + name;
             }
 
             ParameterExpression thisParameter =

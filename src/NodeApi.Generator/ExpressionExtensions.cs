@@ -339,7 +339,8 @@ internal static class ExpressionExtensions
             }
             else
             {
-                return $"{type.Namespace}.{type.Name.Substring(0, type.Name.IndexOf('`'))}<{typeArgs}>";
+                string nsPrefix = type.Namespace != null ? type.Namespace + "." : string.Empty;
+                return $"{nsPrefix}{type.Name.Substring(0, type.Name.IndexOf('`'))}<{typeArgs}>";
             }
         }
         else if (type.IsNested)

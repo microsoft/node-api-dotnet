@@ -837,7 +837,12 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         JSMarshaller _marshaller)
     {
         string ns = GetNamespace(interfaceType);
-        string adapterName = $"proxy_{ns.Replace('.', '_')}_{interfaceType.Name}";
+        if (ns.Length > 0)
+        {
+            ns += '_';
+        }
+
+        string adapterName = $"proxy_{ns.Replace('.', '_')}{interfaceType.Name}";
 
         static string ReplaceMethodVariables(string cs) =>
             cs.Replace(typeof(JSValue).Namespace + ".", "")
