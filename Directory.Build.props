@@ -23,6 +23,11 @@
     <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
   <PropertyGroup Condition=" '$(PublishAot)' == 'true' ">
     <!-- Modify the build output paths when publishing for AOT. This enables separately compiling
          AOT and non-AOT flavors of the same project, which is necessary because .NET 8 blocks
