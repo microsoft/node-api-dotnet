@@ -406,8 +406,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         foreach (IPropertySymbol exportProperty in exportItems.OfType<IPropertySymbol>())
         {
             string exportName = GetExportName(exportProperty);
-                ExportProperty(ref s, exportProperty, exportName);
-            }
+            ExportProperty(ref s, exportProperty, exportName);
+        }
 
         // Export static methods tagged with [JSExport] as module-level functions.
         foreach (IGrouping<string, IMethodSymbol> methodGroup in exportItems.OfType<IMethodSymbol>()
