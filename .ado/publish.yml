@@ -223,7 +223,7 @@ jobs:
           ConnectedServiceName: ESRP-JsHost2
           FolderPath: $(Build.SourcesDirectory)/out/pkg
           Pattern: |
-            **/Microsoft.JavaScript.NodeApi.*.nupkg
+            **/Microsoft.JavaScript.NodeApi.*.*nupkg
           UseMinimatch: true
           signConfigType: inlineSignParams
           inlineOperation: |
@@ -250,7 +250,7 @@ jobs:
           sourceFolder: $(Build.SourcesDirectory)/out/pkg
           targetFolder: $(Build.StagingDirectory)/pkg
           contents: |
-            *.nupkg
+            *.*nupkg
             *.tgz
 
       - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0

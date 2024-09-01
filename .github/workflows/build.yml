@@ -72,7 +72,7 @@ jobs:
       with:
         name: ${{ matrix.os }}-${{ matrix.configuration }}-packages
         path: |
-          out/pkg/*.nupkg
+          out/pkg/*.*nupkg
           out/pkg/*.tgz
 
     - name: Test
