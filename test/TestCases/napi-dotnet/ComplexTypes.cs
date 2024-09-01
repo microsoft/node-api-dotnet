@@ -209,18 +209,50 @@ public enum TestEnum
     Two,
 }
 
-// Ensure module generation handles circular references between a base class and derived class.
-public class BaseClass
+[JSExport]
+public interface IBaseInterface
 {
-    protected BaseClass(int x) { }
-
-    public DerivedClass? Derived { get; set; }
+    int Value1 { get; set; }
 }
 
 [JSExport]
-public class DerivedClass : BaseClass
+public class BaseClass : IBaseInterface
 {
-    public DerivedClass(int x) : base(x) { }
+    public BaseClass(int value) { Value1 = value; }
+
+    public BaseClass(IBaseInterface copy)
+    {
+        Value1 = copy.Value1;
+    }
+
+    // Ensure module generation handles circular references between a base class and subclass.
+    public SubClass? BaseProperty { get; set; }
+
+    public int Value1 { get; set; }
+}
+
+[JSExport]
+public interface ISubInterface : IBaseInterface
+{
+    int Value2 { get; set; }
+}
+
+[JSExport]
+public class SubClass : BaseClass, ISubInterface
+{
+    public SubClass(int value, int value2) : base(value)
+    {
+        Value2 = value2;
+        BaseProperty = this;
+    }
+
+    public SubClass(ISubInterface copy) : base(copy)
+    {
+        Value2 = copy.Value2;
+        BaseProperty = this;
+    }
+
+    public int Value2 { get; set; }
 }
 
 [JSExport]

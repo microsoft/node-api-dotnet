@@ -369,7 +369,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         if (moduleType != null)
         {
             string typeFullName = GetFullName(moduleType);
-            s += $"exportsValue = new JSModuleBuilder<{typeFullName}>()";
+            s += $"var module = new JSModuleBuilder<{typeFullName}>()";
             s.IncreaseIndent();
 
             // Export public non-static members of the module class.
@@ -390,35 +390,44 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
         else
         {
-            s += $"exportsValue = new JSModuleBuilder<JSRuntimeContext>()";
+            s += $"var module = new JSModuleBuilder<JSRuntimeContext>()";
             s.IncreaseIndent();
         }
 
-        // Export types and functions (static methods) tagged with [JSExport]
-        foreach (ISymbol exportItem in exportItems)
+        // Generate adapters for exported delegates for later use in method marshalling.
+        foreach (ITypeSymbol exportDelegate in exportItems.OfType<ITypeSymbol>()
+            .Where((t) => t.TypeKind == TypeKind.Delegate))
         {
-            string exportName = GetExportName(exportItem);
-            if (exportItem is ITypeSymbol exportType)
-            {
-                ExportType(ref s, exportType, exportName);
-            }
-            else if (exportItem is IPropertySymbol exportProperty)
-            {
-                // Export tagged static properties as properties on the module.
-                ExportProperty(ref s, exportProperty, exportName);
-            }
-            else if (exportItem is ITypeSymbol exportDelegate &&
-                exportDelegate.TypeKind == TypeKind.Delegate)
-            {
-                ExportDelegate(exportDelegate);
-            }
+            string exportName = GetExportName(exportDelegate);
+            ExportDelegate(exportDelegate);
         }
 
-        // Export tagged static methods as top-level functions on the module.
+        // Export static properties tagged with [JSExport] as module-level properties.
+        foreach (IPropertySymbol exportProperty in exportItems.OfType<IPropertySymbol>())
+        {
+            string exportName = GetExportName(exportProperty);
+            ExportProperty(ref s, exportProperty, exportName);
+        }
+
+        // Export static methods tagged with [JSExport] as module-level functions.
         foreach (IGrouping<string, IMethodSymbol> methodGroup in exportItems.OfType<IMethodSymbol>()
             .GroupBy(GetExportName))
         {
             ExportMethod(ref s, methodGroup, methodGroup.Key);
+        }
+
+        s += ";";
+        s.DecreaseIndent();
+        s++;
+
+        // Export types tagged with [JSExport] as properties on the module.
+        // Ensure base classes are exported before derived classes.
+        ITypeSymbol[] exportTypes = exportItems.OfType<ITypeSymbol>().ToArray();
+        Array.Sort(exportTypes, OrderByTypeHierarchy);
+        foreach (ITypeSymbol exportType in exportTypes)
+        {
+            string exportName = GetExportName(exportType);
+            ExportType(ref s, exportType, exportName);
         }
 
         if (moduleType != null)
@@ -426,14 +435,33 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             // Construct an instance of the custom module class when the module is initialized.
             // If a no-args constructor is not present then the generated code will not compile.
             string typeFullName = GetFullName(moduleType);
-            s += $".ExportModule(new {typeFullName}(), (JSObject)exportsValue);";
+            s += $"exportsValue = module.ExportModule(new {typeFullName}(), (JSObject)exportsValue);";
         }
         else
         {
-            s += $".ExportModule(context, (JSObject)exportsValue);";
+            s += $"exportsValue = module.ExportModule(context, (JSObject)exportsValue);";
+        }
+    }
+
+    private static int OrderByTypeHierarchy(ITypeSymbol a, ITypeSymbol b)
+    {
+        for (ITypeSymbol? t = a.BaseType; t != null; t = t.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(t, b))
+            {
+                return 1;
+            }
         }
 
-        s.DecreaseIndent();
+        for (ITypeSymbol? t = b.BaseType; t != null; t = t.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(t, a))
+            {
+                return -1;
+            }
+        }
+
+        return 0;
     }
 
     /// <summary>
@@ -444,71 +472,100 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         ITypeSymbol type,
         string exportName)
     {
-        string propertyAttributes = string.Empty;
-        if (type.ContainingType != null)
+        string propertyAttributes =
+            $"{nameof(JSPropertyAttributes)}.{nameof(JSPropertyAttributes.Static)} | " +
+            $"{nameof(JSPropertyAttributes)}.{nameof(JSPropertyAttributes.Enumerable)}";
+
+        // Declare nested types first, so they can be exported as static properties of this type.
+        foreach (INamedTypeSymbol nestedType in type.GetTypeMembers())
         {
-            propertyAttributes = ", JSPropertyAttributes.Static | " +
-                "JSPropertyAttributes.Enumerable | JSPropertyAttributes.Configurable";
+            ExportType(ref s, nestedType, GetExportName(nestedType));
         }
+
+        string typeVariableName = "type_" + GetFullName(type).Replace('.', '_');
 
         if (type.TypeKind == TypeKind.Class ||
             type.TypeKind == TypeKind.Interface)
         {
-            s += $".AddProperty(\"{exportName}\",";
-            s.IncreaseIndent();
-
             if (type.TypeKind == TypeKind.Interface)
             {
                 // Interfaces do not have constructors.
-                s += $"new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\")";
+                s += $"var {typeVariableName} = new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\")";
                 _exportedInterfaces.Add(type);
             }
             else if (type.IsStatic)
             {
                 // Static classes do not have constructors, and cannot be used as type params.
-                s += $"new JSClassBuilder<object>(\"{exportName}\")";
+                s += $"var {typeVariableName} = new JSClassBuilder<object>(\"{exportName}\")";
             }
             else
             {
-                s += $"new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\",";
+                s += $"var {typeVariableName} = new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\",";
                 ExportConstructor(ref s, type);
             }
+
+            s.IncreaseIndent();
 
             // Export all the class members, then define the class.
             ExportMembers(ref s, type);
 
-            s += (type.TypeKind == TypeKind.Interface ? ".DefineInterface()" :
-                type.IsStatic ? ".DefineStaticClass()" : ".DefineClass()") +
-                propertyAttributes + ')';
+            bool isStreamClass = typeof(System.IO.Stream).IsAssignableFrom(type.AsType());
+            if (type.TypeKind == TypeKind.Class && !isStreamClass && IsExported(type.BaseType!))
+            {
+                string baseTypeVariableName = "type_" +
+                    GetFullName(type.BaseType!).Replace('.', '_');
+                s += $".DefineClass({baseTypeVariableName});";
+            }
+            else
+            {
+                s += (type.TypeKind == TypeKind.Interface ? ".DefineInterface()" :
+                    type.IsStatic ? ".DefineStaticClass()" : ".DefineClass()") + ';';
+            }
+
             s.DecreaseIndent();
+
+            if (type.ContainingType == null)
+            {
+                s += $"module.AddProperty(\"{exportName}\", {typeVariableName}, {propertyAttributes});";
+            }
         }
         else if (type.TypeKind == TypeKind.Struct)
         {
-            s += $".AddProperty(\"{exportName}\",";
-            s.IncreaseIndent();
-
-            s += $"new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\",";
+            s += $"var {typeVariableName} = new JSClassBuilder<{GetFullName(type)}>(\"{exportName}\",";
             ExportConstructor(ref s, type);
 
+            s.IncreaseIndent();
             ExportMembers(ref s, type);
-            s += $".DefineStruct(){propertyAttributes})";
+            s += $".DefineStruct();";
             s.DecreaseIndent();
+
+            if (type.ContainingType == null)
+            {
+                s += $"module.AddProperty(\"{exportName}\", {typeVariableName}, {propertyAttributes});";
+            }
         }
         else if (type.TypeKind == TypeKind.Enum)
         {
-            s += $".AddProperty(\"{exportName}\",";
-            s.IncreaseIndent();
 
             // Exported enums are similar to static classes with integer properties.
-            s += $"new JSClassBuilder<object>(\"{exportName}\")";
+            s += $"var {typeVariableName} = new JSClassBuilder<object>(\"{exportName}\")";
+
+            s.IncreaseIndent();
             ExportMembers(ref s, type);
-            s += $".DefineEnum(){propertyAttributes})";
+            s += $".DefineEnum();";
             s.DecreaseIndent();
+
+            if (type.ContainingType == null)
+            {
+                s += $"module.AddProperty(\"{exportName}\", {typeVariableName}, {propertyAttributes});";
+            }
         }
         else if (type.TypeKind == TypeKind.Delegate)
         {
             ExportDelegate(type);
         }
+
+        s++;
     }
 
     private void ExportConstructor(
@@ -570,7 +627,13 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
       ref SourceBuilder s,
       ITypeSymbol type)
     {
+        string propertyAttributes =
+            $"{nameof(JSPropertyAttributes)}.{nameof(JSPropertyAttributes.Static)} | " +
+            $"{nameof(JSPropertyAttributes)}.{nameof(JSPropertyAttributes.Enumerable)}";
+
         bool isStreamClass = typeof(System.IO.Stream).IsAssignableFrom(type.AsType());
+
+        // TODO: If the base type is not exported, export members from the base type on this type?
 
         IEnumerable<ISymbol> members = type.GetMembers()
             .Where((m) => m.DeclaredAccessibility == Accessibility.Public)
@@ -595,12 +658,13 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             }
             else if (type.TypeKind == TypeKind.Enum && member is IFieldSymbol field)
             {
-                s += $".AddProperty(\"{field.Name}\", {field.ConstantValue}, " +
-                    "JSPropertyAttributes.Static | JSPropertyAttributes.Enumerable)";
+                s += $".AddProperty(\"{field.Name}\", {field.ConstantValue}, {propertyAttributes})";
             }
             else if (member is INamedTypeSymbol nestedType)
             {
-                ExportType(ref s, nestedType, GetExportName(member));
+                string nestedTypeVariableName = "type_" + GetFullName(nestedType).Replace('.', '_');
+                s += $".AddProperty(\"{GetExportName(nestedType)}\", {nestedTypeVariableName}, " +
+                    $"{propertyAttributes})";
             }
         }
 
@@ -858,13 +922,13 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         s += "{";
         s += $"public {adapterName}(JSValue value) : base(value) {{ }}";
 
-        foreach (ISymbol member in interfaceType.GetMembers())
+        foreach (ISymbol member in GetMembers(interfaceType, includeBaseMembers: true))
         {
             if (member is IPropertySymbol property)
             {
                 s++;
                 s += $"{property.Type.WithNullableAnnotation(NullableAnnotation.NotAnnotated)} " +
-                    $"{GetFullName(interfaceType)}.{property.Name}";
+                    $"{GetFullName(member.ContainingType)}.{property.Name}";
                 s += "{";
 
                 if (!property.IsWriteOnly)
@@ -939,6 +1003,34 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
 
         s += "}";
+    }
+
+    private static IEnumerable<ISymbol> GetMembers(ITypeSymbol typeSymbol, bool includeBaseMembers)
+    {
+        foreach (ISymbol member in typeSymbol.GetMembers())
+        {
+            yield return member;
+        }
+
+        // Exclude members from System.Object.
+        if (includeBaseMembers && typeSymbol.TypeKind == TypeKind.Class &&
+            typeSymbol.BaseType?.BaseType != null)
+        {
+            foreach (ISymbol member in GetMembers(typeSymbol.BaseType, includeBaseMembers: true))
+            {
+                yield return member;
+            }
+        }
+        else if (includeBaseMembers && typeSymbol.TypeKind == TypeKind.Interface)
+        {
+            foreach (ITypeSymbol interfaceSymbol in typeSymbol.AllInterfaces)
+            {
+                foreach (ISymbol member in GetMembers(interfaceSymbol, includeBaseMembers: true))
+                {
+                    yield return member;
+                }
+            }
+        }
     }
 
     /// <summary>
