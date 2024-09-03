@@ -746,18 +746,18 @@ import { Duplex } from 'stream';
         if (_emitDateTimeOffset)
         {
             s.Insert(insertIndex, _isSystemAssembly ? @"
-declare namespace js { type DateTimeOffset = Date | { offset?: number } }
+declare namespace js { type DateTimeOffset = Date & { offset?: number } }
 " : @"
-type DateTimeOffset = Date | { offset?: number }
+type DateTimeOffset = Date & { offset?: number }
 ");
         }
 
         if (_emitDateTime)
         {
             s.Insert(insertIndex, _isSystemAssembly ? @"
-declare namespace js { type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' } }
+declare namespace js { type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' } }
 " : @"
-type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
+type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
 ");
         }
     }

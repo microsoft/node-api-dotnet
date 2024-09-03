@@ -81,7 +81,7 @@ ComplexTypes.testEnum = enumType.Two;
 assert.strictEqual(ComplexTypes.testEnum, enumType.Two);
 
 // DateTime
-/** @type {Date | { kind: 'utc' | 'local' | 'unspecified' }} */
+/** @type {Date & { kind: 'utc' | 'local' | 'unspecified' }} */
 const dateValue = ComplexTypes.dateTime;
 assert(dateValue instanceof Date);
 assert.strictEqual(dateValue.valueOf(), new Date('2023-04-05T06:07:08').valueOf());
@@ -89,7 +89,7 @@ assert.strictEqual(dateValue.kind, 'unspecified');
 ComplexTypes.dateTime = new Date('2024-03-02T11:00');
 assert.strictEqual(ComplexTypes.dateTime.valueOf(), new Date('2024-03-02T11:00').valueOf());
 assert.strictEqual(ComplexTypes.dateTime.kind, 'utc');
-/** @type {Date | { kind: 'utc' | 'local' | 'unspecified' }} */
+/** @type {Date & { kind: 'utc' | 'local' | 'unspecified' }} */
 const dateValue2 = new Date('2024-03-02T11:00');
 dateValue2.kind = 'local';
 ComplexTypes.dateTime = dateValue2;
@@ -110,7 +110,7 @@ ComplexTypes.timeSpan = (2*24*60*60 + 23*60*60 + 34*60 + 45) * 1000;
 assert.strictEqual(ComplexTypes.timeSpan, (2*24*60*60 + 23*60*60 + 34*60 + 45) * 1000);
 
 // DateTimeOffset
-/** @type {Date | { offset: number }} */
+/** @type {Date & { offset: number }} */
 const dateTimeOffsetValue = ComplexTypes.dateTimeOffset;
 assert(dateTimeOffsetValue instanceof Date);
 // A negative offset means the UTC time is later than the local time,
@@ -118,7 +118,7 @@ assert(dateTimeOffsetValue instanceof Date);
 assert.strictEqual(dateTimeOffsetValue.valueOf(), Date.UTC(2023, 3, 5, 6, 7, 8) + 90 * 60 * 1000);
 assert.strictEqual(dateTimeOffsetValue.offset, -90);
 assert.strictEqual(dateTimeOffsetValue.toString(), '2023-04-05 06:07:08.000 -01:30');
-/** @type {Date | { offset: number }} */
+/** @type {Date & { offset: number }} */
 const dateTimeOffsetValue2 = new Date(Date.UTC(2024, 2, 2, 1, 0, 0));
 dateTimeOffsetValue2.offset = 120;
 ComplexTypes.dateTimeOffset = dateTimeOffsetValue2;
