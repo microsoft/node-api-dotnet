@@ -3,8 +3,8 @@
 
 | C# Type          | JS Type     |
 |------------------|--------------------------------------------------------|
-| `DateTime`       | `Date \| { kind?: 'utc' \| 'local' \| 'unspecified' }` |
-| `DateTimeOffset` | `Date \| { offset?: number }`                          |
+| `DateTime`       | `Date & { kind?: 'utc' \| 'local' \| 'unspecified' }` |
+| `DateTimeOffset` | `Date & { offset?: number }`                          |
 | `TimeSpan`       | `number` (milliseconds)                                |
 
 ## JS Date / .NET DateTime & DateTimeOffset
@@ -30,7 +30,7 @@ interoperability, both types of .NET values are convertible to and from JS `Date
 accomplished by adding either a `kind` or `offset` property to a regular `Date` object.
 
 ```TypeScript
-type DateTime = Date | { kind?: 'utc' | 'local' | 'unspecified' }
+type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
 ```
 
 When a .NET `DateTime` is marshalled to a JS `Date`, the date's UTC timestamp value becomes the
@@ -43,7 +43,7 @@ with `Utc` kind. (Defaulting to `Unspecified` would be more likely to result in 
 conversions to/from local-time.)
 
 ```TypeScript
-type DateTimeOffset = Date | { offset?: number }
+type DateTimeOffset = Date & { offset?: number }
 ```
 
 When a .NET `DateTimeOffset` is marshalled to a JS `Date`, the UTC timestamp value _without the
