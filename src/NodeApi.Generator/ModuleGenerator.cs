@@ -443,25 +443,23 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
     }
 
+    /// <summary>
+    /// Orders types by their inheritance hierarchy, so base types are ordered before derived
+    /// types, and types with the same base type are in alphabetical order.
     private static int OrderByTypeHierarchy(ITypeSymbol a, ITypeSymbol b)
     {
-        for (ITypeSymbol? t = a.BaseType; t != null; t = t.BaseType)
+        static string GetTypeHierarchyPath(ITypeSymbol type)
         {
-            if (SymbolEqualityComparer.Default.Equals(t, b))
+            if (type.BaseType == null) // System.Object
             {
-                return 1;
+                return "/";
             }
+
+            string typeFullName = GetFullName(type);
+            return GetTypeHierarchyPath(type.BaseType) + "/" + typeFullName;
         }
 
-        for (ITypeSymbol? t = b.BaseType; t != null; t = t.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(t, a))
-            {
-                return -1;
-            }
-        }
-
-        return 0;
+        return string.CompareOrdinal(GetTypeHierarchyPath(a), GetTypeHierarchyPath(b));
     }
 
     /// <summary>
@@ -514,7 +512,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 string baseTypeVariableName = "type_" +
                     GetFullName(type.BaseType!).Replace('.', '_');
-                s += $".DefineClass({baseTypeVariableName});";
+                s += $".DefineClass(baseClass: {baseTypeVariableName});";
             }
             else
             {

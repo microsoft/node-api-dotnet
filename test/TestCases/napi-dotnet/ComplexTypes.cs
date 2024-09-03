@@ -209,6 +209,13 @@ public enum TestEnum
     Two,
 }
 
+// The subclass is declared before the base class to ensure the module generator handles this case.
+[JSExport]
+public class SubClass2 : SubClass
+{
+    public SubClass2(int value, int value2) : base(value, value2) {}
+}
+
 [JSExport]
 public interface IBaseInterface
 {
