@@ -475,7 +475,8 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             $"{nameof(JSPropertyAttributes)}.{nameof(JSPropertyAttributes.Enumerable)}";
 
         // Declare nested types first, so they can be exported as static properties of this type.
-        foreach (INamedTypeSymbol nestedType in type.GetTypeMembers())
+        foreach (INamedTypeSymbol nestedType in type.GetTypeMembers()
+            .Where((t) => t.DeclaredAccessibility == Accessibility.Public))
         {
             ExportType(ref s, nestedType, GetExportName(nestedType));
         }

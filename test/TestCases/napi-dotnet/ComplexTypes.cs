@@ -199,6 +199,11 @@ public class ClassObject : ITestInterface
 
         public string Value { get; set; }
     }
+
+    // Non-public nested types should not be exported.
+    internal class PrivateNestedClass
+    {
+    }
 }
 
 [JSExport]
