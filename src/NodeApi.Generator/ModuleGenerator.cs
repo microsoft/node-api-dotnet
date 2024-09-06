@@ -395,6 +395,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
 
         // Generate adapters for exported delegates for later use in method marshalling.
+        // Delegate types are not exported as properties, only as marshalling adapters.
         foreach (ITypeSymbol exportDelegate in exportItems.OfType<ITypeSymbol>()
             .Where((t) => t.TypeKind == TypeKind.Delegate))
         {
@@ -659,8 +660,10 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
             {
                 s += $".AddProperty(\"{field.Name}\", {field.ConstantValue}, {propertyAttributes})";
             }
-            else if (member is INamedTypeSymbol nestedType)
+            else if (member is INamedTypeSymbol nestedType &&
+                nestedType.TypeKind != TypeKind.Delegate)
             {
+                // Delegate types are not exported as properties, only as marshalling adapters.
                 string nestedTypeVariableName = "type_" + GetFullName(nestedType).Replace('.', '_');
                 s += $".AddProperty(\"{GetExportName(nestedType)}\", {nestedTypeVariableName}, " +
                     $"{propertyAttributes})";

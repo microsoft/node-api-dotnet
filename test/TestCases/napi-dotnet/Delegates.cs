@@ -15,6 +15,8 @@ public delegate string TestDelegate(string value);
 [JSExport]
 public static class Delegates
 {
+    public delegate string NestedDelegate(string value);
+
     public static void CallAction(Action<int> actionDelegate, int value) => actionDelegate(value);
 
     public static int CallFunc(Func<int, int> funcDelegate, int value) => funcDelegate(value);
