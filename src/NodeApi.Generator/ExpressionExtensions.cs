@@ -102,9 +102,9 @@ internal static class ExpressionExtensions
                       ") { " + ToCS(conditional.IfTrue, path, variables) + "; }" +
                       (conditional.IfFalse is DefaultExpression ? string.Empty :
                       " else { " + ToCS(conditional.IfFalse, path, variables) + "; }")
-                    : ToCS(conditional.Test, path, variables) + " ?\n" +
+                    : '(' + ToCS(conditional.Test, path, variables) + " ?\n" +
                       ToCS(conditional.IfTrue, path, variables) + " :\n" +
-                      ToCS(conditional.IfFalse, path, variables),
+                      ToCS(conditional.IfFalse, path, variables) + ')',
 
             MemberExpression { NodeType: ExpressionType.MemberAccess } member =>
                 member.Expression is ParameterExpression parameterExpression &&
@@ -374,6 +374,10 @@ internal static class ExpressionExtensions
         else if (type == typeof(string))
         {
             return "string";
+        }
+        else if (type == typeof(object))
+        {
+            return "object";
         }
         else if (type == typeof(void))
         {

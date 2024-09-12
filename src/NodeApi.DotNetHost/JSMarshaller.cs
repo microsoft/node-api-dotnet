@@ -1262,7 +1262,8 @@ public class JSMarshaller
             // TODO: Default parameter values
 
             Type[] parameterTypes = constructors[i].GetParameters()
-                .Select(p => p.ParameterType).ToArray();
+                .Select(p => EnsureObjectCollectionTypeForOverloadResolution(p.ParameterType))
+                .ToArray();
             statements[i + 1] = Expression.Assign(
                 Expression.ArrayAccess(overloadsVariable, Expression.Constant(i)),
                 Expression.New(
@@ -1353,7 +1354,8 @@ public class JSMarshaller
             // TODO: Default parameter values
 
             Type[] parameterTypes = methods[i].GetParameters()
-                .Select(p => p.ParameterType).ToArray();
+                .Select(p => EnsureObjectCollectionTypeForOverloadResolution(p.ParameterType))
+                .ToArray();
             statements[i + 1] = Expression.Assign(
                 Expression.ArrayAccess(overloadsVariable, Expression.Constant(i)),
                 Expression.New(
@@ -1379,6 +1381,77 @@ public class JSMarshaller
                 statements),
             name,
             Array.Empty<ParameterExpression>());
+    }
+
+    /// <summary>
+    /// For purposes of overload resolution, convert non-generic collections and collections
+    /// with specific generic element types to collection interfaces with object element types.
+    /// This simplifies the checks required during overload resolution and avoids the need
+    /// for reflection at resolution time, which is not supported in AOT. (The JS collections
+    /// will still be marshalled to the more specific collection type after resolution when 
+    /// an overload is invoked.)
+    /// </summary>
+    private static Type EnsureObjectCollectionTypeForOverloadResolution(Type type)
+    {
+        if (typeof(System.Collections.IEnumerable).IsAssignableFrom(type) &&
+            !type.IsArray && type != typeof(string))
+        {
+            if (TypeImplementsGenericInterface(type, typeof(IDictionary<,>)) ||
+                TypeImplementsGenericInterface(type, typeof(IReadOnlyDictionary<,>)) ||
+                typeof(System.Collections.IDictionary).IsAssignableFrom(type))
+            {
+                type = typeof(IDictionary<object, object>);
+            }
+            else if (TypeImplementsGenericInterface(type, typeof(IList<>)) ||
+                TypeImplementsGenericInterface(type, typeof(IReadOnlyList<>)) ||
+                typeof(System.Collections.IList).IsAssignableFrom(type))
+            {
+                type = typeof(IList<object>);
+            }
+            else if (TypeImplementsGenericInterface(type, typeof(ISet<>))
+#if READONLY_SET
+                || TypeImplementsGenericInterface(type, typeof(IReadOnlySet<>))
+#endif
+            )
+            {
+                type = typeof(ISet<object>);
+            }
+            else if (TypeImplementsGenericInterface(type, typeof(ICollection<>)) ||
+                TypeImplementsGenericInterface(type, typeof(IReadOnlyCollection<>)))
+            {
+                type = typeof(ICollection<object>);
+            }
+            else
+            {
+                type = typeof(IEnumerable<object>);
+            }
+        }
+        else if (TypeImplementsGenericInterface(type, typeof(IAsyncEnumerable<>)))
+        {
+            type = typeof(IAsyncEnumerable<object>);
+        }
+
+        return type;
+    }
+
+    private static bool TypeImplementsGenericInterface(Type type, Type genericInterface)
+    {
+        if (type.IsInterface && type.IsGenericType &&
+            type.GetGenericTypeDefinition() == genericInterface)
+        {
+            return true;
+        }
+
+        foreach (Type interfaceType in type.GetInterfaces())
+        {
+            if (interfaceType.IsGenericType &&
+                interfaceType.GetGenericTypeDefinition() == genericInterface)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -2968,23 +3041,31 @@ public class JSMarshaller
         Type elementType = toType.GenericTypeArguments[0];
         Type typeDefinition = toType.GetGenericTypeDefinition();
 
-        if (typeDefinition == typeof(IList<>) ||
-            typeDefinition == typeof(ICollection<>) ||
+        if (typeDefinition == typeof(IEnumerable<>) ||
+            typeDefinition == typeof(IAsyncEnumerable<>) ||
+            typeDefinition == typeof(ISet<>) ||
 #if READONLY_SET
             typeDefinition == typeof(IReadOnlySet<>) ||
 #else
             // TODO: Support IReadOnlySet on .NET Framework / .NET Standard 2.0.
 #endif
-            typeDefinition == typeof(ISet<>))
+            typeDefinition == typeof(IList<>) ||
+            typeDefinition == typeof(IReadOnlyList<>))
         {
             /*
-             * value.TryUnwrap() as ICollection<T> ??
-             *     ((JSArray)value).AsCollection<T>(
-             *         (value) => (T)value,
-             *         (value) => (JSValue)value);
+             * value.TryUnwrap() as IList<T> ??
+             *     ((JSArray)value).AsList<T>((value) => (T)value, (value) => (JSValue)value);
              */
-            Type jsCollectionType = typeDefinition.Name.Contains("Set") ?
-                typeof(JSSet) : typeof(JSArray);
+            Type jsCollectionType =
+                typeDefinition == typeof(IEnumerable<>) ? typeof(JSIterable) :
+                typeDefinition == typeof(IAsyncEnumerable<>) ? typeof(JSAsyncIterable) :
+                typeDefinition.Name.Contains("Set") ? typeof(JSSet) :
+                typeof(JSArray);
+            bool isBidirectional = (typeDefinition == typeof(IList<>) ||
+#if READONLY_SET
+                typeDefinition == typeof(IReadOnlySet<>) ||
+#endif
+                typeDefinition == typeof(ISet<>));
             MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
 #if !STRING_AS_SPAN
                 "As" + typeDefinition.Name.Substring(1, typeDefinition.Name.IndexOf('`') - 1),
@@ -2992,47 +3073,82 @@ public class JSMarshaller
                 string.Concat("As",
                     typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)),
 #endif
-                new[] { jsCollectionType, typeof(JSValue.To<>), typeof(JSValue.From<>) },
+                isBidirectional ?
+                    new[] { jsCollectionType, typeof(JSValue.To<>), typeof(JSValue.From<>) } :
+                    new[] { jsCollectionType, typeof(JSValue.To<>) },
                 elementType);
             MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
                 typeof(JSValue), jsCollectionType);
+            Expression valueAsCollectionExpression =
+                Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod);
+            Expression fromJSExpression = GetFromJSValueExpression(elementType);
+            Expression toJSExpression = GetToJSValueExpression(elementType);
             yield return Expression.Coalesce(
                 Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
-                Expression.Call(
-                    asCollectionMethod,
-                    Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
-                    GetFromJSValueExpression(elementType),
-                    GetToJSValueExpression(elementType)));
+                isBidirectional ?
+                    Expression.Call(
+                        asCollectionMethod,
+                        valueAsCollectionExpression,
+                        fromJSExpression,
+                        toJSExpression) :
+                    Expression.Call(
+                        asCollectionMethod,
+                        valueAsCollectionExpression,
+                        fromJSExpression));
         }
-        else if (typeDefinition == typeof(IReadOnlyList<>) ||
-            typeDefinition == typeof(IReadOnlyCollection<>) ||
-            typeDefinition == typeof(IEnumerable<>) ||
-            typeDefinition == typeof(IAsyncEnumerable<>))
+        else if (typeDefinition == typeof(ICollection<>) ||
+            typeDefinition == typeof(IReadOnlyCollection<>))
         {
             /*
-             * value.TryUnwrap() as IReadOnlyCollection<T> ??
-             *     ((JSArray)value).AsReadOnlyCollection<T>((value) => (T)value);
+             * value.TryUnwrap() as ICollection<T> ?? value.IsArray() ?
+             *     ((JSArray)value).AsCollection<T>((value) => (T)value) :
+             *     ((JSSet)value).AsCollection<T>((value) => (T)value, (value) => (JSValue)value);
              */
-            Type jsCollectionType = typeDefinition == typeof(IEnumerable<>) ?
-                typeof(JSIterable) : typeDefinition == typeof(IAsyncEnumerable<>) ?
-                typeof(JSAsyncIterable) : typeof(JSArray);
-            MethodInfo asCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
-#if !STRING_AS_SPAN
-                "As" + typeDefinition.Name.Substring(1, typeDefinition.Name.IndexOf('`') - 1),
-#else
-                string.Concat("As",
-                    typeDefinition.Name.AsSpan(1, typeDefinition.Name.IndexOf('`') - 1)),
-#endif
-                new[] { jsCollectionType, typeof(JSValue.To<>) },
+            MethodInfo isArrayMethod = typeof(JSValue).GetInstanceMethod(nameof(JSValue.IsArray));
+            bool isReadOnlyCollection = typeDefinition == typeof(IReadOnlyCollection<>);
+            string asCollectionMethodName = isReadOnlyCollection ?
+                    nameof(JSCollectionExtensions.AsReadOnlyCollection) :
+                    nameof(JSCollectionExtensions.AsCollection);
+            MethodInfo arrayAsCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                asCollectionMethodName,
+                isReadOnlyCollection ?
+                    new[] { typeof(JSArray), typeof(JSValue.To<>) } :
+                    new[] { typeof(JSArray), typeof(JSValue.To<>), typeof(JSValue.From<>) },
                 elementType);
-            MethodInfo asJSCollectionMethod = jsCollectionType.GetExplicitConversion(
-                typeof(JSValue), jsCollectionType);
+            MethodInfo setAsCollectionMethod = typeof(JSCollectionExtensions).GetStaticMethod(
+                asCollectionMethodName,
+                isReadOnlyCollection ?
+                    new[] { typeof(JSSet), typeof(JSValue.To<>) } :
+                    new[] { typeof(JSSet), typeof(JSValue.To<>), typeof(JSValue.From<>) },
+                elementType);
+            MethodInfo asJSArrayMethod = typeof(JSArray).GetExplicitConversion(
+                typeof(JSValue), typeof(JSArray));
+            MethodInfo asJSSetMethod = typeof(JSSet).GetExplicitConversion(
+                typeof(JSValue), typeof(JSSet));
             yield return Expression.Coalesce(
                 Expression.TypeAs(Expression.Call(valueExpression, s_tryUnwrap), toType),
-                Expression.Call(
-                    asCollectionMethod,
-                    Expression.Convert(valueExpression, jsCollectionType, asJSCollectionMethod),
-                    GetFromJSValueExpression(elementType)));
+                Expression.Condition(
+                    Expression.Call(valueExpression, isArrayMethod),
+                    isReadOnlyCollection ?
+                        Expression.Call(
+                            arrayAsCollectionMethod,
+                            Expression.Convert(valueExpression, typeof(JSArray), asJSArrayMethod),
+                            GetFromJSValueExpression(elementType)) :
+                        Expression.Call(
+                            arrayAsCollectionMethod,
+                            Expression.Convert(valueExpression, typeof(JSArray), asJSArrayMethod),
+                            GetFromJSValueExpression(elementType),
+                            GetToJSValueExpression(elementType)),
+                    isReadOnlyCollection ?
+                        Expression.Call(
+                            setAsCollectionMethod,
+                            Expression.Convert(valueExpression, typeof(JSSet), asJSSetMethod),
+                            GetFromJSValueExpression(elementType)) :
+                        Expression.Call(
+                            setAsCollectionMethod,
+                            Expression.Convert(valueExpression, typeof(JSSet), asJSSetMethod),
+                            GetFromJSValueExpression(elementType),
+                            GetToJSValueExpression(elementType))));
         }
         else if (typeDefinition == typeof(IDictionary<,>))
         {
