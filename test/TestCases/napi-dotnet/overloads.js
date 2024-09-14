@@ -137,9 +137,9 @@ Overloads.collectionMethod4(testAsyncIterable).then(
 const dateWithKind = new Date(Date.UTC(2024, 1, 29));
 dateWithKind.kind = 'utc';
 assert.strictEqual(Overloads.dateTimeMethod(dateWithKind), '2024-02-29T00:00:00: DateTime');
-const dateWithOffset = new Date(2024, 1, 29);
+const dateWithOffset = new Date(Date.UTC(2024, 1, 29));
 dateWithOffset.offset = -10 * 60;
-assert.strictEqual(Overloads.dateTimeMethod(dateWithOffset), '2024-02-29T00:00:00: DateTimeOffset');
+assert.strictEqual(Overloads.dateTimeMethod(dateWithOffset), '2024-02-28T14:00:00: DateTimeOffset');
 assert.strictEqual(Overloads.dateTimeMethod(11 * 60 * 1000), '00:11:00: TimeSpan');
 
 assert.strictEqual(Overloads.otherMethod(TestEnum.One), 'One: TestEnum');
