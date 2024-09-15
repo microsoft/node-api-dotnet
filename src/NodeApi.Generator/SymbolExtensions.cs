@@ -642,16 +642,14 @@ internal static class SymbolExtensions
 
         Type type = methodSymbol.ContainingType.AsType();
 
-        // Ensure constructor parameter types are built.
-        foreach (IParameterSymbol parameter in methodSymbol.Parameters)
-        {
-            parameter.Type.AsType(type.GenericTypeArguments, buildType: true);
-        }
+        Type[] parameterTypes = methodSymbol.Parameters
+            .Select((p) => p.Type.AsType(type.GenericTypeArguments, buildType: true))
+            .ToArray();
 
         BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Instance;
         ConstructorInfo? constructorInfo = type.GetConstructors(bindingFlags)
-            .FirstOrDefault((c) => c.GetParameters().Select((p) => p.Name).SequenceEqual(
-                methodSymbol.Parameters.Select((p) => p.Name)));
+            .FirstOrDefault((c) => c.GetParameters().Select((p) => p.ParameterType.FullName)
+                .SequenceEqual(parameterTypes.Select((t) => t.FullName)));
         return constructorInfo ?? throw new InvalidOperationException(
                 $"Constructor not found for type: {type.Name}");
     }
@@ -674,18 +672,19 @@ internal static class SymbolExtensions
 #endif
         typeParameters = typeParameters.Concat(methodTypeParameters).ToArray();
 
-        foreach (IParameterSymbol parameter in methodSymbol.Parameters)
-        {
-            parameter.Type.AsType(typeParameters, buildType: true);
-        }
-        methodSymbol.ReturnType.AsType(type.GenericTypeArguments, buildType: true);
+        Type[] parameterTypes = methodSymbol.Parameters
+            .Select((p) => p.Type.AsType(typeParameters, buildType: true))
+            .ToArray();
+        Type returnType = methodSymbol.ReturnType.AsType(
+            type.GenericTypeArguments, buildType: true);
 
         BindingFlags bindingFlags = BindingFlags.Public |
             (methodSymbol.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
         MethodInfo? methodInfo = type.GetMethods(bindingFlags)
             .FirstOrDefault((m) => m.Name == methodSymbol.Name &&
-                m.GetParameters().Select((p) => p.Name).SequenceEqual(
-                    methodSymbol.Parameters.Select((p) => p.Name)));
+                m.GetParameters().Select((p) => p.ParameterType.FullName)
+                    .SequenceEqual(parameterTypes.Select((t) => t.FullName)) &&
+                m.ReturnType.FullName == returnType.FullName);
         return methodInfo ?? throw new InvalidOperationException(
                 $"Method not found: {type.Name}.{methodSymbol.Name}");
     }

@@ -18,6 +18,11 @@
     <UseSystemResourceKeys>true</UseSystemResourceKeys><!-- Trim detailed system exception messages. -->
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
+    <!-- Enable AOT compatibility checks during compilation even when not publishing the AOT binary. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
   <ItemGroup Condition=" $(NetFramework) OR $(NetStandard) ">
     <PackageReference Include="System.Memory" />
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
