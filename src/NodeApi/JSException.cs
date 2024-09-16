@@ -43,7 +43,7 @@ public class JSException : Exception
     /// This constructor must be called while still on the JS thread.
     /// </remarks>
     internal JSException(Exception innerException)
-        : this("Exception thrown from JS thread. See inner exception for details.", innerException)
+        : this("Exception thrown from JS thread: " + innerException?.Message, innerException)
     {
         JSException? innerJSException = innerException as JSException;
         JSValue? jsError = innerJSException?.Error?.Value;

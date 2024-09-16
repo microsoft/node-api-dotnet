@@ -214,7 +214,7 @@ public class NodejsEmbeddingTests
             });
         });
 
-        Assert.StartsWith("Exception thrown from JS thread.", exception.Message);
+        Assert.Equal("Exception thrown from JS thread: test", exception.Message);
         Assert.IsType<JSException>(exception.InnerException);
 
         exception = (JSException)exception.InnerException;
