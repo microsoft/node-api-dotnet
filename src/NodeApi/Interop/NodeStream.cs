@@ -22,9 +22,17 @@ public partial class NodeStream : Stream
 
     private NodeStream(JSValue value)
     {
+        bool isObject = value.IsObject();
+        bool canRead = isObject && value.HasProperty("read");
+        bool canWrite = isObject && value.HasProperty("write");
+        if (!canRead && !canWrite)
+        {
+            throw new ArgumentException("Stream is neither readable nor writeable.", nameof(value));
+        }
+
         _valueReference = new JSReference(value);
 
-        if (CanRead)
+        if (canRead)
         {
             _readableSemaphore = new SemaphoreSlim(0);
             value.CallMethod("on", "readable", JSValue.CreateFunction("onreadable", (args) =>
@@ -34,7 +42,7 @@ public partial class NodeStream : Stream
             }));
         }
 
-        if (CanWrite)
+        if (canWrite)
         {
             _drainSemaphore = new SemaphoreSlim(0);
             value.CallMethod("on", "drain", JSValue.CreateFunction("ondrain", (args) =>
@@ -132,20 +140,31 @@ public partial class NodeStream : Stream
         int count = buffer.Length;
         JSValue value = Value;
         JSValue result = value.CallMethod("read", count);
-        if (result.IsNull())
+        while (result.IsNull())
         {
             if ((bool)value.GetProperty("readableEnded"))
             {
+                // End of stream.
                 return 0;
             }
             else
             {
-                // No data is currently available. Wait for the next "readable" event, which will be
-                // raised either when data becomes available or the end of the stream is reached.
-                await _readableSemaphore!.WaitAsync(cancellation);
-                ThrowIfError();
+                int readableLength = (int)value.GetProperty("readableLength");
+                if (readableLength > 0)
+                {
+                    // There are some bytes available, but fewer than the requested count.
+                    count = Math.Min(readableLength, buffer.Length);
+                    buffer = buffer.Slice(0, count);
+                }
+                else
+                {
+                    // No data is currently available. Wait for the next "readable" event, which will be
+                    // raised either when data becomes available or the end of the stream is reached.
+                    await _readableSemaphore!.WaitAsync(cancellation);
+                    ThrowIfError();
+                    value = Value;
+                }
 
-                value = Value;
                 result = value.CallMethod("read", count);
             }
         }

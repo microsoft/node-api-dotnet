@@ -90,6 +90,7 @@ public sealed class NodejsEnvironment : IDisposable
         JSReference originalRequireRef = new(originalRequire);
         JSFunction envRequire = new("require", (modulePath) =>
         {
+            Debug.WriteLine($"require('{(string)modulePath}')");
             JSValue require = originalRequireRef.GetValue();
             JSValue resolvedPath = ResolveModulePath(require, modulePath, baseDir);
             return require.Call(thisArg: default, resolvedPath);

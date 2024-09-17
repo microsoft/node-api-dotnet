@@ -42,8 +42,9 @@ export default defineConfig({
           { text: 'JS / .NET Marshalling', link: '/features/js-dotnet-marshalling' },
           { text: 'JS types in .NET', link: '/features/js-types-in-dotnet' },
           { text: 'JS value scopes', link: '/features/js-value-scopes' },
-          { text: 'JS threading & async', link: '/features/js-threading-async' },
           { text: 'JS references', link: '/features/js-references' },
+          { text: 'JS threading & async', link: '/features/js-threading-async' },
+          { text: 'Node worker threads', link: '/features/node-workers' },
           { text: '.NET Native AOT', link: '/features/dotnet-native-aot' },
           { text: 'Performance', link: '/features/performance' },
         ]
