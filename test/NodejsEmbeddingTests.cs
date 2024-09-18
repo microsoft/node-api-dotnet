@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable CA1822 // Mark members as static
+
 using System;
 using System.IO;
 using System.Linq;
