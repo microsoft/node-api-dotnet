@@ -1,12 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable CA1822 // Mark members as static
+
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.DotNetHost;
+using Microsoft.JavaScript.NodeApi.Interop;
 using Microsoft.JavaScript.NodeApi.Runtime;
 using Xunit;
 using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
@@ -233,6 +237,154 @@ public class NodejsEmbeddingTests
         Assert.Contains(
             stackLines,
             (line) => line.StartsWith($"at {typeof(NodejsEmbeddingTests).FullName}."));
+    }
+
+    [SkippableFact]
+    public async Task WorkerIsMainThread()
+    {
+        await TestWorker(
+            mainPrepare: () =>
+            {
+                Assert.True(NodeWorker.IsMainThread);
+                return new NodeWorker.Options { Eval = true };
+            },
+            workerScript: @"
+const assert = require('node:assert');
+const { isMainThread } = require('node:worker_threads');
+assert(!isMainThread);
+",
+            mainRun: (worker) => Task.CompletedTask);
+    }
+
+    [SkippableFact]
+    public async Task WorkerArgs()
+    {
+        await TestWorker(
+            mainPrepare: () =>
+            {
+                return new NodeWorker.Options
+                {
+                    Eval = true,
+#pragma warning disable CA1861 // Prefer 'static readonly' fields over constant array arguments
+                    Argv = new[] { "test1", "test2" },
+#pragma warning restore CA1861
+                    WorkerData = true,
+                };
+            },
+            workerScript: @"
+const assert = require('node:assert');
+const process = require('node:process');
+const { workerData } = require('node:worker_threads');
+assert.deepStrictEqual(process.argv.slice(2), ['test1', 'test2']);
+assert.strictEqual(typeof workerData, 'boolean');
+assert(workerData);
+",
+            mainRun: (worker) => Task.CompletedTask);
+    }
+
+    [SkippableFact]
+    public async Task WorkerEnv()
+    {
+        await TestWorker(
+            mainPrepare: () =>
+            {
+                NodeWorker.SetEnvironmentData("test", JSValue.True);
+                return new NodeWorker.Options
+                {
+                    Eval = true,
+                };
+            },
+            workerScript: @"
+const assert = require('node:assert');
+const { getEnvironmentData } = require('node:worker_threads');
+assert.strictEqual(getEnvironmentData('test'), true);
+",
+            mainRun: (worker) => Task.CompletedTask);
+    }
+
+    [SkippableFact]
+    public async Task WorkerMessages()
+    {
+        await TestWorker(
+            mainPrepare: () =>
+            {
+                return new NodeWorker.Options { Eval = true };
+            },
+            workerScript: @"
+const { parentPort } = require('node:worker_threads');
+parentPort.on('message', (msg) => parentPort.postMessage(msg)); // echo
+",
+            mainRun: async (worker) =>
+            {
+                TaskCompletionSource<string> echoCompletion = new();
+                worker.Message += (_, e) => echoCompletion.TrySetResult((string)e.Value);
+                worker.Error += (_, e) => echoCompletion.TrySetException(
+                    new JSException(e.Error));
+                worker.Exit += (_, e) => echoCompletion.TrySetException(
+                    new InvalidOperationException("Worker exited without echoing!"));
+                worker.PostMessage("test");
+                string echo = await echoCompletion.Task;
+                Assert.Equal("test", echo);
+            });
+    }
+
+    [SkippableFact]
+    public async Task WorkerStdinStdout()
+    {
+        await TestWorker(
+            mainPrepare: () =>
+            {
+                return new NodeWorker.Options
+                {
+                    Eval = true,
+                    Stdin = true,
+                    Stdout = true,
+                };
+            },
+            workerScript: @"process.stdin.pipe(process.stdout)",
+            mainRun: async (worker) =>
+            {
+                TaskCompletionSource<string> echoCompletion = new();
+                worker.Error += (_, e) => echoCompletion.TrySetException(
+                    new JSException(e.Error));
+                worker.Exit += (_, e) => echoCompletion.TrySetException(
+                    new InvalidOperationException("Worker exited without echoing!"));
+                Assert.NotNull(worker.Stdin);
+                await worker.Stdin.WriteAsync(Encoding.ASCII.GetBytes("test\n"), 0, 5);
+                byte[] buffer = new byte[25];
+                int count = await worker.Stdout.ReadAsync(buffer, 0, buffer.Length);
+                Assert.Equal("test\n", Encoding.ASCII.GetString(buffer, 0, count));
+            });
+    }
+
+    private static async Task TestWorker(
+        Func<NodeWorker.Options> mainPrepare,
+        string workerScript,
+        Func<NodeWorker, Task> mainRun)
+    {
+        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        await nodejs.RunAsync(async () =>
+        {
+            NodeWorker.Options workerOptions = mainPrepare.Invoke();
+            NodeWorker worker = new(workerScript, workerOptions);
+
+            TaskCompletionSource<bool> onlineCompletion = new();
+            worker.Online += (sender, e) => onlineCompletion.SetResult(true);
+            TaskCompletionSource<int> exitCompletion = new();
+            worker.Error += (sender, e) => exitCompletion.SetException(new JSException(e.Error));
+            worker.Exit += (sender, e) => exitCompletion.TrySetResult(e.ExitCode);
+
+            await onlineCompletion.Task;
+            try
+            {
+                await mainRun.Invoke(worker);
+            }
+            finally
+            {
+                await worker.Terminate();
+            }
+            await exitCompletion.Task;
+        });
     }
 
     /// <summary>

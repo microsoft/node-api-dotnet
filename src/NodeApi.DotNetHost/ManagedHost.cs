@@ -113,7 +113,10 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             JSPropertyDescriptor.Function("load", LoadAssembly),
 
             JSPropertyDescriptor.Function("addListener", addListener),
-            JSPropertyDescriptor.Function("removeListener", removeListener));
+            JSPropertyDescriptor.Function("removeListener", removeListener),
+
+            JSPropertyDescriptor.Function("runWorker", RunWorker));
+
 
         // Create a marshaller instance for the current thread. The marshaller dynamically
         // generates adapter delegates for calls to and from JS, for assemblies that were not
@@ -558,6 +561,27 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
         Trace($"< ManagedHost.LoadAssembly() => {assemblyFilePath}, {assembly.GetName().Version}");
         return assembly;
+    }
+
+    private JSValue RunWorker(JSCallbackArgs args)
+    {
+        nint callbackHandleValue = (nint)args[0].ToBigInteger();
+        Trace($"> ManagedHost.RunWorker({callbackHandleValue})");
+
+        GCHandle callbackHandle = GCHandle.FromIntPtr(callbackHandleValue);
+        Action callback = (Action)callbackHandle.Target!;
+        callbackHandle.Free();
+
+        try
+        {
+            // Worker data and argv are available to the callback as NodejsWorker static properties.
+            callback();
+            return JSValue.Undefined;
+        }
+        finally
+        {
+            Trace($"< ManagedHost.RunWorker({callbackHandleValue})");
+        }
     }
 
     protected override void Dispose(bool disposing)

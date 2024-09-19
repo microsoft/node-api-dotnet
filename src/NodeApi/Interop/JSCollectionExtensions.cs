@@ -192,6 +192,35 @@ public static class JSCollectionExtensions
         JSValue.From<TValue> valueToJS)
         => ((JSValue)map).IsNullOrUndefined() ? null! :
             new JSMapDictionary<TKey, TValue>((JSValue)map, keyFromJS, valueFromJS, keyToJS, valueToJS);
+
+    /// <summary>
+    /// Creates a read-only dictionary adapter for properties of a JS object, without copying.
+    /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned dictionary object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
+    public static IReadOnlyDictionary<string, TValue> AsReadOnlyDictionary<TValue>(
+        this JSObject obj,
+        JSValue.To<TValue> valueFromJS)
+        => ((JSValue)obj).IsNullOrUndefined() ? null! :
+            new JSObjectReadOnlyDictionary<TValue>((JSValue)obj, valueFromJS);
+
+    /// <summary>
+    /// Creates a dictionary adapter for properties of a JS object, without copying.
+    /// </summary>
+    /// <remarks>
+    /// This method must be called from the JS thread. The returned dictionary object
+    /// is thread-safe and may be accessed from threads other than the JS thread
+    /// (though accessing from the JS thread is more efficient).
+    /// </remarks>
+    public static IDictionary<string, TValue> AsDictionary<TValue>(
+        this JSObject obj,
+        JSValue.To<TValue> valueFromJS,
+        JSValue.From<TValue> valueToJS)
+        => ((JSValue)obj).IsNullOrUndefined() ? null! :
+            new JSObjectDictionary<TValue>((JSValue)obj, valueFromJS, valueToJS);
 }
 
 internal sealed class JSAsyncIterableEnumerator<T> : IAsyncEnumerator<T>, IDisposable
@@ -846,6 +875,224 @@ internal class JSMapDictionary<TKey, TValue> :
             }
 
             map.CallMethod("delete", KeyToJS(item.Key));
+            return true;
+        });
+    }
+}
+
+internal class JSObjectReadOnlyDictionary<TValue> :
+    IReadOnlyDictionary<string, TValue>,
+    IEquatable<JSValue>,
+    IDisposable
+{
+    internal JSObjectReadOnlyDictionary(
+        JSValue obj,
+        JSValue.To<TValue> valueFromJS)
+    {
+        _objReference = new JSReference(obj);
+        ValueFromJS = valueFromJS;
+    }
+
+    private readonly JSReference _objReference;
+
+    protected void Run(Action<JSValue> action) => _objReference.Run(action);
+    protected TResult Run<TResult>(Func<JSValue, TResult> action) => _objReference.Run(action);
+
+    internal JSValue Value => _objReference.GetValue();
+
+    bool IEquatable<JSValue>.Equals(JSValue other) => Run((obj) => obj.Equals(other));
+
+    protected JSValue.To<TValue> ValueFromJS { get; }
+
+    public int Count
+        => Run((obj) => (int)JSValue.Global["Object"].CallMethod("keys", obj)["length"]);
+
+    public IEnumerable<string> Keys
+        => Run((obj) => ((JSIterable)JSValue.Global["Object"].CallMethod("keys", obj))
+            .AsEnumerable<string>((key) => (string)key));
+
+    public IEnumerable<TValue> Values
+        => Run((obj) => ((JSIterable)JSValue.Global["Object"].CallMethod("values", obj))
+            .AsEnumerable<TValue>(ValueFromJS));
+
+    public TValue this[string key]
+    {
+        get => Run((obj) =>
+        {
+            JSValue jsValue = obj.GetProperty(key);
+            if (jsValue.IsUndefined())
+            {
+                throw new KeyNotFoundException();
+            }
+            return ValueFromJS(jsValue);
+        });
+    }
+
+    public bool ContainsKey(string key) => Run((obj) => (bool)obj.HasProperty(key));
+
+#if NETFRAMEWORK || NETSTANDARD
+    public bool TryGetValue(string key, out TValue value)
+#else
+    public bool TryGetValue(string key, [MaybeNullWhen(false)] out TValue value)
+#endif
+    {
+        bool result;
+        (result, value) = Run((obj) =>
+        {
+            JSValue jsValue = obj.GetProperty(key);
+            if (jsValue.IsUndefined())
+            {
+                return (false, default(TValue)!);
+            }
+            return (true, ValueFromJS(jsValue));
+        });
+        return result;
+    }
+
+    public IEnumerator<KeyValuePair<string, TValue>> GetEnumerator()
+    {
+        return Run((obj) => ((JSIterable)JSValue.Global["Object"].CallMethod("values", obj))
+            .AsEnumerable<KeyValuePair<string, TValue>>((pair) => new KeyValuePair<string, TValue>(
+                (string)pair[0], ValueFromJS(pair[1])))).GetEnumerator();
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        => GetEnumerator();
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _objReference.Dispose();
+        }
+    }
+}
+
+internal class JSObjectDictionary<TValue> :
+    JSObjectReadOnlyDictionary<TValue>,
+    IDictionary<string, TValue>
+{
+    internal JSObjectDictionary(
+        JSValue map,
+        JSValue.To<TValue> valueFromJS,
+        JSValue.From<TValue> valueToJS)
+        : base(map, valueFromJS)
+    {
+        ValueToJS = valueToJS;
+    }
+
+    public new TValue this[string key]
+    {
+        get => Run((obj) =>
+        {
+            JSValue jsValue = obj.GetProperty(key);
+            if (jsValue.IsUndefined())
+            {
+                throw new KeyNotFoundException();
+            }
+            return ValueFromJS(jsValue);
+        });
+        set => Run((obj) =>
+        {
+            obj[key] = ValueToJS(value);
+        });
+    }
+
+    protected JSValue.From<TValue> ValueToJS { get; }
+
+    private int GetCount() => Count;
+
+    public void Add(string key, TValue value)
+    {
+        if (ContainsKey(key))
+        {
+            throw new ArgumentException("An item with the same key already exists.");
+        }
+
+        this[key] = value;
+    }
+
+    public bool Remove(string key) => Run((obj) => obj.DeleteProperty(key));
+
+    public void Clear()
+    {
+        Run((obj) =>
+        {
+            foreach (JSValue key in (JSArray)obj.GetPropertyNames())
+            {
+                obj.DeleteProperty(key);
+            }
+        });
+    }
+
+    ICollection<string> IDictionary<string, TValue>.Keys
+        => Run((obj) => new JSIterableCollection<string>(
+            (JSIterable)JSValue.Global["Object"].CallMethod("keys", obj),
+            (key) => (string)key,
+            GetCount));
+
+    ICollection<TValue> IDictionary<string, TValue>.Values
+        => Run((obj) => new JSIterableCollection<TValue>(
+            (JSIterable)JSValue.Global["Object"].CallMethod("values", obj),
+            ValueFromJS,
+            GetCount));
+
+    bool ICollection<KeyValuePair<string, TValue>>.IsReadOnly => false;
+
+    void ICollection<KeyValuePair<string, TValue>>.Add(KeyValuePair<string, TValue> item)
+        => Add(item.Key, item.Value);
+
+    bool ICollection<KeyValuePair<string, TValue>>.Contains(KeyValuePair<string, TValue> item)
+        => TryGetValue(item.Key, out TValue? value) &&
+            (item.Value?.Equals(value) ?? value == null);
+
+    void ICollection<KeyValuePair<string, TValue>>.CopyTo(
+        KeyValuePair<string, TValue>[] array, int arrayIndex)
+    {
+        Run((obj) =>
+        {
+            int i = arrayIndex;
+            JSValue entries = (JSIterable)JSValue.Global["Object"].CallMethod("entries", obj);
+            JSValue iterator = entries.CallMethod(JSSymbol.Iterator);
+            while (true)
+            {
+                JSValue nextResult = iterator.CallMethod("next");
+                JSValue done = nextResult["done"];
+                if (done.IsBoolean() && (bool)done)
+                {
+                    break;
+                }
+
+                JSValue pair = nextResult["value"];
+                array[i++] = new KeyValuePair<string, TValue>(
+                    (string)pair[0], ValueFromJS(pair[1]));
+            }
+        });
+    }
+
+    bool ICollection<KeyValuePair<string, TValue>>.Remove(KeyValuePair<string, TValue> item)
+    {
+        return Run((obj) =>
+        {
+            JSValue jsValue = obj.GetProperty(item.Key);
+            if (jsValue.IsUndefined())
+            {
+                return false;
+            }
+
+            TValue value = ValueFromJS(jsValue);
+            if (value?.Equals(item.Value) != true)
+            {
+                return false;
+            }
+
+            obj.DeleteProperty(item.Key);
             return true;
         });
     }

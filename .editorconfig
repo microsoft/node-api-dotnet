@@ -156,6 +156,9 @@ csharp_space_between_square_brackets = false
 dotnet_diagnostic.CA1510.severity = none
 dotnet_diagnostic.CA1513.severity = none
 
+# Stream APIs with Memory parameters are not available in .NET Framework
+dotnet_diagnostic.CA1835.severity = none
+
 dotnet_diagnostic.IDE0290.severity = none # Use primary constructor
 dotnet_diagnostic.IDE0065.severity = none # Using directives must be placed outside of namespace
 
