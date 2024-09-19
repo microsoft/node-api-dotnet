@@ -40,6 +40,11 @@ public partial class NodeStream : Stream
                 _readableSemaphore.Release();
                 return JSValue.Undefined;
             }));
+            value.CallMethod("on", "end", JSValue.CreateFunction("onend", (args) =>
+            {
+                _readableSemaphore.Release();
+                return JSValue.Undefined;
+            }));
         }
 
         if (canWrite)
