@@ -1,8 +1,8 @@
 {
   "name": "node-api-dotnet-docs",
   "devDependencies": {
-    "typedoc": "^0.25.13",
-    "vitepress": "^1.2"
+    "typedoc": "^0.26",
+    "vitepress": "^1.3"
   },
   "scripts": {
     "build-dotnet": "node ./tools/build-dotnet-api-docs.js",
