@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
@@ -28,73 +29,99 @@ public unsafe partial class NodejsRuntime : JSRuntime
 
     // Unmanaged delegate types cannot be used as generic type parameters, which is unfortunate
     // since that would have allowed a single generic Import() method. Instead there are separate
-    // generic helpers for different numbers of parameters. These assume all imported functions have
-    // an environment (napi_env or napi_platform) as the first parameter and return napi_status.
+    // generic helpers for different numbers of parameters. These assume all imported functions
+    // return a status enum.
 
-    private delegate* unmanaged[Cdecl]<E, napi_status> Import<E>(
-        ref delegate* unmanaged[Cdecl]<E, napi_status> function,
-        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    private delegate* unmanaged[Cdecl]<T1, S> Import<T1, S>(
+        ref delegate* unmanaged[Cdecl]<T1, S> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "") where S: struct, Enum
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<E, napi_status>)Import(functionName);
+            function = (delegate* unmanaged[Cdecl]<T1, S>)Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<E, T1, napi_status> Import<E, T1>(
-        ref delegate* unmanaged[Cdecl]<E, T1, napi_status> function,
-        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    private delegate* unmanaged[Cdecl]<T1, T2, S> Import<T1, T2, S>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, S> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "") where S: struct, Enum
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<E, T1, napi_status>)Import(functionName);
+            function = (delegate* unmanaged[Cdecl]<T1, T2, S>)Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<E, T1, T2, napi_status> Import<E, T1, T2>(
-        ref delegate* unmanaged[Cdecl]<E, T1, T2, napi_status> function,
-        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, S> Import<T1, T2, T3, S>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, S> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "") where S: struct, Enum
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<E, T1, T2, napi_status>)Import(functionName);
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, S>)Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<E, T1, T2, T3, napi_status> Import<E, T1, T2, T3>(
-        ref delegate* unmanaged[Cdecl]<E, T1, T2, T3, napi_status> function,
-        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, S> Import<T1, T2, T3, T4, S>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, S> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "") where S: struct, Enum
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<E, T1, T2, T3, napi_status>)Import(functionName);
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, S>)Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<E, T1, T2, T3, T4, napi_status> Import<E, T1, T2, T3, T4>(
-        ref delegate* unmanaged[Cdecl]<E, T1, T2, T3, T4, napi_status> function,
-        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, S> Import<T1, T2, T3, T4, T5, S>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, S> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "") where S: struct, Enum
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<E, T1, T2, T3, T4, napi_status>)
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, S>)
                 Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<E, T1, T2, T3, T4, T5, napi_status>
-    Import<E, T1, T2, T3, T4, T5>(
-        ref delegate* unmanaged[Cdecl]<E, T1, T2, T3, T4, T5, napi_status> function,
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, S>
+    Import<T1, T2, T3, T4, T5, T6, S>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, S> function,
         [CallerArgumentExpression(nameof(function))] string functionName = "")
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<E, T1, T2, T3, T4, T5, napi_status>)
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, S>)
+                Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, S>
+    Import<T1, T2, T3, T4, T5, T6, T7, S>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, S> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, S>)
+                Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, T8, S>
+    Import<T1, T2, T3, T4, T5, T6, T7, T8, S>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, T8, S> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, T8, S>)
                 Import(functionName);
         }
         return function;

@@ -519,20 +519,95 @@ public abstract partial class JSRuntime
 
     #region Embedding
 
-    public virtual napi_status CreatePlatform(
-        string[]? args,
-        Action<string>? errorHandler,
-        out napi_platform result) => throw NS();
-    public virtual napi_status DestroyPlatform(napi_platform platform) => throw NS();
-    public virtual napi_status CreateEnvironment(
-        napi_platform platform,
-        Action<string>? errorHandler,
-        string? mainScript,
-        int apiVersion,
-        out napi_env result) => throw NS();
-    public virtual napi_status DestroyEnvironment(napi_env env, out int exitCode) => throw NS();
-    public virtual napi_status RunEnvironment(napi_env env) => throw NS();
-    public virtual napi_status AwaitPromise(napi_env env, napi_value promise, out napi_value result) => throw NS();
+    public virtual node_embedding_exit_code OnEmbeddingError(
+        Action<string[], node_embedding_exit_code> errorHandler) => throw NS();
+
+    public virtual node_embedding_exit_code SetEmbeddingApiVersion(
+        int versionMajor, int versionMinor) => throw NS();
+
+    public virtual node_embedding_exit_code RunEmbeddingMain(
+        string[] args,
+        Action<node_embedding_platform>? configurePlatform,
+        Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
+        Action<node_embedding_runtime, napi_env> nodeApiCallback) => throw NS();
+
+    public virtual node_embedding_exit_code CreateEmbeddingPlatform(
+        string[] args,
+        Action<node_embedding_platform>? configurePlatform,
+        out node_embedding_platform result) => throw NS();
+
+    public virtual node_embedding_exit_code DeleteEmbeddingPlatform(
+        node_embedding_platform platform) => throw NS();
+
+    public virtual node_embedding_exit_code SetEmbeddingPlatformFlags(
+        node_embedding_platform platform,
+        node_embedding_platform_flags flags) => throw NS();
+
+    public virtual node_embedding_exit_code GetEmbeddingPlatformParsedArgs(
+        node_embedding_platform platform,
+        Action<string[]>? getArgsCallback,
+        Action<string[]>? getExecArgsCallback) => throw NS();
+
+    public virtual node_embedding_exit_code RunEmbeddingRuntime(
+        node_embedding_platform platform,
+        string[] args,
+        Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
+        Action<node_embedding_runtime, napi_env> nodeApiCallback) => throw NS();
+
+    public virtual node_embedding_exit_code CreateEmbeddingRuntime(
+        node_embedding_platform platform,
+        Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
+        out node_embedding_runtime result) => throw NS();
+
+    public virtual node_embedding_exit_code DeleteEmbeddingRuntime(node_embedding_runtime runtime)
+        => throw NS();
+
+    public virtual node_embedding_exit_code SetEmbeddingRuntimeFlags(
+        node_embedding_runtime runtime,
+        node_embedding_runtime_flags flags) => throw NS();
+
+    public virtual node_embedding_exit_code SetEmbeddingRuntimeArgs(
+        node_embedding_runtime runtime,
+        string[] args,
+        string[] execArgs) => throw NS();
+
+    public virtual node_embedding_exit_code OnEmbeddingRuntimePreload(
+        node_embedding_runtime runtime,
+        Action<node_embedding_runtime, napi_env, napi_value, napi_value> preloadCallback) => throw NS();
+
+    public virtual node_embedding_exit_code OnEmbeddingRuntimeStartExecution(
+        node_embedding_runtime runtime,
+        Action<node_embedding_runtime, napi_env, napi_value, napi_value, napi_value>
+            startExecutionCallback) => throw NS();
+
+    public virtual node_embedding_exit_code AddEmbeddingRuntimeModule(
+        node_embedding_runtime runtime,
+        string moduleName,
+        Action<node_embedding_runtime, napi_env, string, napi_value> initializeModuleCallback,
+        int module_node_api_version) => throw NS();
+
+    public virtual node_embedding_exit_code OnEmbeddingWakeUpEventLoop(
+        node_embedding_runtime runtime,
+        Action<node_embedding_runtime> eventLoopHandler) => throw NS();
+
+    public virtual node_embedding_exit_code RunEmbeddingEventLoop(
+        node_embedding_runtime runtime,
+        node_embedding_event_loop_run_mode runMode,
+        out bool hasMoreWork) => throw NS();
+
+    public virtual node_embedding_exit_code CompleteEmbeddingEventLoop(
+        node_embedding_runtime runtime) => throw NS();
+
+    public virtual node_embedding_exit_code RunEmbeddingNodeApi(
+        node_embedding_runtime runtime,
+        Action<node_embedding_runtime, napi_env> nodeApiCallback) => throw NS();
+
+    public virtual node_embedding_exit_code OpenEmbeddingNodeApiScope(
+        node_embedding_runtime runtime,
+        out napi_env env) => throw NS();
+
+    public virtual node_embedding_exit_code CloseEmbeddingNodeApiScope(
+        node_embedding_runtime runtime) => throw NS();
 
     #endregion
 }

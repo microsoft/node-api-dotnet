@@ -18,9 +18,9 @@ using static JSRuntime;
 /// </remarks>
 public sealed class NodejsPlatform : IDisposable
 {
-    private readonly napi_platform _platform;
+    private readonly node_embedding_platform _platform;
 
-    public static implicit operator napi_platform(NodejsPlatform platform) => platform._platform;
+    public static implicit operator node_embedding_platform(NodejsPlatform platform) => platform._platform;
 
     /// <summary>
     /// Initializes the Node.js platform.
@@ -44,7 +44,18 @@ public sealed class NodejsPlatform : IDisposable
         nint libnodeHandle = NativeLibrary.Load(libnodePath);
         Runtime = new NodejsRuntime(libnodeHandle);
 
-        Runtime.CreatePlatform(args, (error) => Console.WriteLine(error), out _platform)
+        Runtime.OnEmbeddingError((errors, exitCode) =>
+        {
+            foreach (string error in errors)
+            {
+                Console.Error.WriteLine(error);
+            }
+        });
+
+        Runtime.CreateEmbeddingPlatform(
+            args ?? Array.Empty<string>(),
+            configurePlatform: null,
+            out _platform)
             .ThrowIfFailed();
         Current = this;
     }
@@ -70,7 +81,7 @@ public sealed class NodejsPlatform : IDisposable
         if (IsDisposed) return;
         IsDisposed = true;
 
-        Runtime.DestroyPlatform(_platform);
+        Runtime.DeleteEmbeddingPlatform(_platform);
     }
 
     /// <summary>

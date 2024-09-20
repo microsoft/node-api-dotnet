@@ -61,7 +61,6 @@ public class TracingJSRuntime : JSRuntime
 
     #region Formatting
 
-    private static string Format(napi_platform platform) => platform.Handle.ToString("X16");
     private static string Format(napi_env env) => env.Handle.ToString("X16");
     private static string Format(napi_handle_scope scope) => scope.Handle.ToString("X16");
     private static string Format(napi_escapable_handle_scope scope) => scope.Handle.ToString("X16");
@@ -74,6 +73,8 @@ public class TracingJSRuntime : JSRuntime
     private static string Format(napi_async_cleanup_hook_handle hook)
          => hook.Handle.ToString("X16");
     private static string Format(uv_loop_t loop) => loop.Handle.ToString("X16");
+    private static string Format(string[]? strings) =>
+        strings == null ? "null" : $"[{string.Join(", ", strings)}]";
 
     private string GetValueString(napi_env env, napi_value value)
     {
@@ -2655,70 +2656,267 @@ public class TracingJSRuntime : JSRuntime
 
     #region Embedding
 
-    public override napi_status CreatePlatform(
-        string[]? args, Action<string>? errorHandler, out napi_platform result)
+    private static string Format(node_embedding_platform platform) => platform.Handle.ToString("X16");
+    private static string Format(node_embedding_runtime runtime) => runtime.Handle.ToString("X16");
+
+    private node_embedding_exit_code TraceCall(
+        IEnumerable<string> args,
+        Func<node_embedding_exit_code> call,
+        [CallerMemberName] string name = "")
     {
-        napi_platform resultValue = default;
-        napi_status status = TraceCall(
-            [
-                $"[{string.Join(", ", args ?? [])}]",
-            ],
-            () => (_runtime.CreatePlatform(args, errorHandler, out resultValue),
-                Format(resultValue)));
-        result = resultValue;
-        return status;
+        TraceCall(args, name);
+
+        node_embedding_exit_code exit_code;
+        try
+        {
+            exit_code = call();
+        }
+        catch (Exception ex)
+        {
+            TraceException(ex, name);
+            throw;
+        }
+
+        TraceReturn(exit_code, null, name);
+        return exit_code;
     }
 
-    public override napi_status DestroyPlatform(napi_platform platform)
+    private void TraceReturn(
+        node_embedding_exit_code exit_code,
+        IEnumerable<string>? results = null,
+        [CallerMemberName] string name = "",
+        string prefix = ">")
+    {
+        if (_formatting) return; // Prevent tracing while formatting.
+
+        Trace.TraceEvent(
+            exit_code == node_embedding_exit_code.ok ?
+                TraceEventType.Information : TraceEventType.Warning,
+            ReturnTrace,
+            "{0} {1}({2})",
+            prefix,
+            name,
+            exit_code != node_embedding_exit_code.ok || results == null ?
+                exit_code.ToString() : string.Join(", ", results));
+    }
+
+    public override node_embedding_exit_code OnEmbeddingError(
+        Action<string[], node_embedding_exit_code> errorHandler)
+    {
+        // TODO: Trace error strings and code passed to callback.
+        return TraceCall([], () => _runtime.OnEmbeddingError(errorHandler));
+    }
+
+    public override node_embedding_exit_code SetEmbeddingApiVersion(
+        int versionMajor, int versionMinor)
+    {
+        return TraceCall(
+            [versionMajor.ToString(), versionMinor.ToString()],
+            () => _runtime.SetEmbeddingApiVersion(versionMajor, versionMinor));
+    }
+
+    public override node_embedding_exit_code RunEmbeddingMain(
+        string[] args,
+        Action<node_embedding_platform>? configurePlatform,
+        Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
+        Action<node_embedding_runtime, napi_env> nodeApiCallback)
+    {
+        return TraceCall(
+            [Format(args)],
+            () => _runtime.RunEmbeddingMain(
+                args,
+                configurePlatform,
+                configureRuntime,
+                nodeApiCallback));
+    }
+
+    public override node_embedding_exit_code CreateEmbeddingPlatform(
+        string[] args,
+        Action<node_embedding_platform>? configurePlatform,
+        out node_embedding_platform result)
+    {
+        node_embedding_platform resultValue = default;
+        node_embedding_exit_code exit_code = TraceCall(
+            [Format(args)],
+            () => _runtime.CreateEmbeddingPlatform(args, configurePlatform, out resultValue),
+                Format(resultValue));
+        result = resultValue;
+        return exit_code;
+    }
+
+    public override node_embedding_exit_code DeleteEmbeddingPlatform(
+        node_embedding_platform platform)
     {
         return TraceCall(
             [Format(platform)],
-            () => _runtime.DestroyPlatform(platform));
+            () => _runtime.DeleteEmbeddingPlatform(platform));
+    }
+    public override node_embedding_exit_code SetEmbeddingPlatformFlags(
+        node_embedding_platform platform,
+        node_embedding_platform_flags flags)
+    {
+        return TraceCall(
+            [Format(platform), flags.ToString()],
+            () => _runtime.SetEmbeddingPlatformFlags(platform, flags));
     }
 
-    public override napi_status CreateEnvironment(
-        napi_platform platform,
-        Action<string>? errorHandler,
-        string? mainScript,
-        int apiVersion,
-        out napi_env result)
+    public override node_embedding_exit_code GetEmbeddingPlatformParsedArgs(
+        node_embedding_platform platform,
+        Action<string[]>? getArgsCallback,
+        Action<string[]>? getExecArgsCallback)
     {
-        napi_env resultValue = default;
-        napi_status status = TraceCall(
-            [Format(platform), Format(mainScript)],
-            () => (_runtime.CreateEnvironment(
-                platform, errorHandler, mainScript, apiVersion, out resultValue),
-                Format(resultValue)));
+        // TODO: Trace strings passed to callbacks.
+        return TraceCall(
+            [Format(platform)],
+            () => _runtime.GetEmbeddingPlatformParsedArgs(
+                platform, getArgsCallback, getExecArgsCallback));
+    }
+
+    public override node_embedding_exit_code RunEmbeddingRuntime(
+        node_embedding_platform platform,
+        string[] args,
+        Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
+        Action<node_embedding_runtime, napi_env> nodeApiCallback)
+    {
+        return TraceCall(
+            [Format(platform), Format(args)],
+            () => _runtime.RunEmbeddingRuntime(
+                platform, args, configureRuntime, nodeApiCallback));
+    }
+
+    public override node_embedding_exit_code CreateEmbeddingRuntime(
+        node_embedding_platform platform,
+        Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
+        out node_embedding_runtime result)
+    {
+        node_embedding_runtime resultValue = default;
+        node_embedding_exit_code exit_code = TraceCall(
+            [Format(platform)],
+            () => _runtime.CreateEmbeddingRuntime(platform, configureRuntime, out resultValue),
+            Format(resultValue));
         result = resultValue;
-        return status;
+        return exit_code;
     }
 
-    public override napi_status DestroyEnvironment(napi_env env, out int exitCode)
+    public override node_embedding_exit_code DeleteEmbeddingRuntime(node_embedding_runtime runtime)
     {
-        int exitCodeValue = default;
-        napi_status status = TraceCall(
-            [Format(env)],
-            () => (_runtime.DestroyEnvironment(env, out exitCodeValue),
-                exitCodeValue.ToString()));
-        exitCode = exitCodeValue;
-        return status;
+        return TraceCall(
+            [Format(runtime)],
+            () => _runtime.DeleteEmbeddingRuntime(runtime));
     }
 
-    public override napi_status RunEnvironment(napi_env env)
+    public override node_embedding_exit_code SetEmbeddingRuntimeFlags(
+        node_embedding_runtime runtime,
+        node_embedding_runtime_flags flags)
     {
-        return TraceCall([Format(env)], () => _runtime.RunEnvironment(env));
+        return TraceCall(
+            [Format(runtime), flags.ToString()],
+            () => _runtime.SetEmbeddingRuntimeFlags(runtime, flags));
     }
 
-    public override napi_status AwaitPromise(
-        napi_env env, napi_value promise, out napi_value result)
+    public override node_embedding_exit_code SetEmbeddingRuntimeArgs(
+        node_embedding_runtime runtime,
+        string[] args,
+        string[] execArgs)
     {
-        napi_value resultValue = default;
-        napi_status status = TraceCall(
-            [Format(env, promise)],
-            () => (_runtime.AwaitPromise(env, promise, out resultValue), Format(env, resultValue)));
-        result = resultValue;
-        return status;
+        return TraceCall(
+            [Format(runtime), Format(args), Format(execArgs)],
+            () => _runtime.SetEmbeddingRuntimeArgs(runtime, args, execArgs));
     }
 
+    public override node_embedding_exit_code OnEmbeddingRuntimePreload(
+        node_embedding_runtime runtime,
+        Action<node_embedding_runtime, napi_env, napi_value, napi_value> preloadCallback)
+    {
+        return TraceCall(
+            [Format(runtime)],
+            () => _runtime.OnEmbeddingRuntimePreload(runtime, preloadCallback));
+    }
+
+    public override node_embedding_exit_code OnEmbeddingRuntimeStartExecution(
+        node_embedding_runtime runtime,
+        Action<node_embedding_runtime, napi_env, napi_value, napi_value, napi_value>
+            startExecutionCallback)
+    {
+        // TODO: Trace values passed to callback.
+        return TraceCall(
+            [Format(runtime)],
+            () => _runtime.OnEmbeddingRuntimeStartExecution(
+                runtime, startExecutionCallback));
+    }
+
+    public override node_embedding_exit_code AddEmbeddingRuntimeModule(
+        node_embedding_runtime runtime,
+        string moduleName,
+        Action<node_embedding_runtime, napi_env, string, napi_value> initializeModuleCallback,
+        int module_node_api_version)
+    {
+        return TraceCall(
+            [Format(runtime), moduleName, module_node_api_version.ToString()],
+            () => _runtime.AddEmbeddingRuntimeModule(
+                runtime, moduleName, initializeModuleCallback, module_node_api_version));
+    }
+
+    public override node_embedding_exit_code OnEmbeddingWakeUpEventLoop(
+        node_embedding_runtime runtime,
+        Action<node_embedding_runtime> eventLoopHandler)
+    {
+        return TraceCall(
+            [Format(runtime)],
+            () => _runtime.OnEmbeddingWakeUpEventLoop(runtime, eventLoopHandler));
+    }
+
+    public override node_embedding_exit_code RunEmbeddingEventLoop(
+        node_embedding_runtime runtime,
+        node_embedding_event_loop_run_mode runMode,
+        out bool hasMoreWork)
+    {
+        bool hasMoreWorkValue = default;
+        node_embedding_exit_code exit_code = TraceCall(
+            [Format(runtime), runMode.ToString()],
+            () => _runtime.RunEmbeddingEventLoop(runtime, runMode, out hasMoreWorkValue),
+            hasMoreWorkValue.ToString());
+        hasMoreWork = hasMoreWorkValue;
+        return exit_code;
+    }
+
+    public override node_embedding_exit_code CompleteEmbeddingEventLoop(
+        node_embedding_runtime runtime)
+    {
+        // TODO: Trace values passed to callback.
+        return TraceCall(
+            [Format(runtime)],
+            () => _runtime.CompleteEmbeddingEventLoop(runtime));
+    }
+
+    public override node_embedding_exit_code RunEmbeddingNodeApi(
+        node_embedding_runtime runtime,
+        Action<node_embedding_runtime, napi_env> nodeApiCallback)
+    {
+        return TraceCall(
+            [Format(runtime)],
+            () => _runtime.RunEmbeddingNodeApi(runtime, nodeApiCallback));
+    }
+
+    public override node_embedding_exit_code OpenEmbeddingNodeApiScope(
+        node_embedding_runtime runtime,
+        out napi_env env)
+    {
+        napi_env envValue = default;
+        node_embedding_exit_code exit_code = TraceCall(
+            [Format(runtime)],
+            () => _runtime.OpenEmbeddingNodeApiScope(runtime, out envValue),
+            Format(envValue));
+        env = envValue;
+        return exit_code;
+    }
+
+    public override node_embedding_exit_code CloseEmbeddingNodeApiScope(
+        node_embedding_runtime runtime)
+    {
+        return TraceCall(
+            [Format(runtime)],
+            () => _runtime.CloseEmbeddingNodeApiScope(runtime));
+    }
     #endregion
 }

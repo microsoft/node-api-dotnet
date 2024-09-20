@@ -31,7 +31,9 @@ public unsafe partial class JSRuntime
     public record struct napi_escapable_handle_scope(nint Handle);
     public record struct napi_callback_info(nint Handle);
     public record struct napi_deferred(nint Handle);
-    public record struct napi_platform(nint Handle);
+
+    public record struct node_embedding_platform(nint Handle);
+    public record struct node_embedding_runtime(nint Handle);
 
     //===========================================================================
     // Enum types
@@ -141,17 +143,6 @@ public unsafe partial class JSRuntime
             : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
     }
 
-    public struct napi_error_message_handler
-    {
-        public nint Handle;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void Delegate(byte* message);
-
-        public napi_error_message_handler(napi_error_message_handler.Delegate handler)
-            => Handle = Marshal.GetFunctionPointerForDelegate(handler);
-    }
-
     public struct napi_property_descriptor
     {
         // One of utf8name or name should be NULL.
@@ -209,5 +200,38 @@ public unsafe partial class JSRuntime
 
         public static readonly c_bool True = new(true);
         public static readonly c_bool False = new(false);
+    }
+
+    public enum node_embedding_exit_code
+    {
+        ok = 0,
+        // 1 was intended for uncaught JS exceptions from the user land but we
+        // actually use this for all kinds of generic errors.
+        generic_user_error = 1,
+        // 2 is unused
+        // 3 is actually unused because we pre-compile all builtins during
+        // snapshot building, when we exit with 1 if there's any error.
+        internal_js_parse_error = 3,
+        // 4 is actually unused. We exit with 1 in this case.
+        internal_js_evaluation_failure = 4,
+        // 5 is actually unused. We exit with 133 (128+SIGTRAP) or 134
+        // (128+SIGABRT) in this case.
+        v8_fatal_error = 5,
+        invalid_fatal_exception_monkey_patching = 6,
+        exception_in_fatal_exception_handler = 7,
+        // 8 is unused
+        invalid_command_line_argument = 9,
+        bootstrap_failure = 10,
+        // 11 is unused
+        // This was intended for invalid inspector arguments but is actually now
+        // just a duplicate of invalid_command_line_argument
+        invalid_command_line_argument2 = 12,
+        unsettled_top_level_await = 13,
+        startup_snapshot_failure = 14,
+        // If the process exits from unhandled signals e.g. SIGABRT, SIGTRAP,
+        // typically the exit codes are 128 + signal number. We also exit with
+        // certain error codes directly for legacy reasons. Here we define those
+        // that are used to normalize the exit code on Windows.
+        abort = 134,
     }
 }

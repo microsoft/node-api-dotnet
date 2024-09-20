@@ -29,9 +29,12 @@ public sealed class NodejsEnvironment : IDisposable
     /// </summary>
     public const int NodeApiVersion = 8;
 
+    private readonly NodejsPlatform _platform;
+    private node_embedding_runtime _embeddingRuntime;
     private readonly JSValueScope _scope;
     private readonly Thread _thread;
     private readonly TaskCompletionSource<bool> _completion = new();
+    private JSReference _completionPromise;
 
     public static explicit operator napi_env(NodejsEnvironment environment) =>
         (napi_env)environment._scope;
@@ -40,40 +43,51 @@ public sealed class NodejsEnvironment : IDisposable
 
     internal NodejsEnvironment(NodejsPlatform platform, string? baseDir, string? mainScript)
     {
+        _platform = platform;
         JSValueScope scope = null!;
         JSSynchronizationContext syncContext = null!;
         using ManualResetEvent loadedEvent = new(false);
 
         _thread = new(() =>
         {
-            platform.Runtime.CreateEnvironment(
-                (napi_platform)platform,
-                (error) => Console.WriteLine(error),
-                mainScript,
-                NodeApiVersion,
-                out napi_env env).ThrowIfFailed();
+            platform.Runtime.CreateEmbeddingRuntime(
+                (node_embedding_platform)platform,
+                configureRuntime: (_, runtime) =>
+                {
+                    platform.Runtime.OnEmbeddingRuntimeStartExecution(runtime, (runtime, env, process, require, _) =>
+                    {
+                        // The new scope instance saves itself as the thread-local JSValueScope.Current.
+                        scope = new JSValueScope(JSValueScopeType.Root, env, platform.Runtime);
+                        syncContext = scope.RuntimeContext.SynchronizationContext;
 
-            // The new scope instance saves itself as the thread-local JSValueScope.Current.
-            scope = new JSValueScope(JSValueScopeType.Root, env, platform.Runtime);
-            syncContext = scope.RuntimeContext.SynchronizationContext;
+                        if (!string.IsNullOrEmpty(baseDir))
+                        {
+                            JSValue.Global.SetProperty("__dirname", baseDir!);
+                            InitializeModuleImportFunctions(
+                                scope.RuntimeContext, baseDir!, (JSFunction)new JSValue(require));
+                        }
 
-            if (!string.IsNullOrEmpty(baseDir))
-            {
-                JSValue.Global.SetProperty("__dirname", baseDir!);
-                InitializeModuleImportFunctions(scope.RuntimeContext, baseDir!);
-            }
+                        // Run the JS event loop until disposal completes the completion source.
+                        _completionPromise = new JSReference(_completion.Task.AsPromise());
 
-            loadedEvent.Set();
+                        loadedEvent.Set();
+                    });
+                },
+                out _embeddingRuntime).ThrowIfFailed();
 
-            // Run the JS event loop until disposal completes the completion source.
-            platform.Runtime.AwaitPromise(
-                env, (napi_value)(JSValue)_completion.Task.AsPromise(), out _).ThrowIfFailed();
+            platform.Runtime.RunEmbeddingEventLoop(
+                _embeddingRuntime, NodejsRuntime.node_embedding_event_loop_run_mode.run_default, out bool hasMoreWork)
+                .ThrowIfFailed();
+            Debug.WriteLine($"{nameof(platform.Runtime.RunEmbeddingEventLoop)} returned {hasMoreWork}");
 
             syncContext.Dispose();
-            platform.Runtime.DestroyEnvironment(env, out int exitCode).ThrowIfFailed();
-            ExitCode = exitCode;
+            var status = platform.Runtime.DeleteEmbeddingRuntime(_embeddingRuntime);
+            // TODO: Set exit code.
+            ExitCode = 0;
+            status.ThrowIfFailed();
         });
-        _thread.Start();
+
+        _thread!.Start();
 
         loadedEvent.WaitOne();
 
@@ -83,29 +97,12 @@ public sealed class NodejsEnvironment : IDisposable
 
     private static void InitializeModuleImportFunctions(
         JSRuntimeContext runtimeContext,
-        string baseDir)
+        string baseDir,
+        JSFunction embeddedRequire)
     {
-        // The require function is available as a global in the embedding context.
-        JSFunction originalRequire = (JSFunction)JSValue.Global["require"];
-        JSReference originalRequireRef = new(originalRequire);
-        JSFunction envRequire = new("require", (modulePath) =>
-        {
-            Debug.WriteLine($"require('{(string)modulePath}')");
-            JSValue require = originalRequireRef.GetValue();
-            JSValue resolvedPath = ResolveModulePath(require, modulePath, baseDir);
-            return require.Call(thisArg: default, resolvedPath);
-        });
-
-        // Also set up a callback for require.resolve(), in case it is used by imported modules.
-        JSValue requireObject = (JSValue)envRequire;
-        requireObject["resolve"] = new JSFunction("resolve", (modulePath) =>
-        {
-            JSValue require = originalRequireRef.GetValue();
-            return ResolveModulePath(require, modulePath, baseDir);
-        });
-
-        JSValue.Global.SetProperty("require", envRequire);
-        runtimeContext.RequireFunction = envRequire;
+        JSFunction moduleRequire = (JSFunction)embeddedRequire.CallAsStatic("module")
+            .CallMethod("createRequire", baseDir);
+        runtimeContext.RequireFunction = moduleRequire;
 
         // The import keyword is not a function and is only available through use of an
         // external helper module.
@@ -122,15 +119,15 @@ public sealed class NodejsEnvironment : IDisposable
                 Path.GetDirectoryName(assemblyLocation)!, "import.cjs");
             if (File.Exists(importAdapterModulePath))
             {
-                JSFunction originalImport = (JSFunction)originalRequire.CallAsStatic(
+                JSFunction moduleImport = (JSFunction)moduleRequire.CallAsStatic(
                     importAdapterModulePath);
-                JSReference originalImportRef = new(originalImport);
+                JSReference moduleImportRef = new(moduleImport);
                 JSFunction envImport = new("import", (modulePath) =>
                 {
-                    JSValue require = originalRequireRef.GetValue();
+                    JSValue require = runtimeContext.RequireFunction;
                     JSValue resolvedPath = ResolveModulePath(require, modulePath, baseDir);
                     JSValue moduleUri = "file://" + (string)resolvedPath;
-                    JSValue import = originalImportRef.GetValue();
+                    JSValue import = moduleImportRef.GetValue();
                     return import.Call(thisArg: default, moduleUri);
                 });
 
@@ -157,7 +154,7 @@ public sealed class NodejsEnvironment : IDisposable
     {
         // Pass the base directory to require.resolve() via the options object.
         JSObject options = new();
-        options["paths"] = new JSArray(new[] { (JSValue)baseDir! });
+        options["paths"] = new JSArray(new[] { (JSValue)baseDir });
         return require.CallMethod("resolve", modulePath, options);
     }
 
@@ -198,8 +195,9 @@ public sealed class NodejsEnvironment : IDisposable
         if (IsDisposed) return;
         IsDisposed = true;
 
-        // Setting the completion causes `AwaitPromise()` to return so the thread exits.
+        // Setting the completion causes the completion promise to resolve so the runtime exits.
         _completion.TrySetResult(true);
+
         _thread.Join();
 
         Debug.WriteLine($"Node.js environment exited with code: {ExitCode}");

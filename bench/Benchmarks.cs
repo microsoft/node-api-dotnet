@@ -88,9 +88,12 @@ public abstract class Benchmarks
 
         // This setup avoids using NodejsEnvironment so benchmarks can run on the same thread.
         // NodejsEnvironment creates a separate thread that would slow down the micro-benchmarks.
+        /*
         platform.Runtime.CreateEnvironment(
             platform, Console.WriteLine, null, NodejsEnvironment.NodeApiVersion, out _env)
             .ThrowIfFailed();
+        */
+        _env = default;
 
         // The new scope instance saves itself as the thread-local JSValueScope.Current.
         JSValueScope scope = new(JSValueScopeType.Root, _env, platform.Runtime);
