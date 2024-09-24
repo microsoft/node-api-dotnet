@@ -2659,14 +2659,14 @@ public class TracingJSRuntime : JSRuntime
     private static string Format(node_embedding_platform platform) => platform.Handle.ToString("X16");
     private static string Format(node_embedding_runtime runtime) => runtime.Handle.ToString("X16");
 
-    private node_embedding_exit_code TraceCall(
+    private node_embedding_status TraceCall(
         IEnumerable<string> args,
-        Func<node_embedding_exit_code> call,
+        Func<node_embedding_status> call,
         [CallerMemberName] string name = "")
     {
         TraceCall(args, name);
 
-        node_embedding_exit_code exit_code;
+        node_embedding_status exit_code;
         try
         {
             exit_code = call();
@@ -2682,7 +2682,7 @@ public class TracingJSRuntime : JSRuntime
     }
 
     private void TraceReturn(
-        node_embedding_exit_code exit_code,
+        node_embedding_status exit_code,
         IEnumerable<string>? results = null,
         [CallerMemberName] string name = "",
         string prefix = ">")
@@ -2690,24 +2690,24 @@ public class TracingJSRuntime : JSRuntime
         if (_formatting) return; // Prevent tracing while formatting.
 
         Trace.TraceEvent(
-            exit_code == node_embedding_exit_code.ok ?
+            exit_code == node_embedding_status.ok ?
                 TraceEventType.Information : TraceEventType.Warning,
             ReturnTrace,
             "{0} {1}({2})",
             prefix,
             name,
-            exit_code != node_embedding_exit_code.ok || results == null ?
+            exit_code != node_embedding_status.ok || results == null ?
                 exit_code.ToString() : string.Join(", ", results));
     }
 
-    public override node_embedding_exit_code OnEmbeddingError(
-        Action<string[], node_embedding_exit_code> errorHandler)
+    public override node_embedding_status OnEmbeddingError(
+        Action<string[], node_embedding_status> errorHandler)
     {
         // TODO: Trace error strings and code passed to callback.
         return TraceCall([], () => _runtime.OnEmbeddingError(errorHandler));
     }
 
-    public override node_embedding_exit_code SetEmbeddingApiVersion(
+    public override node_embedding_status SetEmbeddingApiVersion(
         int versionMajor, int versionMinor)
     {
         return TraceCall(
@@ -2715,7 +2715,7 @@ public class TracingJSRuntime : JSRuntime
             () => _runtime.SetEmbeddingApiVersion(versionMajor, versionMinor));
     }
 
-    public override node_embedding_exit_code RunEmbeddingMain(
+    public override node_embedding_status RunEmbeddingMain(
         string[] args,
         Action<node_embedding_platform>? configurePlatform,
         Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
@@ -2730,13 +2730,13 @@ public class TracingJSRuntime : JSRuntime
                 nodeApiCallback));
     }
 
-    public override node_embedding_exit_code CreateEmbeddingPlatform(
+    public override node_embedding_status CreateEmbeddingPlatform(
         string[] args,
         Action<node_embedding_platform>? configurePlatform,
         out node_embedding_platform result)
     {
         node_embedding_platform resultValue = default;
-        node_embedding_exit_code exit_code = TraceCall(
+        node_embedding_status exit_code = TraceCall(
             [Format(args)],
             () => _runtime.CreateEmbeddingPlatform(args, configurePlatform, out resultValue),
                 Format(resultValue));
@@ -2744,14 +2744,14 @@ public class TracingJSRuntime : JSRuntime
         return exit_code;
     }
 
-    public override node_embedding_exit_code DeleteEmbeddingPlatform(
+    public override node_embedding_status DeleteEmbeddingPlatform(
         node_embedding_platform platform)
     {
         return TraceCall(
             [Format(platform)],
             () => _runtime.DeleteEmbeddingPlatform(platform));
     }
-    public override node_embedding_exit_code SetEmbeddingPlatformFlags(
+    public override node_embedding_status SetEmbeddingPlatformFlags(
         node_embedding_platform platform,
         node_embedding_platform_flags flags)
     {
@@ -2760,7 +2760,7 @@ public class TracingJSRuntime : JSRuntime
             () => _runtime.SetEmbeddingPlatformFlags(platform, flags));
     }
 
-    public override node_embedding_exit_code GetEmbeddingPlatformParsedArgs(
+    public override node_embedding_status GetEmbeddingPlatformParsedArgs(
         node_embedding_platform platform,
         Action<string[]>? getArgsCallback,
         Action<string[]>? getExecArgsCallback)
@@ -2772,7 +2772,7 @@ public class TracingJSRuntime : JSRuntime
                 platform, getArgsCallback, getExecArgsCallback));
     }
 
-    public override node_embedding_exit_code RunEmbeddingRuntime(
+    public override node_embedding_status RunEmbeddingRuntime(
         node_embedding_platform platform,
         string[] args,
         Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
@@ -2784,13 +2784,13 @@ public class TracingJSRuntime : JSRuntime
                 platform, args, configureRuntime, nodeApiCallback));
     }
 
-    public override node_embedding_exit_code CreateEmbeddingRuntime(
+    public override node_embedding_status CreateEmbeddingRuntime(
         node_embedding_platform platform,
         Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
         out node_embedding_runtime result)
     {
         node_embedding_runtime resultValue = default;
-        node_embedding_exit_code exit_code = TraceCall(
+        node_embedding_status exit_code = TraceCall(
             [Format(platform)],
             () => _runtime.CreateEmbeddingRuntime(platform, configureRuntime, out resultValue),
             Format(resultValue));
@@ -2798,14 +2798,14 @@ public class TracingJSRuntime : JSRuntime
         return exit_code;
     }
 
-    public override node_embedding_exit_code DeleteEmbeddingRuntime(node_embedding_runtime runtime)
+    public override node_embedding_status DeleteEmbeddingRuntime(node_embedding_runtime runtime)
     {
         return TraceCall(
             [Format(runtime)],
             () => _runtime.DeleteEmbeddingRuntime(runtime));
     }
 
-    public override node_embedding_exit_code SetEmbeddingRuntimeFlags(
+    public override node_embedding_status SetEmbeddingRuntimeFlags(
         node_embedding_runtime runtime,
         node_embedding_runtime_flags flags)
     {
@@ -2814,7 +2814,7 @@ public class TracingJSRuntime : JSRuntime
             () => _runtime.SetEmbeddingRuntimeFlags(runtime, flags));
     }
 
-    public override node_embedding_exit_code SetEmbeddingRuntimeArgs(
+    public override node_embedding_status SetEmbeddingRuntimeArgs(
         node_embedding_runtime runtime,
         string[] args,
         string[] execArgs)
@@ -2824,7 +2824,7 @@ public class TracingJSRuntime : JSRuntime
             () => _runtime.SetEmbeddingRuntimeArgs(runtime, args, execArgs));
     }
 
-    public override node_embedding_exit_code OnEmbeddingRuntimePreload(
+    public override node_embedding_status OnEmbeddingRuntimePreload(
         node_embedding_runtime runtime,
         Action<node_embedding_runtime, napi_env, napi_value, napi_value> preloadCallback)
     {
@@ -2833,7 +2833,7 @@ public class TracingJSRuntime : JSRuntime
             () => _runtime.OnEmbeddingRuntimePreload(runtime, preloadCallback));
     }
 
-    public override node_embedding_exit_code OnEmbeddingRuntimeStartExecution(
+    public override node_embedding_status OnEmbeddingRuntimeStartExecution(
         node_embedding_runtime runtime,
         Action<node_embedding_runtime, napi_env, napi_value, napi_value, napi_value>
             startExecutionCallback)
@@ -2845,7 +2845,7 @@ public class TracingJSRuntime : JSRuntime
                 runtime, startExecutionCallback));
     }
 
-    public override node_embedding_exit_code AddEmbeddingRuntimeModule(
+    public override node_embedding_status AddEmbeddingRuntimeModule(
         node_embedding_runtime runtime,
         string moduleName,
         Action<node_embedding_runtime, napi_env, string, napi_value> initializeModuleCallback,
@@ -2857,7 +2857,7 @@ public class TracingJSRuntime : JSRuntime
                 runtime, moduleName, initializeModuleCallback, module_node_api_version));
     }
 
-    public override node_embedding_exit_code OnEmbeddingWakeUpEventLoop(
+    public override node_embedding_status OnEmbeddingWakeUpEventLoop(
         node_embedding_runtime runtime,
         Action<node_embedding_runtime> eventLoopHandler)
     {
@@ -2866,13 +2866,13 @@ public class TracingJSRuntime : JSRuntime
             () => _runtime.OnEmbeddingWakeUpEventLoop(runtime, eventLoopHandler));
     }
 
-    public override node_embedding_exit_code RunEmbeddingEventLoop(
+    public override node_embedding_status RunEmbeddingEventLoop(
         node_embedding_runtime runtime,
         node_embedding_event_loop_run_mode runMode,
         out bool hasMoreWork)
     {
         bool hasMoreWorkValue = default;
-        node_embedding_exit_code exit_code = TraceCall(
+        node_embedding_status exit_code = TraceCall(
             [Format(runtime), runMode.ToString()],
             () => _runtime.RunEmbeddingEventLoop(runtime, runMode, out hasMoreWorkValue),
             hasMoreWorkValue.ToString());
@@ -2880,7 +2880,7 @@ public class TracingJSRuntime : JSRuntime
         return exit_code;
     }
 
-    public override node_embedding_exit_code CompleteEmbeddingEventLoop(
+    public override node_embedding_status CompleteEmbeddingEventLoop(
         node_embedding_runtime runtime)
     {
         // TODO: Trace values passed to callback.
@@ -2889,7 +2889,7 @@ public class TracingJSRuntime : JSRuntime
             () => _runtime.CompleteEmbeddingEventLoop(runtime));
     }
 
-    public override node_embedding_exit_code RunEmbeddingNodeApi(
+    public override node_embedding_status RunEmbeddingNodeApi(
         node_embedding_runtime runtime,
         Action<node_embedding_runtime, napi_env> nodeApiCallback)
     {
@@ -2898,12 +2898,12 @@ public class TracingJSRuntime : JSRuntime
             () => _runtime.RunEmbeddingNodeApi(runtime, nodeApiCallback));
     }
 
-    public override node_embedding_exit_code OpenEmbeddingNodeApiScope(
+    public override node_embedding_status OpenEmbeddingNodeApiScope(
         node_embedding_runtime runtime,
         out napi_env env)
     {
         napi_env envValue = default;
-        node_embedding_exit_code exit_code = TraceCall(
+        node_embedding_status exit_code = TraceCall(
             [Format(runtime)],
             () => _runtime.OpenEmbeddingNodeApiScope(runtime, out envValue),
             Format(envValue));
@@ -2911,7 +2911,7 @@ public class TracingJSRuntime : JSRuntime
         return exit_code;
     }
 
-    public override node_embedding_exit_code CloseEmbeddingNodeApiScope(
+    public override node_embedding_status CloseEmbeddingNodeApiScope(
         node_embedding_runtime runtime)
     {
         return TraceCall(

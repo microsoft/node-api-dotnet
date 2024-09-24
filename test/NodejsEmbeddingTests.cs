@@ -84,11 +84,9 @@ public class NodejsEmbeddingTests
 
         nodejs.Run(() =>
         {
-            /*
             JSValue fsModule = nodejs.Import("fs");
             Assert.Equal(JSValueType.Object, fsModule.TypeOf());
             Assert.Equal(JSValueType.Function, fsModule["stat"].TypeOf());
-            */
 
             JSValue nodeFsModule = nodejs.Import("node:fs");
             Assert.Equal(JSValueType.Object, nodeFsModule.TypeOf());

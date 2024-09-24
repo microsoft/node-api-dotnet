@@ -202,36 +202,14 @@ public unsafe partial class JSRuntime
         public static readonly c_bool False = new(false);
     }
 
-    public enum node_embedding_exit_code
+    public enum node_embedding_status
     {
         ok = 0,
-        // 1 was intended for uncaught JS exceptions from the user land but we
-        // actually use this for all kinds of generic errors.
-        generic_user_error = 1,
-        // 2 is unused
-        // 3 is actually unused because we pre-compile all builtins during
-        // snapshot building, when we exit with 1 if there's any error.
-        internal_js_parse_error = 3,
-        // 4 is actually unused. We exit with 1 in this case.
-        internal_js_evaluation_failure = 4,
-        // 5 is actually unused. We exit with 133 (128+SIGTRAP) or 134
-        // (128+SIGABRT) in this case.
-        v8_fatal_error = 5,
-        invalid_fatal_exception_monkey_patching = 6,
-        exception_in_fatal_exception_handler = 7,
-        // 8 is unused
-        invalid_command_line_argument = 9,
-        bootstrap_failure = 10,
-        // 11 is unused
-        // This was intended for invalid inspector arguments but is actually now
-        // just a duplicate of invalid_command_line_argument
-        invalid_command_line_argument2 = 12,
-        unsettled_top_level_await = 13,
-        startup_snapshot_failure = 14,
-        // If the process exits from unhandled signals e.g. SIGABRT, SIGTRAP,
-        // typically the exit codes are 128 + signal number. We also exit with
-        // certain error codes directly for legacy reasons. Here we define those
-        // that are used to normalize the exit code on Windows.
-        abort = 134,
+        generic_error = 1,
+        null_arg = 2,
+        bad_arg = 3,
+        // This value is added to the exit code in cases when Node.js API returns
+        // an error exit code.
+        exit_code = 512,
     }
 }

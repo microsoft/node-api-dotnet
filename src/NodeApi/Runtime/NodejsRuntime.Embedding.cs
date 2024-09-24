@@ -125,7 +125,7 @@ public unsafe partial class NodejsRuntime
             nint handler_data,
             nint messages,
             nuint messages_size,
-            node_embedding_exit_code exit_code);
+            node_embedding_status exit_code);
 
         public node_embedding_error_handler(node_embedding_error_handler.Delegate handler)
             => Handle = Marshal.GetFunctionPointerForDelegate(handler);
@@ -259,18 +259,18 @@ public unsafe partial class NodejsRuntime
     #endregion
 
     private delegate* unmanaged[Cdecl]<
-        node_embedding_error_handler, nint, node_embedding_exit_code>
+        node_embedding_error_handler, nint, node_embedding_status>
         node_embedding_on_error;
 
-    public override node_embedding_exit_code OnEmbeddingError(
-        Action<string[], node_embedding_exit_code> errorHandler)
+    public override node_embedding_status OnEmbeddingError(
+        Action<string[], node_embedding_status> errorHandler)
     {
         node_embedding_error_handler nativeErrorHandler =
             new ((
                 nint handler_data,
                 nint messages,
                 nuint messages_size,
-                node_embedding_exit_code exit_code) =>
+                node_embedding_status exit_code) =>
             {
                 string[] args = new string[messages_size];
                 for (nuint i = 0; i < messages_size; i++)
@@ -287,10 +287,10 @@ public unsafe partial class NodejsRuntime
     }
 
     private delegate* unmanaged[Cdecl]<
-        int, int, node_embedding_exit_code>
+        int, int, node_embedding_status>
         node_embedding_set_api_version;
 
-    public override node_embedding_exit_code SetEmbeddingApiVersion(
+    public override node_embedding_status SetEmbeddingApiVersion(
         int versionMajor,
         int versionMinor)
     {
@@ -306,10 +306,10 @@ public unsafe partial class NodejsRuntime
         nint,
         node_embedding_node_api_callback,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_run_main;
 
-    public override node_embedding_exit_code RunEmbeddingMain(
+    public override node_embedding_status RunEmbeddingMain(
         string[] args,
         Action<node_embedding_platform>? configurePlatform,
         Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
@@ -359,10 +359,10 @@ public unsafe partial class NodejsRuntime
         node_embedding_configure_platform_callback,
         nint,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_create_platform;
 
-    public override node_embedding_exit_code CreateEmbeddingPlatform(
+    public override node_embedding_status CreateEmbeddingPlatform(
         string[] args,
         Action<node_embedding_platform>? configurePlatform,
         out node_embedding_platform result)
@@ -394,10 +394,10 @@ public unsafe partial class NodejsRuntime
 
     private delegate* unmanaged[Cdecl]<
         node_embedding_platform,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_delete_platform;
 
-    public override node_embedding_exit_code DeleteEmbeddingPlatform(
+    public override node_embedding_status DeleteEmbeddingPlatform(
         node_embedding_platform platform)
     {
         return Import(ref node_embedding_delete_platform)(platform);
@@ -406,10 +406,10 @@ public unsafe partial class NodejsRuntime
     private delegate* unmanaged[Cdecl]<
         node_embedding_platform,
         node_embedding_platform_flags,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_platform_set_flags;
 
-    public override node_embedding_exit_code SetEmbeddingPlatformFlags(
+    public override node_embedding_status SetEmbeddingPlatformFlags(
         node_embedding_platform platform,
         node_embedding_platform_flags flags)
     {
@@ -422,10 +422,10 @@ public unsafe partial class NodejsRuntime
         nint,
         node_embedding_get_args_callback,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_platform_get_parsed_args;
 
-    public override node_embedding_exit_code GetEmbeddingPlatformParsedArgs(
+    public override node_embedding_status GetEmbeddingPlatformParsedArgs(
         node_embedding_platform platform,
         Action<string[]>? getArgsCallback,
         Action<string[]>? getExecArgsCallback)
@@ -473,10 +473,10 @@ public unsafe partial class NodejsRuntime
         nint,
         node_embedding_node_api_callback,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_run_runtime;
 
-    public override node_embedding_exit_code RunEmbeddingRuntime(
+    public override node_embedding_status RunEmbeddingRuntime(
         node_embedding_platform platform,
         string[] args,
         Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
@@ -516,10 +516,10 @@ public unsafe partial class NodejsRuntime
         node_embedding_configure_runtime_callback,
         nint,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_create_runtime;
 
-    public override node_embedding_exit_code CreateEmbeddingRuntime(
+    public override node_embedding_status CreateEmbeddingRuntime(
         node_embedding_platform platform,
         Action<node_embedding_platform, node_embedding_runtime>? configureRuntime,
         out node_embedding_runtime result)
@@ -543,10 +543,10 @@ public unsafe partial class NodejsRuntime
 
     private delegate* unmanaged[Cdecl]<
         node_embedding_runtime,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_delete_runtime;
 
-    public override node_embedding_exit_code DeleteEmbeddingRuntime(node_embedding_runtime runtime)
+    public override node_embedding_status DeleteEmbeddingRuntime(node_embedding_runtime runtime)
     {
         return Import(ref node_embedding_delete_runtime)(runtime);
     }
@@ -554,10 +554,10 @@ public unsafe partial class NodejsRuntime
     private delegate* unmanaged[Cdecl]<
         node_embedding_runtime,
         node_embedding_runtime_flags,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_runtime_set_flags;
 
-    public override node_embedding_exit_code SetEmbeddingRuntimeFlags(
+    public override node_embedding_status SetEmbeddingRuntimeFlags(
         node_embedding_runtime runtime,
         node_embedding_runtime_flags flags)
     {
@@ -570,10 +570,10 @@ public unsafe partial class NodejsRuntime
         nint,
         int,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_runtime_set_args;
 
-    public override node_embedding_exit_code SetEmbeddingRuntimeArgs(
+    public override node_embedding_status SetEmbeddingRuntimeArgs(
         node_embedding_runtime runtime,
         string[] args,
         string[] execArgs)
@@ -601,10 +601,10 @@ public unsafe partial class NodejsRuntime
         node_embedding_runtime,
         node_embedding_preload_callback,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_runtime_on_preload;
 
-    public override node_embedding_exit_code OnEmbeddingRuntimePreload(
+    public override node_embedding_status OnEmbeddingRuntimePreload(
         node_embedding_runtime runtime,
         Action<node_embedding_runtime, napi_env, napi_value, napi_value> preloadCallback)
     {
@@ -627,10 +627,10 @@ public unsafe partial class NodejsRuntime
         node_embedding_runtime,
         node_embedding_start_execution_callback,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_runtime_on_start_execution;
 
-    public override node_embedding_exit_code OnEmbeddingRuntimeStartExecution(
+    public override node_embedding_status OnEmbeddingRuntimeStartExecution(
         node_embedding_runtime runtime,
         Action<node_embedding_runtime, napi_env, napi_value, napi_value, napi_value>
             startExecutionCallback)
@@ -657,10 +657,10 @@ public unsafe partial class NodejsRuntime
         node_embedding_initialize_module_callback,
         nint,
         int,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_runtime_add_module;
 
-    public override node_embedding_exit_code AddEmbeddingRuntimeModule(
+    public override node_embedding_status AddEmbeddingRuntimeModule(
         node_embedding_runtime runtime,
         string moduleName,
         Action<node_embedding_runtime, napi_env, string, napi_value> initializeModuleCallback,
@@ -700,10 +700,10 @@ public unsafe partial class NodejsRuntime
         node_embedding_runtime,
         node_embedding_event_loop_handler,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_on_wake_up_event_loop;
 
-    public override node_embedding_exit_code OnEmbeddingWakeUpEventLoop(
+    public override node_embedding_status OnEmbeddingWakeUpEventLoop(
         node_embedding_runtime runtime,
         Action<node_embedding_runtime> eventLoopHandler)
     {
@@ -721,10 +721,10 @@ public unsafe partial class NodejsRuntime
         node_embedding_runtime,
         node_embedding_event_loop_run_mode,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_run_event_loop;
 
-    public override node_embedding_exit_code RunEmbeddingEventLoop(
+    public override node_embedding_status RunEmbeddingEventLoop(
         node_embedding_runtime runtime,
         node_embedding_event_loop_run_mode runMode,
         out bool hasMoreWork)
@@ -738,10 +738,10 @@ public unsafe partial class NodejsRuntime
 
     private delegate* unmanaged[Cdecl]<
         node_embedding_runtime,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_complete_event_loop;
 
-    public override node_embedding_exit_code CompleteEmbeddingEventLoop(
+    public override node_embedding_status CompleteEmbeddingEventLoop(
         node_embedding_runtime runtime)
     {
         return Import(ref node_embedding_complete_event_loop)(runtime);
@@ -751,10 +751,10 @@ public unsafe partial class NodejsRuntime
         node_embedding_runtime,
         node_embedding_node_api_callback,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_run_node_api;
 
-    public override node_embedding_exit_code RunEmbeddingNodeApi(
+    public override node_embedding_status RunEmbeddingNodeApi(
         node_embedding_runtime runtime,
         Action<node_embedding_runtime, napi_env> nodeApiCallback)
     {
@@ -771,10 +771,10 @@ public unsafe partial class NodejsRuntime
     private delegate* unmanaged[Cdecl]<
         node_embedding_runtime,
         nint,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_open_node_api_scope;
 
-    public override node_embedding_exit_code OpenEmbeddingNodeApiScope(
+    public override node_embedding_status OpenEmbeddingNodeApiScope(
         node_embedding_runtime runtime,
         out napi_env env)
     {
@@ -786,10 +786,10 @@ public unsafe partial class NodejsRuntime
 
     private delegate* unmanaged[Cdecl]<
         node_embedding_runtime,
-        node_embedding_exit_code>
+        node_embedding_status>
         node_embedding_close_node_api_scope;
 
-    public override node_embedding_exit_code CloseEmbeddingNodeApiScope(
+    public override node_embedding_status CloseEmbeddingNodeApiScope(
         node_embedding_runtime runtime)
     {
         return Import(ref node_embedding_close_node_api_scope)(runtime);

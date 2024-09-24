@@ -65,28 +65,37 @@ public static class NodeApiStatusExtensions
 
     [StackTraceHidden]
     public static void ThrowIfFailed(
-        [DoesNotReturnIf(true)] this node_embedding_exit_code status,
+        [DoesNotReturnIf(true)] this node_embedding_status status,
         [CallerMemberName] string memberName = "",
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLineNumber = 0)
     {
-        if (status == node_embedding_exit_code.ok)
+        if (status == node_embedding_status.ok)
+        {
             return;
-
-        if (JSError.FatalIfFailedScope.IsFatal)
+        }
+        else if (JSError.FatalIfFailedScope.IsFatal)
+        {
             JSError.Fatal(
                 "Failed while handling error", memberName, sourceFilePath, sourceLineNumber);
-
-        string errorCode = status.ToString();
-        throw new JSException(new JSError(
-            $"Error in {memberName} at {sourceFilePath}:{sourceLineNumber}: {errorCode}"));
+        }
+        else if (status.HasFlag(node_embedding_status.exit_code))
+        {
+            int exitCode = (int)(status & ~node_embedding_status.exit_code);
+            throw new JSException(new JSError($"Node runtime exited with code: {exitCode}"));
+        }
+        else
+        {
+            throw new JSException(new JSError(
+                $"Error in {memberName} at {sourceFilePath}:{sourceLineNumber}: {status}"));
+        }
     }
 
     // Throw if status is not napi_ok. Otherwise, return the provided value.
     // This function helps writing compact wrappers for the interop calls.
     [StackTraceHidden]
     public static T ThrowIfFailed<T>(
-        this node_embedding_exit_code status,
+        this node_embedding_status status,
         T value,
         [CallerMemberName] string memberName = "",
         [CallerFilePath] string sourceFilePath = "",

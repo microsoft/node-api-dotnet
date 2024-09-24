@@ -82,9 +82,15 @@ public sealed class NodejsEnvironment : IDisposable
 
             syncContext.Dispose();
             var status = platform.Runtime.DeleteEmbeddingRuntime(_embeddingRuntime);
-            // TODO: Set exit code.
-            ExitCode = 0;
-            status.ThrowIfFailed();
+            if (status.HasFlag(node_embedding_status.exit_code))
+            {
+                ExitCode = (int)(status & ~node_embedding_status.exit_code);
+            }
+            else
+            {
+                status.ThrowIfFailed();
+                ExitCode = 0;
+            }
         });
 
         _thread!.Start();
