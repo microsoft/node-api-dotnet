@@ -113,6 +113,11 @@ internal static class SymbolExtensions
             return arrayTypeSymbol.ElementType.AsType(genericTypeParameters, buildType)
                 .MakeArrayType();
         }
+        else if (typeSymbol is IPointerTypeSymbol pointerTypeSymbol)
+        {
+            return pointerTypeSymbol.PointedAtType.AsType(genericTypeParameters, buildType)
+                .MakePointerType();
+        }
 
         if (typeSymbol is ITypeParameterSymbol typeParameterSymbol)
         {
