@@ -166,10 +166,10 @@ extends:
                       *.pdb
                   condition: eq('${{ matrixEntry.Pool.os }}', 'windows')
 
-                - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-                  displayName: "📒 Generate artifact manifest: ${{ matrixEntry.TargetRuntime }}"
-                  inputs:
-                    BuildDropPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
+#                - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+#                  displayName: "📒 Generate artifact manifest: ${{ matrixEntry.TargetRuntime }}"
+#                  inputs:
+#                    BuildDropPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
 
 #                - task: 1ES.PublishPipelineArtifact@1
 #                  displayName: "Publish libnode artifacts: ${{ matrixEntry.TargetRuntime }}"
@@ -237,13 +237,13 @@ extends:
                   versioningScheme: byEnvVar
                   versionEnvVar: Version
 
-              - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-                displayName: 📒 Generate artifact manifest
-                inputs:
-                  BuildDropPath: $(Build.StagingDirectory)/pkg
+#              - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+#                displayName: 📒 Generate artifact manifest
+#                inputs:
+#                  BuildDropPath: $(Build.StagingDirectory)/pkg
 
-              - task: PublishPipelineArtifact@1
-                displayName: Publish artifact with packages
-                inputs:
-                  targetPath: $(Build.StagingDirectory)/pkg
-                  artifactName: published-packages
+#              - task: PublishPipelineArtifact@1
+#                displayName: Publish artifact with packages
+#                inputs:
+#                  targetPath: $(Build.StagingDirectory)/pkg
+#                  artifactName: published-packages
