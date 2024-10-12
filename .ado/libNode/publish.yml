@@ -134,7 +134,7 @@ extends:
                     script: |
                       Invoke-WebRequest -Uri https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip -OutFile nasm-2.16.03-win64.zip
                       Expand-Archive nasm-2.16.03-win64.zip -DestinationPath nasm -Force;
-                  condition: eq('${{ matrix.Pool.os }}', 'windows')
+                  condition: eq('${{ matrixEntry.Pool.os }}', 'windows')
 
         # This task is to simulate the libnode.dll creation to make it faster
         #        - task: CopyFiles@2
@@ -153,7 +153,7 @@ extends:
                   displayName: Build libNode
                   env:
                     path: $(Build.SourcesDirectory)\nasm\nasm-2.16.01;$(path)
-                  condition: eq('${{ matrix.Pool.os }}', 'windows')
+                  condition: eq('${{ matrixEntry.Pool.os }}', 'windows')
 
                 - task: CopyFiles@2
                   displayName: Copy built binaries to staging
@@ -163,7 +163,7 @@ extends:
                     contents: |
                       *.dll
                       *.pdb
-                  condition: eq('${{ matrix.Pool.os }}', 'windows')
+                  condition: eq('${{ matrixEntry.Pool.os }}', 'windows')
 
                 - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
                   displayName: "📒 Generate artifact manifest: ${{ matrixEntry.TargetRuntime }}"
