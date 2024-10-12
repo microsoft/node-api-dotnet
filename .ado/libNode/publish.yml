@@ -111,7 +111,7 @@ extends:
                   value: ${{ startsWith(variables['System.CollectionUri'], 'https://dev.azure.com/microsoft') }}
               templateContext:
                 outputs:
-                  - output: buildArtifacts
+                  - output: pipelineArtifact
                     pathtoPublish: $(Build.ArtifactStagingDirectory)
                     artifactName: ${{ matrixEntry.TargetRuntime }}
 
@@ -170,7 +170,7 @@ extends:
                   inputs:
                     BuildDropPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
 
-                - task: PublishPipelineArtifact@1
+                - task: 1ES.PublishPipelineArtifact@1
                   displayName: "Publish libnode artifacts: ${{ matrixEntry.TargetRuntime }}"
                   inputs:
                     artifactName: ${{ matrixEntry.TargetRuntime }}
