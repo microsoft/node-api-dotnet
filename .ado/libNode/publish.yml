@@ -114,6 +114,7 @@ extends:
                   - output: pipelineArtifact
                     pathtoPublish: $(Build.ArtifactStagingDirectory)
                     artifactName: ${{ matrixEntry.TargetRuntime }}
+                    targetPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
 
               pool: ${{ matrixEntry.Pool }}
 
@@ -170,11 +171,11 @@ extends:
                   inputs:
                     BuildDropPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
 
-                - task: 1ES.PublishPipelineArtifact@1
-                  displayName: "Publish libnode artifacts: ${{ matrixEntry.TargetRuntime }}"
-                  inputs:
-                    artifactName: ${{ matrixEntry.TargetRuntime }}
-                    targetPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
+#                - task: 1ES.PublishPipelineArtifact@1
+#                  displayName: "Publish libnode artifacts: ${{ matrixEntry.TargetRuntime }}"
+#                  inputs:
+#                    artifactName: ${{ matrixEntry.TargetRuntime }}
+#                    targetPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
 
           - job: createPackage
             displayName: Create Nuget package
