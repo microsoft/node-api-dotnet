@@ -71,13 +71,13 @@ resources:
       ref: refs/heads/napi-libnode-v20.9.0
 
 variables:
-  - group: libNode Secrets
-    - name: ArtifactServices.Symbol.AccountName
-      value: microsoft
-    - name: ArtifactServices.Symbol.PAT
-      value: $(pat-symbols-publish-microsoft)
-    - name: tags
-      value: production,externalfacing
+  - group: Hermes-Windows Secrets
+  - name: ArtifactServices.Symbol.AccountName
+    value: microsoft
+  - name: ArtifactServices.Symbol.PAT
+    value: $(pat-symbols-publish-microsoft)
+  - name: tags
+    value: production,externalfacing
 
 extends:
   template: v1/Office.Official.PipelineTemplate.yml@OfficePipelineTemplates
