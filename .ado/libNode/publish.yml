@@ -10,153 +10,239 @@ trigger: none
 
 parameters:
   # Matrix with target platforms.
+  # x86 version is not supported by Node.js.
 - name: buildMatrix
   type: object
   default:
     - Name: win_x64
-      VMImage: windows-latest
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: windows-latest
+        os: windows
       TargetRuntime: win-x64
-
+      Platform: windows
+      CPU: x64
+    - Name: win_arm64
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: windows-latest
+        os: windows
+      TargetRuntime: win-arm64
+      Platform: windows
+      CPU: arm64
+    - Name: osx_x64
+      Pool:
+        name: Azure Pipelines
+        vmImage: macos-latest
+        os: macOS
+      TargetRuntime: osx-x64
+      Platform: macos
+    - Name: osx_arm64
+      Pool:
+        name: Azure Pipelines
+        vmImage: macos-arm64-latest
+        os: macOS
+      TargetRuntime: osx-arm64
+      Platform: macos
+    - Name: linux_x64
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: ubuntu-latest
+        os: latest
+      TargetRuntime: linux-x64
+      Platform: linux
+    - Name: linux_arm64
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: ubuntu-latest
+        os: latest
+      TargetRuntime: linux-arm64
+      Platform: linux
 resources:
   repositories:
+    - repository: OfficePipelineTemplates
+      type: git
+      name: 1ESPipelineTemplates/OfficePipelineTemplates
+      ref: refs/tags/release
     - repository: Nodejs_20
       type: github
       endpoint: Microsoft
       name: jasongin/nodejs
       ref: refs/heads/napi-libnode-v20.9.0
 
-jobs:
-  # Build libNode binaries per platform.
-  - ${{ each matrixEntry in parameters.buildMatrix }}:
-    - job: buildLibNode${{ matrixEntry.Name }}
-      displayName: Build libNode ${{ matrixEntry.Name }}
+variables:
+  - group: libNode Secrets
+    - name: ArtifactServices.Symbol.AccountName
+      value: microsoft
+    - name: ArtifactServices.Symbol.PAT
+      value: $(pat-symbols-publish-microsoft)
+    - name: tags
+      value: production,externalfacing
 
-      pool:
-        vmImage: ${{ matrixEntry.VMImage }}
-
-      steps:
-        - checkout: none
-
-        - script: |
-            git init
-            git remote add origin https://vmoroz:$(githubAuthToken)@github.com/jasongin/nodejs
-            git fetch --no-tags --progress --verbose --depth=1 origin napi-libnode-v20.9.0:refs/remotes/origin/napi-libnode-v20.9.0
-            git switch napi-libnode-v20.9.0
-          displayName: Check out napi-libnode-v20.9.0
-
-        - task: PowerShell@2
-          displayName: Download nasm
-          inputs:
-            targetType: 'inline'
-            script: |
-              Invoke-WebRequest -Uri https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/win64/nasm-2.16.01-win64.zip -OutFile nasm-2.16.01-win64.zip
-              Expand-Archive nasm-2.16.01-win64.zip -DestinationPath nasm -Force;
-
-# This task is to simulate the libnode.dll creation to make it faster
-#        - task: CopyFiles@2
-#          displayName: Simulate compiling libnode (step 1 of 2)
-#          inputs:
-#            sourceFolder: $(Build.SourcesDirectory)/nasm/nasm-2.16.01
-#            targetFolder: $(Build.SourcesDirectory)/Release
-#            contents: '*.exe'
-
-# This task is to simulate the libnode.dll creation to make it faster
-#        - script: ren nasm.exe libnode.dll
-#          displayName: Simulate compiling libnode (step 2 of 2)
-#          workingDirectory: $(Build.SourcesDirectory)/Release
-
-        - script: call vcbuild.bat release x64 dll
-          displayName: Build libNode
-          env:
-            path: $(Build.SourcesDirectory)\nasm\nasm-2.16.01;$(path)
-
-        - task: CopyFiles@2
-          displayName: Copy built binaries to staging
-          inputs:
-            sourceFolder: "$(Build.SourcesDirectory)/Release"
-            targetFolder: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
-            contents: |
-              *.dll
-              *.pdb
-
-        - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-          displayName: "📒 Generate artifact manifest: ${{ matrixEntry.TargetRuntime }}"
-          inputs:
-            BuildDropPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
-
-        - task: PublishPipelineArtifact@1
-          displayName: "Publish libnode artifacts: ${{ matrixEntry.TargetRuntime }}"
-          inputs:
-            artifactName: ${{ matrixEntry.TargetRuntime }}
-            targetPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
-
-  - job: createPackage
-    displayName: Create Nuget package
-    dependsOn:
-      - ${{ each matrixEntry in parameters.buildMatrix }}:
-        - buildLibNode${{ matrixEntry.Name }}
-
-    variables:
-      VMImage: windows-latest
-      TargetRuntime: win-x64
-
+extends:
+  template: v1/Office.Official.PipelineTemplate.yml@OfficePipelineTemplates
+  parameters:
     pool:
-      vmImage: $(VMImage)
+      name: Azure-Pipelines-1ESPT-ExDShared
+      image: windows-latest
+      os: windows
+    sdl:
+      baseline:
+        baselineFile: $(Build.SourcesDirectory)\.ado\guardian\SDL\.gdnbaselines
+      eslint:
+        enableExclusions: true
+        # This repo does not ship any javascript code. But has many test cases for the js engine that fail parsing, have code considered insecure and crash eslint.
+        exclusionPatterns: |
+          '**/*.[jt]s'
+      codeql:
+        compiled:
+          enabled: true
+        runSourceLanguagesInSourceAnalysis: true
 
-    steps:
-      - checkout: self
+    stages:
+      - stage: main
+        jobs:
+          # Build libNode binaries per platform.
+          - ${{ each matrixEntry in parameters.buildMatrix }}:
+            - job: buildLibNode${{ matrixEntry.Name }}
+              displayName: Build libNode ${{ matrixEntry.Name }}
+              variables:
+                - name: Packaging.EnableSBOMSigning
+                  value: ${{ startsWith(variables['System.CollectionUri'], 'https://dev.azure.com/microsoft') }}
+              templateContext:
+                outputs:
+                  - output: buildArtifacts
+                    pathtoPublish: $(Build.ArtifactStagingDirectory)
+                    artifactName: ${{ matrixEntry.TargetRuntime }}
 
-      - ${{ each matrixEntry in parameters.buildMatrix }}:
-        - task: DownloadPipelineArtifact@2
-          displayName: Download ${{ matrixEntry.TargetRuntime }} libNode
-          inputs:
-            artifact: ${{ matrixEntry.TargetRuntime }}
-            path: "$(Build.StagingDirectory)/build/nuget/build/native/${{ matrixEntry.TargetRuntime }}"
+              pool: ${{ matrixEntry.Pool }}
 
-      - task: CopyFiles@2
-        displayName: Copy Nuget root files
-        inputs:
-          sourceFolder: $(Build.SourcesDirectory)/.ado/libNode
-          targetFolder: $(Build.StagingDirectory)/build/nuget
-          contents: |
-            *.nuspec
-            *.txt
-            *.md
+              steps:
+                - checkout: none
 
-      - task: CopyFiles@2
-        displayName: Copy Nuget build files
-        inputs:
-          sourceFolder: $(Build.SourcesDirectory)/.ado/libNode
-          targetFolder: $(Build.StagingDirectory)/build/nuget/build/native
-          contents: |
-            *.targets
+                - script: |
+                    git init
+                    git remote add origin https://vmoroz:$(githubAuthToken)@github.com/jasongin/nodejs
+                    git fetch --no-tags --progress --verbose --depth=1 origin napi-libnode-v20.9.0:refs/remotes/origin/napi-libnode-v20.9.0
+                    git switch napi-libnode-v20.9.0
+                  displayName: Check out napi-libnode-v20.9.0
 
-      - script: dir $(Build.StagingDirectory)\build\nuget /s
+                - task: PowerShell@2
+                  displayName: Download nasm
+                  inputs:
+                    targetType: 'inline'
+                    script: |
+                      Invoke-WebRequest -Uri https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip -OutFile nasm-2.16.03-win64.zip
+                      Expand-Archive nasm-2.16.03-win64.zip -DestinationPath nasm -Force;
+                  condition: eq('${{ matrix.Pool.os }}', 'windows')
 
-      - task: PowerShell@2
-        inputs:
-          targetType: 'inline'
-          script: |
-            $Version = "20.9.0"
-            Write-Host "##vso[task.setvariable variable=Version]$Version"
+        # This task is to simulate the libnode.dll creation to make it faster
+        #        - task: CopyFiles@2
+        #          displayName: Simulate compiling libnode (step 1 of 2)
+        #          inputs:
+        #            sourceFolder: $(Build.SourcesDirectory)/nasm/nasm-2.16.01
+        #            targetFolder: $(Build.SourcesDirectory)/Release
+        #            contents: '*.exe'
 
-      - task: NuGetCommand@2
-        displayName: 'NuGet Pack'
-        inputs:
-          command: pack
-          packagesToPack: $(Build.StagingDirectory)/build/nuget/Microsoft.JavaScript.LibNode.nuspec
-          packDestination: $(Build.StagingDirectory)/pkg
-          buildProperties: nugetroot=$(Build.StagingDirectory)/build/nuget;RepoUri=$(Build.Repository.Uri)
-          versioningScheme: byEnvVar
-          versionEnvVar: Version
+        # This task is to simulate the libnode.dll creation to make it faster
+        #        - script: ren nasm.exe libnode.dll
+        #          displayName: Simulate compiling libnode (step 2 of 2)
+        #          workingDirectory: $(Build.SourcesDirectory)/Release
 
-      - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-        displayName: 📒 Generate artifact manifest
-        inputs:
-          BuildDropPath: $(Build.StagingDirectory)/pkg
+                - script: call vcbuild.bat release ${{ matrixEntry.CPU }} dll
+                  displayName: Build libNode
+                  env:
+                    path: $(Build.SourcesDirectory)\nasm\nasm-2.16.01;$(path)
+                  condition: eq('${{ matrix.Pool.os }}', 'windows')
 
-      - task: PublishPipelineArtifact@1
-        displayName: Publish artifact with packages
-        inputs:
-          targetPath: $(Build.StagingDirectory)/pkg
-          artifactName: published-packages
+                - task: CopyFiles@2
+                  displayName: Copy built binaries to staging
+                  inputs:
+                    sourceFolder: "$(Build.SourcesDirectory)/Release"
+                    targetFolder: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
+                    contents: |
+                      *.dll
+                      *.pdb
+                  condition: eq('${{ matrix.Pool.os }}', 'windows')
+
+                - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+                  displayName: "📒 Generate artifact manifest: ${{ matrixEntry.TargetRuntime }}"
+                  inputs:
+                    BuildDropPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
+
+                - task: PublishPipelineArtifact@1
+                  displayName: "Publish libnode artifacts: ${{ matrixEntry.TargetRuntime }}"
+                  inputs:
+                    artifactName: ${{ matrixEntry.TargetRuntime }}
+                    targetPath: $(Build.StagingDirectory)/native/${{ matrixEntry.TargetRuntime }}
+
+          - job: createPackage
+            displayName: Create Nuget package
+            dependsOn:
+              - ${{ each matrixEntry in parameters.buildMatrix }}:
+                - buildLibNode${{ matrixEntry.Name }}
+
+            variables:
+              VMImage: windows-latest
+              TargetRuntime: win-x64
+
+            pool:
+              vmImage: $(VMImage)
+
+            steps:
+              - checkout: self
+
+              - ${{ each matrixEntry in parameters.buildMatrix }}:
+                - task: DownloadPipelineArtifact@2
+                  displayName: Download ${{ matrixEntry.TargetRuntime }} libNode
+                  inputs:
+                    artifact: ${{ matrixEntry.TargetRuntime }}
+                    path: "$(Build.StagingDirectory)/build/nuget/build/native/${{ matrixEntry.TargetRuntime }}"
+
+              - task: CopyFiles@2
+                displayName: Copy Nuget root files
+                inputs:
+                  sourceFolder: $(Build.SourcesDirectory)/.ado/libNode
+                  targetFolder: $(Build.StagingDirectory)/build/nuget
+                  contents: |
+                    *.nuspec
+                    *.txt
+                    *.md
+
+              - task: CopyFiles@2
+                displayName: Copy Nuget build files
+                inputs:
+                  sourceFolder: $(Build.SourcesDirectory)/.ado/libNode
+                  targetFolder: $(Build.StagingDirectory)/build/nuget/build/native
+                  contents: |
+                    *.targets
+
+              - script: dir $(Build.StagingDirectory)\build\nuget /s
+
+              - task: PowerShell@2
+                inputs:
+                  targetType: 'inline'
+                  script: |
+                    $Version = "20.9.0"
+                    Write-Host "##vso[task.setvariable variable=Version]$Version"
+
+              - task: NuGetCommand@2
+                displayName: 'NuGet Pack'
+                inputs:
+                  command: pack
+                  packagesToPack: $(Build.StagingDirectory)/build/nuget/Microsoft.JavaScript.LibNode.nuspec
+                  packDestination: $(Build.StagingDirectory)/pkg
+                  buildProperties: nugetroot=$(Build.StagingDirectory)/build/nuget;RepoUri=$(Build.Repository.Uri)
+                  versioningScheme: byEnvVar
+                  versionEnvVar: Version
+
+              - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+                displayName: 📒 Generate artifact manifest
+                inputs:
+                  BuildDropPath: $(Build.StagingDirectory)/pkg
+
+              - task: PublishPipelineArtifact@1
+                displayName: Publish artifact with packages
+                inputs:
+                  targetPath: $(Build.StagingDirectory)/pkg
+                  artifactName: published-packages
