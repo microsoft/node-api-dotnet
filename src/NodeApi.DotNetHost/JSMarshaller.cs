@@ -143,6 +143,11 @@ public class JSMarshaller
         while (name[firstLetterIndex] == '_')
         {
             firstLetterIndex++;
+            if (firstLetterIndex == name.Length)
+            {
+                // Only underscores.
+                return name;
+            }
         }
 
         // Only convert if it looks like title-case. (Avoid converting ALLCAPS.)
