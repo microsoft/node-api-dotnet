@@ -131,13 +131,59 @@ public class JSMarshaller
     /// </summary>
     public bool AutoCamelCase { get; set; }
 
-    private string ToCamelCase(string name)
+    public static string ToCamelCase(string name)
     {
-        if (!AutoCamelCase) return name;
+        if (name.Length == 0)
+        {
+            return name;
+        }
 
-        StringBuilder sb = new(name);
-        sb[0] = char.ToLowerInvariant(sb[0]);
-        return sb.ToString();
+        // Skip leading underscores.
+        int firstLetterIndex = 0;
+        while (name[firstLetterIndex] == '_')
+        {
+            firstLetterIndex++;
+            if (firstLetterIndex == name.Length)
+            {
+                // Only underscores.
+                return name;
+            }
+        }
+
+        // Only convert if it looks like title-case. (Avoid converting ALLCAPS.)
+        if (char.IsUpper(name[firstLetterIndex]))
+        {
+            for (int i = firstLetterIndex + 1; i < name.Length; i++)
+            {
+                if (char.IsLower(name[i]))
+                {
+                    // Found at least one lowercase letter. Convert to camel-case and return.
+                    char[] chars = name.ToCharArray();
+                    chars[firstLetterIndex] = char.ToLower(name[firstLetterIndex]);
+                    return new string(chars);
+                }
+            }
+        }
+
+        return name;
+    }
+
+    private UnaryExpression JSMemberNameExpression(MemberInfo member)
+    {
+        string name = member.Name;
+        int lastDotIndex = name.LastIndexOf('.');
+        if (lastDotIndex > 0)
+        {
+            // For explicit interface implementations, use the simple name.
+            name = name.Substring(lastDotIndex + 1);
+        }
+
+        string jsName = AutoCamelCase ? ToCamelCase(name) : name;
+
+        return Expression.Convert(
+            Expression.Constant(jsName),
+            typeof(JSValue),
+            typeof(JSValue).GetImplicitConversion(typeof(string), typeof(JSValue)));
     }
 
     /// <summary>
@@ -603,14 +649,7 @@ public class JSMarshaller
              * }
              */
 
-            // If the method is an explicit interface implementation, parse off the simple name.
-            // Then convert to JSValue for use as a JS property name.
-            int dotIndex = method.Name.LastIndexOf('.');
-            Expression methodName = Expression.Convert(
-                Expression.Constant(ToCamelCase(
-                    dotIndex >= 0 ? method.Name.Substring(dotIndex + 1) : method.Name)),
-                typeof(JSValue),
-                typeof(JSValue).GetImplicitConversion(typeof(string), typeof(JSValue)));
+            Expression methodName = JSMemberNameExpression(method);
 
             Expression ParameterToJSValue(int index) => InlineOrInvoke(
                 GetToJSValueExpression(methodParameters[index].ParameterType),
@@ -1114,10 +1153,7 @@ public class JSMarshaller
              * }
              */
 
-            Expression propertyName = Expression.Convert(
-                Expression.Constant(ToCamelCase(property.Name)),
-                typeof(JSValue),
-                typeof(JSValue).GetImplicitConversion(typeof(string), typeof(JSValue)));
+            Expression propertyName = JSMemberNameExpression(property);
 
             Expression getStatement = Expression.Assign(
                 resultVariable,
@@ -1189,10 +1225,7 @@ public class JSMarshaller
              * }
              */
 
-            Expression propertyName = Expression.Convert(
-                Expression.Constant(ToCamelCase(property.Name)),
-                typeof(JSValue),
-                typeof(JSValue).GetImplicitConversion(typeof(string), typeof(JSValue)));
+            Expression propertyName = JSMemberNameExpression(property);
 
             Expression convertStatement = Expression.Assign(
                 jsValueVariable,
@@ -2962,7 +2995,8 @@ public class JSMarshaller
                 continue;
             }
 
-            Expression propertyName = Expression.Constant(ToCamelCase(property.Name));
+            Expression propertyName = Expression.Constant(
+                AutoCamelCase ? ToCamelCase(property.Name) : property.Name);
             memberBindings.Add(Expression.Bind(property, InlineOrInvoke(
                 GetFromJSValueExpression(property.PropertyType),
                 Expression.Property(valueVariable, s_valueItem, propertyName),
@@ -3021,7 +3055,8 @@ public class JSMarshaller
                 continue;
             }
 
-            Expression propertyName = Expression.Constant(ToCamelCase(property.Name));
+            Expression propertyName = Expression.Constant(
+                AutoCamelCase ? ToCamelCase(property.Name) : property.Name);
             yield return Expression.Assign(
                 Expression.Property(jsValueVariable, s_valueItem, propertyName),
                 InlineOrInvoke(
