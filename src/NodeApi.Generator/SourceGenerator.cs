@@ -77,13 +77,6 @@ public abstract class SourceGenerator
         return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
     }
 
-    public static string ToCamelCase(string name)
-    {
-        StringBuilder sb = new(name);
-        sb[0] = char.ToLowerInvariant(sb[0]);
-        return sb.ToString();
-    }
-
     public void ReportException(Exception ex)
     {
         // The compiler diagnostic will only show up to the first \r or \n.

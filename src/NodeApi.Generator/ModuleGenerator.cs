@@ -859,7 +859,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
         }
 
         // Member names are automatically formatted as camelCase; type names are not.
-        return symbol is ITypeSymbol ? symbol.Name : ToCamelCase(symbol.Name);
+        return symbol is ITypeSymbol ? symbol.Name : JSMarshaller.ToCamelCase(symbol.Name);
     }
 
     /// <summary>

@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Microsoft.JavaScript.NodeApi.DotNetHost;
 using Microsoft.JavaScript.NodeApi.Interop;
 using static Microsoft.JavaScript.NodeApi.DotNetHost.JSMarshaller;
 using NullabilityInfo = System.Reflection.NullabilityInfo;
@@ -2010,7 +2011,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
                 }
             }
 
-            return _autoCamelCase && member is not Type ? ToCamelCase(name) : name;
+            return _autoCamelCase && member is not Type ? JSMarshaller.ToCamelCase(name) : name;
         }
     }
 
