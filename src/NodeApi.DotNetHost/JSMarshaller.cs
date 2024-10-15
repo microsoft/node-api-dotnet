@@ -163,7 +163,7 @@ public class JSMarshaller
         return name;
     }
 
-    private Expression JSMemberNameExpression(MemberInfo member)
+    private UnaryExpression JSMemberNameExpression(MemberInfo member)
     {
         string name = member.Name;
         int lastDotIndex = name.LastIndexOf('.');
