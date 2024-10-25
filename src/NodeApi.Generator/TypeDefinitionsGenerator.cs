@@ -46,6 +46,13 @@ public class TypeDefinitionsGenerator : SourceGenerator
         ES,
     }
 
+    private enum AssemblyType
+    {
+        JSModule,
+        ApplicationAssembly,
+        SystemAssembly,
+    }
+
     /// <summary>
     /// JavaScript (not TypeScript) code that is emitted to a `.js` file alongside the `.d.ts`.
     /// Enables application code to load an assembly (containing explicit JS exports) as an ES
@@ -58,7 +65,7 @@ public class TypeDefinitionsGenerator : SourceGenerator
     /// An MSBuild task during the AOT publish process sets the `dotnet` variable to undefined.
     /// </remarks>
     private const string LoadModuleMJS = @"
-import dotnet from 'node-api-dotnet';
+import dotnet from 'node-api-dotnet/$(TargetFramework)';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // @ts-ignore - https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/65252
@@ -92,7 +99,7 @@ function importAotModule(moduleName) {
     /// An MSBuild task during the AOT publish process sets the `dotnet` variable to undefined.
     /// </remarks>
     private const string LoadModuleCJS = @"
-const dotnet = require('node-api-dotnet');
+const dotnet = require('node-api-dotnet/$(TargetFramework)');
 const path = require('node:path');
 // @ts-ignore - https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/65252
 const { dlopen, platform, arch } = require('node:process');
@@ -126,7 +133,7 @@ function importAotModule(moduleName) {
     /// they are equivalent to those predefined values defined for CommonJS modules.
     /// </remarks>
     private const string LoadAssemblyMJS = @"
-import dotnet from 'node-api-dotnet';
+import dotnet from 'node-api-dotnet/$(TargetFramework)';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -143,7 +150,7 @@ dotnet.load(assemblyFilePath);";
     /// the node-api-dotnet module.
     /// </summary>
     private const string LoadAssemblyCJS = @"
-const dotnet = require('node-api-dotnet');
+const dotnet = require('node-api-dotnet/$(TargetFramework)');
 const path = require('node:path');
 
 const assemblyName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
@@ -157,7 +164,7 @@ dotnet.load(assemblyFilePath);";
     /// the node-api-dotnet module.
     /// </summary>
     private const string LoadSystemAssemblyMJS = @"
-import dotnet from 'node-api-dotnet';
+import dotnet from 'node-api-dotnet/$(TargetFramework)';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -172,7 +179,7 @@ dotnet.load(assemblyName);";
     /// it augments the node-api-dotnet module.
     /// </summary>
     private const string LoadSystemAssemblyCJS = @"
-const dotnet = require('node-api-dotnet');
+const dotnet = require('node-api-dotnet/$(TargetFramework)');
 const path = require('node:path');
 
 const assemblyName = path.basename(__filename, __filename.match(/(\.[cm]?js)?$/)[0]);
@@ -209,6 +216,7 @@ dotnet.load(assemblyName);";
         IEnumerable<string> systemReferenceAssemblyDirectories,
         string typeDefinitionsPath,
         IDictionary<ModuleType, string> modulePaths,
+        string? targetFramework = null,
         bool isSystemAssembly = false,
         bool suppressWarnings = false)
     {
@@ -286,7 +294,7 @@ dotnet.load(assemblyName);";
                 string moduleFilePath = moduleTypeAndPath.Value;
 
                 SourceText generatedModule = generator.GenerateModuleLoader(
-                    moduleType, isSystemAssembly);
+                    moduleType, targetFramework, isSystemAssembly);
                 File.WriteAllText(moduleFilePath, generatedModule.ToString());
             }
         }
@@ -466,82 +474,94 @@ dotnet.load(assemblyName);";
         return s;
     }
 
-    public SourceText GenerateModuleLoader(ModuleType moduleType, bool isSystemAssembly = false)
+    public SourceText GenerateModuleLoader(
+        ModuleType moduleType,
+        string? targetFramework,
+        bool isSystemAssembly = false)
     {
         var s = new SourceBuilder();
         s += GetGeneratedFileHeader();
 
-        if (_isModule)
+        s += GetLoaderJS(
+            moduleType,
+            _isModule ? AssemblyType.JSModule :
+                isSystemAssembly ? AssemblyType.SystemAssembly : AssemblyType.ApplicationAssembly,
+            targetFramework);
+
+        if (_isModule && moduleType == ModuleType.ES)
         {
-            if (moduleType == ModuleType.ES)
+            // Declare ES module exports.
+
+            bool isFirstMember = true;
+            bool hasDefaultExport = false;
+            foreach (MemberInfo member in _exportedMembers)
             {
-                s += LoadModuleMJS.Replace("    ", ""); // The SourceBuilder will auto-indent.
+                string exportName = GetExportName(member);
 
-                bool isFirstMember = true;
-                bool hasDefaultExport = false;
-                foreach (MemberInfo member in _exportedMembers)
+                if (member is PropertyInfo exportedProperty &&
+                    exportedProperty.SetMethod != null)
                 {
-                    string exportName = GetExportName(member);
-
-                    if (member is PropertyInfo exportedProperty &&
-                        exportedProperty.SetMethod != null)
-                    {
-                        ReportWarning(
-                            DiagnosticId.ESModulePropertiesAreConst,
-                            $"Module-level property '{exportName}' with setter will be " +
-                            "exported as read-only because ES module properties are constant.");
-                    }
-
-                    if (exportName == "default")
-                    {
-                        hasDefaultExport = true;
-                    }
-                    else
-                    {
-                        if (isFirstMember)
-                        {
-                            s++;
-                            isFirstMember = false;
-                        }
-
-                        s += $"export const {exportName} = exports.{exportName};";
-                    }
+                    ReportWarning(
+                        DiagnosticId.ESModulePropertiesAreConst,
+                        $"Module-level property '{exportName}' with setter will be " +
+                        "exported as read-only because ES module properties are constant.");
                 }
 
-                if (hasDefaultExport)
+                if (exportName == "default")
                 {
-                    s++;
-                    s += $"export default exports['default'];";
+                    hasDefaultExport = true;
+                }
+                else
+                {
+                    if (isFirstMember)
+                    {
+                        s++;
+                        isFirstMember = false;
+                    }
+
+                    s += $"export const {exportName} = exports.{exportName};";
                 }
             }
-            else if (moduleType == ModuleType.CommonJS)
+
+            if (hasDefaultExport)
             {
-                s += LoadModuleCJS.Replace("    ", ""); // The SourceBuilder will auto-indent.
-            }
-            else
-            {
-                throw new ArgumentException(
-                    "Invalid module type: " + moduleType, nameof(moduleType));
-            }
-        }
-        else
-        {
-            if (moduleType == ModuleType.ES)
-            {
-                s += isSystemAssembly ? LoadSystemAssemblyMJS : LoadAssemblyMJS;
-            }
-            else if (moduleType == ModuleType.CommonJS)
-            {
-                s += isSystemAssembly ? LoadSystemAssemblyCJS : LoadAssemblyCJS;
-            }
-            else
-            {
-                throw new ArgumentException(
-                    "Invalid module type: " + moduleType, nameof(moduleType));
+                s++;
+                s += $"export default exports['default'];";
             }
         }
 
         return s;
+    }
+
+    private string GetLoaderJS(
+        ModuleType moduleType,
+        AssemblyType assemblyType,
+        string? targetFramework)
+    {
+        string loaderJS = (moduleType, assemblyType) switch
+        {
+            (ModuleType.CommonJS, AssemblyType.JSModule) => LoadModuleCJS,
+            (ModuleType.ES, AssemblyType.JSModule) => LoadModuleMJS,
+            (ModuleType.CommonJS, AssemblyType.ApplicationAssembly) => LoadAssemblyCJS,
+            (ModuleType.ES, AssemblyType.ApplicationAssembly) => LoadAssemblyMJS,
+            (ModuleType.CommonJS, AssemblyType.SystemAssembly) => LoadSystemAssemblyCJS,
+            (ModuleType.ES, AssemblyType.SystemAssembly) => LoadSystemAssemblyMJS,
+            _ => throw new ArgumentException(
+                "Invalid module type: " + moduleType, nameof(moduleType)),
+        };
+
+        loaderJS = loaderJS.Replace("    ", ""); // The SourceBuilder will auto-indent.
+
+        if (string.IsNullOrEmpty(targetFramework))
+        {
+            loaderJS = loaderJS.Replace("/$(TargetFramework)", string.Empty);
+        }
+        else
+        {
+            loaderJS = loaderJS.Replace("$(TargetFramework)", targetFramework);
+        }
+
+        return loaderJS;
     }
 
     private bool IsExported(MemberInfo member)

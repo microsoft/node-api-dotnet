@@ -191,7 +191,6 @@ public sealed class JSValueScope : IDisposable
             runtime ??= _parentScope?.Runtime ??
                     throw new ArgumentNullException(nameof(runtime), "A runtime is required.");
 
-            _parentScope = null;
             _env = env;
             ThreadId = Environment.CurrentManagedThreadId;
             Runtime = runtime;
