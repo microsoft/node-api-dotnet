@@ -533,7 +533,7 @@ dotnet.load(assemblyName);";
         return s;
     }
 
-    private string GetLoaderJS(
+    private static string GetLoaderJS(
         ModuleType moduleType,
         AssemblyType assemblyType,
         string? targetFramework)
