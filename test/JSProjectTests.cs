@@ -23,7 +23,8 @@ public class JSProjectTests
 
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases(
         (testCaseName) => testCaseName.StartsWith("projects/") &&
-            IsCurrentTargetFramework(Path.GetFileName(testCaseName)));
+            (!testCaseName.Contains("-dynamic") ||
+                IsCurrentTargetFramework(Path.GetFileName(testCaseName))));
 
     private static bool IsCurrentTargetFramework(string target)
     {

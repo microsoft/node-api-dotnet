@@ -32,6 +32,7 @@ public static class Program
 {
     private const char PathSeparator = ';';
 
+    private static string? s_targetFramework;
     private static readonly List<string> s_assemblyPaths = new();
     private static readonly List<string> s_referenceAssemblyDirectories = new();
     private static readonly List<string> s_referenceAssemblyPaths = new();
@@ -49,7 +50,7 @@ public static class Program
             Console.WriteLine("""
                 Usage: node-api-dotnet-generator [options...]
                   -a --asssembly  Path to input assembly (required)
-                  -f --framework  Target framework of system assemblies (optional)
+                  -f --framework  .NET target framework moniker (optional)
                   -p --pack       Targeting pack (optional, multiple)
                   -r --reference  Path to reference assembly (optional, multiple)
                   -t --typedefs   Path to output type definitions file (required)
@@ -105,6 +106,7 @@ public static class Program
                 s_referenceAssemblyDirectories,
                 s_typeDefinitionsPaths[i],
                 modulePaths,
+                s_targetFramework,
                 isSystemAssembly: s_systemAssemblyIndexes.Contains(i),
                 s_suppressWarnings);
         }
@@ -119,7 +121,6 @@ public static class Program
             return false;
         }
 
-        string? targetFramework = null;
         List<string> targetingPacks = new();
 
         for (int i = 0; i < args.Length; i++)
@@ -149,7 +150,7 @@ public static class Program
 
                 case "-f":
                 case "--framework":
-                    targetFramework = args[++i];
+                    s_targetFramework = args[++i];
                     break;
 
                 case "-p":
@@ -220,7 +221,7 @@ public static class Program
             }
         }
 
-        ResolveSystemAssemblies(targetFramework, targetingPacks);
+        ResolveSystemAssemblies(targetingPacks);
 
         bool HasAssemblyExtension(string fileName) =>
             fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
@@ -396,20 +397,19 @@ public static class Program
     }
 
     private static void ResolveSystemAssemblies(
-        string? targetFramework,
         List<string> targetingPacks)
     {
-        if (targetFramework == null)
+        if (s_targetFramework == null)
         {
-            targetFramework = GetCurrentFrameworkTarget();
+            s_targetFramework = GetCurrentFrameworkTarget();
         }
-        else if (targetFramework.Contains('-'))
+        else if (s_targetFramework.Contains('-'))
         {
             // Strip off a platform suffix from a target framework like "net6.0-windows".
-            targetFramework = targetFramework.Substring(0, targetFramework.IndexOf('-'));
+            s_targetFramework = s_targetFramework.Substring(0, s_targetFramework.IndexOf('-'));
         }
 
-        if (targetFramework.StartsWith("net4"))
+        if (s_targetFramework.StartsWith("net4"))
         {
             if (targetingPacks.Count > 0)
             {
@@ -422,7 +422,7 @@ public static class Program
                 "Microsoft",
                 "Framework",
                 ".NETFramework",
-                "v" + string.Join(".", targetFramework.Substring(3).ToArray())); // v4.7.2
+                "v" + string.Join(".", s_targetFramework.Substring(3).ToArray())); // v4.7.2
             if (Directory.Exists(refAssemblyDirectory))
             {
                 s_referenceAssemblyDirectories.Add(refAssemblyDirectory);
@@ -461,7 +461,7 @@ public static class Program
                 {
                     string? refAssemblyDirectory = Directory.GetDirectories(targetPackDirectory)
                         .OrderByDescending((d) => Path.GetFileName(d))
-                        .Select((d) => Path.Combine(d, "ref", targetFramework))
+                        .Select((d) => Path.Combine(d, "ref", s_targetFramework))
                         .FirstOrDefault(Directory.Exists);
                     if (refAssemblyDirectory != null)
                     {

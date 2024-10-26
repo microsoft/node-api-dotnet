@@ -20,7 +20,9 @@
     <NodeApiJSModuleType Condition=" '$(NodeApiJSModuleType)' == '' AND Exists('$(NodeApiPackageJson)') ">&quot;$(NodeApiPackageJson)&quot;</NodeApiJSModuleType>
     <NodeApiJSModuleType Condition=" '$(NodeApiJSModuleType)' == '' ">commonjs,esm</NodeApiJSModuleType>
 
-    <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiJSModuleType) --framework $(TargetFramework) $(NodeApiTypedefsGeneratorOptions)</NodeApiTypeDefinitionsGeneratorOptions>
+    <NodeApiTargetFramework Condition=" '$(NodeApiTargetFramework)' == '' ">$(TargetFramework)</NodeApiTargetFramework>
+
+    <NodeApiTypeDefinitionsGeneratorOptions>--module $(NodeApiJSModuleType) --framework $(NodeApiTargetFramework) $(NodeApiTypedefsGeneratorOptions)</NodeApiTypeDefinitionsGeneratorOptions>
   </PropertyGroup>
 
   <!--
