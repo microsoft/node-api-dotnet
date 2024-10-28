@@ -1,21 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Electron .NET Integration</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electron + .NET Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        button {
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-  <h1>Electron + .NET Integration</h1>
-  <label for="inputA">Number A:</label>
-  <input type="number" id="inputA">
-  <br><br>
-  <label for="inputB">Number B:</label>
-  <input type="number" id="inputB">
-  <br><br>
-  <button id="addButton">Add Numbers</button>
-  <p id="result">Result:</p>
+    <h1>Call .NET Method from Electron</h1>
+    <input type="number" id="number1" placeholder="Enter first number" />
+    <input type="number" id="number2" placeholder="Enter second number" />
+    <button id="addButton">Add Numbers</button>
+    <p id="result"></p>
 
-  <script src="renderer.js"></script>
+    <script>
+        document.getElementById('addButton').addEventListener('click', async () => {
+            const num1 = parseInt(document.getElementById('number1').value);
+            const num2 = parseInt(document.getElementById('number2').value);
+            const resultElement = document.getElementById('result');
+
+            try {
+                const result = await window.myAPI.callDotNet('Add', num1, num2);
+                resultElement.innerText = `Result: ${result}`;
+            } catch (error) {
+                resultElement.innerText = `Error: ${error.message}`;
+            }
+        });
+    </script>
 </body>
 </html>
