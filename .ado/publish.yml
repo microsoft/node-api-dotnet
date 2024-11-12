@@ -173,10 +173,15 @@ jobs:
         inputs:
           Contents: global.json
 
-      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
+      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
         displayName: CodeSign Binaries
         inputs:
-          ConnectedServiceName: ESRP-JsHost2
+          ConnectedServiceName: 'ESRP-JSHost3'
+          AppRegistrationClientId: 'b25d2dd5-da6c-43d5-81fe-96e4dafb76b1'
+          AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
+          AuthAKVName: 'OGX-JSHost-KV'
+          AuthCertName: 'OGX-JSHost-Auth2'
+          AuthSignCertName: 'OGX-JSHost-Sign'
           FolderPath: $(Build.SourcesDirectory)/out/bin/Release
           # Recursively finds files matching these patterns:
           Pattern: |
@@ -217,10 +222,15 @@ jobs:
         env:
           RuntimeIdentifierList: $(TargetRuntimeList)
 
-      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
+      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
         displayName: CodeSign NuGets
         inputs:
-          ConnectedServiceName: ESRP-JsHost2
+          ConnectedServiceName: 'ESRP-JSHost3'
+          AppRegistrationClientId: 'b25d2dd5-da6c-43d5-81fe-96e4dafb76b1'
+          AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
+          AuthAKVName: 'OGX-JSHost-KV'
+          AuthCertName: 'OGX-JSHost-Auth2'
+          AuthSignCertName: 'OGX-JSHost-Sign'
           FolderPath: $(Build.SourcesDirectory)/out/pkg
           Pattern: |
             **/Microsoft.JavaScript.NodeApi.*.*nupkg
