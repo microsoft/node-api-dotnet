@@ -177,7 +177,7 @@ jobs:
         displayName: CodeSign Binaries
         inputs:
           ConnectedServiceName: 'ESRP-JSHost3'
-          AppRegistrationClientId: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+          AppRegistrationClientId: 'edb52cd2-44fb-408e-baf5-3fec506bbdeb'
           AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
           AuthAKVName: 'OGX-JSHost-KV'
           AuthCertName: 'OGX-JSHost-Auth4'
@@ -226,7 +226,7 @@ jobs:
         displayName: CodeSign NuGets
         inputs:
           ConnectedServiceName: 'ESRP-JSHost3'
-          AppRegistrationClientId: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+          AppRegistrationClientId: 'edb52cd2-44fb-408e-baf5-3fec506bbdeb'
           AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
           AuthAKVName: 'OGX-JSHost-KV'
           AuthCertName: 'OGX-JSHost-Auth4'
