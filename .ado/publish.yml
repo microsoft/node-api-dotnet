@@ -209,6 +209,9 @@ jobs:
             testResultsFormat: 'VSTest'
             searchFolder: "$(Build.StagingDirectory)/test/${{ matrixEntry.DotNetVersion }}-Release"
             testResultsFiles: '*.trx'
+            failTaskOnFailedTests: true
+            failTaskOnFailureToPublishResults: true
+            failTaskOnMissingResultsFile: true
 
   - job: createPackages
     displayName: Create Nuget and NPM packages
