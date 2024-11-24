@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 # TODO: publish to source server
-# TODO: run tests
 
 # Name of the run. It is overridden below  with the version of published binaries.
 name: 0.0.$(Date:yyMM.d)$(Rev:rrr)
@@ -206,6 +205,7 @@ jobs:
         - task: PublishTestResults@2
           displayName: Publish test results
           inputs:
+            testRunTitle: Test ${{ matrixEntry.TargetRuntime }} with ${{ matrixEntry.DotnetVersion }}
             testResultsFormat: 'VSTest'
             searchFolder: "$(Build.StagingDirectory)/test/${{ matrixEntry.DotNetVersion }}-Release"
             testResultsFiles: '*.trx'
