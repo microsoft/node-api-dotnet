@@ -35,6 +35,13 @@ parameters:
     - Name: linux_x64
       VMImage: ubuntu-latest
       TargetRuntime: linux-x64
+    - Name: linux_arm64
+      VMImage: ubuntu-latest
+      TargetRuntime: linux-arm64
+
+variables:
+  - name: DisableSigning # Disable signing while we have no access to certificate
+    value: true
 
 jobs:
   # Build Native AOT .Net hosts for Node-API modules.
@@ -173,48 +180,49 @@ jobs:
         inputs:
           Contents: global.json
 
-      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
-        displayName: CodeSign Binaries
-        inputs:
-          ConnectedServiceName: 'ESRP-JSHost3'
-          AppRegistrationClientId: '0a35e01f-eadf-420a-a2bf-def002ba898d'
-          AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
-          AuthAKVName: 'OGX-JSHost-KV'
-          AuthCertName: 'OGX-JSHost-Auth4'
-          AuthSignCertName: 'OGX-JSHost-Sign3'
-          FolderPath: $(Build.SourcesDirectory)/out/bin/Release
-          # Recursively finds files matching these patterns:
-          Pattern: |
-            **/Microsoft.JavaScript.NodeApi.dll
-            **/win-x64/publish/Microsoft.JavaScript.NodeApi.node
-            **/Microsoft.JavaScript.NodeApi.DotNetHost.dll
-            **/Microsoft.JavaScript.NodeApi.Generator.dll
-            **/Microsoft.JavaScript.NodeApi.Generator.exe
-          UseMinimatch: true
-          signConfigType: inlineSignParams
-          inlineOperation: |
-            [
-              {
-                "KeyCode" : "CP-230012",
-                "OperationCode" : "SigntoolSign",
-                "Parameters" : {
-                    "OpusName" : "Microsoft",
-                    "OpusInfo" : "http://www.microsoft.com",
-                    "FileDigest" : "/fd \"SHA256\"",
-                    "PageHash" : "/NPH",
-                    "TimeStamp" : "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-                },
-                "ToolName" : "sign",
-                "ToolVersion" : "1.0"
-              },
-              {
+      - ${{ if ne(variables.DisableSigning, true) }}:
+        - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
+          displayName: CodeSign Binaries
+          inputs:
+            ConnectedServiceName: 'ESRP-JSHost3'
+            AppRegistrationClientId: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+            AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
+            AuthAKVName: 'OGX-JSHost-KV'
+            AuthCertName: 'OGX-JSHost-Auth4'
+            AuthSignCertName: 'OGX-JSHost-Sign3'
+            FolderPath: $(Build.SourcesDirectory)/out/bin/Release
+            # Recursively finds files matching these patterns:
+            Pattern: |
+              **/Microsoft.JavaScript.NodeApi.dll
+              **/win-x64/publish/Microsoft.JavaScript.NodeApi.node
+              **/Microsoft.JavaScript.NodeApi.DotNetHost.dll
+              **/Microsoft.JavaScript.NodeApi.Generator.dll
+              **/Microsoft.JavaScript.NodeApi.Generator.exe
+            UseMinimatch: true
+            signConfigType: inlineSignParams
+            inlineOperation: |
+              [
+                {
                   "KeyCode" : "CP-230012",
-                  "OperationCode" : "SigntoolVerify",
-                  "Parameters" : {},
+                  "OperationCode" : "SigntoolSign",
+                  "Parameters" : {
+                      "OpusName" : "Microsoft",
+                      "OpusInfo" : "http://www.microsoft.com",
+                      "FileDigest" : "/fd \"SHA256\"",
+                      "PageHash" : "/NPH",
+                      "TimeStamp" : "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                  },
                   "ToolName" : "sign",
                   "ToolVersion" : "1.0"
-              }
-            ]
+                },
+                {
+                    "KeyCode" : "CP-230012",
+                    "OperationCode" : "SigntoolVerify",
+                    "Parameters" : {},
+                    "ToolName" : "sign",
+                    "ToolVersion" : "1.0"
+                }
+              ]
 
       # Do not build or publish assemblies to avoid overriding signed binaries.
       - script: dotnet pack --configuration Release --no-build -p:NoPublish=true
@@ -222,37 +230,38 @@ jobs:
         env:
           RuntimeIdentifierList: $(TargetRuntimeList)
 
-      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
-        displayName: CodeSign NuGets
-        inputs:
-          ConnectedServiceName: 'ESRP-JSHost3'
-          AppRegistrationClientId: '0a35e01f-eadf-420a-a2bf-def002ba898d'
-          AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
-          AuthAKVName: 'OGX-JSHost-KV'
-          AuthCertName: 'OGX-JSHost-Auth4'
-          AuthSignCertName: 'OGX-JSHost-Sign3'
-          FolderPath: $(Build.SourcesDirectory)/out/pkg
-          Pattern: |
-            **/Microsoft.JavaScript.NodeApi.*.*nupkg
-          UseMinimatch: true
-          signConfigType: inlineSignParams
-          inlineOperation: |
-            [
-              {
-                  "KeyCode" : "CP-401405",
-                  "OperationCode" : "NuGetSign",
-                  "Parameters" : {},
-                  "ToolName" : "sign",
-                  "ToolVersion" : "1.0"
-              },
-              {
-                  "KeyCode" : "CP-401405",
-                  "OperationCode" : "NuGetVerify",
-                  "Parameters" : {},
-                  "ToolName" : "sign",
-                  "ToolVersion" : "1.0"
-              }
-            ]
+      - ${{ if ne(variables.DisableSigning, true) }}:
+        - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
+          displayName: CodeSign NuGets
+          inputs:
+            ConnectedServiceName: 'ESRP-JSHost3'
+            AppRegistrationClientId: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+            AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
+            AuthAKVName: 'OGX-JSHost-KV'
+            AuthCertName: 'OGX-JSHost-Auth4'
+            AuthSignCertName: 'OGX-JSHost-Sign3'
+            FolderPath: $(Build.SourcesDirectory)/out/pkg
+            Pattern: |
+              **/Microsoft.JavaScript.NodeApi.*.*nupkg
+            UseMinimatch: true
+            signConfigType: inlineSignParams
+            inlineOperation: |
+              [
+                {
+                    "KeyCode" : "CP-401405",
+                    "OperationCode" : "NuGetSign",
+                    "Parameters" : {},
+                    "ToolName" : "sign",
+                    "ToolVersion" : "1.0"
+                },
+                {
+                    "KeyCode" : "CP-401405",
+                    "OperationCode" : "NuGetVerify",
+                    "Parameters" : {},
+                    "ToolName" : "sign",
+                    "ToolVersion" : "1.0"
+                }
+              ]
 
       - task: CopyFiles@2
         displayName: Copy packages to staging
