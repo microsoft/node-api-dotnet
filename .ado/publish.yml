@@ -176,6 +176,9 @@ jobs:
       - script: dotnet build --configuration Release
         displayName: Build managed assemblies
 
+      - script: dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
+        displayName: Check formatting
+
       - ${{ each matrixEntry in parameters.buildMatrix }}:
         - task: DownloadPipelineArtifact@2
           displayName: Download ${{ matrixEntry.TargetRuntime }} AOT
