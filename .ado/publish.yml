@@ -81,6 +81,12 @@ jobs:
         - script: dotnet --info
           displayName: Print .Net info
 
+        # Install additional libraries for the Linux cross compilation
+        - bash: |
+            sudo apt install -y clang llvm binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu zlib1g-dev:arm64
+          displayName: Install Linux ARM64 cross compilation libraries
+          condition: eq('${{ matrixEntry.TargetRuntime }}', 'linux-arm64')
+
         - script: >
             dotnet publish
             --configuration Release
