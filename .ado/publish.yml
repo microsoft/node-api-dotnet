@@ -1,7 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# TODO: publish symbols
 # TODO: publish to source server
 # TODO: run tests
 
@@ -116,7 +115,9 @@ jobs:
             sourceFolder: "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/\
               aot/${{ matrixEntry.TargetRuntime }}/publish"
             targetFolder: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
-            contents: Microsoft.JavaScript.NodeApi.node
+            contents: |
+              Microsoft.JavaScript.NodeApi.node
+              Microsoft.JavaScript.NodeApi.node.pdb 
 
         - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
           displayName: "📒 Generate artifact manifest: ${{ matrixEntry.TargetRuntime }}"
@@ -152,6 +153,7 @@ jobs:
         submodules: false
         lfs: false
 
+      # .Net 6.0 is required for the code signing task
       - task: UseDotNet@2
         displayName: Install .Net 6.0.x
         inputs:
@@ -240,6 +242,19 @@ jobs:
                     "ToolVersion" : "1.0"
                 }
               ]
+
+      # Make symbols available through http://symweb.
+      - task: PublishSymbols@2
+        displayName: Publish symbols
+        inputs:
+          SymbolsFolder: $(Build.SourcesDirectory)/out/bin/Release
+          SearchPattern: |
+            **/Microsoft.JavaScript.NodeApi.pdb
+            **/win-x64/publish/Microsoft.JavaScript.NodeApi.node.pdb
+            **/Microsoft.JavaScript.NodeApi.DotNetHost.pdb
+            **/Microsoft.JavaScript.NodeApi.Generator.pdb
+          SymbolServerType: TeamServices
+          UseNetCoreClientTool: true
 
       # Do not build or publish assemblies to avoid overriding signed binaries.
       - script: dotnet pack --configuration Release --no-build -p:NoPublish=true
