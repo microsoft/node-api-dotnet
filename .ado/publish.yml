@@ -208,6 +208,7 @@ jobs:
           inputs:
             testResultsFormat: 'VSTest'
             searchFolder: "$(Build.StagingDirectory)/test/${{ matrixEntry.DotNetVersion }}-Release"
+            testResultsFiles: '*.trx'
 
   - job: createPackages
     displayName: Create Nuget and NPM packages
