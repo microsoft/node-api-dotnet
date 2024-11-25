@@ -44,12 +44,11 @@ parameters:
         name: Azure-Pipelines-1ESPT-ExDShared
         image: ubuntu-latest
         os: linux
-      VMImage: ubuntu-22.04
       TargetRuntime: linux-x64
     - Name: linux_arm64
       Pool:
         name: Azure-Pipelines-1ESPT-ExDShared
-        image: ubuntu-22.04 # Update cross-compilation installation script below after updating this version.
+        image: ubuntu-2204 # Update cross-compilation installation script below after updating this version.
         os: linux
       TargetRuntime: linux-arm64
 
@@ -152,7 +151,12 @@ extends:
                     pathtoPublish: $(Build.ArtifactStagingDirectory)
                     artifactName: ${{ MatrixEntry.TargetRuntime }}
                     targetPath: $(Build.StagingDirectory)/AOT/${{ MatrixEntry.TargetRuntime }}
-
+                variables:
+                  # Temporary disable CodeQL for OSX ARM64.
+                  # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
+                  ${{ if eq( MatrixEntry.TargetRuntime, 'osx-arm64' ) }}:
+                    Codeql.Enabled: false
+                  
               pool: ${{ MatrixEntry.Pool }}
 
               steps:
@@ -176,9 +180,9 @@ extends:
                 - script: dotnet --info
                   displayName: Show .Net info
 
-                # Install additional libraries for the Linux cross compilation
-                # see https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/cross-compile
-                # This script is specific for ubuntu-22.04.
+                  # Install additional libraries for the Linux cross compilation
+                  # see https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/cross-compile
+                  # This script is specific for ubuntu-2204 (codename jammy).
                 - ${{ if eq( MatrixEntry.TargetRuntime, 'linux-arm64' ) }}:
                   - bash: |
                       sudo dpkg --add-architecture arm64
@@ -223,6 +227,19 @@ extends:
           - ${{ each MatrixEntry in parameters.testMatrix }}:
             - job: test_${{ MatrixEntry.Name }}
               displayName: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
+
+              variables:
+                # Temporary disable CodeQL for OSX ARM64.
+                # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
+                ${{ if eq( MatrixEntry.TargetRuntime, 'osx-arm64' ) }}:
+                  Codeql.Enabled: false
+
+              templateContext:
+                variables:
+                  # Temporary disable CodeQL for OSX ARM64.
+                  # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
+                  ${{ if eq( MatrixEntry.TargetRuntime, 'osx-arm64' ) }}:
+                    Codeql.Enabled: false
 
               pool: ${{ MatrixEntry.Pool }}
 
