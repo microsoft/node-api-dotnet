@@ -335,6 +335,7 @@ jobs:
       - task: PublishSymbols@2
         displayName: Publish symbols
         inputs:
+          IndexSources: false # PublishSymbols does not support GitHub sources
           SymbolsFolder: $(Build.SourcesDirectory)/out/bin/Release
           SearchPattern: |
             **/Microsoft.JavaScript.NodeApi.pdb
