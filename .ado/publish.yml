@@ -283,7 +283,7 @@ extends:
             displayName: Create Nuget and NPM packages
             dependsOn:
               - ${{ each MatrixEntry in parameters.buildMatrix }}:
-                - buildAOTBinary${{ MatrixEntry.Name }}
+                - build_AOT_binary_${{ MatrixEntry.Name }}
               - ${{ each MatrixEntry in parameters.testMatrix }}:
                 - test_${{ MatrixEntry.Name }}
 
