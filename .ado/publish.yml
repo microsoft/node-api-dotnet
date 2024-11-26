@@ -110,6 +110,8 @@ resources:
 variables:
   - name: DisableSigning # Disable signing while we have no access to certificate
     value: true
+  - name: DisableOsxArm64CodeQL:
+    value: true # Temporary disable CodeQL for OSX ARM64 until it is fixed by CodeQL team.
 
 extends:
   template: v1/Office.Official.PipelineTemplate.yml@OfficePipelineTemplates
@@ -134,16 +136,12 @@ extends:
         jobs:
           # Build Native AOT .Net hosts for Node-API modules.
           - ${{ each MatrixEntry in parameters.buildMatrix }}:
-            - job: buildAOTBinary${{ MatrixEntry.Name }}
+            - job: build_AOT_binary_${{ MatrixEntry.Name }}
               displayName: Build ${{ MatrixEntry.TargetRuntime }} AOT binary
               cancelTimeoutInMinutes: 45 # to allow more time to collect CodeQL debug info.
 
               variables:
                 DotNetMoniker: net8.0
-                # Temporary disable CodeQL for OSX ARM64.
-                # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
-                ${{ if eq( MatrixEntry.TargetRuntime, 'osx-arm64' ) }}:
-                  Codeql.Enabled: false
 
               templateContext:
                 outputs:
@@ -152,9 +150,7 @@ extends:
                     artifactName: ${{ MatrixEntry.TargetRuntime }}
                     targetPath: $(Build.StagingDirectory)/AOT/${{ MatrixEntry.TargetRuntime }}
                 variables:
-                  # Temporary disable CodeQL for OSX ARM64.
-                  # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
-                  ${{ if eq( MatrixEntry.TargetRuntime, 'osx-arm64' ) }}:
+                  ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
                     Codeql.Enabled: false
                   
               pool: ${{ MatrixEntry.Pool }}
@@ -228,17 +224,9 @@ extends:
             - job: test_${{ MatrixEntry.Name }}
               displayName: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
 
-              variables:
-                # Temporary disable CodeQL for OSX ARM64.
-                # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
-                ${{ if eq( MatrixEntry.TargetRuntime, 'osx-arm64' ) }}:
-                  Codeql.Enabled: false
-
               templateContext:
                 variables:
-                  # Temporary disable CodeQL for OSX ARM64.
-                  # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
-                  ${{ if eq( MatrixEntry.TargetRuntime, 'osx-arm64' ) }}:
+                  ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
                     Codeql.Enabled: false
 
               pool: ${{ MatrixEntry.Pool }}
@@ -302,7 +290,6 @@ extends:
             variables:
               VMImage: windows-latest
               TargetRuntime: win-x64
-              DotNetMoniker: net8.0
               TargetRuntimeList:
 
             templateContext:
