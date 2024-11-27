@@ -128,7 +128,7 @@ extends:
           '**/*.[jt]s'
       codeql:
         compiled:
-          enabled: false
+          enabled: true
         runSourceLanguagesInSourceAnalysis: true
 
     stages:
@@ -142,7 +142,8 @@ extends:
 
               variables:
                 DotNetMoniker: net8.0
-                ONEES_ENFORCED_CODEQL_ENABLED: false
+                ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
+                  ONEES_ENFORCED_CODEQL_ENABLED: false
 
               templateContext:
                 outputs:
@@ -150,13 +151,6 @@ extends:
                     pathtoPublish: $(Build.ArtifactStagingDirectory)
                     artifactName: ${{ MatrixEntry.TargetRuntime }}
                     targetPath: $(Build.StagingDirectory)/AOT/${{ MatrixEntry.TargetRuntime }}
-                sdl:
-                  codeql:
-                    compiled:
-                      ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
-                        enabled: false
-                      ${{ else }}:
-                        enabled: true
                   
               pool: ${{ MatrixEntry.Pool }}
 
@@ -228,6 +222,10 @@ extends:
           - ${{ each MatrixEntry in parameters.testMatrix }}:
             - job: test_${{ MatrixEntry.Name }}
               displayName: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
+
+              variables:
+                ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
+                  ONEES_ENFORCED_CODEQL_ENABLED: false
 
               pool: ${{ MatrixEntry.Pool }}
 
