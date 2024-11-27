@@ -127,6 +127,8 @@ extends:
         exclusionPatterns: |
           '**/*.[jt]s'
       codeql:
+        compiled:
+          enabled: false
         runSourceLanguagesInSourceAnalysis: true
 
     stages:
