@@ -142,6 +142,7 @@ extends:
 
               variables:
                 DotNetMoniker: net8.0
+                ONEES_ENFORCED_CODEQL_ENABLED: false
 
               templateContext:
                 outputs:
