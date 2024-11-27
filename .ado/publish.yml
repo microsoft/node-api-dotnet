@@ -127,8 +127,6 @@ extends:
         exclusionPatterns: |
           '**/*.[jt]s'
       codeql:
-        compiled:
-          enabled: true
         runSourceLanguagesInSourceAnalysis: true
 
     stages:
@@ -150,10 +148,12 @@ extends:
                     artifactName: ${{ MatrixEntry.TargetRuntime }}
                     targetPath: $(Build.StagingDirectory)/AOT/${{ MatrixEntry.TargetRuntime }}
                 sdl:
-                  ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
-                    codeql:
-                      compiled:
+                  codeql:
+                    compiled:
+                      ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
                         enabled: false
+                      ${{ else }}:
+                        enabled: true
                   
               pool: ${{ MatrixEntry.Pool }}
 
@@ -225,13 +225,6 @@ extends:
           - ${{ each MatrixEntry in parameters.testMatrix }}:
             - job: test_${{ MatrixEntry.Name }}
               displayName: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
-
-              templateContext:
-                sdl:
-                  ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
-                    codeql:
-                      compiled:
-                        enabled: false
 
               pool: ${{ MatrixEntry.Pool }}
 
