@@ -142,7 +142,6 @@ extends:
 
               variables:
                 DotNetMoniker: net8.0
-                Codeql.Enabled: false
 
               templateContext:
                 outputs:
@@ -150,9 +149,11 @@ extends:
                     pathtoPublish: $(Build.ArtifactStagingDirectory)
                     artifactName: ${{ MatrixEntry.TargetRuntime }}
                     targetPath: $(Build.StagingDirectory)/AOT/${{ MatrixEntry.TargetRuntime }}
-                variables:
+                sdl:
                   ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
-                    Codeql.Enabled: false
+                    codeql:
+                      compiled:
+                        enabled: false
                   
               pool: ${{ MatrixEntry.Pool }}
 
@@ -226,9 +227,11 @@ extends:
               displayName: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
 
               templateContext:
-                variables:
+                sdl:
                   ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
-                    Codeql.Enabled: false
+                    codeql:
+                      compiled:
+                        enabled: false
 
               pool: ${{ MatrixEntry.Pool }}
 
