@@ -1,10 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# TODO: publish symbols
-# TODO: publish to source server
-# TODO: run tests
-
 # Name of the run. It is overridden below  with the version of published binaries.
 name: 0.0.$(Date:yyMM.d)$(Rev:rrr)
 
@@ -13,253 +9,460 @@ pr: none
 trigger: none
 
 parameters:
-  # Matrix with target platforms.
+  # Matrix with target build platforms.
   # x86 versions are not supported by Native AOT.
-  # linux-arm64 must be added after we learn how to set up the cross-compilation environment.
   # Use net8.0 as the latest stable version.
 - name: buildMatrix
   type: object
   default:
     - Name: win_x64
-      VMImage: windows-latest
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: windows-latest
+        os: windows
       TargetRuntime: win-x64
     - Name: win_arm64
-      VMImage: windows-latest
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: windows-latest
+        os: windows
       TargetRuntime: win-arm64
     - Name: osx_x64
-      VMImage: macos-13
+      Pool:
+        name: Azure Pipelines
+        vmImage: macos-14
+        os: macOs
       TargetRuntime: osx-x64
     - Name: osx_arm64
-      VMImage: macos-13-arm64
+      Pool:
+        name: Azure Pipelines
+        vmImage: macos-14-arm64
+        os: macOS
       TargetRuntime: osx-arm64
     - Name: linux_x64
-      VMImage: ubuntu-latest
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        image: ubuntu-latest
+        os: linux
       TargetRuntime: linux-x64
+    - Name: linux_arm64
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        image: ubuntu-2204 # Update cross-compilation installation script below after updating this version.
+        os: linux
+      TargetRuntime: linux-arm64
 
-jobs:
-  # Build Native AOT .Net hosts for Node-API modules.
-  - ${{ each matrixEntry in parameters.buildMatrix }}:
-    - job: buildAOTBinary${{ matrixEntry.Name }}
-      displayName: Build ${{ matrixEntry.TargetRuntime }} AOT binary
-      cancelTimeoutInMinutes: 45 # to allow more time to collect CodeQL debug info.
-
-      variables:
-        DotNetMoniker: net8.0
-        # Temporary disable CodeQL for OSX ARM64.
-        # It must be restored after CodeQL fixes the issue where they install x64 bits on OSX ARM64.
-        ${{ if eq( matrixEntry.TargetRuntime, 'osx-arm64' ) }}:
-          Codeql.Enabled: false
-
-      pool:
-        vmImage: ${{ matrixEntry.VMImage }}
-
-      steps:
-        - checkout: self
-          displayName: Deep git fetch for version generation
-          fetchDepth: 0 # Use deep fetch for the version calculation by Nerdbank.GitVersioning
-          clean: false
-          submodules: false
-          lfs: false
-
-        - task: UseDotNet@2
-          displayName: Install .NET SDK using global.json
-          inputs:
-            packageType: sdk
-            useGlobalJson: true
-            includePreviewVersions: true
-
-        - script: env
-          displayName: Print environment
-
-        - script: dotnet --info
-          displayName: Print .Net info
-
-        - script: >
-            dotnet publish
-            --configuration Release
-            --runtime ${{ matrixEntry.TargetRuntime }}
-            --no-self-contained
-            --framework $(DotNetMoniker)
-            -p:PublishAot=true
-            $(Build.SourcesDirectory)/src/NodeApi/NodeApi.csproj
-          displayName: Build Native AOT binaries
-          env:
-            TargetFrameworks: $(DotNetMoniker)
-
-        - task: CopyFiles@2
-          displayName: Copy Native AOT binaries to staging
-          inputs:
-            sourceFolder: "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/\
-              aot/${{ matrixEntry.TargetRuntime }}/publish"
-            targetFolder: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
-            contents: Microsoft.JavaScript.NodeApi.node
-
-        - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-          displayName: "📒 Generate artifact manifest: ${{ matrixEntry.TargetRuntime }}"
-          inputs:
-            BuildDropPath: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
-
-        - task: PublishPipelineArtifact@1
-          displayName: "Publish Native AOT artifact: ${{ matrixEntry.TargetRuntime }}"
-          inputs:
-            artifactName: ${{ matrixEntry.TargetRuntime }}
-            targetPath: $(Build.StagingDirectory)/AOT/${{ matrixEntry.TargetRuntime }}
-
-  - job: createPackages
-    displayName: Create Nuget and NPM packages
-    dependsOn:
-      - ${{ each matrixEntry in parameters.buildMatrix }}:
-        - buildAOTBinary${{ matrixEntry.Name }}
-
-    variables:
-      VMImage: windows-latest
+  # Matrix to run unit tests.
+  # We can test ARM64 code only for Mac it offers the native ARM64 support.
+- name: testMatrix
+  type: object
+  default:
+    - Name: win_x64_net472
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: windows-latest
+        os: windows
       TargetRuntime: win-x64
-      DotNetMoniker: net8.0
-      TargetRuntimeList:
+      DotNetVersion: net472
+    - Name: win_x64_net60
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: windows-latest
+        os: windows
+      TargetRuntime: win-x64
+      DotNetVersion: net6.0
+    - Name: win_x64_net80
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        vmImage: windows-latest
+        os: windows
+      TargetRuntime: win-x64
+      DotNetVersion: net8.0
+    - Name: osx_x64_net80
+      Pool:
+        name: Azure Pipelines
+        vmImage: macos-14
+        os: macOS
+      TargetRuntime: osx-x64
+      DotNetVersion: net8.0
+    - Name: osx_arm64_net80
+      Pool:
+        name: Azure Pipelines
+        vmImage: macos-14-arm64
+        os: macOS
+      TargetRuntime: osx-arm64
+      DotNetVersion: net8.0
+    - Name: linux_x64_net80
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        image: ubuntu-latest
+        os: linux
+      TargetRuntime: linux-x64
+      DotNetVersion: net8.0
 
+resources:
+  repositories:
+    - repository: OfficePipelineTemplates
+      type: git
+      name: 1ESPipelineTemplates/OfficePipelineTemplates
+      ref: refs/tags/release
+
+variables:
+  - name: DisableSigning # Disable signing while we have no access to certificate
+    value: true
+  - name: DisableOsxArm64CodeQL
+    value: true # Temporary disable CodeQL for OSX ARM64 until it is fixed by CodeQL team.
+
+extends:
+  template: v1/Office.Official.PipelineTemplate.yml@OfficePipelineTemplates
+  parameters:
     pool:
-      vmImage: $(VMImage)
+      name: Azure-Pipelines-1ESPT-ExDShared
+      image: windows-latest
+      os: windows
+    sdl:
+      eslint:
+        enableExclusions: true
+        # This repo does not ship any javascript code. But has many test cases for the js engine that fail parsing, have code considered insecure and crash eslint.
+        exclusionPatterns: |
+          '**/*.[jt]s'
+      codeql:
+        compiled:
+          enabled: true
+        runSourceLanguagesInSourceAnalysis: true
 
-    steps:
-      - checkout: self
-        displayName: Deep git fetch for version generation
-        fetchDepth: 0 # Use deep fetch for the version calculation by Nerdbank.GitVersioning
-        clean: false
-        submodules: false
-        lfs: false
+    stages:
+      - stage: main
+        jobs:
+          # Build Native AOT .Net hosts for Node-API modules.
+          - ${{ each MatrixEntry in parameters.buildMatrix }}:
+            - job: build_AOT_binary_${{ MatrixEntry.Name }}
+              displayName: Build ${{ MatrixEntry.TargetRuntime }} AOT binary
+              cancelTimeoutInMinutes: 45 # to allow more time to collect CodeQL debug info.
 
-      - task: UseDotNet@2
-        displayName: Install .Net 6.0.x
-        inputs:
-          packageType: sdk
-          version: 6.0.x
+              variables:
+                DotNetMoniker: net8.0
 
-      - task: UseDotNet@2
-        displayName: Install .NET SDK using global.json
-        inputs:
-          packageType: sdk
-          useGlobalJson: true
-          includePreviewVersions: true
+              templateContext:
+                outputs:
+                  - output: pipelineArtifact
+                    pathtoPublish: $(Build.ArtifactStagingDirectory)
+                    artifactName: ${{ MatrixEntry.TargetRuntime }}
+                    targetPath: $(Build.StagingDirectory)/AOT/${{ MatrixEntry.TargetRuntime }}
+                variables:
+                  ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
+                    Codeql.Enabled: false
+                  
+              pool: ${{ MatrixEntry.Pool }}
 
-      - script: env
-        displayName: Print environment
+              steps:
+                - checkout: self
+                  displayName: Deep git fetch for version generation
+                  fetchDepth: 0 # Use deep fetch for the version calculation by Nerdbank.GitVersioning
+                  clean: false
+                  submodules: false
+                  lfs: false
 
-      - script: dotnet --info
-        displayName: Print .Net info
+                - task: UseDotNet@2
+                  displayName: Install .NET SDK using global.json
+                  inputs:
+                    packageType: sdk
+                    useGlobalJson: true
+                    includePreviewVersions: true
 
-      - script: dotnet build --configuration Release
-        displayName: Build managed assemblies
+                - script: env
+                  displayName: Show environment
 
-      - ${{ each matrixEntry in parameters.buildMatrix }}:
-        - task: DownloadPipelineArtifact@2
-          displayName: Download ${{ matrixEntry.TargetRuntime }} AOT
-          inputs:
-            artifact: ${{ matrixEntry.TargetRuntime }}
-            path: "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/\
-              aot/${{ matrixEntry.TargetRuntime }}/publish"
+                - script: dotnet --info
+                  displayName: Show .Net info
 
-      - ${{ each matrixEntry in parameters.buildMatrix }}:
-        - powershell: >
-            Write-Host
-            "##vso[task.setvariable variable=TargetRuntimeList;]$(TargetRuntimeList)
-            ${{ matrixEntry.TargetRuntime }}"
-          displayName: "Create RID list: ${{ matrixEntry.TargetRuntime }}"
+                  # Install additional libraries for the Linux cross compilation
+                  # see https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/cross-compile
+                  # This script is specific for ubuntu-2204 (codename jammy).
+                - ${{ if eq( MatrixEntry.TargetRuntime, 'linux-arm64' ) }}:
+                  - bash: |
+                      sudo dpkg --add-architecture arm64
+                      sudo bash -c 'cat > /etc/apt/sources.list.d/arm64.list <<EOF
+                      deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted
+                      deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted
+                      deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse
+                      EOF'
+                      sudo sed -i -e 's/deb http/deb [arch=amd64] http/g' /etc/apt/sources.list
+                      sudo sed -i -e 's/deb mirror/deb [arch=amd64] mirror/g' /etc/apt/sources.list
+                      sudo apt update
+                      sudo apt install -y clang llvm binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu zlib1g-dev:arm64
+                    displayName: Install Linux ARM64 cross-compilation libraries
 
-      - script: echo $(TargetRuntimeList)
-        displayName: Show RID list
+                - script: >
+                    dotnet publish
+                    --configuration Release
+                    --runtime ${{ MatrixEntry.TargetRuntime }}
+                    --no-self-contained
+                    --framework $(DotNetMoniker)
+                    -p:PublishAot=true
+                    $(Build.SourcesDirectory)/src/NodeApi/NodeApi.csproj
+                  displayName: Build Native AOT binaries
+                  env:
+                    TargetFrameworks: $(DotNetMoniker)
 
-      - task: DeleteFiles@1 # Code signing utility requires net6.0 runtime
-        displayName: Delete global.json for CodeSign
-        inputs:
-          Contents: global.json
+                - task: CopyFiles@2
+                  displayName: Copy Native AOT binaries to staging
+                  inputs:
+                    sourceFolder: "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/\
+                      aot/${{ MatrixEntry.TargetRuntime }}/publish"
+                    targetFolder: $(Build.StagingDirectory)/AOT/${{ MatrixEntry.TargetRuntime }}
+                    contents: |
+                      Microsoft.JavaScript.NodeApi.node
+                      Microsoft.JavaScript.NodeApi.node.pdb 
 
-      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
-        displayName: CodeSign Binaries
-        inputs:
-          ConnectedServiceName: ESRP-JsHost2
-          FolderPath: $(Build.SourcesDirectory)/out/bin/Release
-          # Recursively finds files matching these patterns:
-          Pattern: |
-            **/Microsoft.JavaScript.NodeApi.dll
-            **/win-x64/publish/Microsoft.JavaScript.NodeApi.node
-            **/Microsoft.JavaScript.NodeApi.DotNetHost.dll
-            **/Microsoft.JavaScript.NodeApi.Generator.dll
-            **/Microsoft.JavaScript.NodeApi.Generator.exe
-          UseMinimatch: true
-          signConfigType: inlineSignParams
-          inlineOperation: |
-            [
-              {
-                "KeyCode" : "CP-230012",
-                "OperationCode" : "SigntoolSign",
-                "Parameters" : {
-                    "OpusName" : "Microsoft",
-                    "OpusInfo" : "http://www.microsoft.com",
-                    "FileDigest" : "/fd \"SHA256\"",
-                    "PageHash" : "/NPH",
-                    "TimeStamp" : "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-                },
-                "ToolName" : "sign",
-                "ToolVersion" : "1.0"
-              },
-              {
-                  "KeyCode" : "CP-230012",
-                  "OperationCode" : "SigntoolVerify",
-                  "Parameters" : {},
-                  "ToolName" : "sign",
-                  "ToolVersion" : "1.0"
-              }
-            ]
+                - script: |
+                    ls -R $(Build.StagingDirectory)
+                  displayName: Show all files in the Build.StagingDirectory
 
-      # Do not build or publish assemblies to avoid overriding signed binaries.
-      - script: dotnet pack --configuration Release --no-build -p:NoPublish=true
-        displayName: Create Nuget and NPM packages
-        env:
-          RuntimeIdentifierList: $(TargetRuntimeList)
+          # Test Node-API .Net code
+          - ${{ each MatrixEntry in parameters.testMatrix }}:
+            - job: test_${{ MatrixEntry.Name }}
+              displayName: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
 
-      - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
-        displayName: CodeSign NuGets
-        inputs:
-          ConnectedServiceName: ESRP-JsHost2
-          FolderPath: $(Build.SourcesDirectory)/out/pkg
-          Pattern: |
-            **/Microsoft.JavaScript.NodeApi.*.*nupkg
-          UseMinimatch: true
-          signConfigType: inlineSignParams
-          inlineOperation: |
-            [
-              {
-                  "KeyCode" : "CP-401405",
-                  "OperationCode" : "NuGetSign",
-                  "Parameters" : {},
-                  "ToolName" : "sign",
-                  "ToolVersion" : "1.0"
-              },
-              {
-                  "KeyCode" : "CP-401405",
-                  "OperationCode" : "NuGetVerify",
-                  "Parameters" : {},
-                  "ToolName" : "sign",
-                  "ToolVersion" : "1.0"
-              }
-            ]
+              templateContext:
+                variables:
+                  ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
+                    Codeql.Enabled: false
 
-      - task: CopyFiles@2
-        displayName: Copy packages to staging
-        inputs:
-          sourceFolder: $(Build.SourcesDirectory)/out/pkg
-          targetFolder: $(Build.StagingDirectory)/pkg
-          contents: |
-            *.*nupkg
-            *.tgz
+              pool: ${{ MatrixEntry.Pool }}
 
-      - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-        displayName: 📒 Generate artifact manifest
-        inputs:
-          BuildDropPath: $(Build.StagingDirectory)/pkg
+              steps:
+                - checkout: self
+                  displayName: Shallow git fetch
 
-      - task: PublishPipelineArtifact@1
-        displayName: Publish artifact with packages
-        inputs:
-          targetPath: $(Build.StagingDirectory)/pkg
-          artifactName: published-packages
+                - ${{ if eq( MatrixEntry.DotNetVersion, 'net6.0' ) }}:
+                  - task: UseDotNet@2
+                    displayName: Install .Net 6.0.x
+                    inputs:
+                      packageType: sdk
+                      version: 6.0.x
+
+                - task: UseDotNet@2
+                  displayName: Install .NET SDK using global.json
+                  inputs:
+                    packageType: sdk
+                    useGlobalJson: true
+                    includePreviewVersions: true
+
+                - script: env
+                  displayName: Show environment
+
+                - script: dotnet --info
+                  displayName: Show .Net info
+
+                - script: dotnet pack --configuration Release
+                  displayName: Build packages
+
+                - script: >
+                    dotnet test -f ${{ MatrixEntry.DotNetVersion }}
+                    --configuration Release
+                    --logger trx
+                    --results-directory "$(Build.StagingDirectory)/test/${{ MatrixEntry.DotNetVersion }}-Release"
+                  displayName: Run tests
+                  env:
+                    TRACE_NODE_API_HOST: 1
+                  continueOnError: true
+
+                - task: PublishTestResults@2
+                  displayName: Publish test results
+                  inputs:
+                    testRunTitle: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
+                    testResultsFormat: 'VSTest'
+                    searchFolder: "$(Build.StagingDirectory)/test/${{ MatrixEntry.DotNetVersion }}-Release"
+                    testResultsFiles: '*.trx'
+                    failTaskOnFailedTests: true
+                    failTaskOnFailureToPublishResults: true
+                    failTaskOnMissingResultsFile: true
+
+          - job: createPackages
+            displayName: Create Nuget and NPM packages
+            dependsOn:
+              - ${{ each MatrixEntry in parameters.buildMatrix }}:
+                - build_AOT_binary_${{ MatrixEntry.Name }}
+              - ${{ each MatrixEntry in parameters.testMatrix }}:
+                - test_${{ MatrixEntry.Name }}
+
+            variables:
+              VMImage: windows-latest
+              TargetRuntime: win-x64
+              TargetRuntimeList:
+
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  pathtoPublish: $(Build.ArtifactStagingDirectory)
+                  artifactName: published-packages
+                  targetPath: $(Build.StagingDirectory)/pkg
+
+            pool:
+              name: Azure-Pipelines-1ESPT-ExDShared
+              image: windows-latest
+              os: windows
+
+            steps:
+              - checkout: self
+                displayName: Deep git fetch for version generation
+                fetchDepth: 0 # Use deep fetch for the version calculation by Nerdbank.GitVersioning
+                clean: false
+                submodules: false
+                lfs: false
+
+              # .Net 6.0 is required for the code signing task
+              - task: UseDotNet@2
+                displayName: Install .Net 6.0.x
+                inputs:
+                  packageType: sdk
+                  version: 6.0.x
+
+              - task: UseDotNet@2
+                displayName: Install .NET SDK using global.json
+                inputs:
+                  packageType: sdk
+                  useGlobalJson: true
+                  includePreviewVersions: true
+
+              - script: env
+                displayName: Show environment
+
+              - script: dotnet --info
+                displayName: Show .Net info
+
+              - script: dotnet build --configuration Release
+                displayName: Build managed assemblies
+
+              - script: dotnet format --no-restore --severity info --verbosity detailed --verify-no-changes
+                displayName: Check formatting
+
+              - ${{ each MatrixEntry in parameters.buildMatrix }}:
+                - task: DownloadPipelineArtifact@2
+                  displayName: Download ${{ MatrixEntry.TargetRuntime }} AOT
+                  inputs:
+                    artifact: ${{ MatrixEntry.TargetRuntime }}
+                    path: "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/\
+                      aot/${{ MatrixEntry.TargetRuntime }}/publish"
+
+              - ${{ each MatrixEntry in parameters.buildMatrix }}:
+                - powershell: >
+                    Write-Host
+                    "##vso[task.setvariable variable=TargetRuntimeList;]$(TargetRuntimeList)
+                    ${{ MatrixEntry.TargetRuntime }}"
+                  displayName: "Create RID list: ${{ MatrixEntry.TargetRuntime }}"
+
+              - script: echo $(TargetRuntimeList)
+                displayName: Show RID list
+
+              - task: DeleteFiles@1 # Code signing utility requires net6.0 runtime
+                displayName: Delete global.json for CodeSign
+                inputs:
+                  Contents: global.json
+
+              - ${{ if ne(variables.DisableSigning, true) }}:
+                - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
+                  displayName: CodeSign Binaries
+                  inputs:
+                    ConnectedServiceName: 'ESRP-JSHost3'
+                    AppRegistrationClientId: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+                    AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
+                    AuthAKVName: 'OGX-JSHost-KV'
+                    AuthCertName: 'OGX-JSHost-Auth4'
+                    AuthSignCertName: 'OGX-JSHost-Sign3'
+                    FolderPath: $(Build.SourcesDirectory)/out/bin/Release
+                    # Recursively finds files matching these patterns:
+                    Pattern: |
+                      **/Microsoft.JavaScript.NodeApi.dll
+                      **/win-x64/publish/Microsoft.JavaScript.NodeApi.node
+                      **/Microsoft.JavaScript.NodeApi.DotNetHost.dll
+                      **/Microsoft.JavaScript.NodeApi.Generator.dll
+                      **/Microsoft.JavaScript.NodeApi.Generator.exe
+                    UseMinimatch: true
+                    signConfigType: inlineSignParams
+                    inlineOperation: |
+                      [
+                        {
+                          "KeyCode" : "CP-230012",
+                          "OperationCode" : "SigntoolSign",
+                          "Parameters" : {
+                              "OpusName" : "Microsoft",
+                              "OpusInfo" : "http://www.microsoft.com",
+                              "FileDigest" : "/fd \"SHA256\"",
+                              "PageHash" : "/NPH",
+                              "TimeStamp" : "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                          },
+                          "ToolName" : "sign",
+                          "ToolVersion" : "1.0"
+                        },
+                        {
+                            "KeyCode" : "CP-230012",
+                            "OperationCode" : "SigntoolVerify",
+                            "Parameters" : {},
+                            "ToolName" : "sign",
+                            "ToolVersion" : "1.0"
+                        }
+                      ]
+
+              # Make symbols available through http://symweb.
+              - task: PublishSymbols@2
+                displayName: Publish symbols
+                inputs:
+                  IndexSources: false # PublishSymbols does not support GitHub sources
+                  SymbolsFolder: $(Build.SourcesDirectory)/out/bin/Release
+                  SearchPattern: |
+                    **/Microsoft.JavaScript.NodeApi.pdb
+                    **/win-x64/publish/Microsoft.JavaScript.NodeApi.node.pdb
+                    **/Microsoft.JavaScript.NodeApi.DotNetHost.pdb
+                    **/Microsoft.JavaScript.NodeApi.Generator.pdb
+                  SymbolServerType: TeamServices
+                  UseNetCoreClientTool: true
+
+              # Do not build or publish assemblies to avoid overriding signed binaries.
+              - script: dotnet pack --configuration Release --no-build -p:NoPublish=true
+                displayName: Create Nuget and NPM packages
+                env:
+                  RuntimeIdentifierList: $(TargetRuntimeList)
+
+              - ${{ if ne(variables.DisableSigning, true) }}:
+                - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
+                  displayName: CodeSign NuGets
+                  inputs:
+                    ConnectedServiceName: 'ESRP-JSHost3'
+                    AppRegistrationClientId: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+                    AppRegistrationTenantId: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
+                    AuthAKVName: 'OGX-JSHost-KV'
+                    AuthCertName: 'OGX-JSHost-Auth4'
+                    AuthSignCertName: 'OGX-JSHost-Sign3'
+                    FolderPath: $(Build.SourcesDirectory)/out/pkg
+                    Pattern: |
+                      **/Microsoft.JavaScript.NodeApi.*.*nupkg
+                    UseMinimatch: true
+                    signConfigType: inlineSignParams
+                    inlineOperation: |
+                      [
+                        {
+                            "KeyCode" : "CP-401405",
+                            "OperationCode" : "NuGetSign",
+                            "Parameters" : {},
+                            "ToolName" : "sign",
+                            "ToolVersion" : "1.0"
+                        },
+                        {
+                            "KeyCode" : "CP-401405",
+                            "OperationCode" : "NuGetVerify",
+                            "Parameters" : {},
+                            "ToolName" : "sign",
+                            "ToolVersion" : "1.0"
+                        }
+                      ]
+
+              - task: CopyFiles@2
+                displayName: Copy packages to staging
+                inputs:
+                  sourceFolder: $(Build.SourcesDirectory)/out/pkg
+                  targetFolder: $(Build.StagingDirectory)/pkg
+                  contents: |
+                    *.*nupkg
+                    *.tgz

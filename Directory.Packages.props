@@ -8,6 +8,7 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.1.0" /><!-- 4.1.0 is compatible with .NET Standard -->
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.133" />
     <PackageVersion Include="Nullability.Source" Version="2.1.0" />
     <PackageVersion Include="System.Memory" Version="4.5.5" />
