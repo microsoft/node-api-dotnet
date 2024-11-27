@@ -142,6 +142,8 @@ extends:
 
               variables:
                 DotNetMoniker: net8.0
+                ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
+                  ONEES_ENFORCED_CODEQL_ENABLED: false
 
               templateContext:
                 outputs:
@@ -149,9 +151,6 @@ extends:
                     pathtoPublish: $(Build.ArtifactStagingDirectory)
                     artifactName: ${{ MatrixEntry.TargetRuntime }}
                     targetPath: $(Build.StagingDirectory)/AOT/${{ MatrixEntry.TargetRuntime }}
-                variables:
-                  ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
-                    Codeql.Enabled: false
                   
               pool: ${{ MatrixEntry.Pool }}
 
@@ -224,10 +223,9 @@ extends:
             - job: test_${{ MatrixEntry.Name }}
               displayName: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
 
-              templateContext:
-                variables:
-                  ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
-                    Codeql.Enabled: false
+              variables:
+                ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
+                  ONEES_ENFORCED_CODEQL_ENABLED: false
 
               pool: ${{ MatrixEntry.Pool }}
 
