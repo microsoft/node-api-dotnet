@@ -1,0 +1,18 @@
+{
+  "name": "electronjs",
+  "version": "1.0.0",
+  "description": "Sample Electron app with .NET DLL integration",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^33.0.2"
+  },
+  "dependencies": {
+    "node-api-dotnet": "^0.8.16"
+  }
+}
