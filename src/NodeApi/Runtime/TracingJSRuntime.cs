@@ -61,7 +61,7 @@ public class TracingJSRuntime : JSRuntime
 
     #region Formatting
 
-    private static string Format(napi_platform platform) => platform.Handle.ToString("X16");
+    //private static string Format(napi_platform platform) => platform.Handle.ToString("X16");
     private static string Format(napi_env env) => env.Handle.ToString("X16");
     private static string Format(napi_handle_scope scope) => scope.Handle.ToString("X16");
     private static string Format(napi_escapable_handle_scope scope) => scope.Handle.ToString("X16");
@@ -74,6 +74,9 @@ public class TracingJSRuntime : JSRuntime
     private static string Format(napi_async_cleanup_hook_handle hook)
          => hook.Handle.ToString("X16");
     private static string Format(uv_loop_t loop) => loop.Handle.ToString("X16");
+    private static string Format(node_embedding_node_api_scope node_api_scope)
+        => node_api_scope.Handle.ToString("X16");
+
 
     private string GetValueString(napi_env env, napi_value value)
     {
@@ -2655,69 +2658,167 @@ public class TracingJSRuntime : JSRuntime
 
     #region Embedding
 
-    public override napi_status CreatePlatform(
-        string[]? args, Action<string>? errorHandler, out napi_platform result)
+    public override node_embedding_status
+        EmbeddingOnError(node_embedding_handle_error_functor error_handler)
     {
-        napi_platform resultValue = default;
-        napi_status status = TraceCall(
-            [
-                $"[{string.Join(", ", args ?? [])}]",
-            ],
-            () => (_runtime.CreatePlatform(args, errorHandler, out resultValue),
-                Format(resultValue)));
-        result = resultValue;
-        return status;
+        return _runtime.EmbeddingOnError(error_handler);
     }
 
-    public override napi_status DestroyPlatform(napi_platform platform)
+    public override node_embedding_status EmbeddingSetApiVersion(
+        int embedding_api_version,
+        int node_api_version)
+    {
+        return _runtime.EmbeddingSetApiVersion(embedding_api_version, node_api_version);
+    }
+
+    public override node_embedding_status EmbeddingRunMain(
+        ReadOnlySpan<string> args,
+        node_embedding_configure_platform_functor_ref configure_platform,
+        node_embedding_configure_runtime_functor_ref configure_runtime)
+    {
+        return _runtime.EmbeddingRunMain(args, configure_platform, configure_runtime);
+    }
+
+    public override node_embedding_status EmbeddingCreatePlatform(
+        ReadOnlySpan<string> args,
+        node_embedding_configure_platform_functor_ref configure_platform,
+        out node_embedding_platform result)
+    {
+        return _runtime.EmbeddingCreatePlatform(args, configure_platform, out result);
+    }
+
+    public override node_embedding_status
+        EmbeddingDeletePlatform(node_embedding_platform platform)
+    {
+        return _runtime.EmbeddingDeletePlatform(platform);
+    }
+
+    public override node_embedding_status EmbeddingPlatformSetFlags(
+        node_embedding_platform_config platform_config,
+        node_embedding_platform_flags flags)
+    {
+        return _runtime.EmbeddingPlatformSetFlags(platform_config, flags);
+    }
+
+    public override node_embedding_status EmbeddingPlatformGetParsedArgs(
+        node_embedding_platform platform,
+        node_embedding_get_args_functor_ref get_args,
+        node_embedding_get_args_functor_ref get_runtime_args)
+    {
+        return _runtime.EmbeddingPlatformGetParsedArgs(platform, get_args, get_runtime_args);
+    }
+
+    public override node_embedding_status EmbeddingRunRuntime(
+        node_embedding_platform platform,
+        node_embedding_configure_runtime_functor_ref configure_runtime)
+    {
+        return _runtime.EmbeddingRunRuntime(platform, configure_runtime);
+    }
+
+    public override node_embedding_status EmbeddingCreateRuntime(
+        node_embedding_platform platform,
+        node_embedding_configure_runtime_functor_ref configure_runtime,
+        out node_embedding_runtime result)
+    {
+        return _runtime.EmbeddingCreateRuntime(platform, configure_runtime, out result);
+    }
+
+    public override node_embedding_status
+        EmbeddingDeleteRuntime(node_embedding_runtime runtime)
+    {
+        return _runtime.EmbeddingDeleteRuntime(runtime);
+    }
+
+    public override node_embedding_status EmbeddingRuntimeSetFlags(
+        node_embedding_runtime_config runtime_config,
+        node_embedding_runtime_flags flags)
+    {
+        return _runtime.EmbeddingRuntimeSetFlags(runtime_config, flags);
+    }
+
+    public override node_embedding_status EmbeddingRuntimeSetArgs(
+        node_embedding_runtime_config runtime_config,
+        ReadOnlySpan<string> args,
+        ReadOnlySpan<string> runtime_args)
+    {
+        return _runtime.EmbeddingRuntimeSetArgs(runtime_config, args, runtime_args);
+    }
+
+    public override node_embedding_status EmbeddingRuntimeOnPreload(
+        node_embedding_runtime_config runtime_config,
+        node_embedding_preload_functor run_preload)
+    {
+        return _runtime.EmbeddingRuntimeOnPreload(runtime_config, run_preload);
+    }
+
+    public override node_embedding_status EmbeddingRuntimeOnStartExecution(
+        node_embedding_runtime_config runtime_config,
+        node_embedding_start_execution_functor start_execution,
+        node_embedding_handle_result_functor handle_result)
+    {
+        return _runtime.EmbeddingRuntimeOnStartExecution(
+            runtime_config, start_execution, handle_result);
+    }
+
+    public override node_embedding_status EmbeddingRuntimeAddModule(
+        node_embedding_runtime_config runtime_config,
+        string moduleName,
+        node_embedding_initialize_module_functor init_module,
+        int module_node_api_version)
+    {
+        return _runtime.EmbeddingRuntimeAddModule(
+            runtime_config, moduleName, init_module, module_node_api_version);
+    }
+
+    public override node_embedding_status EmbeddingRuntimeSetTaskRunner(
+        node_embedding_runtime_config runtime_config,
+        node_embedding_post_task_functor post_task)
+    {
+        return _runtime.EmbeddingRuntimeSetTaskRunner(runtime_config, post_task);
+    }
+
+    public override node_embedding_status EmbeddingRunEventLoop(
+        node_embedding_runtime runtime,
+        node_embedding_event_loop_run_mode run_mode,
+        out bool has_more_work)
+    {
+        return _runtime.EmbeddingRunEventLoop(runtime, run_mode, out has_more_work);
+    }
+
+    public override node_embedding_status
+        EmbeddingCompleteEventLoop(node_embedding_runtime runtime)
+    {
+        return _runtime.EmbeddingCompleteEventLoop(runtime);
+    }
+
+    public override node_embedding_status
+        EmbeddingTerminateEventLoop(node_embedding_runtime runtime)
+    {
+        return _runtime.EmbeddingTerminateEventLoop(runtime);
+    }
+
+    public override node_embedding_status EmbeddingRunNodeApi(
+        node_embedding_runtime runtime,
+        node_embedding_run_node_api_functor_ref run_node_api)
+    {
+        return _runtime.EmbeddingRunNodeApi(runtime, run_node_api);
+    }
+
+    public override node_embedding_status EmbeddingOpenNodeApiScope(
+        node_embedding_runtime runtime,
+        out node_embedding_node_api_scope node_api_scope,
+        out napi_env env)
+    {
+        return _runtime.EmbeddingOpenNodeApiScope(runtime, out node_api_scope, out env);
+    }
+
+    public override node_embedding_status EmbeddingCloseNodeApiScope(
+        node_embedding_runtime runtime,
+        node_embedding_node_api_scope node_api_scope)
     {
         return TraceCall(
-            [Format(platform)],
-            () => _runtime.DestroyPlatform(platform));
-    }
-
-    public override napi_status CreateEnvironment(
-        napi_platform platform,
-        Action<string>? errorHandler,
-        string? mainScript,
-        int apiVersion,
-        out napi_env result)
-    {
-        napi_env resultValue = default;
-        napi_status status = TraceCall(
-            [Format(platform), Format(mainScript)],
-            () => (_runtime.CreateEnvironment(
-                platform, errorHandler, mainScript, apiVersion, out resultValue),
-                Format(resultValue)));
-        result = resultValue;
-        return status;
-    }
-
-    public override napi_status DestroyEnvironment(napi_env env, out int exitCode)
-    {
-        int exitCodeValue = default;
-        napi_status status = TraceCall(
-            [Format(env)],
-            () => (_runtime.DestroyEnvironment(env, out exitCodeValue),
-                exitCodeValue.ToString()));
-        exitCode = exitCodeValue;
-        return status;
-    }
-
-    public override napi_status RunEnvironment(napi_env env)
-    {
-        return TraceCall([Format(env)], () => _runtime.RunEnvironment(env));
-    }
-
-    public override napi_status AwaitPromise(
-        napi_env env, napi_value promise, out napi_value result)
-    {
-        napi_value resultValue = default;
-        napi_status status = TraceCall(
-            [Format(env, promise)],
-            () => (_runtime.AwaitPromise(env, promise, out resultValue), Format(env, resultValue)));
-        result = resultValue;
-        return status;
+            [Format(node_api_scope)],
+            () => _runtime.EmbeddingCloseNodeApiScope(runtime, node_api_scope));
     }
 
     #endregion

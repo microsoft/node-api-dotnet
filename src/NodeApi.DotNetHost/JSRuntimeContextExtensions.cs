@@ -54,7 +54,7 @@ public static class JSRuntimeContextExtensions
     /// <exception cref="ArgumentNullException">Both <paramref cref="module" /> and
     /// <paramref cref="property" /> are null.</exception>
     public static T Import<T>(
-        this NodejsEnvironment nodejs,
+        this NodejsEmbeddingThreadRuntime nodejs,
         string? module,
         string? property,
         bool esModule,

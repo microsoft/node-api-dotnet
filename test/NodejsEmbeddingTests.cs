@@ -19,28 +19,53 @@ namespace Microsoft.JavaScript.NodeApi.Test;
 
 public class NodejsEmbeddingTests
 {
+    private static string MainScript { get; } =
+        "globalThis.require = require('module').createRequire(process.execPath);\n";
+
     private static string LibnodePath { get; } = GetLibnodePath();
 
     // The Node.js platform may only be initialized once per process.
-    internal static NodejsPlatform? NodejsPlatform { get; } =
-        File.Exists(LibnodePath) ? new(LibnodePath, args: new[] { "node", "--expose-gc" }) : null;
+    internal static NodejsEmbeddingPlatform? NodejsPlatform { get; } =
+        File.Exists(LibnodePath)
+            ? new(LibnodePath, new NodejsEmbeddingPlatformSettings
+            {
+                Args = new[] { "node", "--expose-gc" }
+            })
+            : null;
 
-    internal static NodejsEnvironment CreateNodejsEnvironment()
+    internal static NodejsEmbeddingThreadRuntime CreateNodejsEnvironment()
     {
         Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        return NodejsPlatform.CreateEnvironment(Path.Combine(GetRepoRootDirectory(), "test"));
+        return NodejsPlatform.CreateThreadRuntime(
+            Path.Combine(GetRepoRootDirectory(), "test"),
+            new NodejsEmbeddingRuntimeSettings { MainScript = MainScript });
     }
 
     internal static void RunInNodejsEnvironment(Action action)
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
         nodejs.SynchronizationContext.Run(action);
+    }
+
+    [SkippableFact]
+    public void LoadMainScriptNoThread()
+    {
+        Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
+        using var runtime = new NodejsEmbeddingRuntime(NodejsPlatform,
+            new NodejsEmbeddingRuntimeSettings { MainScript = MainScript });
+        runtime.CompleteEventLoop();
+    }
+
+    [SkippableFact]
+    public void LoadMainScriptWithThread()
+    {
+        using var runtime = CreateNodejsEnvironment();
     }
 
     [SkippableFact]
     public void StartEnvironment()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -55,7 +80,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void RestartEnvironment()
     {
-        // Create and destory a Node.js environment twice, using the same platform instance.
+        // Create and destroy a Node.js environment twice, using the same platform instance.
         StartEnvironment();
         StartEnvironment();
     }
@@ -65,11 +90,12 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void CallFunction()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.SynchronizationContext.Run(() =>
         {
-            JSFunction func = (JSFunction)JSValue.RunScript("function jsFunction() { }; jsFunction");
+            JSFunction func = (JSFunction)JSValue.RunScript(
+                "function jsFunction() { }; jsFunction");
             func.CallAsStatic();
         });
 
@@ -80,7 +106,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void ImportBuiltinModule()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -100,7 +126,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void ImportCommonJSModule()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -117,7 +143,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void ImportCommonJSPackage()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -134,7 +160,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public async Task ImportESModule()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         await nodejs.RunAsync(async () =>
         {
@@ -152,7 +178,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public async Task ImportESPackage()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         await nodejs.RunAsync(async () =>
         {
@@ -184,7 +210,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void UnhandledRejection()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         string? errorMessage = null;
         nodejs.UnhandledPromiseRejection += (_, e) =>
@@ -206,7 +232,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void ErrorPropagation()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         JSException exception = Assert.Throws<JSException>(() =>
         {
@@ -362,7 +388,7 @@ parentPort.on('message', (msg) => parentPort.postMessage(msg)); // echo
         string workerScript,
         Func<NodeWorker, Task> mainRun)
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
         await nodejs.RunAsync(async () =>
         {
             NodeWorker.Options workerOptions = mainPrepare.Invoke();
@@ -394,7 +420,7 @@ parentPort.on('message', (msg) => parentPort.postMessage(msg)); // echo
     [SkippableFact]
     public void MarshalClass()
     {
-        using NodejsEnvironment nodejs = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {

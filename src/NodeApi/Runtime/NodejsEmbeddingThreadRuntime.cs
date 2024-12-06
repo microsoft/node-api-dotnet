@@ -20,41 +20,41 @@ using static JSRuntime;
 /// environment instance has its own dedicated execution thread. Except where otherwise documented,
 /// all interaction with the environment and JavaScript values associated with the environment MUST
 /// be executed on the environment's thread. Use the
-/// <see cref="NodejsEnvironment.SynchronizationContext" /> to switch to the thread.
+/// <see cref="NodejsEmbeddingThreadRuntime.SynchronizationContext" /> to switch to the thread.
 /// </remarks>
-public sealed class NodejsEnvironment : IDisposable
+public sealed class NodejsEmbeddingThreadRuntime : IDisposable
 {
-    /// <summary>
-    /// Corresponds to NAPI_VERSION from js_native_api.h.
-    /// </summary>
-    public const int NodeApiVersion = 8;
-
     private readonly JSValueScope _scope;
     private readonly Thread _thread;
-    private readonly TaskCompletionSource<bool> _completion = new();
+    private readonly JSThreadSafeFunction? _completion;
 
-    public static explicit operator napi_env(NodejsEnvironment environment) =>
+    public static explicit operator napi_env(NodejsEmbeddingThreadRuntime environment) =>
         (napi_env)environment._scope;
-    public static implicit operator JSValueScope(NodejsEnvironment environment) =>
+    public static implicit operator JSValueScope(NodejsEmbeddingThreadRuntime environment) =>
         environment._scope;
 
-    internal NodejsEnvironment(NodejsPlatform platform, string? baseDir, string? mainScript)
+    internal NodejsEmbeddingThreadRuntime(
+        NodejsEmbeddingPlatform platform,
+        string? baseDir,
+        NodejsEmbeddingRuntimeSettings? settings)
     {
         JSValueScope scope = null!;
         JSSynchronizationContext syncContext = null!;
+        JSThreadSafeFunction? completion = null;
         using ManualResetEvent loadedEvent = new(false);
 
         _thread = new(() =>
         {
-            platform.Runtime.CreateEnvironment(
-                (napi_platform)platform,
-                (error) => Console.WriteLine(error),
-                mainScript,
-                NodeApiVersion,
-                out napi_env env).ThrowIfFailed();
-
+            using var runtime = new NodejsEmbeddingRuntime(platform, settings);
             // The new scope instance saves itself as the thread-local JSValueScope.Current.
-            scope = new JSValueScope(JSValueScopeType.Root, env, platform.Runtime);
+            using var nodeApiScope = new NodejsEmbeddingNodeApiScope(runtime);
+
+            completion = new JSThreadSafeFunction(
+                maxQueueSize: 0,
+                initialThreadCount: 1,
+                asyncResourceName: (JSValue)nameof(NodejsEmbeddingThreadRuntime));
+
+            scope = JSValueScope.Current;
             syncContext = scope.RuntimeContext.SynchronizationContext;
 
             if (!string.IsNullOrEmpty(baseDir))
@@ -65,21 +65,29 @@ public sealed class NodejsEnvironment : IDisposable
 
             loadedEvent.Set();
 
-            // Run the JS event loop until disposal completes the completion source.
-            platform.Runtime.AwaitPromise(
-                env, (napi_value)(JSValue)_completion.Task.AsPromise(), out _).ThrowIfFailed();
+            // Run the JS event loop until disposal unrefs the completion thread safe function.
+            try
+            {
+                runtime.CompleteEventLoop();
+                ExitCode = 0;
+            }
+            catch (Exception)
+            {
+                ExitCode = 1;
+            }
 
             syncContext.Dispose();
-            platform.Runtime.DestroyEnvironment(env, out int exitCode).ThrowIfFailed();
-            ExitCode = exitCode;
         });
         _thread.Start();
 
         loadedEvent.WaitOne();
 
+        _completion = completion;
         _scope = scope;
         SynchronizationContext = syncContext;
     }
+
+    public static JSRuntime JSRuntime => NodejsEmbedding.JSRuntime;
 
     private static void InitializeModuleImportFunctions(
         JSRuntimeContext runtimeContext,
@@ -110,10 +118,10 @@ public sealed class NodejsEnvironment : IDisposable
         // The import keyword is not a function and is only available through use of an
         // external helper module.
 #if NETFRAMEWORK || NETSTANDARD
-        string assemblyLocation = new Uri(typeof(NodejsEnvironment).Assembly.CodeBase).LocalPath;
+        string assemblyLocation = new Uri(typeof(NodejsEmbeddingThreadRuntime).Assembly.CodeBase).LocalPath;
 #else
 #pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
-        string assemblyLocation = typeof(NodejsEnvironment).Assembly.Location;
+        string assemblyLocation = typeof(NodejsEmbeddingThreadRuntime).Assembly.Location;
 #pragma warning restore IL3000
 #endif
         if (!string.IsNullOrEmpty(assemblyLocation))
@@ -198,8 +206,13 @@ public sealed class NodejsEnvironment : IDisposable
         if (IsDisposed) return;
         IsDisposed = true;
 
-        // Setting the completion causes `AwaitPromise()` to return so the thread exits.
-        _completion.TrySetResult(true);
+        // Unreffing the completion should complete the Node.js event loop
+        // if it has nothing else to do.
+        if (_completion != null)
+        {
+            // The Unref must be called in the JS thread.
+            _completion.BlockingCall(() => _completion.Unref());
+        }
         _thread.Join();
 
         Debug.WriteLine($"Node.js environment exited with code: {ExitCode}");
@@ -207,7 +220,7 @@ public sealed class NodejsEnvironment : IDisposable
 
     public Uri StartInspector(int? port = null, string? host = null, bool? wait = null)
     {
-        if (IsDisposed) throw new ObjectDisposedException(nameof(NodejsEnvironment));
+        if (IsDisposed) throw new ObjectDisposedException(nameof(NodejsEmbeddingThreadRuntime));
 
         return SynchronizationContext.Run(() =>
         {
