@@ -50,7 +50,8 @@ public abstract class Benchmarks
         GetCurrentPlatformRuntimeIdentifier(),
         "libnode" + GetSharedLibraryExtension());
 
-    private napi_env _env;
+    private NodejsEmbeddingRuntime? _runtime;
+    private NodejsEmbeddingNodeApiScope? _nodeApiScope;
     private JSValue _jsString;
     private JSFunction _jsFunction;
     private JSFunction _jsFunctionWithArgs;
@@ -64,6 +65,7 @@ public abstract class Benchmarks
     private JSFunction _jsFunctionCallMethod;
     private JSFunction _jsFunctionCallMethodWithArgs;
     private JSReference _reference = null!;
+    private static readonly string[] s_settings = new[] { "node", "--expose-gc" };
 
     /// <summary>
     /// Simple class that is exported to JS and used in some benchmarks.
@@ -84,16 +86,17 @@ public abstract class Benchmarks
     /// </summary>
     protected void Setup()
     {
-        NodejsPlatform platform = new(LibnodePath/*, args: new[] { "node", "--expose-gc" }*/);
+        NodejsEmbeddingPlatform platform = new(
+            LibnodePath,
+            new NodejsEmbeddingPlatformSettings { Args = s_settings });
 
-        // This setup avoids using NodejsEnvironment so benchmarks can run on the same thread.
-        // NodejsEnvironment creates a separate thread that would slow down the micro-benchmarks.
-        platform.Runtime.CreateEnvironment(
-            platform, Console.WriteLine, null, NodejsEnvironment.NodeApiVersion, out _env)
-            .ThrowIfFailed();
-
-        // The new scope instance saves itself as the thread-local JSValueScope.Current.
-        JSValueScope scope = new(JSValueScopeType.Root, _env, platform.Runtime);
+        // This setup avoids using NodejsEmbeddingThreadRuntime so benchmarks can run on
+        // the same thread. NodejsEmbeddingThreadRuntime creates a separate thread that would slow
+        // down the micro-benchmarks.
+        _runtime = new(platform);
+        // The nodeApiScope creates JSValueScope instance that saves itself as
+        // the thread-local JSValueScope.Current.
+        _nodeApiScope = new(_runtime);
 
         // Create some JS values that will be used by the benchmarks.
 

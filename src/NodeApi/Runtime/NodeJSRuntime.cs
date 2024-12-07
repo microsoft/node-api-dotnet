@@ -100,6 +100,67 @@ public unsafe partial class NodejsRuntime : JSRuntime
         return function;
     }
 
+    private delegate* unmanaged[Cdecl]<T1, node_embedding_status> Import<T1>(
+        ref delegate* unmanaged[Cdecl]<T1, node_embedding_status> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, node_embedding_status>)Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, node_embedding_status> Import<T1, T2>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, node_embedding_status> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, node_embedding_status>)
+                Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, node_embedding_status> Import<T1, T2, T3>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, node_embedding_status> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, node_embedding_status>)
+                Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, node_embedding_status>
+        Import<T1, T2, T3, T4>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, node_embedding_status> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, node_embedding_status>)
+                Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, node_embedding_status>
+        Import<T1, T2, T3, T4, T5>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, node_embedding_status> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, node_embedding_status>)
+                Import(functionName);
+        }
+        return function;
+    }
+
     private static unsafe string? PtrToStringUTF8(byte* ptr)
     {
         if (ptr == null) return null;
