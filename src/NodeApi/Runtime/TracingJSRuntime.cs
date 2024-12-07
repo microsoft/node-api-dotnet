@@ -2816,9 +2816,7 @@ public class TracingJSRuntime : JSRuntime
         node_embedding_runtime runtime,
         node_embedding_node_api_scope node_api_scope)
     {
-        return TraceCall(
-            [Format(node_api_scope)],
-            () => _runtime.EmbeddingCloseNodeApiScope(runtime, node_api_scope));
+        return _runtime.EmbeddingCloseNodeApiScope(runtime, node_api_scope);
     }
 
     #endregion
