@@ -65,6 +65,7 @@ public abstract class Benchmarks
     private JSFunction _jsFunctionCallMethod;
     private JSFunction _jsFunctionCallMethodWithArgs;
     private JSReference _reference = null!;
+    private static readonly string[] s_settings = new[] { "node", "--expose-gc" };
 
     /// <summary>
     /// Simple class that is exported to JS and used in some benchmarks.
@@ -87,7 +88,7 @@ public abstract class Benchmarks
     {
         NodejsEmbeddingPlatform platform = new(
             LibnodePath,
-            new NodejsEmbeddingPlatformSettings { Args = new[] { "node", "--expose-gc" } });
+            new NodejsEmbeddingPlatformSettings { Args = s_settings });
 
         // This setup avoids using NodejsEmbeddingThreadRuntime so benchmarks can run on
         // the same thread. NodejsEmbeddingThreadRuntime creates a separate thread that would slow

@@ -18,7 +18,7 @@ public sealed class NodejsEmbeddingRuntime : IDisposable
 {
     private node_embedding_runtime _runtime;
     private static readonly
-        Dictionary<node_embedding_runtime, NodejsEmbeddingRuntime> _embeddedRuntimes = new();
+        Dictionary<node_embedding_runtime, NodejsEmbeddingRuntime> s_embeddedRuntimes = new();
 
     public static implicit operator node_embedding_runtime(NodejsEmbeddingRuntime runtime)
         => runtime._runtime;
@@ -43,14 +43,14 @@ public sealed class NodejsEmbeddingRuntime : IDisposable
     private NodejsEmbeddingRuntime(node_embedding_runtime runtime)
     {
         _runtime = runtime;
-        lock (_embeddedRuntimes) { _embeddedRuntimes.Add(runtime, this); }
+        lock (s_embeddedRuntimes) { s_embeddedRuntimes.Add(runtime, this); }
     }
 
     public static NodejsEmbeddingRuntime? FromHandle(node_embedding_runtime runtime)
     {
-        lock (_embeddedRuntimes)
+        lock (s_embeddedRuntimes)
         {
-            if (_embeddedRuntimes.TryGetValue(
+            if (s_embeddedRuntimes.TryGetValue(
                 runtime, out NodejsEmbeddingRuntime? embeddingRuntime))
             {
                 return embeddingRuntime;
@@ -62,10 +62,7 @@ public sealed class NodejsEmbeddingRuntime : IDisposable
     public static NodejsEmbeddingRuntime GetOrCreate(node_embedding_runtime runtime)
     {
         NodejsEmbeddingRuntime? embeddingRuntime = FromHandle(runtime);
-        if (embeddingRuntime == null)
-        {
-            embeddingRuntime = new NodejsEmbeddingRuntime(runtime);
-        }
+        embeddingRuntime ??= new NodejsEmbeddingRuntime(runtime);
         return embeddingRuntime;
     }
 
@@ -89,7 +86,7 @@ public sealed class NodejsEmbeddingRuntime : IDisposable
         if (IsDisposed) return;
         IsDisposed = true;
 
-        lock (_embeddedRuntimes) { _embeddedRuntimes.Remove(_runtime); }
+        lock (s_embeddedRuntimes) { s_embeddedRuntimes.Remove(_runtime); }
         JSRuntime.EmbeddingDeleteRuntime(_runtime).ThrowIfFailed();
     }
 

@@ -5,7 +5,7 @@ using System.Text;
 internal struct Utf8StringArray : IDisposable
 {
     // Use one contiguous buffer for all UTF-8 strings.
-    private byte[] _stringBuffer;
+    private readonly byte[] _stringBuffer;
     private GCHandle _pinnedStringBuffer;
 
     public unsafe Utf8StringArray(ReadOnlySpan<string> strings)

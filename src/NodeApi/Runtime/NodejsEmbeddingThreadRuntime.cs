@@ -208,11 +208,8 @@ public sealed class NodejsEmbeddingThreadRuntime : IDisposable
 
         // Unreffing the completion should complete the Node.js event loop
         // if it has nothing else to do.
-        if (_completion != null)
-        {
-            // The Unref must be called in the JS thread.
-            _completion.BlockingCall(() => _completion.Unref());
-        }
+        // The Unref must be called in the JS thread.
+        _completion?.BlockingCall(() => _completion.Unref());
         _thread.Join();
 
         Debug.WriteLine($"Node.js environment exited with code: {ExitCode}");

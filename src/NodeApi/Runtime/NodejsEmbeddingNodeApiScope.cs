@@ -8,9 +8,9 @@ using static JSRuntime;
 
 public sealed class NodejsEmbeddingNodeApiScope : IDisposable
 {
-    NodejsEmbeddingRuntime _runtime;
+    readonly NodejsEmbeddingRuntime _runtime;
     private node_embedding_node_api_scope _nodeApiScope;
-    private JSValueScope _valueScope;
+    private readonly JSValueScope _valueScope;
 
     public NodejsEmbeddingNodeApiScope(NodejsEmbeddingRuntime runtime)
     {

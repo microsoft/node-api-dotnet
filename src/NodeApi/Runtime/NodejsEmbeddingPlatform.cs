@@ -127,7 +127,7 @@ public sealed class NodejsEmbeddingPlatform : IDisposable
 
         string[]? result = null;
         GetParsedArgs((string[] args) => result = args, null);
-        return result ?? Array.Empty<string>();
+        return result ?? [];
     }
 
     public string[] GetRuntimeParsedArgs()
@@ -136,6 +136,6 @@ public sealed class NodejsEmbeddingPlatform : IDisposable
 
         string[]? result = null;
         GetParsedArgs(null, (string[] args) => result = args);
-        return result ?? Array.Empty<string>();
+        return result ?? [];
     }
 }

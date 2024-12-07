@@ -59,7 +59,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void LoadMainScriptWithThread()
     {
-        using var runtime = CreateNodejsEnvironment();
+        using NodejsEmbeddingThreadRuntime runtime = CreateNodejsEnvironment();
     }
 
     [SkippableFact]

@@ -18,30 +18,30 @@ public sealed class NodejsEmbedding
     public static readonly int EmbeddingApiVersion = 1;
     public static readonly int NodeApiVersion = 9;
 
-    private static JSRuntime? _jsRuntime;
+    private static JSRuntime? s_jsRuntime;
 
     public static JSRuntime JSRuntime
     {
         get
         {
-            if (_jsRuntime == null)
+            if (s_jsRuntime == null)
             {
                 throw new InvalidOperationException("The JSRuntime is not initialized.");
             }
-            return _jsRuntime;
+            return s_jsRuntime;
         }
     }
 
     public static void Initialize(string libnodePath)
     {
         if (string.IsNullOrEmpty(libnodePath)) throw new ArgumentNullException(nameof(libnodePath));
-        if (_jsRuntime != null)
+        if (s_jsRuntime != null)
         {
             throw new InvalidOperationException(
                 "The JSRuntime can be initialized only once per process.");
         }
         nint libnodeHandle = NativeLibrary.Load(libnodePath);
-        _jsRuntime = new NodejsRuntime(libnodeHandle);
+        s_jsRuntime = new NodejsRuntime(libnodeHandle);
     }
 
     public delegate node_embedding_status HandleErrorCallback(
