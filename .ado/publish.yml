@@ -109,7 +109,7 @@ resources:
 
 variables:
   - name: DisableSigning # Disable signing while we have no access to certificate
-    value: true
+    value: false
   - name: DisableOsxArm64CodeQL
     value: true # Temporary disable CodeQL for OSX ARM64 until it is fixed by CodeQL team.
 
