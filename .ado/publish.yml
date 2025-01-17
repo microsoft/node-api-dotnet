@@ -109,7 +109,7 @@ resources:
 
 variables:
   - name: DisableSigning # Disable signing while we have no access to certificate
-    value: true
+    value: false
   - name: DisableOsxArm64CodeQL
     value: true # Temporary disable CodeQL for OSX ARM64 until it is fixed by CodeQL team.
 
@@ -310,13 +310,6 @@ extends:
                 submodules: false
                 lfs: false
 
-              # .Net 6.0 is required for the code signing task
-              - task: UseDotNet@2
-                displayName: Install .Net 6.0.x
-                inputs:
-                  packageType: sdk
-                  version: 6.0.x
-
               - task: UseDotNet@2
                 displayName: Install .NET SDK using global.json
                 inputs:
@@ -354,11 +347,6 @@ extends:
               - script: echo $(TargetRuntimeList)
                 displayName: Show RID list
 
-              - task: DeleteFiles@1 # Code signing utility requires net6.0 runtime
-                displayName: Delete global.json for CodeSign
-                inputs:
-                  Contents: global.json
-
               - ${{ if ne(variables.DisableSigning, true) }}:
                 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
                   displayName: CodeSign Binaries
@@ -372,8 +360,8 @@ extends:
                     FolderPath: $(Build.SourcesDirectory)/out/bin/Release
                     # Recursively finds files matching these patterns:
                     Pattern: |
+                      NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.node
                       **/Microsoft.JavaScript.NodeApi.dll
-                      **/win-x64/publish/Microsoft.JavaScript.NodeApi.node
                       **/Microsoft.JavaScript.NodeApi.DotNetHost.dll
                       **/Microsoft.JavaScript.NodeApi.Generator.dll
                       **/Microsoft.JavaScript.NodeApi.Generator.exe
