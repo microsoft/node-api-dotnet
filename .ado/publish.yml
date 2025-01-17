@@ -360,6 +360,7 @@ extends:
                     FolderPath: $(Build.SourcesDirectory)/out/bin/Release
                     # Recursively finds files matching these patterns:
                     Pattern: |
+                      NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.node
                       **/Microsoft.JavaScript.NodeApi.dll
                       **/Microsoft.JavaScript.NodeApi.DotNetHost.dll
                       **/Microsoft.JavaScript.NodeApi.Generator.dll
