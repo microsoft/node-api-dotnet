@@ -211,8 +211,11 @@ internal static class TestBuilder
             WorkingDirectory = workingDirectory,
         };
 
-        // Prevent the launched build from using the same MSBuild SDK that was used to run the test.
-        startInfo.Environment["MSBuildSDKsPath"] = "";
+        if (Environment.Version.Major == 8)
+        {
+            // Prevent the launched build from using the same MSBuild SDK that was used to run the test.
+            startInfo.Environment["MSBuildSDKsPath"] = "";
+        }
 
         logWriter.WriteLine($"dotnet {startInfo.Arguments}");
         logWriter.WriteLine($"CWD={workingDirectory}");

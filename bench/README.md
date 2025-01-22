@@ -9,21 +9,21 @@ though the "Dynamic" benchmarks are CLR-only.
 
 ### Run all benchmarks
 ```
-dotnet run -c Release -f net8.0 --filter *
+dotnet run -c Release -f net9.0 --filter *
 ```
 
 ### Run only CLR or only AOT benchmarks
 ```
-dotnet run -c Release -f net8.0 --filter *clr.*
-dotnet run -c Release -f net8.0 --filter *aot.*
+dotnet run -c Release -f net9.0 --filter *clr.*
+dotnet run -c Release -f net9.0 --filter *aot.*
 ```
 
 ### Run a specific benchmark
 ```
-dotnet run -c Release -f net8.0 --filter *clr.CallDotnetFunction
+dotnet run -c Release -f net9.0 --filter *clr.CallDotnetFunction
 ```
 
 ### List benchmarks
 ```
-dotnet run -c Release -f net8.0 --list flat
+dotnet run -c Release -f net9.0 --list flat
 ```

@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const assemblyNamePrefix = 'Microsoft.JavaScript.';
-const docsTargetFramework = 'net6.0';
+const docsTargetFramework = 'net8.0';
 const docsConfiguration = 'Release';
 const ridPlatform =
   process.platform === 'win32' ? 'win' :

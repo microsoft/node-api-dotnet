@@ -2248,7 +2248,7 @@ public class JSMarshaller
                 MethodInfo asDouble = typeof(JSValue).GetExplicitConversion(
                     typeof(JSValue), typeof(double));
                 MethodInfo toTimeSpan = typeof(TimeSpan).GetStaticMethod(
-                    nameof(TimeSpan.FromMilliseconds));
+                    nameof(TimeSpan.FromMilliseconds), new[] { typeof(double) });
                 statements = new[]
                 {
                     Expression.Call(toTimeSpan, Expression.Call(asDouble, valueParameter)),

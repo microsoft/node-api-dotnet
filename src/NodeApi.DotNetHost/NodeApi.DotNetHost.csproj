@@ -28,7 +28,7 @@
       It's necessary to use <Exec/> here rather than a recursive <MSBuild/> task because
       PublishAot modifies properties/targets which would not be re-computed by the task.
     -->
-    <Exec Command="dotnet publish $(MSBuildThisFileDirectory)..\NodeApi\NodeApi.csproj -c $(Configuration) -f net8.0 -p:PublishAot=true" />
+    <Exec Command="dotnet publish $(MSBuildThisFileDirectory)..\NodeApi\NodeApi.csproj -c $(Configuration) -f net9.0 --self-contained -p:PublishAot=true" />
   </Target>
 
   <Target Name="NpmPack"

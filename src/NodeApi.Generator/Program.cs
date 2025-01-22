@@ -405,7 +405,7 @@ public static class Program
         }
         else if (s_targetFramework.Contains('-'))
         {
-            // Strip off a platform suffix from a target framework like "net6.0-windows".
+            // Strip off a platform suffix from a target framework like "net8.0-windows".
             s_targetFramework = s_targetFramework.Substring(0, s_targetFramework.IndexOf('-'));
         }
 

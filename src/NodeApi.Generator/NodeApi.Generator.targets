@@ -4,7 +4,7 @@
     <NodeApiTypeDefinitionsFileName Condition=" '$(NodeApiTypeDefinitionsFileName)' == '' ">$(TargetName).d.ts</NodeApiTypeDefinitionsFileName>
 
     <NodeApiGeneratorAssemblyName>Microsoft.JavaScript.NodeApi.Generator</NodeApiGeneratorAssemblyName>
-    <NodeApiGeneratorDirectory>$(MSBuildThisFileDirectory)../lib/net6.0/</NodeApiGeneratorDirectory>
+    <NodeApiGeneratorDirectory>$(MSBuildThisFileDirectory)../lib/net8.0/</NodeApiGeneratorDirectory>
     <NodeApiGeneratorNet4xDirectory>$(MSBuildThisFileDirectory)../lib/net472/</NodeApiGeneratorNet4xDirectory>
     <NodeApiGeneratorNetStandardDirectory>$(MSBuildThisFileDirectory)../lib/netstandard2.0/</NodeApiGeneratorNetStandardDirectory>
 

@@ -18,16 +18,16 @@
  * To load a specific version of .NET, append the target framework moniker to the package name:
  * ::: code-group
  * ```JavaScript [ES (TS or JS)]
- * import dotnet from 'node-api-dotnet/net6.0';
+ * import dotnet from 'node-api-dotnet/net8.0';
  * ```
  * ```TypeScript [CommonJS (TS)]
- * import * as dotnet from 'node-api-dotnet/net6.0';
+ * import * as dotnet from 'node-api-dotnet/net8.0';
  * ```
  * ```JavaScript [CommonJS (JS)]
- * const dotnet = require('node-api-dotnet/net6.0');
+ * const dotnet = require('node-api-dotnet/net8.0');
  * ```
  * :::
- * Currently the supported target frameworks are `net472`, `net6.0`, and `net8.0`.
+ * Currently the supported target frameworks are `net472`, `net8.0`, and `net9.0`.
  * @module node-api-dotnet
  */
 declare module 'node-api-dotnet' {

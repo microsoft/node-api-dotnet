@@ -3,11 +3,11 @@
 For a minimal example of this scenario, see
 [/examples/dotnet-module/](https://github.com/microsoft/node-api-dotnet/blob/main/examples/dotnet-module/).
 
-1. Create a .NET Class library project that targets .NET 6 or later. (.NET 8 for AOT.)
+1. Create a .NET Class library project that targets .NET 8 or later.
     ```shell
     mkdir ExampleModule
     cd ExampleModule
-    dotnet new classlib --framework net6.0
+    dotnet new classlib --framework net8.0
     ```
 
 2. Add a reference to the `Microsoft.JavaScript.NodeApi` and
@@ -20,8 +20,8 @@ For a minimal example of this scenario, see
     Afterward you should have the two references in your project file:
     ```xml
     <ItemGroup>
-      <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.7.*-*" />
-      <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.7.*-*" />
+      <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.*-*" />
+      <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.*-*" />
     </ItemGroup>
     ```
 
@@ -86,7 +86,7 @@ For a minimal example of this scenario, see
     const dotnet = require('node-api-dotnet/net8.0');
     ```
     :::
-   Currently the supported target frameworks are `net472`, `net6.0`, and `net8.0`.
+   Currently the supported target frameworks are `net472`, `net8.0`, and `net9.0`.
 
 7. Load your .NET module assembly from its path using the `dotnet.require()` function:
     ```JavaScript
