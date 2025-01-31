@@ -47,16 +47,16 @@ jobs:
         # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
         # queries: security-extended,security-and-quality
 
-    - name: Setup .NET 8
+    - name: Setup .NET 9
       if: matrix.language == 'csharp'
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
 
     - name: Build C#
       if: matrix.language == 'csharp'
-      run: dotnet build -f:net8.0 -p:Configuration=Debug -p:NBGV_GitEngine=Disabled
-        # Just build the .NET 8 target framework; other targets would be redundant for CodeQL.
+      run: dotnet build -f:net9.0 -p:Configuration=Debug -p:NBGV_GitEngine=Disabled
+        # Just build the .NET 9 target framework; other targets would be redundant for CodeQL.
         # Disable git-versioning to prevent the shallow clone from causing build errors.
 
     - name: Perform CodeQL Analysis

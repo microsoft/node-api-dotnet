@@ -20,7 +20,7 @@ The easiest way to generate type definitions is to leverage the provided MSBuild
 the `Microsoft.JavaScript.NodeApi.Generator` NuGet package:
 ```xml
 <ItemGroup>
-  <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.7.*-*" />
+  <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.*-*" />
 </ItemGroup>
 ```
 

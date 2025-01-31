@@ -337,7 +337,7 @@ dotnet.load(assemblyName);";
             Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToList();
 
         // Infer the version from a system reference assembly path such as
-        // dotnet\packs\Microsoft.NETCore.App.Ref\<version>\ref\net6.0\AssemblyName.dll
+        // dotnet\packs\Microsoft.NETCore.App.Ref\<version>\ref\<tfm>\AssemblyName.dll
         int refIndex = pathParts.IndexOf("ref");
         if (refIndex > 0 && Version.TryParse(pathParts[refIndex - 1], out Version? refVersion))
         {
@@ -345,7 +345,7 @@ dotnet.load(assemblyName);";
         }
 
         // Infer the version from a nuget package assembly reference path such as
-        // <packageName>\<version>\lib\net6.0\AssemblyName.dll
+        // <packageName>\<version>\lib\<tfm>\AssemblyName.dll
         int libIndex = pathParts.IndexOf("lib");
         if (libIndex > 0 && Version.TryParse(pathParts[libIndex - 1], out Version? libVersion))
         {

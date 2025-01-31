@@ -121,7 +121,7 @@ internal class JSInterfaceMarshaller
         {
             FieldBuilder fieldBuilder = CreateDelegateField(method);
 
-            BuildMethodImplementation(typeBuilder, method, fieldBuilder, marshaller);
+            BuildMethodImplementation(typeBuilder, method, fieldBuilder);
         }
 
         foreach (EventInfo eventInfo in interfaceEvents)
@@ -176,7 +176,7 @@ internal class JSInterfaceMarshaller
 
     private static IEnumerable<Type> GetInterfaces(Type type)
     {
-        IEnumerable<Type> result = Enumerable.Empty<Type>();
+        IEnumerable<Type> result = [];
         foreach (Type interfaceType in type.GetInterfaces())
         {
             result = result.Concat(new[] { interfaceType });
@@ -317,8 +317,7 @@ internal class JSInterfaceMarshaller
     private void BuildMethodImplementation(
         TypeBuilder typeBuilder,
         MethodInfo method,
-        FieldInfo delegateField,
-        JSMarshaller marshaller)
+        FieldInfo delegateField)
     {
         MethodAttributes attributes =
             MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.Final |

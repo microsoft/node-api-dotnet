@@ -18,18 +18,18 @@ jobs:
     strategy:
       matrix: # This must be kept in sync with the PR build matrix.
         os: [ windows-latest, macos-latest, ubuntu-latest ]
-        dotnet-version: [ net472, net6.0, net8.0]
-        node-version: [ 18.x, 20.x ]
+        dotnet-version: [ net472, net8.0, net9.0]
+        node-version: [ 18.x, 22.x ]
         configuration: [ Release ]
         exclude:
-          # Exclude Node 18.x on .NET < 8, to thin the matrix.
-          - dotnet-version: net6.0
+          # Exclude Node 18.x on .NET < 9, to thin the matrix.
+          - dotnet-version: net8.0
             node-version: 18.x
           - dotnet-version: net472
             node-version: 18.x
           # Exclude .NET 4.x on non-Windows OS.
           - os: macos-latest
-            dotnet-version: net472 
+            dotnet-version: net472
           - os: ubuntu-latest
             dotnet-version: net472
 

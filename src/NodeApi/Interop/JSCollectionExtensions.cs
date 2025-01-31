@@ -736,7 +736,7 @@ internal class JSMapReadOnlyDictionary<TKey, TValue> :
             JSValue jsValue = map.CallMethod("get", KeyToJS(key));
             if (jsValue.IsUndefined())
             {
-                return (false, default(TValue)!);
+                return (false, default!);
             }
             return (true, ValueFromJS(jsValue));
         });
@@ -942,7 +942,7 @@ internal class JSObjectReadOnlyDictionary<TValue> :
             JSValue jsValue = obj.GetProperty(key);
             if (jsValue.IsUndefined())
             {
-                return (false, default(TValue)!);
+                return (false, default!);
             }
             return (true, ValueFromJS(jsValue));
         });

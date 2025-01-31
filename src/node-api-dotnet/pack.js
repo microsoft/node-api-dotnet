@@ -20,10 +20,8 @@ if (!packageName || !configuration || rids.length === 0) {
 
 const assemblyName = 'Microsoft.JavaScript.NodeApi';
 
-const targetFrameworks = ['net8.0', 'net6.0'];
+const targetFrameworks = ['net9.0', 'net8.0'];
 if (process.platform === 'win32') targetFrameworks.push('net472');
-
-const aotTargetFramework = 'net8.0';
 
 const fs = require('fs');
 const path = require('path');
@@ -110,7 +108,7 @@ function packGeneratorPackage() {
   copyScriptFiles(packageStageDir, '../..', 'README.md');
 
   copyFrameworkSpecificBinaries(
-    [ 'net6.0' ],
+    [ 'net8.0' ],
     packageStageDir,
     `NodeApi.Generator/${assemblyName}.Generator.dll`,
     `NodeApi.Generator/Microsoft.CodeAnalysis.dll`,
