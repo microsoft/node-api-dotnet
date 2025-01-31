@@ -5,6 +5,8 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 
+#pragma warning disable IDE0130 // Namespace does not match folder structure
+
 namespace Microsoft.JavaScript.NodeApi;
 
 // Only checking the environment variable for debugging.

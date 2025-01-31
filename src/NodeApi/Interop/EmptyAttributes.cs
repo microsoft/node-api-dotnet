@@ -3,6 +3,8 @@
 
 #if NETFRAMEWORK || NETSTANDARD
 
+#pragma warning disable IDE0130 // Namespace does not match folder structure
+
 // This file provides empty definitions for attributes that are not available in .NET Framework.
 
 using System;

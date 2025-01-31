@@ -1212,7 +1212,7 @@ public class TypeExporter
     {
         if (!type.IsDefined(typeof(ExtensionAttribute), inherit: false))
         {
-            return Enumerable.Empty<MethodInfo>();
+            return [];
         }
 
         return type.GetMethods(BindingFlags.Static | BindingFlags.Public)

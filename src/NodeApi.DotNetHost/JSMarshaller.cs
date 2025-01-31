@@ -496,8 +496,7 @@ public class JSMarshaller
                 createExternalMethod, resultVariable));
         }
 
-        return (Expression<JSCallback>)Expression.Lambda(
-            delegateType: typeof(JSCallback),
+        return Expression.Lambda<JSCallback>(
             body: Expression.Block(typeof(JSValue), variables, statements),
             name: "new_" + FullTypeName(constructor.DeclaringType!),
             parameters: s_argsArray);
@@ -1095,8 +1094,7 @@ public class JSMarshaller
             nameof(JSValue.CreateFunction),
             new[] { typeof(string), typeof(JSCallback), typeof(object) });
 
-        Expression lambdaExpression = Expression.Lambda(
-            typeof(JSCallback),
+        Expression lambdaExpression = Expression.Lambda<JSCallback>(
             Expression.Invoke(methodExpression, valueParameter, s_argsParameter),
             s_argsArray);
 
@@ -1314,14 +1312,13 @@ public class JSMarshaller
             Expression.Constant(constructors[0].DeclaringType!.Name),
             overloadsVariable);
 
-        return (Expression<Func<JSCallbackDescriptor>>)Expression.Lambda(
-            typeof(Func<JSCallbackDescriptor>),
+        return Expression.Lambda<Func<JSCallbackDescriptor>>(
             Expression.Block(
                 typeof(JSCallbackDescriptor),
                 new[] { overloadsVariable },
                 statements),
             name: "new_" + FullTypeName(constructors[0].DeclaringType!),
-            Array.Empty<ParameterExpression>());
+            []);
     }
 
     /// <summary>
@@ -1406,14 +1403,13 @@ public class JSMarshaller
             Expression.Constant(methods[0].Name),
             overloadsVariable);
 
-        return (Expression<Func<JSCallbackDescriptor>>)Expression.Lambda(
-            typeof(Func<JSCallbackDescriptor>),
+        return Expression.Lambda<Func<JSCallbackDescriptor>>(
             Expression.Block(
                 typeof(JSCallbackDescriptor),
                 new[] { overloadsVariable },
                 statements),
             name,
-            Array.Empty<ParameterExpression>());
+            []);
     }
 
     /// <summary>
@@ -1421,7 +1417,7 @@ public class JSMarshaller
     /// with specific generic element types to collection interfaces with object element types.
     /// This simplifies the checks required during overload resolution and avoids the need
     /// for reflection at resolution time, which is not supported in AOT. (The JS collections
-    /// will still be marshalled to the more specific collection type after resolution when 
+    /// will still be marshalled to the more specific collection type after resolution when
     /// an overload is invoked.)
     /// </summary>
     private static Type EnsureObjectCollectionTypeForOverloadResolution(Type type)
@@ -1573,8 +1569,7 @@ public class JSMarshaller
             statements.Add(Expression.Default(typeof(JSValue)));
         }
 
-        return (Expression<JSCallback>)Expression.Lambda(
-            delegateType: typeof(JSCallback),
+        return Expression.Lambda<JSCallback>(
             body: Expression.Block(typeof(JSValue), variables.Concat(argVariables), statements),
             name: FullMethodName(method),
             parameters: s_argsArray);
@@ -1662,8 +1657,7 @@ public class JSMarshaller
             statements.Add(Expression.Label(returnTarget, Expression.Default(typeof(JSValue))));
         }
 
-        return (Expression<JSCallback>)Expression.Lambda(
-            delegateType: typeof(JSCallback),
+        return Expression.Lambda<JSCallback>(
             body: Expression.Block(typeof(JSValue), variables.Concat(argVariables), statements),
             name: FullMethodName(method),
             parameters: s_argsArray);
@@ -1746,8 +1740,7 @@ public class JSMarshaller
             Expression.Assign(resultVariable, Expression.Property(null, property)),
             BuildResultExpression(resultVariable, property.PropertyType),
         };
-        return (Expression<JSCallback>)Expression.Lambda(
-            delegateType: typeof(JSCallback),
+        return Expression.Lambda<JSCallback>(
             body: Expression.Block(typeof(JSValue), variables, statements),
             name: FullMethodName(property.GetMethod!),
             parameters: s_argsArray);
@@ -1792,8 +1785,7 @@ public class JSMarshaller
         statements.Add(Expression.Label(returnTarget,
             BuildResultExpression(resultVariable, property.PropertyType)));
 
-        return (Expression<JSCallback>)Expression.Lambda(
-            delegateType: typeof(JSCallback),
+        return Expression.Lambda<JSCallback>(
             body: Expression.Block(typeof(JSValue), variables, statements),
             name: FullMethodName(property.GetMethod!),
             parameters: s_argsArray);
@@ -1819,8 +1811,7 @@ public class JSMarshaller
             Expression.Call(property.SetMethod!, valueVariable),
             Expression.Default(typeof(JSValue)),
         };
-        return (Expression<JSCallback>)Expression.Lambda(
-            delegateType: typeof(JSCallback),
+        return Expression.Lambda<JSCallback>(
             body: Expression.Block(typeof(JSValue), variables, statements),
             name: FullMethodName(property.SetMethod!),
             parameters: s_argsArray);
@@ -1869,8 +1860,7 @@ public class JSMarshaller
         statements.Add(setExpression);
         statements.Add(Expression.Label(returnTarget, Expression.Default(typeof(JSValue))));
 
-        return (Expression<JSCallback>)Expression.Lambda(
-            delegateType: typeof(JSCallback),
+        return Expression.Lambda<JSCallback>(
             body: Expression.Block(typeof(JSValue), variables, statements),
             name: FullMethodName(property.SetMethod!),
             parameters: s_argsArray);
@@ -2331,7 +2321,7 @@ public class JSMarshaller
                 (toType.Namespace == typeof(List<>).Namespace ||
                 toType.Namespace == typeof(Collection<>).Namespace))
             {
-                statements = BuildFromJSToCollectionClassExpressions(toType, variables, valueParameter);
+                statements = BuildFromJSToCollectionClassExpressions(toType, valueParameter);
             }
             else if (toType.IsGenericType && toType.Name.StartsWith("Tuple`"))
             {
@@ -3024,7 +3014,7 @@ public class JSMarshaller
         ParameterExpression jsValueVariable = Expression.Variable(typeof(JSValue), "jsValue");
         variables.Add(jsValueVariable);
 
-        if (fromType.GetCustomAttribute(typeof(JSImportAttribute)) != null)
+        if (fromType.GetCustomAttribute<JSImportAttribute>() != null)
         {
             // Imported structs are assumed to be plain JS objects (not JS classes).
             MethodInfo createObjectMethod = typeof(JSValue)
@@ -3256,7 +3246,6 @@ public class JSMarshaller
 
     private IEnumerable<Expression> BuildFromJSToCollectionClassExpressions(
         Type toType,
-        List<ParameterExpression> variables,
         Expression valueExpression)
     {
         Type elementType = toType.GenericTypeArguments[0];

@@ -376,7 +376,9 @@ public struct JSError
         private readonly bool _previousIsFatal = false;
         private bool _isDisposed = false;
 
+        #pragma warning disable IDE0032 // Use auto property
         [ThreadStatic] private static bool s_isFatal;
+        #pragma warning restore IDE0032
 
         public static bool IsFatal => s_isFatal;
 
