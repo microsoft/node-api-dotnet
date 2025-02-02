@@ -53,7 +53,7 @@ extends:
           displayName: Show directory contents
         - script: >
             nuget.exe push
-            $(System.DefaultWorkingDirectory)/_microsoft.node-api-dotnet/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg
+            $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg
             -Source https://api.nuget.org/v3/index.json
             -SkipDuplicate
             -NonInteractive
