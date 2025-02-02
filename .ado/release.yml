@@ -1,0 +1,53 @@
+trigger: none
+name: $(Date:yyyyMMdd).$(Rev:r)
+resources:
+  pipelines:
+  - pipeline: '_microsoftnode-api-dotnet'
+    project: 'ISS'
+    source: 'microsoft.node-api-dotnet'
+    trigger:
+      branches:
+        include:
+        - main
+  repositories:
+  - repository: CustomPipelineTemplates
+    type: git
+    name: 1ESPipelineTemplates/OfficePipelineTemplates
+    ref: refs/tags/release
+extends:
+  template: v1/Office.Official.PipelineTemplate.yml@CustomPipelineTemplates
+  parameters:
+    pool:
+      name: Azure-Pipelines-1ESPT-ExDShared
+      vmImage: windows-latest
+      os: windows
+    customBuildTags:
+    - ES365AIMigrationTooling-BulkMigrated-Release
+    stages:
+    - stage: nuget_org_publish
+      displayName: Nuget nuget.org feed
+      jobs:
+      - job: nuget_org_job
+        displayName: Publish Nuget
+        condition: succeeded()
+        timeoutInMinutes: 0
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: '_microsoftnode-api-dotnet'
+            artifactName: 'published-packages'
+            targetPath: '$(Pipeline.Workspace)/published-packages'
+        steps:
+        # Download Azure Key Vault secrets.
+        - task: AzureKeyVault@2
+          inputs:
+            azureSubscription: ESRP-JSHost3
+            KeyVaultName: OGX-JSHost-KV
+            SecretsFilter: 'OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi'
+            RunAsPreJob: true
+        - task: NuGetToolInstaller@1
+          displayName: 'Use NuGet'
+        - script: 'nuget.exe SetApiKey $(OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi)'
+          displayName: 'NuGet SetApiKey (nuget.org)'
+        #- script: 'nuget.exe push $(System.DefaultWorkingDirectory)/_microsoft.node-api-dotnet/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg -Source https://api.nuget.org/v3/index.json -SkipDuplicate -NonInteractive -Verbosity Detailed'
+        #  displayName: 'NuGet push (nuget.org)'
