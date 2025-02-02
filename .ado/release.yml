@@ -49,5 +49,11 @@ extends:
           displayName: 'Use NuGet'
         - script: 'nuget.exe SetApiKey $(OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi)'
           displayName: 'NuGet SetApiKey (nuget.org)'
-        #- script: 'nuget.exe push $(System.DefaultWorkingDirectory)/_microsoft.node-api-dotnet/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg -Source https://api.nuget.org/v3/index.json -SkipDuplicate -NonInteractive -Verbosity Detailed'
-        #  displayName: 'NuGet push (nuget.org)'
+        - script: >
+            nuget.exe push
+            $(System.DefaultWorkingDirectory)/_microsoft.node-api-dotnet/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg
+            -Source https://api.nuget.org/v3/index.json
+            -SkipDuplicate
+            -NonInteractive
+            -Verbosity Detailed
+          displayName: 'NuGet push (nuget.org)'
