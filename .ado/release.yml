@@ -24,11 +24,32 @@ extends:
     customBuildTags:
     - ES365AIMigrationTooling-BulkMigrated-Release
     stages:
+    - stage: ms_react_native_nuget_publish
+      displayName: Nuget ms/react-native feed
+      jobs:
+      - job: ms_react_native_nuget_job
+        displayName: Publish Nuget to ms/react-native
+        condition: succeeded()
+        timeoutInMinutes: 0
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: '_microsoftnode-api-dotnet'
+            artifactName: 'published-packages'
+            targetPath: '$(Pipeline.Workspace)/published-packages'
+        steps:
+        - task: 1ES.PublishNuGet@1
+          displayName: 'NuGet push'
+          inputs:
+            packageParentPath: '$(Pipeline.Workspace)/published-packages'
+            packagesToPush: Microsoft.JavaScript.NodeApi.*.nupkg
+            nuGetFeedType: external
+            externalEndpoint: Nuget - ms/react-native-public
     - stage: nuget_org_publish
       displayName: Nuget nuget.org feed
       jobs:
       - job: nuget_org_job
-        displayName: Publish Nuget
+        displayName: Publish Nuget to nuget.org
         condition: succeeded()
         timeoutInMinutes: 0
         templateContext:
