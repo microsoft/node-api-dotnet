@@ -25,70 +25,70 @@ extends:
     - ES365AIMigrationTooling-BulkMigrated-Release
     stages:
 
-#    - stage: ms_react_native_nuget_publish
-#      displayName: Nuget ms/react-native feed
-#      jobs:
-#      - job: ms_react_native_nuget_job
-#        displayName: Publish Nuget to ms/react-native
-#        condition: succeeded()
-#        timeoutInMinutes: 0
-#        templateContext:
-#          inputs:
-#          - input: pipelineArtifact
-#            pipeline: _microsoftnode-api-dotnet
-#            artifactName: published-packages
-#            targetPath: $(Pipeline.Workspace)\published-packages
-#        steps:
-#        - script: dir /S $(Pipeline.Workspace)\published-packages
-#          displayName: Show directory contents
-#        - script: dotnet nuget list source
-#          displayName: Show Nuget sources
-#        - task: 1ES.PublishNuGet@1
-#          displayName: NuGet push
-#          inputs:
-#            useDotNetTask: true
-#            packageParentPath: '$(Pipeline.Workspace)/published-packages'
-#            packagesToPush: '$(Pipeline.Workspace)/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg'
-#            nuGetFeedType: external
-#            publishFeedCredentials: 'Nuget - ms/react-native-public'
-#            externalEndpoint: 'Nuget - ms/react-native-public'
-#            publishPackageMetadata: true
+    - stage: ms_react_native_nuget_publish
+      displayName: Nuget ms/react-native feed
+      jobs:
+      - job: ms_react_native_nuget_job
+        displayName: Publish Nuget to ms/react-native
+        condition: succeeded()
+        timeoutInMinutes: 0
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: _microsoftnode-api-dotnet
+            artifactName: published-packages
+            targetPath: $(Pipeline.Workspace)\published-packages
+        steps:
+        - script: dir /S $(Pipeline.Workspace)\published-packages
+          displayName: Show directory contents
+        - script: dotnet nuget list source
+          displayName: Show Nuget sources
+        - task: 1ES.PublishNuGet@1
+          displayName: NuGet push
+          inputs:
+            useDotNetTask: true
+            packageParentPath: '$(Pipeline.Workspace)/published-packages'
+            packagesToPush: '$(Pipeline.Workspace)/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg'
+            nuGetFeedType: external
+            publishFeedCredentials: 'Nuget - ms/react-native-public'
+            externalEndpoint: 'Nuget - ms/react-native-public'
+            publishPackageMetadata: true
 
-#    - stage: ms_react_native_npm_publish
-#      displayName: npm ms/react-native feed
-#      jobs:
-#      - job: ms_react_native_npm_job
-#        displayName: Agent job
-#        condition: succeeded()
-#        timeoutInMinutes: 0
-#        templateContext:
-#          inputs:
-#          - input: pipelineArtifact
-#            pipeline: '_microsoftnode-api-dotnet'
-#            artifactName: 'published-packages'
-#            targetPath: $(Pipeline.Workspace)\published-packages
-#        steps:
-#        - task: NodeTool@0
-#          displayName: Use Node 20.x
-#          inputs:
-#            versionSpec: 20.x
-#        - task: CmdLine@2
-#          displayName: Setup npmrc file for react-native feed
-#          inputs:
-#            script: |
-#              echo registry=https://pkgs.dev.azure.com/ms/_packaging/react-native/npm/registry/ > $(Pipeline.Workspace)\published-packages\.npmrc
-#              echo always-auth=true >> $(Pipeline.Workspace)\published-packages\.npmrc
-#        - task: npmAuthenticate@0
-#          displayName: npm Authenticate .npmrc
-#          inputs:
-#            workingFile: $(Pipeline.Workspace)\published-packages\.npmrc
-#            customEndpoint: Npm - ms/react-native
-#        - task: CmdLine@2
-#          displayName: npm publish to react-native feed
-#          inputs:
-#            script: |
-#              cd $(Pipeline.Workspace)\published-packages
-#              for %%i in (*.tgz) do npm publish %%i
+    - stage: ms_react_native_npm_publish
+      displayName: npm ms/react-native feed
+      jobs:
+      - job: ms_react_native_npm_job
+        displayName: Agent job
+        condition: succeeded()
+        timeoutInMinutes: 0
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: '_microsoftnode-api-dotnet'
+            artifactName: 'published-packages'
+            targetPath: $(Pipeline.Workspace)\published-packages
+        steps:
+        - task: NodeTool@0
+          displayName: Use Node 20.x
+          inputs:
+            versionSpec: 20.x
+        - task: CmdLine@2
+          displayName: Setup npmrc file for react-native feed
+          inputs:
+            script: |
+              echo registry=https://pkgs.dev.azure.com/ms/_packaging/react-native/npm/registry/ > $(Pipeline.Workspace)\published-packages\.npmrc
+              echo always-auth=true >> $(Pipeline.Workspace)\published-packages\.npmrc
+        - task: npmAuthenticate@0
+          displayName: npm Authenticate .npmrc
+          inputs:
+            workingFile: $(Pipeline.Workspace)\published-packages\.npmrc
+            customEndpoint: Npm - ms/react-native
+        - task: CmdLine@2
+          displayName: npm publish to react-native feed
+          inputs:
+            script: |
+              cd $(Pipeline.Workspace)\published-packages
+              for %%i in (*.tgz) do npm publish %%i
 
     - stage: nuget_org_publish
       displayName: Nuget nuget.org feed
