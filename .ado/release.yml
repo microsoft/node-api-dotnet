@@ -24,6 +24,7 @@ extends:
     customBuildTags:
     - ES365AIMigrationTooling-BulkMigrated-Release
     stages:
+
     - stage: ms_react_native_nuget_publish
       displayName: Nuget ms/react-native feed
       jobs:
@@ -34,17 +35,25 @@ extends:
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: '_microsoftnode-api-dotnet'
-            artifactName: 'published-packages'
-            targetPath: '$(Pipeline.Workspace)/published-packages'
+            pipeline: _microsoftnode-api-dotnet
+            artifactName: published-packages
+            targetPath: $(Pipeline.Workspace)\published-packages
         steps:
+        - script: dir /S $(Pipeline.Workspace)\published-packages
+          displayName: Show directory contents
+        - script: dotnet nuget list source
+          displayName: Show Nuget sources
         - task: 1ES.PublishNuGet@1
-          displayName: 'NuGet push'
+          displayName: NuGet push
           inputs:
+            useDotNetTask: true
             packageParentPath: '$(Pipeline.Workspace)/published-packages'
-            packagesToPush: Microsoft.JavaScript.NodeApi.*.nupkg
+            packagesToPush: '$(Pipeline.Workspace)/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg'
             nuGetFeedType: external
-            externalEndpoint: Nuget - ms/react-native-public
+            publishFeedCredentials: 'Nuget - ms/react-native-public'
+            externalEndpoint: 'Nuget - ms/react-native-public'
+            publishPackageMetadata: true
+
     - stage: ms_react_native_npm_publish
       displayName: npm ms/react-native feed
       jobs:
@@ -57,7 +66,7 @@ extends:
           - input: pipelineArtifact
             pipeline: '_microsoftnode-api-dotnet'
             artifactName: 'published-packages'
-            targetPath: '$(Pipeline.Workspace)/published-packages'
+            targetPath: $(Pipeline.Workspace)\published-packages
         steps:
         - task: NodeTool@0
           displayName: Use Node 20.x
@@ -80,6 +89,7 @@ extends:
             script: |
               cd $(Pipeline.Workspace)\published-packages
               for %%i in (*.tgz) do npm publish %%i
+
     - stage: nuget_org_publish
       displayName: Nuget nuget.org feed
       jobs:
