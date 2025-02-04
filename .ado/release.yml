@@ -34,17 +34,21 @@ extends:
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: '_microsoftnode-api-dotnet'
-            artifactName: 'published-packages'
-            targetPath: '$(Pipeline.Workspace)/published-packages'
+            pipeline: _microsoftnode-api-dotnet
+            artifactName: published-packages
+            targetPath: $(Pipeline.Workspace)\published-packages
         steps:
+        - script: dir /S $(Pipeline.Workspace)\published-packages
+          displayName: Show directory contents
         - task: 1ES.PublishNuGet@1
-          displayName: 'NuGet push'
+          displayName: NuGet push
           inputs:
+            useDotNetTask: true
             packageParentPath: $(Pipeline.Workspace)\published-packages
-            packagesToPush: $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg
+            packagesToPush: '$(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg'
             nuGetFeedType: external
             externalEndpoint: Nuget - ms/react-native-public
+            publishPackageMetadata: true
     - stage: ms_react_native_npm_publish
       displayName: npm ms/react-native feed
       jobs:
