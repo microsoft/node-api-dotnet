@@ -48,7 +48,7 @@ extends:
           inputs:
             useDotNetTask: true
             packageParentPath: '$(Pipeline.Workspace)/published-packages'
-            packagesToPush: '$(Pipeline.Workspace)/published-packages/Microsoft.JavaScript.NodeApi.*.*nupkg'
+            packagesToPush: '$(Pipeline.Workspace)/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg'
             nuGetFeedType: external
             publishFeedCredentials: 'Nuget - ms/react-native-public'
             externalEndpoint: 'Nuget - ms/react-native-public'
@@ -118,7 +118,7 @@ extends:
           displayName: Show directory contents
         - script: >
             nuget.exe push
-            $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.*nupkg
+            $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg
             -Source https://api.nuget.org/v3/index.json
             -SkipDuplicate
             -NonInteractive
