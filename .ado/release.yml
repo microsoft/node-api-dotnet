@@ -43,13 +43,16 @@ extends:
           displayName: Show directory contents
         - script: dotnet nuget list source
           displayName: Show Nuget sources
-        - task: NuGetCommand@2
+        - task: 1ES.PublishNuGet@1
           displayName: NuGet push
           inputs:
-            command: push
+            useDotNetTask: true
+            packageParentPath: '$(Pipeline.Workspace)/published-packages'
             packagesToPush: '$(Pipeline.Workspace)/published-packages/Microsoft.JavaScript.NodeApi.*.*nupkg'
             nuGetFeedType: external
             publishFeedCredentials: 'Nuget - ms/react-native-public'
+            externalEndpoint: 'Nuget - ms/react-native-public'
+            publishPackageMetadata: true
 
     - stage: ms_react_native_npm_publish
       displayName: npm ms/react-native feed
