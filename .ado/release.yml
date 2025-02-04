@@ -41,8 +41,8 @@ extends:
         - task: 1ES.PublishNuGet@1
           displayName: 'NuGet push'
           inputs:
-            packageParentPath: '$(Pipeline.Workspace)/published-packages'
-            packagesToPush: Microsoft.JavaScript.NodeApi.*.nupkg
+            packageParentPath: $(Pipeline.Workspace)\published-packages
+            packagesToPush: $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg
             nuGetFeedType: external
             externalEndpoint: Nuget - ms/react-native-public
     - stage: ms_react_native_npm_publish
@@ -57,7 +57,7 @@ extends:
           - input: pipelineArtifact
             pipeline: '_microsoftnode-api-dotnet'
             artifactName: 'published-packages'
-            targetPath: '$(Pipeline.Workspace)/published-packages'
+            targetPath: $(Pipeline.Workspace)\published-packages
         steps:
         - task: NodeTool@0
           displayName: Use Node 20.x
