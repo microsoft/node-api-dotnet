@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+namespace Microsoft.JavaScript.NodeApi.Runtime;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,9 +12,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.JavaScript.NodeApi.Interop;
-
-namespace Microsoft.JavaScript.NodeApi.Runtime;
-
 using static NodejsRuntime;
 
 /// <summary>
@@ -2658,165 +2657,222 @@ public class TracingJSRuntime : JSRuntime
 
     #region Embedding
 
-    public override node_embedding_status
-        EmbeddingOnError(node_embedding_handle_error_functor error_handler)
+    public override string EmbeddingGetLastErrorMessage()
     {
-        return _runtime.EmbeddingOnError(error_handler);
+        return _runtime.EmbeddingGetLastErrorMessage();
     }
 
-    public override node_embedding_status EmbeddingSetApiVersion(
-        int embedding_api_version,
-        int node_api_version)
+    public override void EmbeddingSetLastErrorMessage(ReadOnlySpan<char> message)
     {
-        return _runtime.EmbeddingSetApiVersion(embedding_api_version, node_api_version);
+        _runtime.EmbeddingSetLastErrorMessage(message);
     }
 
-    public override node_embedding_status EmbeddingRunMain(
+    public override NodeEmbeddingStatus EmbeddingRunMain(
         ReadOnlySpan<string> args,
-        node_embedding_configure_platform_functor_ref configure_platform,
-        node_embedding_configure_runtime_functor_ref configure_runtime)
+        node_embedding_platform_configure_callback configure_platform,
+        nint configure_platform_data,
+        node_embedding_runtime_configure_callback configure_runtime,
+        nint configure_runtime_data)
     {
-        return _runtime.EmbeddingRunMain(args, configure_platform, configure_runtime);
+        return _runtime.EmbeddingRunMain(
+            args,
+            configure_platform,
+            configure_platform_data,
+            configure_runtime,
+            configure_runtime_data);
     }
 
-    public override node_embedding_status EmbeddingCreatePlatform(
+    public override NodeEmbeddingStatus EmbeddingCreatePlatform(
         ReadOnlySpan<string> args,
-        node_embedding_configure_platform_functor_ref configure_platform,
+        node_embedding_platform_configure_callback configure_platform,
+        nint configure_platform_data,
         out node_embedding_platform result)
     {
-        return _runtime.EmbeddingCreatePlatform(args, configure_platform, out result);
+        return _runtime.EmbeddingCreatePlatform(
+            args, configure_platform, configure_platform_data, out result);
     }
 
-    public override node_embedding_status
-        EmbeddingDeletePlatform(node_embedding_platform platform)
+    public override NodeEmbeddingStatus EmbeddingDeletePlatform(node_embedding_platform platform)
     {
         return _runtime.EmbeddingDeletePlatform(platform);
     }
 
-    public override node_embedding_status EmbeddingPlatformSetFlags(
-        node_embedding_platform_config platform_config,
-        node_embedding_platform_flags flags)
+    public override NodeEmbeddingStatus EmbeddingPlatformConfigSetFlags(
+        node_embedding_platform_config platform_config, NodeEmbeddingPlatformFlags flags)
     {
-        return _runtime.EmbeddingPlatformSetFlags(platform_config, flags);
+        return _runtime.EmbeddingPlatformConfigSetFlags(platform_config, flags);
     }
 
-    public override node_embedding_status EmbeddingPlatformGetParsedArgs(
+    public override NodeEmbeddingStatus EmbeddingPlatformGetParsedArgs(
         node_embedding_platform platform,
-        node_embedding_get_args_functor_ref get_args,
-        node_embedding_get_args_functor_ref get_runtime_args)
+        nint args_count,
+        nint args,
+        nint runtime_args_count,
+        nint runtime_args)
     {
-        return _runtime.EmbeddingPlatformGetParsedArgs(platform, get_args, get_runtime_args);
+        return _runtime.EmbeddingPlatformGetParsedArgs(
+            platform, args_count, args, runtime_args_count, runtime_args);
     }
 
-    public override node_embedding_status EmbeddingRunRuntime(
+    public override NodeEmbeddingStatus EmbeddingRunRuntime(
         node_embedding_platform platform,
-        node_embedding_configure_runtime_functor_ref configure_runtime)
+        node_embedding_runtime_configure_callback configure_runtime,
+        nint configure_runtime_data)
     {
-        return _runtime.EmbeddingRunRuntime(platform, configure_runtime);
+        return _runtime.EmbeddingRunRuntime(platform, configure_runtime, configure_runtime_data);
     }
 
-    public override node_embedding_status EmbeddingCreateRuntime(
+    public override NodeEmbeddingStatus EmbeddingCreateRuntime(
         node_embedding_platform platform,
-        node_embedding_configure_runtime_functor_ref configure_runtime,
+        node_embedding_runtime_configure_callback configure_runtime,
+        nint configure_runtime_data,
         out node_embedding_runtime result)
     {
-        return _runtime.EmbeddingCreateRuntime(platform, configure_runtime, out result);
+        return _runtime.EmbeddingCreateRuntime(
+            platform, configure_runtime, configure_runtime_data, out result);
     }
 
-    public override node_embedding_status
+    public override NodeEmbeddingStatus
         EmbeddingDeleteRuntime(node_embedding_runtime runtime)
     {
         return _runtime.EmbeddingDeleteRuntime(runtime);
     }
 
-    public override node_embedding_status EmbeddingRuntimeSetFlags(
-        node_embedding_runtime_config runtime_config,
-        node_embedding_runtime_flags flags)
+    public override NodeEmbeddingStatus EmbeddingRuntimeConfigSetNodeApiVersion(
+        node_embedding_runtime_config runtime_config, int node_api_version)
     {
-        return _runtime.EmbeddingRuntimeSetFlags(runtime_config, flags);
+        return _runtime.EmbeddingRuntimeConfigSetNodeApiVersion(runtime_config, node_api_version);
     }
 
-    public override node_embedding_status EmbeddingRuntimeSetArgs(
+    public override NodeEmbeddingStatus EmbeddingRuntimeConfigSetFlags(
+        node_embedding_runtime_config runtime_config, NodeEmbeddingRuntimeFlags flags)
+    {
+        return _runtime.EmbeddingRuntimeConfigSetFlags(runtime_config, flags);
+    }
+
+    public override NodeEmbeddingStatus EmbeddingRuntimeConfigSetArgs(
         node_embedding_runtime_config runtime_config,
         ReadOnlySpan<string> args,
         ReadOnlySpan<string> runtime_args)
     {
-        return _runtime.EmbeddingRuntimeSetArgs(runtime_config, args, runtime_args);
+        return _runtime.EmbeddingRuntimeConfigSetArgs(runtime_config, args, runtime_args);
     }
 
-    public override node_embedding_status EmbeddingRuntimeOnPreload(
+    public override NodeEmbeddingStatus EmbeddingRuntimeConfigOnPreload(
         node_embedding_runtime_config runtime_config,
-        node_embedding_preload_functor run_preload)
+        node_embedding_runtime_preload_callback preload,
+        nint preload_data,
+        node_embedding_data_release_callback release_preload_data)
     {
-        return _runtime.EmbeddingRuntimeOnPreload(runtime_config, run_preload);
+        return _runtime.EmbeddingRuntimeConfigOnPreload(
+            runtime_config, preload, preload_data, release_preload_data);
     }
 
-    public override node_embedding_status EmbeddingRuntimeOnStartExecution(
+    public override NodeEmbeddingStatus EmbeddingRuntimeConfigOnLoading(
         node_embedding_runtime_config runtime_config,
-        node_embedding_start_execution_functor start_execution,
-        node_embedding_handle_result_functor handle_result)
+        node_embedding_runtime_loading_callback run_load,
+        nint load_data,
+        node_embedding_data_release_callback release_load_data)
     {
-        return _runtime.EmbeddingRuntimeOnStartExecution(
-            runtime_config, start_execution, handle_result);
+        return _runtime.EmbeddingRuntimeConfigOnLoading(
+            runtime_config, run_load, load_data, release_load_data);
     }
 
-    public override node_embedding_status EmbeddingRuntimeAddModule(
+    public override NodeEmbeddingStatus EmbeddingRuntimeConfigOnLoaded(
         node_embedding_runtime_config runtime_config,
-        string moduleName,
-        node_embedding_initialize_module_functor init_module,
+        node_embedding_runtime_loaded_callback handle_loaded,
+        nint handle_loaded_data,
+        node_embedding_data_release_callback release_handle_loaded_data)
+    {
+        return _runtime.EmbeddingRuntimeConfigOnLoaded(
+            runtime_config, handle_loaded, handle_loaded_data, release_handle_loaded_data);
+    }
+
+    public override NodeEmbeddingStatus EmbeddingRuntimeConfigAddModule(
+        node_embedding_runtime_config runtime_config,
+        ReadOnlySpan<char> module_name,
+        node_embedding_module_initialize_callback init_module,
+        nint init_module_data,
+        node_embedding_data_release_callback release_init_module_data,
         int module_node_api_version)
     {
-        return _runtime.EmbeddingRuntimeAddModule(
-            runtime_config, moduleName, init_module, module_node_api_version);
+        return _runtime.EmbeddingRuntimeConfigAddModule(
+            runtime_config,
+            module_name,
+            init_module,
+            init_module_data,
+            release_init_module_data,
+            module_node_api_version);
     }
 
-    public override node_embedding_status EmbeddingRuntimeSetTaskRunner(
+    public override NodeEmbeddingStatus EmbeddingRuntimeSetUserData(
+        node_embedding_runtime runtime,
+        nint user_data,
+        node_embedding_data_release_callback release_user_data)
+    {
+        return _runtime.EmbeddingRuntimeSetUserData(runtime, user_data, release_user_data);
+    }
+
+    public override NodeEmbeddingStatus EmbeddingRuntimeGetUserData(
+        node_embedding_runtime runtime, out nint user_data)
+    {
+        return _runtime.EmbeddingRuntimeGetUserData(runtime, out user_data);
+    }
+
+    public override NodeEmbeddingStatus EmbeddingRuntimeConfigSetTaskRunner(
         node_embedding_runtime_config runtime_config,
-        node_embedding_post_task_functor post_task)
+        node_embedding_task_post_callback post_task,
+        nint post_task_data,
+        node_embedding_data_release_callback release_post_task_data)
     {
-        return _runtime.EmbeddingRuntimeSetTaskRunner(runtime_config, post_task);
+        return _runtime.EmbeddingRuntimeConfigSetTaskRunner(
+            runtime_config, post_task, post_task_data, release_post_task_data);
     }
 
-    public override node_embedding_status EmbeddingRunEventLoop(
+    public override NodeEmbeddingStatus EmbeddingRuntimeRunEventLoop(node_embedding_runtime runtime)
+    {
+        return _runtime.EmbeddingRuntimeRunEventLoop(runtime);
+    }
+
+    public override NodeEmbeddingStatus EmbeddingRuntimeTerminateEventLoop(
+        node_embedding_runtime runtime)
+    {
+        return _runtime.EmbeddingRuntimeTerminateEventLoop(runtime);
+    }
+
+    public override NodeEmbeddingStatus EmbeddingRuntimeRunOnceEventLoop(
+        node_embedding_runtime runtime, out bool hasMoreWork)
+    {
+        return _runtime.EmbeddingRuntimeRunOnceEventLoop(runtime, out hasMoreWork);
+    }
+
+    public override NodeEmbeddingStatus EmbeddingRuntimeRunNoWaitEventLoop(
+        node_embedding_runtime runtime, out bool hasMoreWork)
+    {
+        return _runtime.EmbeddingRuntimeRunNoWaitEventLoop(runtime, out hasMoreWork);
+    }
+
+    public override NodeEmbeddingStatus EmbeddingRuntimeRunNodeApi(
         node_embedding_runtime runtime,
-        node_embedding_event_loop_run_mode run_mode,
-        out bool has_more_work)
+        node_embedding_node_api_run_callback run_node_api,
+        nint run_node_api_data)
     {
-        return _runtime.EmbeddingRunEventLoop(runtime, run_mode, out has_more_work);
+        return _runtime.EmbeddingRuntimeRunNodeApi(runtime, run_node_api, run_node_api_data);
     }
 
-    public override node_embedding_status
-        EmbeddingCompleteEventLoop(node_embedding_runtime runtime)
-    {
-        return _runtime.EmbeddingCompleteEventLoop(runtime);
-    }
-
-    public override node_embedding_status
-        EmbeddingTerminateEventLoop(node_embedding_runtime runtime)
-    {
-        return _runtime.EmbeddingTerminateEventLoop(runtime);
-    }
-
-    public override node_embedding_status EmbeddingRunNodeApi(
-        node_embedding_runtime runtime,
-        node_embedding_run_node_api_functor_ref run_node_api)
-    {
-        return _runtime.EmbeddingRunNodeApi(runtime, run_node_api);
-    }
-
-    public override node_embedding_status EmbeddingOpenNodeApiScope(
+    public override NodeEmbeddingStatus EmbeddingRuntimeOpenNodeApiScope(
         node_embedding_runtime runtime,
         out node_embedding_node_api_scope node_api_scope,
         out napi_env env)
     {
-        return _runtime.EmbeddingOpenNodeApiScope(runtime, out node_api_scope, out env);
+        return _runtime.EmbeddingRuntimeOpenNodeApiScope(runtime, out node_api_scope, out env);
     }
 
-    public override node_embedding_status EmbeddingCloseNodeApiScope(
+    public override NodeEmbeddingStatus EmbeddingRuntimeCloseNodeApiScope(
         node_embedding_runtime runtime,
         node_embedding_node_api_scope node_api_scope)
     {
-        return _runtime.EmbeddingCloseNodeApiScope(runtime, node_api_scope);
+        return _runtime.EmbeddingRuntimeCloseNodeApiScope(runtime, node_api_scope);
     }
 
     #endregion

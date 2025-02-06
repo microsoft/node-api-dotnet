@@ -4,7 +4,9 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
+using static Microsoft.JavaScript.NodeApi.Runtime.NodejsRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -61,28 +63,17 @@ public static class NodeApiStatusExtensions
     }
 
     [StackTraceHidden]
-    public static void ThrowIfFailed([DoesNotReturnIf(true)] this node_embedding_status status,
+    public static void ThrowIfFailed([DoesNotReturnIf(true)] this NodeEmbeddingStatus status,
                                      [CallerMemberName] string memberName = "",
                                      [CallerFilePath] string sourceFilePath = "",
                                      [CallerLineNumber] int sourceLineNumber = 0)
     {
-        if (status == node_embedding_status.ok)
+        if (status == NodeEmbeddingStatus.OK)
             return;
-
-        throw new JSException($"Error in {memberName} at {sourceFilePath}:{sourceLineNumber}");
-    }
-
-    // Throw if status is not napi_ok. Otherwise, return the provided value.
-    // This function helps writing compact wrappers for the interop calls.
-    [StackTraceHidden]
-    public static T ThrowIfFailed<T>(this node_embedding_status status,
-                                     T value,
-                                     [CallerMemberName] string memberName = "",
-                                     [CallerFilePath] string sourceFilePath = "",
-                                     [CallerLineNumber] int sourceLineNumber = 0)
-    {
-        status.ThrowIfFailed(memberName, sourceFilePath, sourceLineNumber);
-        return value;
+        throw new JSException($"""
+            Error in {memberName} at {sourceFilePath}:{sourceLineNumber}
+            {NodeEmbedding.JSRuntime.EmbeddingGetLastErrorMessage()}
+            """);
     }
 }
 

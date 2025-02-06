@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-
 namespace Microsoft.JavaScript.NodeApi.Runtime;
+
+using System;
 
 // Imports Node.js native APIs defined in js_native_api.h
 public unsafe partial class NodejsRuntime
@@ -187,8 +187,8 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-            fixed (byte* code_ptr = &codeBuffer.Pin())
-            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            fixed (byte* code_ptr = codeBuffer)
+            fixed (byte* msg_ptr = msgBuffer)
             {
                 return Import(ref napi_throw_error)(
                     env,
@@ -203,8 +203,8 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-            fixed (byte* code_ptr = &codeBuffer.Pin())
-            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            fixed (byte* code_ptr = codeBuffer)
+            fixed (byte* msg_ptr = msgBuffer)
             {
                 return Import(ref napi_throw_type_error)(
                     env,
@@ -220,8 +220,8 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-            fixed (byte* code_ptr = &codeBuffer.Pin())
-            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            fixed (byte* code_ptr = codeBuffer)
+            fixed (byte* msg_ptr = msgBuffer)
 
             {
                 return Import(ref napi_throw_range_error)(
@@ -238,8 +238,8 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer codeBuffer = PooledBuffer.FromStringUtf8(code))
         using (PooledBuffer msgBuffer = PooledBuffer.FromStringUtf8(msg))
-            fixed (byte* code_ptr = &codeBuffer.Pin())
-            fixed (byte* msg_ptr = &codeBuffer.Pin())
+            fixed (byte* code_ptr = codeBuffer)
+            fixed (byte* msg_ptr = msgBuffer)
             {
                 return Import(ref node_api_throw_syntax_error)(
                     env,
@@ -562,7 +562,7 @@ public unsafe partial class NodejsRuntime
     {
         result = default;
         using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
-            fixed (byte* name_ptr = &nameBuffer.Pin())
+            fixed (byte* name_ptr = nameBuffer)
             fixed (napi_value* result_ptr = &result)
             {
                 return Import(ref node_api_symbol_for)(
@@ -1047,7 +1047,7 @@ public unsafe partial class NodejsRuntime
         out napi_value result)
     {
         using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
-            fixed (byte* name_ptr = &nameBuffer.Pin())
+            fixed (byte* name_ptr = nameBuffer)
             fixed (napi_value* result_ptr = &result)
             {
                 return Import(ref napi_create_function)(
@@ -1591,7 +1591,7 @@ public unsafe partial class NodejsRuntime
     {
         result = default;
         using (PooledBuffer nameBuffer = PooledBuffer.FromStringUtf8(name))
-            fixed (byte* name_ptr = &nameBuffer.Pin())
+            fixed (byte* name_ptr = nameBuffer)
             fixed (napi_property_descriptor* properties_ptr = &properties.GetPinnableReference())
             fixed (napi_value* result_ptr = &result)
             {

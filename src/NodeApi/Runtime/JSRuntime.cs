@@ -1,12 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+namespace Microsoft.JavaScript.NodeApi.Runtime;
+
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-
-namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 using static NodejsRuntime;
 
@@ -520,96 +519,128 @@ public abstract partial class JSRuntime
 
     #region Embedding
 
-    public virtual node_embedding_status
-        EmbeddingOnError(node_embedding_handle_error_functor error_handler) => throw NS();
+    public virtual string EmbeddingGetLastErrorMessage() => throw NS();
 
-    public virtual node_embedding_status EmbeddingSetApiVersion(
-        int embedding_api_version,
-        int node_api_version) => throw NS();
+    public virtual void EmbeddingSetLastErrorMessage(ReadOnlySpan<char> message) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRunMain(
+    public virtual NodeEmbeddingStatus EmbeddingRunMain(
         ReadOnlySpan<string> args,
-        node_embedding_configure_platform_functor_ref configure_platform,
-        node_embedding_configure_runtime_functor_ref configure_runtime) => throw NS();
+        node_embedding_platform_configure_callback configure_platform,
+        nint configure_platform_data,
+        node_embedding_runtime_configure_callback configure_runtime,
+        nint configure_runtime_data) => throw NS();
 
-    public virtual node_embedding_status EmbeddingCreatePlatform(
+    public virtual NodeEmbeddingStatus EmbeddingCreatePlatform(
         ReadOnlySpan<string> args,
-        node_embedding_configure_platform_functor_ref configure_platform,
+        node_embedding_platform_configure_callback configure_platform,
+        nint configure_platform_data,
         out node_embedding_platform result) => throw NS();
 
-    public virtual node_embedding_status
+    public virtual NodeEmbeddingStatus
         EmbeddingDeletePlatform(node_embedding_platform platform) => throw NS();
 
-    public virtual node_embedding_status EmbeddingPlatformSetFlags(
+    public virtual NodeEmbeddingStatus EmbeddingPlatformConfigSetFlags(
         node_embedding_platform_config platform_config,
-        node_embedding_platform_flags flags) => throw NS();
+        NodeEmbeddingPlatformFlags flags) => throw NS();
 
-    public virtual node_embedding_status EmbeddingPlatformGetParsedArgs(
+    public virtual NodeEmbeddingStatus EmbeddingPlatformGetParsedArgs(
         node_embedding_platform platform,
-        node_embedding_get_args_functor_ref get_args,
-        node_embedding_get_args_functor_ref get_runtime_args) => throw NS();
+        nint args_count,
+        nint args,
+        nint runtime_args_count,
+        nint runtime_args) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRunRuntime(
+    public virtual NodeEmbeddingStatus EmbeddingRunRuntime(
         node_embedding_platform platform,
-        node_embedding_configure_runtime_functor_ref configure_runtime) => throw NS();
+        node_embedding_runtime_configure_callback configure_runtime,
+        nint configure_runtime_data) => throw NS();
 
-    public virtual node_embedding_status EmbeddingCreateRuntime(
+    public virtual NodeEmbeddingStatus EmbeddingCreateRuntime(
         node_embedding_platform platform,
-        node_embedding_configure_runtime_functor_ref configure_runtime,
+        node_embedding_runtime_configure_callback configure_runtime,
+        nint configure_runtime_data,
         out node_embedding_runtime result) => throw NS();
 
-    public virtual node_embedding_status
+    public virtual NodeEmbeddingStatus
         EmbeddingDeleteRuntime(node_embedding_runtime runtime) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRuntimeSetFlags(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeConfigSetNodeApiVersion(
         node_embedding_runtime_config runtime_config,
-        node_embedding_runtime_flags flags) => throw NS();
+        int node_api_version) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRuntimeSetArgs(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeConfigSetFlags(
+        node_embedding_runtime_config runtime_config,
+        NodeEmbeddingRuntimeFlags flags) => throw NS();
+
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeConfigSetArgs(
         node_embedding_runtime_config runtime_config,
         ReadOnlySpan<string> args,
         ReadOnlySpan<string> runtime_args) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRuntimeOnPreload(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeConfigOnPreload(
         node_embedding_runtime_config runtime_config,
-        node_embedding_preload_functor run_preload) => throw NS();
+        node_embedding_runtime_preload_callback preload,
+        nint preload_data,
+        node_embedding_data_release_callback release_preload_data) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRuntimeOnStartExecution(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeConfigOnLoading(
         node_embedding_runtime_config runtime_config,
-        node_embedding_start_execution_functor start_execution,
-        node_embedding_handle_result_functor handle_result) => throw NS();
+        node_embedding_runtime_loading_callback run_load,
+        nint load_data,
+        node_embedding_data_release_callback release_load_data) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRuntimeAddModule(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeConfigOnLoaded(
         node_embedding_runtime_config runtime_config,
-        string moduleName,
-        node_embedding_initialize_module_functor init_module,
+        node_embedding_runtime_loaded_callback handle_loaded,
+        nint handle_loaded_data,
+        node_embedding_data_release_callback release_handle_loaded_data) => throw NS();
+
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeConfigAddModule(
+        node_embedding_runtime_config runtime_config,
+        ReadOnlySpan<char> module_name,
+        node_embedding_module_initialize_callback init_module,
+        nint init_module_data,
+        node_embedding_data_release_callback release_init_module_data,
         int module_node_api_version) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRuntimeSetTaskRunner(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeSetUserData(
+        node_embedding_runtime runtime,
+        nint user_data,
+        node_embedding_data_release_callback release_user_data) => throw NS();
+
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeGetUserData(
+        node_embedding_runtime runtime,
+        out nint user_data) => throw NS();
+
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeConfigSetTaskRunner(
         node_embedding_runtime_config runtime_config,
-        node_embedding_post_task_functor post_task) => throw NS();
+        node_embedding_task_post_callback post_task,
+        nint post_task_data,
+        node_embedding_data_release_callback release_post_task_data) => throw NS();
 
-    public virtual node_embedding_status EmbeddingRunEventLoop(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeRunEventLoop(
+        node_embedding_runtime runtime) => throw NS();
+
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeTerminateEventLoop(
+        node_embedding_runtime runtime) => throw NS();
+
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeRunOnceEventLoop(
+        node_embedding_runtime runtime, out bool hasMoreWork) => throw NS();
+
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeRunNoWaitEventLoop(
+        node_embedding_runtime runtime, out bool hasMoreWork) => throw NS();
+
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeRunNodeApi(
         node_embedding_runtime runtime,
-        node_embedding_event_loop_run_mode run_mode,
-        out bool has_more_work) => throw NS();
+        node_embedding_node_api_run_callback run_node_api,
+        nint run_node_api_data) => throw NS();
 
-    public virtual node_embedding_status
-        EmbeddingCompleteEventLoop(node_embedding_runtime runtime) => throw NS();
-
-    public virtual node_embedding_status
-        EmbeddingTerminateEventLoop(node_embedding_runtime runtime) => throw NS();
-
-    public virtual node_embedding_status EmbeddingRunNodeApi(
-        node_embedding_runtime runtime,
-        node_embedding_run_node_api_functor_ref run_node_api) => throw NS();
-
-    public virtual node_embedding_status EmbeddingOpenNodeApiScope(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeOpenNodeApiScope(
         node_embedding_runtime runtime,
         out node_embedding_node_api_scope node_api_scope,
         out napi_env env) => throw NS();
 
-    public virtual node_embedding_status EmbeddingCloseNodeApiScope(
+    public virtual NodeEmbeddingStatus EmbeddingRuntimeCloseNodeApiScope(
         node_embedding_runtime runtime,
         node_embedding_node_api_scope node_api_scope) => throw NS();
 

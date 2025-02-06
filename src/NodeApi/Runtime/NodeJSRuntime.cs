@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+namespace Microsoft.JavaScript.NodeApi.Runtime;
+
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
 
-namespace Microsoft.JavaScript.NodeApi.Runtime;
 // This part of the class includes the constructor and private helper methods.
 // See the other parts of this class for the actual imported APIs.
 [SuppressUnmanagedCodeSecurity]
@@ -100,62 +101,110 @@ public unsafe partial class NodejsRuntime : JSRuntime
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<T1, node_embedding_status> Import<T1>(
-        ref delegate* unmanaged[Cdecl]<T1, node_embedding_status> function,
+    private delegate* unmanaged[Cdecl]<T1> Import<T1>(
+        ref delegate* unmanaged[Cdecl]<T1> function,
         [CallerArgumentExpression(nameof(function))] string functionName = "")
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<T1, node_embedding_status>)Import(functionName);
+            function = (delegate* unmanaged[Cdecl]<T1>)Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<T1, T2, node_embedding_status> Import<T1, T2>(
-        ref delegate* unmanaged[Cdecl]<T1, T2, node_embedding_status> function,
+    private delegate* unmanaged[Cdecl]<T1, void> Import<T1>(
+        ref delegate* unmanaged[Cdecl]<T1, void> function,
         [CallerArgumentExpression(nameof(function))] string functionName = "")
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<T1, T2, node_embedding_status>)
+            function = (delegate* unmanaged[Cdecl]<T1, void>)Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, NodeEmbeddingStatus> Import<T1>(
+        ref delegate* unmanaged[Cdecl]<T1, NodeEmbeddingStatus> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, NodeEmbeddingStatus>)Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, NodeEmbeddingStatus> Import<T1, T2>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, NodeEmbeddingStatus> function,
+        [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, NodeEmbeddingStatus>)
                 Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<T1, T2, T3, node_embedding_status> Import<T1, T2, T3>(
-        ref delegate* unmanaged[Cdecl]<T1, T2, T3, node_embedding_status> function,
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, NodeEmbeddingStatus> Import<T1, T2, T3>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, NodeEmbeddingStatus> function,
         [CallerArgumentExpression(nameof(function))] string functionName = "")
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, node_embedding_status>)
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, NodeEmbeddingStatus>)
                 Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, node_embedding_status>
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, NodeEmbeddingStatus>
         Import<T1, T2, T3, T4>(
-        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, node_embedding_status> function,
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, NodeEmbeddingStatus> function,
         [CallerArgumentExpression(nameof(function))] string functionName = "")
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, node_embedding_status>)
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, NodeEmbeddingStatus>)
                 Import(functionName);
         }
         return function;
     }
 
-    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, node_embedding_status>
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, NodeEmbeddingStatus>
         Import<T1, T2, T3, T4, T5>(
-        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, node_embedding_status> function,
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, NodeEmbeddingStatus> function,
         [CallerArgumentExpression(nameof(function))] string functionName = "")
     {
         if (function == null)
         {
-            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, node_embedding_status>)
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, NodeEmbeddingStatus>)
+                Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, NodeEmbeddingStatus>
+        Import<T1, T2, T3, T4, T5, T6>(
+        ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, NodeEmbeddingStatus> function,
+    [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, NodeEmbeddingStatus>)
+                Import(functionName);
+        }
+        return function;
+    }
+
+    private delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, NodeEmbeddingStatus>
+    Import<T1, T2, T3, T4, T5, T6, T7>(
+    ref delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, NodeEmbeddingStatus> function,
+    [CallerArgumentExpression(nameof(function))] string functionName = "")
+    {
+        if (function == null)
+        {
+            function = (delegate* unmanaged[Cdecl]<T1, T2, T3, T4, T5, T6, T7, NodeEmbeddingStatus>)
                 Import(functionName);
         }
         return function;

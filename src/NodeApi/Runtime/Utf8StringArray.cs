@@ -1,4 +1,13 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Microsoft.JavaScript.NodeApi.Runtime;
+
 using System;
+#if !(NETFRAMEWORK || NETSTANDARD)
+using System.Buffers;
+#endif
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -24,8 +33,8 @@ internal struct Utf8StringArray : IDisposable
         Utf8Strings = new nint[strings.Length];
         _stringBuffer = new byte[byteLength];
 #else
-        Utf8Strings = System.Buffers.ArrayPool<nint>.Shared.Rent(strings.Length);
-        _stringBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(byteLength);
+        Utf8Strings = ArrayPool<nint>.Shared.Rent(strings.Length);
+        _stringBuffer = ArrayPool<byte>.Shared.Rent(byteLength);
 #endif
 
         // Pin the string buffer
@@ -52,18 +61,19 @@ internal struct Utf8StringArray : IDisposable
             _pinnedStringBuffer.Free();
 
 #if !(NETFRAMEWORK || NETSTANDARD)
-            System.Buffers.ArrayPool<nint>.Shared.Return(Utf8Strings);
-            System.Buffers.ArrayPool<byte>.Shared.Return(_stringBuffer);
+            ArrayPool<nint>.Shared.Return(Utf8Strings);
+            ArrayPool<byte>.Shared.Return(_stringBuffer);
 #endif
         }
     }
-
 
     public readonly nint[] Utf8Strings { get; }
 
     public bool Disposed { get; private set; }
 
-    public readonly ref nint Pin()
+    // To support Utf8StringArray usage within a fixed statement.
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public readonly ref nint GetPinnableReference()
     {
         if (Disposed) throw new ObjectDisposedException(nameof(Utf8StringArray));
         Span<nint> span = Utf8Strings;

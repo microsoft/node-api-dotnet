@@ -50,8 +50,8 @@ public abstract class Benchmarks
         GetCurrentPlatformRuntimeIdentifier(),
         "libnode" + GetSharedLibraryExtension());
 
-    private NodejsEmbeddingRuntime? _runtime;
-    private NodejsEmbeddingNodeApiScope? _nodeApiScope;
+    private NodeEmbeddingRuntime? _runtime;
+    private NodeEmbeddingNodeApiScope? _nodeApiScope;
     private JSValue _jsString;
     private JSFunction _jsFunction;
     private JSFunction _jsFunctionWithArgs;
@@ -86,9 +86,9 @@ public abstract class Benchmarks
     /// </summary>
     protected void Setup()
     {
-        NodejsEmbeddingPlatform platform = new(
+        NodeEmbeddingPlatform platform = new(
             LibnodePath,
-            new NodejsEmbeddingPlatformSettings { Args = s_settings });
+            new NodeEmbeddingPlatformSettings { Args = s_settings });
 
         // This setup avoids using NodejsEmbeddingThreadRuntime so benchmarks can run on
         // the same thread. NodejsEmbeddingThreadRuntime creates a separate thread that would slow

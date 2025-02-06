@@ -1,15 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+namespace Microsoft.JavaScript.NodeApi.Runtime;
+
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.JavaScript.NodeApi.Interop;
-
-namespace Microsoft.JavaScript.NodeApi.Runtime;
-
 using static JSRuntime;
 
 /// <summary>
@@ -20,23 +19,23 @@ using static JSRuntime;
 /// environment instance has its own dedicated execution thread. Except where otherwise documented,
 /// all interaction with the environment and JavaScript values associated with the environment MUST
 /// be executed on the environment's thread. Use the
-/// <see cref="NodejsEmbeddingThreadRuntime.SynchronizationContext" /> to switch to the thread.
+/// <see cref="NodeEmbeddingThreadRuntime.SynchronizationContext" /> to switch to the thread.
 /// </remarks>
-public sealed class NodejsEmbeddingThreadRuntime : IDisposable
+public sealed class NodeEmbeddingThreadRuntime : IDisposable
 {
     private readonly JSValueScope _scope;
     private readonly Thread _thread;
     private readonly JSThreadSafeFunction? _completion;
 
-    public static explicit operator napi_env(NodejsEmbeddingThreadRuntime environment) =>
+    public static explicit operator napi_env(NodeEmbeddingThreadRuntime environment) =>
         (napi_env)environment._scope;
-    public static implicit operator JSValueScope(NodejsEmbeddingThreadRuntime environment) =>
+    public static implicit operator JSValueScope(NodeEmbeddingThreadRuntime environment) =>
         environment._scope;
 
-    internal NodejsEmbeddingThreadRuntime(
-        NodejsEmbeddingPlatform platform,
+    internal NodeEmbeddingThreadRuntime(
+        NodeEmbeddingPlatform platform,
         string? baseDir,
-        NodejsEmbeddingRuntimeSettings? settings)
+        NodeEmbeddingRuntimeSettings? settings)
     {
         JSValueScope scope = null!;
         JSSynchronizationContext syncContext = null!;
@@ -45,14 +44,14 @@ public sealed class NodejsEmbeddingThreadRuntime : IDisposable
 
         _thread = new(() =>
         {
-            using var runtime = new NodejsEmbeddingRuntime(platform, settings);
+            using var runtime = new NodeEmbeddingRuntime(platform, settings);
             // The new scope instance saves itself as the thread-local JSValueScope.Current.
-            using var nodeApiScope = new NodejsEmbeddingNodeApiScope(runtime);
+            using var nodeApiScope = new NodeEmbeddingNodeApiScope(runtime);
 
             completion = new JSThreadSafeFunction(
                 maxQueueSize: 0,
                 initialThreadCount: 1,
-                asyncResourceName: (JSValue)nameof(NodejsEmbeddingThreadRuntime));
+                asyncResourceName: (JSValue)nameof(NodeEmbeddingThreadRuntime));
 
             scope = JSValueScope.Current;
             syncContext = scope.RuntimeContext.SynchronizationContext;
@@ -68,7 +67,7 @@ public sealed class NodejsEmbeddingThreadRuntime : IDisposable
             // Run the JS event loop until disposal unrefs the completion thread safe function.
             try
             {
-                runtime.CompleteEventLoop();
+                runtime.RunEventLoop();
                 ExitCode = 0;
             }
             catch (Exception)
@@ -87,7 +86,7 @@ public sealed class NodejsEmbeddingThreadRuntime : IDisposable
         SynchronizationContext = syncContext;
     }
 
-    public static JSRuntime JSRuntime => NodejsEmbedding.JSRuntime;
+    public static JSRuntime JSRuntime => NodeEmbedding.JSRuntime;
 
     private static void InitializeModuleImportFunctions(
         JSRuntimeContext runtimeContext,
@@ -118,10 +117,10 @@ public sealed class NodejsEmbeddingThreadRuntime : IDisposable
         // The import keyword is not a function and is only available through use of an
         // external helper module.
 #if NETFRAMEWORK || NETSTANDARD
-        string assemblyLocation = new Uri(typeof(NodejsEmbeddingThreadRuntime).Assembly.CodeBase).LocalPath;
+        string assemblyLocation = new Uri(typeof(NodeEmbeddingThreadRuntime).Assembly.CodeBase).LocalPath;
 #else
 #pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
-        string assemblyLocation = typeof(NodejsEmbeddingThreadRuntime).Assembly.Location;
+        string assemblyLocation = typeof(NodeEmbeddingThreadRuntime).Assembly.Location;
 #pragma warning restore IL3000
 #endif
         if (!string.IsNullOrEmpty(assemblyLocation))
@@ -217,7 +216,7 @@ public sealed class NodejsEmbeddingThreadRuntime : IDisposable
 
     public Uri StartInspector(int? port = null, string? host = null, bool? wait = null)
     {
-        if (IsDisposed) throw new ObjectDisposedException(nameof(NodejsEmbeddingThreadRuntime));
+        if (IsDisposed) throw new ObjectDisposedException(nameof(NodeEmbeddingThreadRuntime));
 
         return SynchronizationContext.Run(() =>
         {

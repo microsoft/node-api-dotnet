@@ -11,8 +11,13 @@ public static class Program
     {
         string appDir = Path.GetDirectoryName(typeof(Program).Assembly.Location)!;
         string libnodePath = Path.Combine(appDir, "libnode.dll");
-        using  NodejsPlatform nodejsPlatform = new(libnodePath);
-        using NodejsEnvironment nodejs = nodejsPlatform.CreateEnvironment(appDir);
+        using NodeEmbeddingPlatform nodejsPlatform = new(libnodePath, null);
+        using NodeEmbeddingThreadRuntime nodejs = nodejsPlatform.CreateThreadRuntime(appDir,
+            new NodeEmbeddingRuntimeSettings
+            {
+                MainScript =
+                    "globalThis.require = require('module').createRequire(process.execPath);\n"
+            });
         if (Debugger.IsAttached)
         {
             int pid = Process.GetCurrentProcess().Id;
@@ -25,7 +30,7 @@ public static class Program
         Console.WriteLine(content);
     }
 
-    private static string GetContent(NodejsEnvironment nodejs, string html)
+    private static string GetContent(NodeEmbeddingThreadRuntime nodejs, string html)
     {
         JSValue jsdomClass = nodejs.Import(module: "jsdom", property: "JSDOM");
         JSValue dom = jsdomClass.CallAsConstructor(html);

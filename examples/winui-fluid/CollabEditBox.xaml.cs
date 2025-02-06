@@ -28,7 +28,7 @@ public sealed partial class CollabEditBox : UserControl
     private const string FluidServiceUri = "http://localhost:7070/";
 
     private readonly SynchronizationContext uiSyncContext;
-    private readonly NodejsEnvironment nodejs;
+    private readonly NodeEmbeddingThreadRuntime nodejs;
     private readonly JSMarshaller marshaller;
 
     private ITinyliciousClient fluidClient = null!;

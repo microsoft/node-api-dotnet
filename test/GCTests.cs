@@ -18,7 +18,7 @@ public class GCTests
         Skip.If(
             NodejsEmbeddingTests.NodejsPlatform == null,
             "Node shared library not found at " + LibnodePath);
-        using NodejsEmbeddingThreadRuntime nodejs = NodejsEmbeddingTests.CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = NodejsEmbeddingTests.CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -69,7 +69,7 @@ public class GCTests
         Skip.If(
             NodejsEmbeddingTests.NodejsPlatform == null,
             "Node shared library not found at " + LibnodePath);
-        using NodejsEmbeddingThreadRuntime nodejs = NodejsEmbeddingTests.CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = NodejsEmbeddingTests.CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {

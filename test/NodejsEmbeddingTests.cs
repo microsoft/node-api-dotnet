@@ -25,25 +25,25 @@ public class NodejsEmbeddingTests
     private static string LibnodePath { get; } = GetLibnodePath();
 
     // The Node.js platform may only be initialized once per process.
-    internal static NodejsEmbeddingPlatform? NodejsPlatform { get; } =
+    internal static NodeEmbeddingPlatform? NodejsPlatform { get; } =
         File.Exists(LibnodePath)
-            ? new(LibnodePath, new NodejsEmbeddingPlatformSettings
+            ? new(LibnodePath, new NodeEmbeddingPlatformSettings
             {
                 Args = new[] { "node", "--expose-gc" }
             })
             : null;
 
-    internal static NodejsEmbeddingThreadRuntime CreateNodejsEnvironment()
+    internal static NodeEmbeddingThreadRuntime CreateNodejsEnvironment()
     {
         Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
         return NodejsPlatform.CreateThreadRuntime(
             Path.Combine(GetRepoRootDirectory(), "test"),
-            new NodejsEmbeddingRuntimeSettings { MainScript = MainScript });
+            new NodeEmbeddingRuntimeSettings { MainScript = MainScript });
     }
 
     internal static void RunInNodejsEnvironment(Action action)
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
         nodejs.SynchronizationContext.Run(action);
     }
 
@@ -51,21 +51,21 @@ public class NodejsEmbeddingTests
     public void LoadMainScriptNoThread()
     {
         Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        using var runtime = new NodejsEmbeddingRuntime(NodejsPlatform,
-            new NodejsEmbeddingRuntimeSettings { MainScript = MainScript });
-        runtime.CompleteEventLoop();
+        using var runtime = new NodeEmbeddingRuntime(NodejsPlatform,
+            new NodeEmbeddingRuntimeSettings { MainScript = MainScript });
+        runtime.RunEventLoop();
     }
 
     [SkippableFact]
     public void LoadMainScriptWithThread()
     {
-        using NodejsEmbeddingThreadRuntime runtime = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime runtime = CreateNodejsEnvironment();
     }
 
     [SkippableFact]
     public void StartEnvironment()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -90,7 +90,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void CallFunction()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.SynchronizationContext.Run(() =>
         {
@@ -106,7 +106,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void ImportBuiltinModule()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -126,7 +126,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void ImportCommonJSModule()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -143,7 +143,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void ImportCommonJSPackage()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {
@@ -160,7 +160,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public async Task ImportESModule()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         await nodejs.RunAsync(async () =>
         {
@@ -178,7 +178,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public async Task ImportESPackage()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         await nodejs.RunAsync(async () =>
         {
@@ -210,7 +210,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void UnhandledRejection()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         string? errorMessage = null;
         nodejs.UnhandledPromiseRejection += (_, e) =>
@@ -232,7 +232,7 @@ public class NodejsEmbeddingTests
     [SkippableFact]
     public void ErrorPropagation()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         JSException exception = Assert.Throws<JSException>(() =>
         {
@@ -388,7 +388,7 @@ parentPort.on('message', (msg) => parentPort.postMessage(msg)); // echo
         string workerScript,
         Func<NodeWorker, Task> mainRun)
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
         await nodejs.RunAsync(async () =>
         {
             NodeWorker.Options workerOptions = mainPrepare.Invoke();
@@ -420,7 +420,7 @@ parentPort.on('message', (msg) => parentPort.postMessage(msg)); // echo
     [SkippableFact]
     public void MarshalClass()
     {
-        using NodejsEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodejsEnvironment();
 
         nodejs.Run(() =>
         {

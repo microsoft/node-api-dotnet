@@ -77,6 +77,7 @@ jobs:
       run: >
         dotnet test -f ${{ matrix.dotnet-version }}
         --configuration ${{ matrix.configuration }}
+        --property:ParallelizeTestCollections=false
         --logger trx
         --results-directory "out/test/${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}"
       continue-on-error: true

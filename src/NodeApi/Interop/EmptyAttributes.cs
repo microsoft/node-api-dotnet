@@ -55,6 +55,23 @@ namespace System.Runtime.CompilerServices
 
         public string ParameterName { get; }
     }
+
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property
+        | AttributeTargets.Struct, AllowMultiple = false, Inherited = false)]
+    public sealed class RequiredMemberAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.All, AllowMultiple = true, Inherited = false)]
+    public sealed class CompilerFeatureRequiredAttribute : Attribute
+    {
+        public CompilerFeatureRequiredAttribute (string featureName)
+        {
+            FeatureName = featureName;
+        }
+
+        public string FeatureName { get; }
+    }
 }
 
 namespace System.Diagnostics
