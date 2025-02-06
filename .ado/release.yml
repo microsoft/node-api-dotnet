@@ -1,0 +1,126 @@
+trigger: none
+name: $(Date:yyyyMMdd).$(Rev:r)
+resources:
+  pipelines:
+  - pipeline: '_microsoftnode-api-dotnet'
+    project: 'ISS'
+    source: 'microsoft.node-api-dotnet'
+    trigger:
+      branches:
+        include:
+        - main
+  repositories:
+  - repository: CustomPipelineTemplates
+    type: git
+    name: 1ESPipelineTemplates/OfficePipelineTemplates
+    ref: refs/tags/release
+extends:
+  template: v1/Office.Official.PipelineTemplate.yml@CustomPipelineTemplates
+  parameters:
+    pool:
+      name: Azure-Pipelines-1ESPT-ExDShared
+      vmImage: windows-latest
+      os: windows
+    customBuildTags:
+    - ES365AIMigrationTooling-BulkMigrated-Release
+    stages:
+
+    - stage: ms_react_native_nuget_publish
+      displayName: Nuget ms/react-native feed
+      jobs:
+      - job: ms_react_native_nuget_job
+        displayName: Publish Nuget to ms/react-native
+        condition: succeeded()
+        timeoutInMinutes: 0
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: _microsoftnode-api-dotnet
+            artifactName: published-packages
+            targetPath: $(Pipeline.Workspace)\published-packages
+        steps:
+        - script: dir /S $(Pipeline.Workspace)\published-packages
+          displayName: Show directory contents
+        - script: dotnet nuget list source
+          displayName: Show Nuget sources
+        - task: 1ES.PublishNuGet@1
+          displayName: NuGet push
+          inputs:
+            useDotNetTask: true
+            packageParentPath: '$(Pipeline.Workspace)/published-packages'
+            packagesToPush: '$(Pipeline.Workspace)/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg'
+            nuGetFeedType: external
+            publishFeedCredentials: 'Nuget - ms/react-native-public'
+            externalEndpoint: 'Nuget - ms/react-native-public'
+            publishPackageMetadata: true
+
+    - stage: ms_react_native_npm_publish
+      displayName: npm ms/react-native feed
+      jobs:
+      - job: ms_react_native_npm_job
+        displayName: Agent job
+        condition: succeeded()
+        timeoutInMinutes: 0
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: '_microsoftnode-api-dotnet'
+            artifactName: 'published-packages'
+            targetPath: $(Pipeline.Workspace)\published-packages
+        steps:
+        - task: NodeTool@0
+          displayName: Use Node 20.x
+          inputs:
+            versionSpec: 20.x
+        - task: CmdLine@2
+          displayName: Setup npmrc file for react-native feed
+          inputs:
+            script: |
+              echo registry=https://pkgs.dev.azure.com/ms/_packaging/react-native/npm/registry/ > $(Pipeline.Workspace)\published-packages\.npmrc
+              echo always-auth=true >> $(Pipeline.Workspace)\published-packages\.npmrc
+        - task: npmAuthenticate@0
+          displayName: npm Authenticate .npmrc
+          inputs:
+            workingFile: $(Pipeline.Workspace)\published-packages\.npmrc
+            customEndpoint: Npm - ms/react-native
+        - task: CmdLine@2
+          displayName: npm publish to react-native feed
+          inputs:
+            script: |
+              cd $(Pipeline.Workspace)\published-packages
+              for %%i in (*.tgz) do npm publish %%i
+
+    - stage: nuget_org_publish
+      displayName: Nuget nuget.org feed
+      jobs:
+      - job: nuget_org_job
+        displayName: Publish Nuget to nuget.org
+        condition: succeeded()
+        timeoutInMinutes: 0
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: '_microsoftnode-api-dotnet'
+            artifactName: 'published-packages'
+            targetPath: '$(Pipeline.Workspace)/published-packages'
+        steps:
+        - task: AzureKeyVault@2
+          inputs:
+            azureSubscription: ESRP-JSHost3
+            KeyVaultName: OGX-JSHost-KV
+            SecretsFilter: 'OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi'
+            RunAsPreJob: true
+        - task: NuGetToolInstaller@1
+          displayName: 'Use NuGet'
+        - script: 'nuget.exe SetApiKey $(OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi)'
+          displayName: 'NuGet SetApiKey (nuget.org)'
+        - script: dir /S $(Pipeline.Workspace)\published-packages
+          displayName: Show directory contents
+        - script: >
+            nuget.exe push
+            $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg
+            -Source https://api.nuget.org/v3/index.json
+            -SkipDuplicate
+            -NonInteractive
+            -Verbosity Detailed
+          displayName: 'NuGet push (nuget.org)'

@@ -1151,9 +1151,9 @@ public readonly struct JSValue : IJSValue<JSValue>
     }
 
     public JSValue GetAllPropertyNames(
-        JSKeyCollectionMode mode,
-        JSKeyFilter filter,
-        JSKeyConversion conversion)
+        JSValue.KeyCollectionMode mode,
+        JSValue.KeyFilter filter,
+        JSValue.KeyConversion conversion)
         => GetRuntime(out napi_env env, out napi_value handle)
             .GetAllPropertyNames(
                 env,
@@ -1708,4 +1708,26 @@ public readonly struct JSValue : IJSValue<JSValue>
 
     private static napi_value GetUndefined(JSRuntime runtime, napi_env env)
         => runtime.GetUndefined(env, out napi_value result).ThrowIfFailed(result);
+
+    public enum KeyCollectionMode : int
+    {
+        IncludePrototypes,
+        OwnOnly,
+    }
+
+    public enum KeyConversion : int
+    {
+        KeepNumbers,
+        NumbersToStrings,
+    }
+
+    public enum KeyFilter : int
+    {
+        AllProperties = 0,
+        Writable = 1 << 0,
+        Enumerable = 1 << 1,
+        Configurable = 1 << 2,
+        SkipStrings = 1 << 3,
+        SkipSymbols = 1 << 4,
+    }
 }

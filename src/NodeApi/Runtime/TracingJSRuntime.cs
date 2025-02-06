@@ -481,7 +481,7 @@ public class TracingJSRuntime : JSRuntime
     {
         uint value = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.GetVersion(env, out value), value.ToString()));
         result = value;
         return status;
@@ -548,7 +548,7 @@ public class TracingJSRuntime : JSRuntime
     {
         nint value = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.GetInstanceData(env, out value), Format(value)));
         result = value;
         return status;
@@ -649,7 +649,7 @@ public class TracingJSRuntime : JSRuntime
     {
         bool value = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.IsExceptionPending(env, out value), Format(value)));
         result = value;
         return status;
@@ -660,7 +660,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_extended_error_info? value = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.GetLastErrorInfo(env, out value), Format(
                 value == null || value.Value.error_message == null ?
                 null : Marshal.PtrToStringAnsi((nint)value.Value.error_message))));
@@ -672,7 +672,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value value = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.GetAndClearLastException(env, out value), Format(env, value)));
         result = value;
         return status;
@@ -1172,7 +1172,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.GetGlobal(env, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -1182,7 +1182,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.GetUndefined(env, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -1192,7 +1192,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.GetNull(env, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -1359,7 +1359,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.CreateObject(env, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -1369,7 +1369,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.CreateArray(env, out resultValue), Format(env, resultValue)));
         result = resultValue;
         return status;
@@ -1531,7 +1531,7 @@ public class TracingJSRuntime : JSRuntime
         napi_deferred deferredValue = default;
         napi_value resultValue = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.CreatePromise(env, out deferredValue, out resultValue),
                 Format(env, resultValue)));
         deferred = deferredValue;
@@ -1615,7 +1615,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_handle_scope resultScope = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.OpenHandleScope(env, out resultScope), Format(resultScope)));
         result = resultScope;
         return status;
@@ -1633,7 +1633,7 @@ public class TracingJSRuntime : JSRuntime
     {
         napi_escapable_handle_scope resultScope = default;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.OpenEscapableHandleScope(env, out resultScope), Format(resultScope)));
         result = resultScope;
         return status;
@@ -2618,7 +2618,7 @@ public class TracingJSRuntime : JSRuntime
 
     public override void RegisterModule(ref napi_module module)
     {
-        TraceCall(Array.Empty<string>());
+        TraceCall([]);
 
         try
         {
@@ -2638,7 +2638,7 @@ public class TracingJSRuntime : JSRuntime
     {
         string resultValue = default!;
         napi_status status = TraceCall(
-            Array.Empty<string>(),
+            [],
             () => (_runtime.GetModuleFileName(env, out resultValue), resultValue));
         result = resultValue;
         return status;

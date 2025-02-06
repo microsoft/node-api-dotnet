@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if NET7_0_OR_GREATER
+#if NET9_0_OR_GREATER
 
 using System;
 using System.Collections.Generic;
@@ -108,4 +108,4 @@ public class NativeAotTests
     }
 }
 
-#endif // NET7_0_OR_GREATER
+#endif // NET9_0_OR_GREATER

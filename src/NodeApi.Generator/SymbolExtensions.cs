@@ -401,8 +401,7 @@ internal static class SymbolExtensions
             return;
         }
 
-        referencingSymbols = (referencingSymbols ?? Enumerable.Empty<INamedTypeSymbol>())
-            .Append(typeSymbol);
+        referencingSymbols = (referencingSymbols ?? []).Append(typeSymbol);
 
         foreach (INamedTypeSymbol typeArgSymbol in
             typeSymbol.TypeArguments.OfType<INamedTypeSymbol>())
@@ -670,7 +669,7 @@ internal static class SymbolExtensions
         Type[] typeParameters = type.GetGenericArguments();
 #if NETFRAMEWORK || NETSTANDARD
         // .NET Framework cannot make generic method parameter types.
-        IEnumerable<Type> methodTypeParameters = Enumerable.Empty<Type>();
+        IEnumerable<Type> methodTypeParameters = [];
 #else
         IEnumerable<Type> methodTypeParameters = methodSymbol.TypeParameters.Select(
             (t) => t.AsType(typeParameters, buildType: true));

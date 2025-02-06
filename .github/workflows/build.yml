@@ -12,18 +12,18 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, macos-latest, ubuntu-latest ]
-        dotnet-version: [ net472, net6.0, net8.0]
-        node-version: [ 18.x, 20.x ]
+        dotnet-version: [ net472, net8.0, net9.0]
+        node-version: [ 18.x, 22.x ]
         configuration: [ Release ]
         exclude:
-          # Exclude Node 18.x on .NET < 8, to thin the matrix.
-          - dotnet-version: net6.0
+          # Exclude Node 18.x on .NET < 9, to thin the matrix.
+          - dotnet-version: net8.0
             node-version: 18.x
           - dotnet-version: net472
             node-version: 18.x
           # Exclude .NET 4.x on non-Windows OS.
           - os: macos-latest
-            dotnet-version: net472 
+            dotnet-version: net472
           - os: ubuntu-latest
             dotnet-version: net472
 
@@ -36,20 +36,15 @@ jobs:
       with:
         fetch-depth: 0 # Deep clone is required for versioning on git commit height
 
-    - name: Link libdl.so # Required by .NET 6
-      if: matrix.os == 'ubuntu-latest'
-      run: sudo ln -s /lib/x86_64-linux-gnu/libdl.so.2 /lib/x86_64-linux-gnu/libdl.so
-
-    - name: Setup .NET 6
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 6.0.x
-
-    # The .NET 8 SDK is required even when the build matrix targets other .NET versions.
     - name: Setup .NET 8
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
+
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
 
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
@@ -67,7 +62,7 @@ jobs:
     #      limit-access-to-actor: true
 
     - name: Upload build artifacts
-      if: matrix.dotnet-version == 'net8.0' && matrix.node-version == '20.x'
+      if: matrix.dotnet-version == 'net9.0' && matrix.node-version == '22.x'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.os }}-${{ matrix.configuration }}-packages
@@ -87,8 +82,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload test logs
-      # upload-artifact@v4 breaks the test reporter: https://github.com/dorny/test-reporter/issues/343
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-logs-${{ matrix.os }}-${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}
         path: |

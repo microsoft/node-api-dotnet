@@ -22,6 +22,17 @@
     </Task>
   </UsingTask>
 
+  <!-- Starting with .NET 9 SDK, AOT publish fails (ILLinkNotSupportedError) if SelfContained is
+  not explicitly set to true. This makes that automatic when publishing AOT node modules. -->
+  <Target Name="PublishAotSelfContained"
+    BeforeTargets="PrepareForILLink"
+    Condition=" '$(PublishNodeModule)' == 'true' "
+  >
+    <PropertyGroup>
+      <SelfContained>true</SelfContained>
+    </PropertyGroup>
+  </Target>
+
   <Target Name="RenameToDotNode"
     AfterTargets="CopyNativeBinary"
     BeforeTargets="PublishManagedAssembly"

@@ -25,7 +25,7 @@
         <WarningsAsErrors>9057</WarningsAsErrors>
     </PropertyGroup>
 
-    <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
+    <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
       <PublishAot>true</PublishAot>
       <StripSymbols>true</StripSymbols>
       <PublishNodeModule>true</PublishNodeModule>
