@@ -44,7 +44,7 @@ public sealed class NodeEmbeddingThreadRuntime : IDisposable
 
         _thread = new(() =>
         {
-            using var runtime = new NodeEmbeddingRuntime(platform, settings);
+            using var runtime = NodeEmbeddingRuntime.Create(platform, settings);
             // The new scope instance saves itself as the thread-local JSValueScope.Current.
             using var nodeApiScope = new NodeEmbeddingNodeApiScope(runtime);
 

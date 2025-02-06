@@ -4,7 +4,9 @@
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 using System;
-using System.Collections.Generic;
+#if UNMANAGED_DELEGATES
+using System.Runtime.CompilerServices;
+#endif
 using System.Runtime.InteropServices;
 using static NodeEmbedding;
 using static NodejsRuntime;
@@ -17,16 +19,11 @@ using static NodejsRuntime;
 /// </remarks>
 public sealed class NodeEmbeddingRuntime : IDisposable
 {
-    private node_embedding_runtime _runtime;
-    private static readonly
-        Dictionary<node_embedding_runtime, NodeEmbeddingRuntime> s_embeddedRuntimes = new();
-
-    public static explicit operator node_embedding_runtime(NodeEmbeddingRuntime runtime)
-        => runtime._runtime;
+    private bool _mustDeleteRuntime; // Only delete runtime if it was created by calling Create.
 
     public static JSRuntime JSRuntime => NodeEmbedding.JSRuntime;
 
-    public unsafe NodeEmbeddingRuntime(
+    public static unsafe NodeEmbeddingRuntime Create(
         NodeEmbeddingPlatform platform, NodeEmbeddingRuntimeSettings? settings = null)
     {
         using FunctorRef<node_embedding_runtime_configure_callback> functorRef =
@@ -35,57 +32,44 @@ public sealed class NodeEmbeddingRuntime : IDisposable
             platform.Handle,
             functorRef.Callback,
             functorRef.Data,
-            out _runtime)
+            out node_embedding_runtime runtime)
             .ThrowIfFailed();
+        NodeEmbeddingRuntime result = FromHandle(runtime);
+        result._mustDeleteRuntime = true;
+        return result;
     }
 
     private NodeEmbeddingRuntime(node_embedding_runtime runtime)
     {
-        _runtime = runtime;
-        lock (s_embeddedRuntimes) { s_embeddedRuntimes.Add(runtime, this); }
+        Handle = runtime;
     }
 
-    public node_embedding_runtime Handle => _runtime;
+    public node_embedding_runtime Handle { get; }
 
-    public static NodeEmbeddingRuntime? FromHandle(node_embedding_runtime runtime)
+    public static unsafe NodeEmbeddingRuntime FromHandle(node_embedding_runtime runtime)
     {
-        lock (s_embeddedRuntimes)
+        JSRuntime.EmbeddingRuntimeGetUserData(runtime, out nint userData).ThrowIfFailed();
+        if (userData != default)
         {
-            if (s_embeddedRuntimes.TryGetValue(
-                runtime, out NodeEmbeddingRuntime? embeddingRuntime))
-            {
-                return embeddingRuntime;
-            }
-            return null;
+            return (NodeEmbeddingRuntime)GCHandle.FromIntPtr(userData).Target!;
         }
+
+        NodeEmbeddingRuntime result = new NodeEmbeddingRuntime(runtime);
+        JSRuntime.EmbeddingRuntimeSetUserData(
+            runtime,
+            (nint)GCHandle.Alloc(result),
+            new node_embedding_data_release_callback(s_releaseRuntimeCallback))
+            .ThrowIfFailed();
+        return result;
     }
 
-    public static NodeEmbeddingRuntime GetOrCreate(node_embedding_runtime runtime)
+    public static unsafe void Run(
+        NodeEmbeddingPlatform platform, NodeEmbeddingRuntimeSettings? settings = null)
     {
-        NodeEmbeddingRuntime? embeddingRuntime = FromHandle(runtime);
-        embeddingRuntime ??= new NodeEmbeddingRuntime(runtime);
-        return embeddingRuntime;
-    }
-
-    public static unsafe void Run(NodeEmbeddingPlatform platform,
-        NodeEmbeddingRuntimeSettings? settings = null)
-    {
-        ConfigureRuntimeCallback? configureRuntime = settings?.CreateConfigureRuntimeCallback();
-        nint callbackData = configureRuntime != null
-            ? (nint)GCHandle.Alloc(configureRuntime)
-            : default;
-        try
-        {
-            JSRuntime.EmbeddingRunRuntime(
-                platform.Handle,
-                new node_embedding_runtime_configure_callback(s_runtimeConfigureCallback),
-                callbackData)
-                .ThrowIfFailed();
-        }
-        finally
-        {
-            if (callbackData != default) GCHandle.FromIntPtr(callbackData).Free();
-        }
+        using FunctorRef<node_embedding_runtime_configure_callback> functorRef =
+            CreateRuntimeConfigureFunctorRef(settings?.CreateConfigureRuntimeCallback());
+        JSRuntime.EmbeddingRunRuntime(platform.Handle, functorRef.Callback, functorRef.Data)
+            .ThrowIfFailed();
     }
 
     /// <summary>
@@ -98,32 +82,31 @@ public sealed class NodeEmbeddingRuntime : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (IsDisposed) return;
+        if (IsDisposed || !_mustDeleteRuntime) return;
         IsDisposed = true;
 
-        lock (s_embeddedRuntimes) { s_embeddedRuntimes.Remove(_runtime); }
-        JSRuntime.EmbeddingDeleteRuntime(_runtime).ThrowIfFailed();
+        JSRuntime.EmbeddingDeleteRuntime(Handle).ThrowIfFailed();
     }
 
     public unsafe void RunEventLoop()
     {
         if (IsDisposed) throw new ObjectDisposedException(nameof(NodeEmbeddingRuntime));
 
-        JSRuntime.EmbeddingRuntimeRunEventLoop(_runtime).ThrowIfFailed();
+        JSRuntime.EmbeddingRuntimeRunEventLoop(Handle).ThrowIfFailed();
     }
 
     public unsafe void TerminateEventLoop()
     {
         if (IsDisposed) throw new ObjectDisposedException(nameof(NodeEmbeddingRuntime));
 
-        JSRuntime.EmbeddingRuntimeTerminateEventLoop(_runtime).ThrowIfFailed();
+        JSRuntime.EmbeddingRuntimeTerminateEventLoop(Handle).ThrowIfFailed();
     }
 
     public unsafe bool RunEventLoopOnce()
     {
         if (IsDisposed) throw new ObjectDisposedException(nameof(NodeEmbeddingRuntime));
 
-        JSRuntime.EmbeddingRuntimeRunOnceEventLoop(_runtime, out bool result).ThrowIfFailed();
+        JSRuntime.EmbeddingRuntimeRunOnceEventLoop(Handle, out bool result).ThrowIfFailed();
         return result;
     }
 
@@ -131,7 +114,7 @@ public sealed class NodeEmbeddingRuntime : IDisposable
     {
         if (IsDisposed) throw new ObjectDisposedException(nameof(NodeEmbeddingRuntime));
 
-        JSRuntime.EmbeddingRuntimeRunNoWaitEventLoop(_runtime, out bool result).ThrowIfFailed();
+        JSRuntime.EmbeddingRuntimeRunNoWaitEventLoop(Handle, out bool result).ThrowIfFailed();
         return result;
     }
 
@@ -139,18 +122,40 @@ public sealed class NodeEmbeddingRuntime : IDisposable
     {
         if (IsDisposed) throw new ObjectDisposedException(nameof(NodeEmbeddingRuntime));
 
-        nint callbackData = (nint)GCHandle.Alloc(runNodeApi);
-        try
+        using FunctorRef<node_embedding_node_api_run_callback> functorRef =
+            CreateNodeApiRunFunctorRef(runNodeApi);
+        JSRuntime.EmbeddingRuntimeRunNodeApi(Handle, functorRef.Callback, functorRef.Data)
+            .ThrowIfFailed();
+    }
+
+#if UNMANAGED_DELEGATES
+    private static readonly unsafe delegate* unmanaged[Cdecl]<nint, NodeEmbeddingStatus>
+        s_releaseRuntimeCallback = &ReleaseRuntimeCallbackAdapter;
+#else
+    private static readonly node_embedding_data_release_callback.Delegate
+        s_releaseRuntimeCallback = ReleaseRuntimeCallbackAdapter;
+#endif
+
+#if UNMANAGED_DELEGATES
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
+    private static unsafe NodeEmbeddingStatus ReleaseRuntimeCallbackAdapter(nint data)
+    {
+        if (data != default)
         {
-            JSRuntime.EmbeddingRuntimeRunNodeApi(
-                _runtime,
-                new node_embedding_node_api_run_callback(s_nodeApiRunCallback),
-                callbackData)
-                .ThrowIfFailed();
+            try
+            {
+                GCHandle gcHandle = GCHandle.FromIntPtr(data);
+                NodeEmbeddingRuntime runtime = (NodeEmbeddingRuntime)gcHandle.Target!;
+                gcHandle.Free();
+                runtime._mustDeleteRuntime = false;
+            }
+            catch (Exception ex)
+            {
+                JSRuntime.EmbeddingSetLastErrorMessage(ex.Message.AsSpan());
+                return NodeEmbeddingStatus.GenericError;
+            }
         }
-        finally
-        {
-            if (callbackData != default) GCHandle.FromIntPtr(callbackData).Free();
-        }
+        return NodeEmbeddingStatus.OK;
     }
 }

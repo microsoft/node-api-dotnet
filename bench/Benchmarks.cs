@@ -66,6 +66,8 @@ public abstract class Benchmarks
     private JSFunction _jsFunctionCallMethodWithArgs;
     private JSReference _reference = null!;
     private static readonly string[] s_settings = new[] { "node", "--expose-gc" };
+    private static string s_mainScript { get; } =
+        "globalThis.require = require('module').createRequire(process.execPath);\n";
 
     /// <summary>
     /// Simple class that is exported to JS and used in some benchmarks.
@@ -93,7 +95,9 @@ public abstract class Benchmarks
         // This setup avoids using NodejsEmbeddingThreadRuntime so benchmarks can run on
         // the same thread. NodejsEmbeddingThreadRuntime creates a separate thread that would slow
         // down the micro-benchmarks.
-        _runtime = new(platform);
+        _runtime = NodeEmbeddingRuntime.Create(platform,
+            new NodeEmbeddingRuntimeSettings { MainScript = s_mainScript });
+
         // The nodeApiScope creates JSValueScope instance that saves itself as
         // the thread-local JSValueScope.Current.
         _nodeApiScope = new(_runtime);

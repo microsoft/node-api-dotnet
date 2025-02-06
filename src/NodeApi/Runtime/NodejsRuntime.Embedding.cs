@@ -532,7 +532,7 @@ public unsafe partial class NodejsRuntime
         using Utf8StringArray utf8Args = new(args);
         fixed (nint* argsPtr = utf8Args)
             return Import(ref node_embedding_main_run)(
-                1, // Embedding API version
+                NodeEmbedding.EmbeddingApiVersion,
                 args.Length,
                 (nint)argsPtr,
                 configure_platform,
@@ -552,7 +552,7 @@ public unsafe partial class NodejsRuntime
         fixed (node_embedding_platform* result_ptr = &result)
         {
             return Import(ref node_embedding_platform_create)(
-                1, // Embedding API version
+                NodeEmbedding.EmbeddingApiVersion,
                 args.Length,
                 (nint)argsPtr,
                 configure_platform,

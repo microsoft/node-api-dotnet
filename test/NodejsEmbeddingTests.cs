@@ -51,7 +51,7 @@ public class NodejsEmbeddingTests
     public void LoadMainScriptNoThread()
     {
         Skip.If(NodejsPlatform == null, "Node shared library not found at " + LibnodePath);
-        using var runtime = new NodeEmbeddingRuntime(NodejsPlatform,
+        using var runtime = NodeEmbeddingRuntime.Create(NodejsPlatform,
             new NodeEmbeddingRuntimeSettings { MainScript = MainScript });
         runtime.RunEventLoop();
     }

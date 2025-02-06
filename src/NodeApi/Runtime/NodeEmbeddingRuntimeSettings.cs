@@ -57,9 +57,9 @@ public class NodeEmbeddingRuntimeSettings
             if (MainScript != null)
             {
                 JSValue onLoading(NodeEmbeddingRuntime runtime,
-                                             JSValue process,
-                                             JSValue require,
-                                             JSValue runCommonJS)
+                                  JSValue process,
+                                  JSValue require,
+                                  JSValue runCommonJS)
                     => runCommonJS.Call(JSValue.Null, (JSValue)MainScript);
 
                 Functor<node_embedding_runtime_loading_callback> functor =

@@ -136,6 +136,13 @@ public sealed class NodeEmbedding
         Callback = new node_embedding_task_post_callback(s_taskPostCallback)
     };
 
+    public static unsafe FunctorRef<node_embedding_node_api_run_callback>
+    CreateNodeApiRunFunctorRef(RunNodeApiCallback callback) => new()
+    {
+        Data = (nint)GCHandle.Alloc(callback),
+        Callback = new node_embedding_node_api_run_callback(s_nodeApiRunCallback)
+    };
+
 #if UNMANAGED_DELEGATES
     internal static readonly unsafe delegate* unmanaged[Cdecl]<nint, NodeEmbeddingStatus>
         s_releaseDataCallback = &ReleaseDataCallbackAdapter;
@@ -264,8 +271,7 @@ public sealed class NodeEmbedding
         try
         {
             var callback = (PreloadCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.GetOrCreate(runtime)
-                ?? throw new InvalidOperationException("Embedding runtime is not found");
+            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
             callback(embeddingRuntime, new JSValue(process), new JSValue(require));
         }
         catch (Exception ex)
@@ -289,9 +295,7 @@ public sealed class NodeEmbedding
         try
         {
             var callback = (LoadingCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            //TODO: Unwrap from runtime
-            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.GetOrCreate(runtime)
-                ?? throw new InvalidOperationException("Embedding runtime is not found");
+            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
             return (napi_value)callback(
                 embeddingRuntime, new JSValue(process), new JSValue(require), new JSValue(run_cjs));
         }
@@ -315,8 +319,7 @@ public sealed class NodeEmbedding
         try
         {
             var callback = (LoadedCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.GetOrCreate(runtime)
-                ?? throw new InvalidOperationException("Embedding runtime is not found");
+            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
             callback(embeddingRuntime, new JSValue(loading_result));
         }
         catch (Exception ex)
@@ -339,8 +342,7 @@ public sealed class NodeEmbedding
         try
         {
             var callback = (InitializeModuleCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.GetOrCreate(runtime)
-                ?? throw new InvalidOperationException("Embedding runtime is not found");
+            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
             return (napi_value)callback(
                 embeddingRuntime,
                 Utf8StringArray.PtrToStringUTF8((byte*)module_name),
@@ -402,9 +404,7 @@ public sealed class NodeEmbedding
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-    internal static unsafe void NodeApiRunCallbackAdapter(
-        nint cb_data,
-        napi_env env)
+    internal static unsafe void NodeApiRunCallbackAdapter(nint cb_data, napi_env env)
     {
         using var jsValueScope = new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
         try
