@@ -24,6 +24,7 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Xunit.SkippableFact" />
+    <PackageReference Include="Microsoft.JavaScript.LibNode" />
   </ItemGroup>
 
   <ItemGroup>
