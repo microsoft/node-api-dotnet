@@ -54,7 +54,7 @@ public sealed class NodeEmbeddingRuntime : IDisposable
             return (NodeEmbeddingRuntime)GCHandle.FromIntPtr(userData).Target!;
         }
 
-        NodeEmbeddingRuntime result = new NodeEmbeddingRuntime(runtime);
+        NodeEmbeddingRuntime result = new(runtime);
         JSRuntime.EmbeddingRuntimeSetUserData(
             runtime,
             (nint)GCHandle.Alloc(result),
