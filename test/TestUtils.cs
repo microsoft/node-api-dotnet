@@ -73,10 +73,8 @@ public static class TestUtils
         else return ".so";
     }
 
-    public static string GetLibnodePath() => Path.Combine(
-        GetRepoRootDirectory(),
-        "bin",
-        GetCurrentPlatformRuntimeIdentifier(),
+    public static string GetLibnodePath() =>
+        Path.Combine(Path.GetDirectoryName(typeof(TestUtils).Assembly.Location)!,
         "libnode" + GetSharedLibraryExtension());
 
     public static string? LogOutput(

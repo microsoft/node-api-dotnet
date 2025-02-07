@@ -11,13 +11,10 @@
   <ItemGroup>
     <None Include="README.md" />
     <Compile Include="*.cs" />
-    <Content Include="..\..\bin\win-x64\libnode.dll">
-      <Visible>false</Visible>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="$(NodeApiDotnetPackageVersion)" />
+    <PackageReference Include="Microsoft.JavaScript.LibNode" Version="20.1800.201" />
   </ItemGroup>
 </Project>
