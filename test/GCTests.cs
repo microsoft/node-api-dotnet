@@ -12,12 +12,9 @@ public class GCTests
 {
     private static string LibnodePath { get; } = GetLibnodePath();
 
-    [SkippableFact]
+    [Fact]
     public void GCHandles()
     {
-        Skip.If(
-            NodejsEmbeddingTests.NodejsPlatform == null,
-            "Node shared library not found at " + LibnodePath);
         using NodeEmbeddingThreadRuntime nodejs = NodejsEmbeddingTests.CreateNodejsEnvironment();
 
         nodejs.Run(() =>
@@ -63,12 +60,9 @@ public class GCTests
         });
     }
 
-    [SkippableFact]
+    [Fact]
     public void GCObjects()
     {
-        Skip.If(
-            NodejsEmbeddingTests.NodejsPlatform == null,
-            "Node shared library not found at " + LibnodePath);
         using NodeEmbeddingThreadRuntime nodejs = NodejsEmbeddingTests.CreateNodejsEnvironment();
 
         nodejs.Run(() =>

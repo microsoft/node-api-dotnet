@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Threading.Tasks;
 using Xunit;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
@@ -52,7 +51,7 @@ public class JSReferenceTests
         JSReference reference = new(value);
 
         // Run in a new thread which will not have any current scope.
-        Task.Run(() =>
+        TestUtils.RunInThread(() =>
         {
             Assert.Throws<JSInvalidThreadAccessException>(() => reference.GetValue());
         }).Wait();
@@ -67,7 +66,7 @@ public class JSReferenceTests
         JSReference reference = new(value);
 
         // Run in a new thread and establish another root scope there.
-        Task.Run(() =>
+        TestUtils.RunInThread(() =>
         {
             using JSValueScope rootScope2 = TestScope(JSValueScopeType.Root);
             Assert.Throws<JSInvalidThreadAccessException>(() => reference.GetValue());

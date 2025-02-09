@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Threading.Tasks;
 using Xunit;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
@@ -325,7 +324,7 @@ public class JSValueScopeTests
         using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
 
         // Run in a new thread which will not have any current scope.
-        Task.Run(() =>
+        TestUtils.RunInThread(() =>
         {
             Assert.Throws<JSInvalidThreadAccessException>(() => JSValueScope.Current);
             JSInvalidThreadAccessException ex = Assert.Throws<JSInvalidThreadAccessException>(
@@ -342,7 +341,7 @@ public class JSValueScopeTests
         JSValue objectValue = JSValue.CreateObject();
 
         // Run in a new thread which will not have any current scope.
-        Task.Run(() =>
+        TestUtils.RunInThread(() =>
         {
             Assert.Throws<JSInvalidThreadAccessException>(() => JSValueScope.Current);
             JSInvalidThreadAccessException ex = Assert.Throws<JSInvalidThreadAccessException>(
@@ -359,7 +358,7 @@ public class JSValueScopeTests
         JSValue objectValue = JSValue.CreateObject();
 
         // Run in a new thread and establish another root scope there.
-        Task.Run(() =>
+        TestUtils.RunInThread(() =>
         {
             using JSValueScope rootScope2 = TestScope(JSValueScopeType.Root);
             Assert.Equal(JSValueScopeType.Root, JSValueScope.Current.ScopeType);

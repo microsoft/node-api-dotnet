@@ -259,7 +259,6 @@ extends:
                 - script: >
                     dotnet test -f ${{ MatrixEntry.DotNetVersion }}
                     --configuration Release
-                    --property:ParallelizeTestCollections=false
                     --logger trx
                     --results-directory "$(Build.StagingDirectory)/test/${{ MatrixEntry.DotNetVersion }}-Release"
                   displayName: Run tests
