@@ -149,9 +149,9 @@ public static class TestUtils
 
     public static Task RunInThread(Action action)
     {
-        TaskCompletionSource<bool> threadCompletion = new TaskCompletionSource<bool>();
+        TaskCompletionSource<bool> threadCompletion = new();
 
-        Thread thread = new Thread(() =>
+        Thread thread = new(() =>
         {
             try
             {
