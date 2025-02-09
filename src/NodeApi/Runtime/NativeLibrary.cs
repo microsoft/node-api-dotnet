@@ -44,9 +44,47 @@ public static class NativeLibrary
     public static nint Load(string libraryName)
     {
 #if NETFRAMEWORK || NETSTANDARD
-        return LoadLibrary(libraryName);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return LoadLibrary(libraryName);
+        }
+        else
+        {
+            var h = dlopen(libraryName, RTLD_LAZY);
+            if (h == 0)
+                throw new DllNotFoundException();
+
+            return h;
+        }
 #else
         return SysNativeLibrary.Load(libraryName);
+#endif
+    }
+
+    /// <summary>
+    /// Provides a simple API for loading a native library and returns a value that indicates whether the operation succeeded.
+    /// </summary>
+    /// <param name="libraryName">The name of the native library to be loaded.</param>
+    /// <param name="handle">When the method returns, the OS handle of the loaded native library.</param>
+    /// <returns><c>true</c> if the native library was loaded successfully; otherwise, <c>false</c>.</returns>
+    public static bool TryLoad(string libraryName, out nint handle)
+    {
+        if (libraryName is null)
+            throw new ArgumentNullException(nameof(libraryName));
+
+#if NETFRAMEWORK || NETSTANDARD
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            handle = LoadLibrary(libraryName);
+            return handle != 0;
+        }
+        else
+        {
+            handle = dlopen(libraryName, RTLD_LAZY);
+            return handle != 0;
+        }
+#else
+        return SysNativeLibrary.TryLoad(libraryName);
 #endif
     }
 
@@ -58,8 +96,28 @@ public static class NativeLibrary
     /// <returns>The address of the symbol.</returns>
     public static nint GetExport(nint handle, string name)
     {
+        if (handle == 0)
+            throw new ArgumentNullException(nameof(handle));
+        if (name is null)
+            throw new ArgumentNullException(nameof(name));
+
 #if NETFRAMEWORK || NETSTANDARD
-        return GetProcAddress(handle, name);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return GetProcAddress(handle, name);
+        }
+        else
+        {
+            // clear any existing errors
+            dlerror();
+
+            var address = dlsym(handle, name);
+            var error = dlerror();
+            if (error != 0)
+                throw new EntryPointNotFoundException(Marshal.PtrToStringAuto(error));
+
+            return address;
+        }
 #else
         return SysNativeLibrary.GetExport(handle, name);
 #endif
@@ -68,8 +126,20 @@ public static class NativeLibrary
     public static bool TryGetExport(nint handle, string name, out nint procAddress)
     {
 #if NETFRAMEWORK || NETSTANDARD
-        procAddress = GetProcAddress(handle, name);
-        return procAddress != default;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            procAddress = GetProcAddress(handle, name);
+            return procAddress != default;
+        }
+        else
+        {
+            // clear any existing errors
+            dlerror();
+
+            procAddress = dlsym(handle, name);
+            var error = dlerror();
+            return error != 0;
+        }
 #else
         return SysNativeLibrary.TryGetExport(handle, name, out procAddress);
 #endif
@@ -86,7 +156,27 @@ public static class NativeLibrary
     [DllImport("kernel32")]
     private static extern nint GetProcAddress(nint hModule, string procName);
 
-    private static nint dlopen(nint fileName, int flags)
+    private static nint dlerror()
+    {
+        // Some Linux distros / versions have libdl version 2 only.
+        // Mac OS only has the unversioned library.
+        try
+        {
+            return dlerror2();
+        }
+        catch (DllNotFoundException)
+        {
+            return dlerror1();
+        }
+    }
+
+    [DllImport("libdl", EntryPoint = "dlerror")]
+    private static extern nint dlerror1();
+
+    [DllImport("libdl.so.2", EntryPoint = "dlerror")]
+    private static extern nint dlerror2();
+
+    private static nint dlopen(string fileName, int flags)
     {
         // Some Linux distros / versions have libdl version 2 only.
         // Mac OS only has the unversioned library.
@@ -101,10 +191,30 @@ public static class NativeLibrary
     }
 
     [DllImport("libdl", EntryPoint = "dlopen")]
-    private static extern nint dlopen1(nint fileName, int flags);
+    private static extern nint dlopen1(string fileName, int flags);
 
     [DllImport("libdl.so.2", EntryPoint = "dlopen")]
-    private static extern nint dlopen2(nint fileName, int flags);
+    private static extern nint dlopen2(string fileName, int flags);
+
+    private static nint dlsym(nint handle, string name)
+    {
+        // Some Linux distros / versions have libdl version 2 only.
+        // Mac OS only has the unversioned library.
+        try
+        {
+            return dlsym2(handle, name);
+        }
+        catch (DllNotFoundException)
+        {
+            return dlsym1(handle, name);
+        }
+    }
+
+    [DllImport("libdl", EntryPoint = "dlsym")]
+    private static extern nint dlsym1(nint fileName, string flags);
+
+    [DllImport("libdl.so.2", EntryPoint = "dlsym")]
+    private static extern nint dlsym2(nint fileName, string flags);
 
     private const int RTLD_LAZY = 1;
 

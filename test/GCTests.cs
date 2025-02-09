@@ -10,7 +10,6 @@ namespace Microsoft.JavaScript.NodeApi.Test;
 
 public class GCTests
 {
-    private static string LibnodePath { get; } = GetLibnodePath();
 
     [Fact]
     public void GCHandles()

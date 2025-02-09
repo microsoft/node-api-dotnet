@@ -29,7 +29,7 @@ public sealed class NodeEmbeddingPlatform : IDisposable
     /// <param name="settings">Optional platform settings.</param>
     /// <exception cref="InvalidOperationException">A Node.js platform instance has already been
     /// loaded in the current process.</exception>
-    public NodeEmbeddingPlatform(string libNodePath, NodeEmbeddingPlatformSettings? settings)
+    public NodeEmbeddingPlatform(string? libNodePath, NodeEmbeddingPlatformSettings? settings)
     {
         if (Current != null)
         {
