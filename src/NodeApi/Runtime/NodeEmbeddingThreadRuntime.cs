@@ -86,8 +86,6 @@ public sealed class NodeEmbeddingThreadRuntime : IDisposable
         SynchronizationContext = syncContext;
     }
 
-    public static JSRuntime JSRuntime => NodeEmbedding.JSRuntime;
-
     private static void InitializeModuleImportFunctions(
         JSRuntimeContext runtimeContext,
         string baseDir)

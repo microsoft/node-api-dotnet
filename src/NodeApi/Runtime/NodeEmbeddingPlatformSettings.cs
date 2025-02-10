@@ -12,14 +12,12 @@ public class NodeEmbeddingPlatformSettings
     public string[]? Args { get; set; }
     public ConfigurePlatformCallback? ConfigurePlatform { get; set; }
 
-    public static JSRuntime JSRuntime => NodeEmbedding.JSRuntime;
-
     public unsafe ConfigurePlatformCallback CreateConfigurePlatformCallback()
         => new((config) =>
         {
             if (PlatformFlags != null)
             {
-                JSRuntime.EmbeddingPlatformConfigSetFlags(config, PlatformFlags.Value)
+                NodeEmbedding.JSRuntime.EmbeddingPlatformConfigSetFlags(config, PlatformFlags.Value)
                     .ThrowIfFailed();
             }
             ConfigurePlatform?.Invoke(config);

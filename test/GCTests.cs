@@ -15,10 +15,13 @@ public class GCTests
     [Fact]
     public void GCHandles()
     {
-        using NodeEmbeddingThreadRuntime nodejs = NodejsEmbeddingTests.CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs =
+            NodejsEmbeddingTests.CreateNodeEmbeddingThreadRuntime();
 
         nodejs.Run(() =>
         {
+            // 3 GC handles are created in the NodeEmbeddingThreadRuntime constructor
+            // to define the 'require', 'resolve', and ' import' functions.
             Assert.Equal(3, JSRuntimeContext.Current.GCHandleCount);
 
             JSClassBuilder<DotnetClass> classBuilder =
@@ -48,7 +51,7 @@ public class GCTests
             // Two more handles should have been allocated by the JS create-instance function call.
             // - One for the 'external' type value passed to the constructor.
             // - One for the JS object wrapper.
-            Assert.Equal(3 + 7, JSRuntimeContext.Current.GCHandleCount);
+            Assert.Equal(3 + 5 + 2, JSRuntimeContext.Current.GCHandleCount);
         });
 
         nodejs.GC();
@@ -63,7 +66,8 @@ public class GCTests
     [Fact]
     public void GCObjects()
     {
-        using NodeEmbeddingThreadRuntime nodejs = NodejsEmbeddingTests.CreateNodejsEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs =
+            NodejsEmbeddingTests.CreateNodeEmbeddingThreadRuntime();
 
         nodejs.Run(() =>
         {

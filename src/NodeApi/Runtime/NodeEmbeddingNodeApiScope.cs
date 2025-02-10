@@ -16,11 +16,11 @@ public sealed class NodeEmbeddingNodeApiScope : IDisposable
     public NodeEmbeddingNodeApiScope(NodeEmbeddingRuntime runtime)
     {
         _runtime = runtime;
-        NodeEmbeddingRuntime.JSRuntime.EmbeddingRuntimeOpenNodeApiScope(
+        NodeEmbedding.JSRuntime.EmbeddingRuntimeOpenNodeApiScope(
             runtime.Handle, out _nodeApiScope, out napi_env env)
             .ThrowIfFailed();
         _valueScope = new JSValueScope(
-            JSValueScopeType.Root, env, NodeEmbeddingRuntime.JSRuntime);
+            JSValueScopeType.Root, env, NodeEmbedding.JSRuntime);
     }
 
     /// <summary>
@@ -37,7 +37,7 @@ public sealed class NodeEmbeddingNodeApiScope : IDisposable
         IsDisposed = true;
 
         _valueScope.Dispose();
-        NodeEmbeddingRuntime.JSRuntime.EmbeddingRuntimeCloseNodeApiScope(
+        NodeEmbedding.JSRuntime.EmbeddingRuntimeCloseNodeApiScope(
             _runtime.Handle, _nodeApiScope)
             .ThrowIfFailed();
     }

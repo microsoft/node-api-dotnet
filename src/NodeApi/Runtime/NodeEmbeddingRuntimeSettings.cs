@@ -23,25 +23,23 @@ public class NodeEmbeddingRuntimeSettings
     public PostTaskCallback? OnPostTask { get; set; }
     public ConfigureRuntimeCallback? ConfigureRuntime { get; set; }
 
-    public static JSRuntime JSRuntime => NodeEmbedding.JSRuntime;
-
     public unsafe ConfigureRuntimeCallback CreateConfigureRuntimeCallback()
         => new((platform, config) =>
         {
             if (NodeApiVersion != null)
             {
-                JSRuntime.EmbeddingRuntimeConfigSetNodeApiVersion(
+                NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigSetNodeApiVersion(
                     config, NodeApiVersion.Value)
                     .ThrowIfFailed();
             }
             if (RuntimeFlags != null)
             {
-                JSRuntime.EmbeddingRuntimeConfigSetFlags(config, RuntimeFlags.Value)
+                NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigSetFlags(config, RuntimeFlags.Value)
                     .ThrowIfFailed();
             }
             if (Args != null || RuntimeArgs != null)
             {
-                JSRuntime.EmbeddingRuntimeConfigSetArgs(config, Args, RuntimeArgs)
+                NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigSetArgs(config, Args, RuntimeArgs)
                     .ThrowIfFailed();
             }
 
@@ -49,7 +47,7 @@ public class NodeEmbeddingRuntimeSettings
             {
                 Functor<node_embedding_runtime_preload_callback> functor =
                     CreateRuntimePreloadFunctor(OnPreload);
-                JSRuntime.EmbeddingRuntimeConfigOnPreload(
+                NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigOnPreload(
                     config, functor.Callback, functor.Data, functor.DataRelease)
                     .ThrowIfFailed();
             }
@@ -64,7 +62,7 @@ public class NodeEmbeddingRuntimeSettings
 
                 Functor<node_embedding_runtime_loading_callback> functor =
                     CreateRuntimeLoadingFunctor(onLoading);
-                JSRuntime.EmbeddingRuntimeConfigOnLoading(
+                NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigOnLoading(
                     config, functor.Callback, functor.Data, functor.DataRelease)
                     .ThrowIfFailed();
             }
@@ -72,7 +70,7 @@ public class NodeEmbeddingRuntimeSettings
             {
                 Functor<node_embedding_runtime_loading_callback> functor =
                     CreateRuntimeLoadingFunctor(OnLoading);
-                JSRuntime.EmbeddingRuntimeConfigOnLoading(
+                NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigOnLoading(
                     config, functor.Callback, functor.Data, functor.DataRelease)
                     .ThrowIfFailed();
             }
@@ -81,7 +79,7 @@ public class NodeEmbeddingRuntimeSettings
             {
                 Functor<node_embedding_runtime_loaded_callback> functor =
                     CreateRuntimeLoadedFunctor(OnLoaded);
-                JSRuntime.EmbeddingRuntimeConfigOnLoaded(
+                NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigOnLoaded(
                     config, functor.Callback, functor.Data, functor.DataRelease)
                     .ThrowIfFailed();
             }
@@ -92,7 +90,7 @@ public class NodeEmbeddingRuntimeSettings
                 {
                     Functor<node_embedding_module_initialize_callback> functor =
                         CreateModuleInitializeFunctor(module.OnInitialize);
-                    JSRuntime.EmbeddingRuntimeConfigAddModule(
+                    NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigAddModule(
                         config,
                         module.Name.AsSpan(),
                         functor.Callback,
@@ -107,7 +105,7 @@ public class NodeEmbeddingRuntimeSettings
             {
                 Functor<node_embedding_task_post_callback> functor =
                     CreateTaskPostFunctor(OnPostTask);
-                JSRuntime.EmbeddingRuntimeConfigSetTaskRunner(
+                NodeEmbedding.JSRuntime.EmbeddingRuntimeConfigSetTaskRunner(
                     config,
                     new node_embedding_task_post_callback(s_taskPostCallback),
                     (nint)GCHandle.Alloc(OnPostTask),

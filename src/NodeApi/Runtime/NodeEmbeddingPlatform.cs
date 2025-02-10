@@ -41,7 +41,7 @@ public sealed class NodeEmbeddingPlatform : IDisposable
 
         using FunctorRef<node_embedding_platform_configure_callback> functorRef =
             CreatePlatformConfigureFunctorRef(settings?.CreateConfigurePlatformCallback());
-        JSRuntime.EmbeddingCreatePlatform(
+        NodeEmbedding.JSRuntime.EmbeddingCreatePlatform(
             settings?.Args ?? new string[] { "node" },
             functorRef.Callback,
             functorRef.Data,
@@ -61,8 +61,6 @@ public sealed class NodeEmbeddingPlatform : IDisposable
     /// </summary>
     public static NodeEmbeddingPlatform? Current { get; private set; }
 
-    public static JSRuntime JSRuntime => NodeEmbedding.JSRuntime;
-
     /// <summary>
     /// Disposes the platform. After disposal, another platform instance may not be initialized
     /// in the current process.
@@ -71,7 +69,7 @@ public sealed class NodeEmbeddingPlatform : IDisposable
     {
         if (IsDisposed) return;
         IsDisposed = true;
-        JSRuntime.EmbeddingDeletePlatform(_platform);
+        NodeEmbedding.JSRuntime.EmbeddingDeletePlatform(_platform);
     }
 
     /// <summary>
@@ -98,7 +96,7 @@ public sealed class NodeEmbeddingPlatform : IDisposable
 
         int argc = 0;
         nint argv = 0;
-        JSRuntime.EmbeddingPlatformGetParsedArgs(
+        NodeEmbedding.JSRuntime.EmbeddingPlatformGetParsedArgs(
             _platform, (nint)(&argc), (nint)(&argv), 0, 0).ThrowIfFailed();
         return Utf8StringArray.ToStringArray(argv, argc);
     }
@@ -109,7 +107,7 @@ public sealed class NodeEmbeddingPlatform : IDisposable
 
         int argc = 0;
         nint argv = 0;
-        JSRuntime.EmbeddingPlatformGetParsedArgs(
+        NodeEmbedding.JSRuntime.EmbeddingPlatformGetParsedArgs(
             _platform, 0, 0, (nint)(&argc), (nint)(&argv)).ThrowIfFailed();
         return Utf8StringArray.ToStringArray(argv, argc);
     }
