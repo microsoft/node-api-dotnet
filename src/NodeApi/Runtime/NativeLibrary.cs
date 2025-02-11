@@ -141,7 +141,7 @@ public static class NativeLibrary
         {
             dlerror();
             procAddress = dlsym(handle, name);
-            return dlerror() != 0;
+            return dlerror() == 0;
         }
 #else
         return SysNativeLibrary.TryGetExport(handle, name, out procAddress);
