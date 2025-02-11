@@ -40,12 +40,12 @@ public static class NativeLibrary
     /// <summary>
     /// Loads a native library using default flags.
     /// </summary>
-    /// <param name="libraryName">The name of the native library to be loaded.</param>
+    /// <param name="libraryPath">The name of the native library to be loaded.</param>
     /// <returns>The OS handle for the loaded native library.</returns>
-    public static nint Load(string libraryName)
+    public static nint Load(string libraryPath)
     {
 #if NETFRAMEWORK || NETSTANDARD
-        return LoadFromPath(libraryName, throwOnError: true);
+        return LoadFromPath(libraryPath, throwOnError: true);
 #else
         return SysNativeLibrary.Load(libraryName);
 #endif
@@ -54,7 +54,7 @@ public static class NativeLibrary
     /// <summary>
     /// Provides a simple API for loading a native library and returns a value that indicates whether the operation succeeded.
     /// </summary>
-    /// <param name="libraryName">The name of the native library to be loaded.</param>
+    /// <param name="libraryPath">The name of the native library to be loaded.</param>
     /// <param name="handle">When the method returns, the OS handle of the loaded native library.</param>
     /// <returns><c>true</c> if the native library was loaded successfully; otherwise, <c>false</c>.</returns>
     public static bool TryLoad(string libraryPath, out nint handle)
@@ -75,16 +75,23 @@ public static class NativeLibrary
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             nint handle = LoadLibrary(libraryPath);
-            if (handle == 0)
-                throw new DllNotFoundException();
+            if (handle == 0 && throwOnError)
+                throw new DllNotFoundException(new Win32Exception(Marshal.GetLastWin32Error()).Message);
 
             return handle;
         }
         else
         {
+            dlerror();
             nint handle = dlopen(libraryPath, RTLD_LAZY);
-            if (handle == 0)
-                throw new DllNotFoundException();
+            nint error = dlerror();
+            if (error != 0)
+            {
+                if (throwOnError)
+                    throw new DllNotFoundException(Marshal.PtrToStringAuto(error));
+
+                handle = 0;
+            }
 
             return handle;
         }
@@ -125,13 +132,8 @@ public static class NativeLibrary
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             nint procAddress = GetProcAddress(handle, name);
-            if (procAddress == 0)
-            {
-                if (throwOnError)
-                    throw new EntryPointNotFoundException();
-
-                procAddress = 0;
-            }
+            if (procAddress == 0 && throwOnError)
+                throw new DllNotFoundException(new Win32Exception(Marshal.GetLastWin32Error()).Message);
 
             return procAddress;
         }
@@ -139,10 +141,11 @@ public static class NativeLibrary
         {
             dlerror();
             nint procAddress = dlsym(handle, name);
-            if (dlerror() != 0)
+            nint error = dlerror();
+            if (error != 0)
             {
                 if (throwOnError)
-                    throw new EntryPointNotFoundException();
+                    throw new EntryPointNotFoundException(Marshal.PtrToStringAuto(error));
 
                 procAddress = 0;
             }
@@ -156,10 +159,10 @@ public static class NativeLibrary
     [DllImport("kernel32")]
     private static extern nint GetModuleHandle(string? moduleName);
 
-    [DllImport("kernel32")]
+    [DllImport("kernel32", SetLastError = true)]
     private static extern nint LoadLibrary(string moduleName);
 
-    [DllImport("kernel32")]
+    [DllImport("kernel32", SetLastError = true)]
     private static extern nint GetProcAddress(nint hModule, string procName);
 
     private static nint dlerror()
