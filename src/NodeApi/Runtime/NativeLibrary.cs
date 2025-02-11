@@ -45,22 +45,7 @@ public static class NativeLibrary
     public static nint Load(string libraryName)
     {
 #if NETFRAMEWORK || NETSTANDARD
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            nint handle = LoadLibrary(libraryName);
-            if (handle == 0)
-                throw new DllNotFoundException();
-
-            return handle;
-        }
-        else
-        {
-            nint handle = dlopen(libraryName, RTLD_LAZY);
-            if (handle == 0)
-                throw new DllNotFoundException();
-
-            return handle;
-        }
+        return LoadFromPath(libraryName, throwOnError: true);
 #else
         return SysNativeLibrary.Load(libraryName);
 #endif
@@ -72,25 +57,37 @@ public static class NativeLibrary
     /// <param name="libraryName">The name of the native library to be loaded.</param>
     /// <param name="handle">When the method returns, the OS handle of the loaded native library.</param>
     /// <returns><c>true</c> if the native library was loaded successfully; otherwise, <c>false</c>.</returns>
-    public static bool TryLoad(string libraryName, out nint handle)
+    public static bool TryLoad(string libraryPath, out nint handle)
     {
-        if (libraryName is null)
-            throw new ArgumentNullException(nameof(libraryName));
-
 #if NETFRAMEWORK || NETSTANDARD
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            handle = LoadLibrary(libraryName);
-            return handle != 0;
-        }
-        else
-        {
-            handle = dlopen(libraryName, RTLD_LAZY);
-            return handle != 0;
-        }
+        handle = LoadFromPath(libraryPath, throwOnError: false);
+        return handle != 0;
 #else
         return SysNativeLibrary.TryLoad(libraryName);
 #endif
+    }
+
+    static nint LoadFromPath(string libraryPath, bool throwOnError)
+    {
+        if (libraryPath is null)
+            throw new ArgumentNullException(nameof(libraryPath));
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            nint handle = LoadLibrary(libraryPath);
+            if (handle == 0)
+                throw new DllNotFoundException();
+
+            return handle;
+        }
+        else
+        {
+            nint handle = dlopen(libraryPath, RTLD_LAZY);
+            if (handle == 0)
+                throw new DllNotFoundException();
+
+            return handle;
+        }
     }
 
     /// <summary>
@@ -101,29 +98,8 @@ public static class NativeLibrary
     /// <returns>The address of the symbol.</returns>
     public static nint GetExport(nint handle, string name)
     {
-        if (handle == 0)
-            throw new ArgumentNullException(nameof(handle));
-        if (name is null)
-            throw new ArgumentNullException(nameof(name));
-
 #if NETFRAMEWORK || NETSTANDARD
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            nint procAddress = GetProcAddress(handle, name);
-            if (procAddress == 0)
-                throw new EntryPointNotFoundException();
-
-            return procAddress;
-        }
-        else
-        {
-            dlerror();
-            nint procAddress = dlsym(handle, name);
-            if (dlerror() != 0)
-                throw new EntryPointNotFoundException();
-
-            return procAddress;
-        }
+        return GetSymbol(handle, name, throwOnError: true);
 #else
         return SysNativeLibrary.GetExport(handle, name);
 #endif
@@ -132,20 +108,47 @@ public static class NativeLibrary
     public static bool TryGetExport(nint handle, string name, out nint procAddress)
     {
 #if NETFRAMEWORK || NETSTANDARD
+        procAddress = GetSymbol(handle, name, throwOnError: false);
+        return procAddress != 0;
+#else
+        return SysNativeLibrary.TryGetExport(handle, name, out procAddress);
+#endif
+    }
+
+    static nint GetSymbol(nint handle, string name, bool throwOnError)
+    {
+        if (handle == 0)
+            throw new ArgumentNullException(nameof(handle));
+        if (string.IsNullOrEmpty(name))
+            throw new ArgumentNullException(nameof(name));
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            procAddress = GetProcAddress(handle, name);
-            return procAddress != 0;
+            nint procAddress = GetProcAddress(handle, name);
+            if (procAddress == 0)
+            {
+                if (throwOnError)
+                    throw new EntryPointNotFoundException();
+
+                procAddress = 0;
+            }
+
+            return procAddress;
         }
         else
         {
             dlerror();
-            procAddress = dlsym(handle, name);
-            return dlerror() == 0;
+            nint procAddress = dlsym(handle, name);
+            if (dlerror() != 0)
+            {
+                if (throwOnError)
+                    throw new EntryPointNotFoundException();
+
+                procAddress = 0;
+            }
+
+            return procAddress;
         }
-#else
-        return SysNativeLibrary.TryGetExport(handle, name, out procAddress);
-#endif
     }
 
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
