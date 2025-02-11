@@ -71,7 +71,7 @@ public sealed class NodeEmbedding
     /// <returns></returns>
     static string? MapLibraryName(string name)
     {
-        if (name == null)
+        if (name is null)
             return null;
 
         if (Path.HasExtension(name))
@@ -90,7 +90,7 @@ public sealed class NodeEmbedding
     /// Scans the runtimes/{rid}/native directory relative to the application base directory for the native library.
     /// </summary>
     /// <returns></returns>
-    static string? FindFallbackLibNode()
+    static string? FindLocalLibNode()
     {
         if (GetFallbackRuntimeIdentifier() is string rid)
             if (MapLibraryName("libnode") is string fileName)
@@ -104,25 +104,27 @@ public sealed class NodeEmbedding
 #endif
 
     /// <summary>
-    /// Attempts to load the libnode library using the default discovery logic as appropriate for the platform.
+    /// Attempts to load the libnode library using the discovery logic as appropriate for the platform.
     /// </summary>
     /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
+    /// <exception cref="DllNotFoundException"></exception>
     static nint LoadDefaultLibNode()
     {
 #if NETFRAMEWORK || NETSTANDARD
-        if (NativeLibrary.TryLoad("libnode", out nint handle))
-            return handle;
+        // search local paths that would be provided by LibNode packages
+        string? path = FindLocalLibNode();
+        if (path is not null)
+            if (NativeLibrary.TryLoad(path, out nint handle))
+                return handle;
 #else
+        // search using default dependency context
         if (NativeLibrary.TryLoad("libnode", typeof(NodeEmbedding).Assembly, null, out nint handle))
             return handle;
 #endif
 
-#if NETFRAMEWORK || NETSTANDARD
-        string? path = FindFallbackLibNode();
-        if (path is not null)
-            return NativeLibrary.Load(path);
-#endif
+        // attempt to load from default OS search paths
+        if (NativeLibrary.TryLoad("libnode", out nint defaultHandle))
+            return defaultHandle;
 
         throw new DllNotFoundException("The JSRuntime cannot locate the libnode shared library.");
     }
