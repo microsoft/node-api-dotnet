@@ -63,7 +63,7 @@ public static class NativeLibrary
         handle = LoadFromPath(libraryPath, throwOnError: false);
         return handle != 0;
 #else
-        return SysNativeLibrary.TryLoad(libraryName);
+        return SysNativeLibrary.TryLoad(libraryName, out handle);
 #endif
     }
 
