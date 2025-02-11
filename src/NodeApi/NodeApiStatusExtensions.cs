@@ -4,7 +4,9 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
+using static Microsoft.JavaScript.NodeApi.Runtime.NodejsRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -58,6 +60,20 @@ public static class NodeApiStatusExtensions
     {
         status.ThrowIfFailed(memberName, sourceFilePath, sourceLineNumber);
         return value;
+    }
+
+    [StackTraceHidden]
+    public static void ThrowIfFailed([DoesNotReturnIf(true)] this NodeEmbeddingStatus status,
+                                     [CallerMemberName] string memberName = "",
+                                     [CallerFilePath] string sourceFilePath = "",
+                                     [CallerLineNumber] int sourceLineNumber = 0)
+    {
+        if (status == NodeEmbeddingStatus.OK)
+            return;
+        throw new JSException($"""
+            Error in {memberName} at {sourceFilePath}:{sourceLineNumber}
+            {NodeEmbedding.JSRuntime.EmbeddingGetLastErrorMessage()}
+            """);
     }
 }
 

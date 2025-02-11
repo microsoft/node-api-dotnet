@@ -26,9 +26,12 @@ public partial class App : Application
 
         string appDir = Path.GetDirectoryName(typeof(App).Assembly.Location)!;
         string libnodePath = Path.Combine(appDir, "libnode.dll");
-        NodejsPlatform nodejsPlatform = new(libnodePath);
-
-        Nodejs = nodejsPlatform.CreateEnvironment(appDir);
+        NodeEmbeddingPlatform nodejsPlatform = new(libnodePath, null);
+        Nodejs = nodejsPlatform.CreateThreadRuntime(appDir, new NodeEmbeddingRuntimeSettings
+        {
+            MainScript =
+                    "globalThis.require = require('module').createRequire(process.execPath);\n"
+        });
         if (Debugger.IsAttached)
         {
             int pid = Process.GetCurrentProcess().Id;
@@ -60,5 +63,5 @@ public partial class App : Application
 
     public static new App Current => (App)Application.Current;
 
-    public NodejsEnvironment Nodejs { get; }
+    public NodeEmbeddingThreadRuntime Nodejs { get; }
 }

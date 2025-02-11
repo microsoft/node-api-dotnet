@@ -1,8 +1,14 @@
-using System;
-using System.Buffers;
-using System.Text;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
+
+using System;
+#if !(NETFRAMEWORK || NETSTANDARD)
+using System.Buffers;
+#endif
+using System.ComponentModel;
+using System.Text;
 
 internal struct PooledBuffer : IDisposable
 {
@@ -16,8 +22,8 @@ internal struct PooledBuffer : IDisposable
 
 #if NETFRAMEWORK || NETSTANDARD
 
-    // Avoid a dependency on System.Buffers with .NET Framwork.
-    // It is available as a nuget package, but might not be installed in the application.
+    // Avoid a dependency on System.Buffers with .NET Framework.
+    // It is available as a NuGet package, but might not be installed in the application.
     // In this case the buffer is not actually pooled.
 
     public PooledBuffer(int length) : this(length, length) { }
@@ -61,7 +67,9 @@ internal struct PooledBuffer : IDisposable
 
     public readonly Span<byte> Span => Buffer;
 
-    public readonly ref byte Pin() => ref Span.GetPinnableReference();
+    // To support PooledBuffer usage within a fixed statement.
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public readonly ref byte GetPinnableReference() => ref Span.GetPinnableReference();
 
     public static unsafe PooledBuffer FromStringUtf8(string? value)
     {
@@ -75,5 +83,22 @@ internal struct PooledBuffer : IDisposable
         Encoding.UTF8.GetBytes(value, 0, value!.Length, buffer.Buffer, 0);
 
         return buffer;
+    }
+
+    public static unsafe PooledBuffer FromSpanUtf8(ReadOnlySpan<char> value)
+    {
+        if (value.IsEmpty)
+        {
+            return Empty;
+        }
+
+        fixed (char* valuePtr = value)
+        {
+            int byteLength = Encoding.UTF8.GetByteCount(valuePtr, value.Length);
+            PooledBuffer buffer = new(byteLength, byteLength + 1);
+            fixed (byte* bufferPtr = buffer.Span)
+                Encoding.UTF8.GetBytes(valuePtr, value.Length, bufferPtr, byteLength + 1);
+            return buffer;
+        }
     }
 }

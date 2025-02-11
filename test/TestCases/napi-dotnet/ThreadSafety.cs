@@ -1,8 +1,9 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.JavaScript.NodeApi.TestCases;
@@ -36,7 +37,7 @@ public static class ThreadSafety
 
     public static async Task CallDelegateFromOtherThread(Action action)
     {
-        await Task.Run(() =>
+        await RunInThread(() =>
         {
             ValidateNotOnJSThread();
 
@@ -48,7 +49,7 @@ public static class ThreadSafety
         ISmpleInterface interfaceObj,
         string value)
     {
-        return await Task.Run(() =>
+        return await RunInThread(() =>
         {
             ValidateNotOnJSThread();
 
@@ -59,7 +60,7 @@ public static class ThreadSafety
     public static async Task<int> EnumerateCollectionFromOtherThread(
         IReadOnlyCollection<int> collection)
     {
-        return await Task.Run(() =>
+        return await RunInThread(() =>
         {
             ValidateNotOnJSThread();
 
@@ -76,7 +77,7 @@ public static class ThreadSafety
     public static async Task<int> EnumerateDictionaryFromOtherThread(
         IReadOnlyDictionary<string, string> dictionary)
     {
-        return await Task.Run(() =>
+        return await RunInThread(() =>
         {
             ValidateNotOnJSThread();
 
@@ -93,11 +94,52 @@ public static class ThreadSafety
     public static async Task<bool> ModifyDictionaryFromOtherThread(
         IDictionary<string, string> dictionary, string keyToRemove)
     {
-        return await Task.Run(() =>
+        return await RunInThread(() =>
         {
             ValidateNotOnJSThread();
 
             return dictionary.Remove(keyToRemove);
         });
+    }
+
+    private static Task RunInThread(Action action)
+    {
+        TaskCompletionSource<bool> threadCompletion = new TaskCompletionSource<bool>();
+
+        Thread thread = new Thread(() =>
+        {
+            try
+            {
+                action();
+                threadCompletion.TrySetResult(true);
+            }
+            catch (Exception e)
+            {
+                threadCompletion.TrySetException(e);
+            }
+        });
+        thread.Start();
+
+        return threadCompletion.Task;
+    }
+
+    private static Task<T> RunInThread<T>(Func<T> func)
+    {
+        TaskCompletionSource<T> threadCompletion = new TaskCompletionSource<T>();
+
+        Thread thread = new Thread(() =>
+        {
+            try
+            {
+                threadCompletion.TrySetResult(func());
+            }
+            catch (Exception e)
+            {
+                threadCompletion.TrySetException(e);
+            }
+        });
+        thread.Start();
+
+        return threadCompletion.Task;
     }
 }

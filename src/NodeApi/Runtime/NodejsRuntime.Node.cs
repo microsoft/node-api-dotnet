@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+namespace Microsoft.JavaScript.NodeApi.Runtime;
+
 using System;
 using System.Diagnostics.CodeAnalysis;
-
-namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 // Imports Node.js native APIs defined in node_api.h
 public unsafe partial class NodejsRuntime
@@ -467,8 +467,8 @@ public unsafe partial class NodejsRuntime
     {
         using (PooledBuffer locationBuffer = PooledBuffer.FromStringUtf8(location))
         using (PooledBuffer messageBuffer = PooledBuffer.FromStringUtf8(message))
-            fixed (byte* location_ptr = &locationBuffer.Pin())
-            fixed (byte* message_ptr = &messageBuffer.Pin())
+            fixed (byte* location_ptr = locationBuffer)
+            fixed (byte* message_ptr = messageBuffer)
             {
                 if (napi_fatal_error == null)
                 {

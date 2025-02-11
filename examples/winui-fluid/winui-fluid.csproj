@@ -42,13 +42,10 @@
 
   <ItemGroup>
     <EmbeddedResource Include="README.md" />
-    <Content Include="..\..\bin\win-x64\libnode.dll">
-      <Visible>false</Visible>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.JavaScript.LibNode" Version="$(LibNodePackageVersion)" />
     <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="$(NodeApiDotnetPackageVersion)" />
     <PackageReference Include="Microsoft.JavaScript.NodeApi.DotNetHost" Version="$(NodeApiDotnetPackageVersion)" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*" />

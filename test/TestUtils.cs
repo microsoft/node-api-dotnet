@@ -7,21 +7,25 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.JavaScript.NodeApi.Test;
 
 public static class TestUtils
 {
-    public static string GetRepoRootDirectory()
+    public static string GetAssemblyLocation()
     {
 #if NETFRAMEWORK
-        string assemblyLocation = new Uri(typeof(TestUtils).Assembly.CodeBase).LocalPath;
+        return new Uri(typeof(TestUtils).Assembly.CodeBase).LocalPath;
 #else
-#pragma warning disable IL3000 // Assembly.Location returns an empty string for assemblies embedded in a single-file app
-        string assemblyLocation = typeof(TestUtils).Assembly.Location!;
-#pragma warning restore IL3000
+        // Assembly.Location returns an empty string for assemblies embedded in a single-file app
+        return typeof(TestUtils).Assembly.Location;
 #endif
+    }
 
+    public static string GetRepoRootDirectory()
+    {
+        string assemblyLocation = GetAssemblyLocation();
         string? solutionDir = string.IsNullOrEmpty(assemblyLocation) ?
             Environment.CurrentDirectory : Path.GetDirectoryName(assemblyLocation);
 
@@ -73,11 +77,10 @@ public static class TestUtils
         else return ".so";
     }
 
-    public static string GetLibnodePath() => Path.Combine(
-        GetRepoRootDirectory(),
-        "bin",
-        GetCurrentPlatformRuntimeIdentifier(),
-        "libnode" + GetSharedLibraryExtension());
+    public static string GetLibnodePath() =>
+        Path.Combine(
+            Path.GetDirectoryName(GetAssemblyLocation()) ?? string.Empty,
+            "libnode" + GetSharedLibraryExtension());
 
     public static string? LogOutput(
         Process process,
@@ -142,5 +145,26 @@ public static class TestUtils
         {
             File.Copy(sourceFilePath, targetFilePath, overwrite: true);
         }
+    }
+
+    public static Task RunInThread(Action action)
+    {
+        TaskCompletionSource<bool> threadCompletion = new();
+
+        Thread thread = new(() =>
+        {
+            try
+            {
+                action();
+                threadCompletion.TrySetResult(true);
+            }
+            catch (Exception e)
+            {
+                threadCompletion.TrySetException(e);
+            }
+        });
+        thread.Start();
+
+        return threadCompletion.Task;
     }
 }

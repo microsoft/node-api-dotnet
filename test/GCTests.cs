@@ -12,17 +12,17 @@ public class GCTests
 {
     private static string LibnodePath { get; } = GetLibnodePath();
 
-    [SkippableFact]
+    [Fact]
     public void GCHandles()
     {
-        Skip.If(
-            NodejsEmbeddingTests.NodejsPlatform == null,
-            "Node shared library not found at " + LibnodePath);
-        using NodejsEnvironment nodejs = NodejsEmbeddingTests.NodejsPlatform.CreateEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs =
+            NodejsEmbeddingTests.CreateNodeEmbeddingThreadRuntime();
 
         nodejs.Run(() =>
         {
-            Assert.Equal(0, JSRuntimeContext.Current.GCHandleCount);
+            // 3 GC handles are created in the NodeEmbeddingThreadRuntime constructor
+            // to define the 'require', 'resolve', and ' import' functions.
+            Assert.Equal(3, JSRuntimeContext.Current.GCHandleCount);
 
             JSClassBuilder<DotnetClass> classBuilder =
                 new(nameof(DotnetClass), () => new DotnetClass());
@@ -43,7 +43,7 @@ public class GCTests
             // - JSPropertyDescriptor: DotnetClass.property
             // - JSPropertyDescriptor: DotnetClass.method
             // - JSPropertyDescriptor: DotnetClass.toString
-            Assert.Equal(5, JSRuntimeContext.Current.GCHandleCount);
+            Assert.Equal(3 + 5, JSRuntimeContext.Current.GCHandleCount);
 
             using JSValueScope innerScope = new(JSValueScopeType.Callback);
             jsCreateInstanceFunction.CallAsStatic(dotnetClass);
@@ -51,7 +51,7 @@ public class GCTests
             // Two more handles should have been allocated by the JS create-instance function call.
             // - One for the 'external' type value passed to the constructor.
             // - One for the JS object wrapper.
-            Assert.Equal(7, JSRuntimeContext.Current.GCHandleCount);
+            Assert.Equal(3 + 5 + 2, JSRuntimeContext.Current.GCHandleCount);
         });
 
         nodejs.GC();
@@ -59,17 +59,15 @@ public class GCTests
         nodejs.Run(() =>
         {
             // After GC, the handle count should have reverted back to the original set.
-            Assert.Equal(5, JSRuntimeContext.Current.GCHandleCount);
+            Assert.Equal(3 + 5, JSRuntimeContext.Current.GCHandleCount);
         });
     }
 
-    [SkippableFact]
+    [Fact]
     public void GCObjects()
     {
-        Skip.If(
-            NodejsEmbeddingTests.NodejsPlatform == null,
-            "Node shared library not found at " + LibnodePath);
-        using NodejsEnvironment nodejs = NodejsEmbeddingTests.NodejsPlatform.CreateEnvironment();
+        using NodeEmbeddingThreadRuntime nodejs =
+            NodejsEmbeddingTests.CreateNodeEmbeddingThreadRuntime();
 
         nodejs.Run(() =>
         {
@@ -86,7 +84,7 @@ public class GCTests
                 "function jsCreateInstanceFunction(Class) { new Class() }; " +
                 "jsCreateInstanceFunction");
 
-            Assert.Equal(5, JSRuntimeContext.Current.GCHandleCount);
+            Assert.Equal(8, JSRuntimeContext.Current.GCHandleCount);
 
             using (JSValueScope innerScope = new(JSValueScopeType.Callback))
             {

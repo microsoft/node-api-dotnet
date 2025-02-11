@@ -15,6 +15,9 @@
   <Target Name="WriteVersionProps"
     BeforeTargets="Pack"
   >
+    <PropertyGroup>
+      <LibNodePackageVersion Condition="'%(PackageVersion.Identity)' == 'Microsoft.JavaScript.LibNode'">%(PackageVersion.Version)</LibNodePackageVersion>
+    </PropertyGroup>
     <WriteLinesToFile
       File="$(PackageOutputPath)version.props"
       Overwrite="true"
@@ -22,6 +25,7 @@
       Lines="
         &lt;Project&gt;;
         %20%20&lt;PropertyGroup&gt;;
+        %20%20%20%20&lt;LibNodePackageVersion&gt;$(LibNodePackageVersion)&lt;/LibNodePackageVersion&gt;;
         %20%20%20%20&lt;NodeApiDotNetPackageVersion&gt;$(NuGetPackageVersion)&lt;/NodeApiDotNetPackageVersion&gt;;
         %20%20&lt;/PropertyGroup&gt;;
         &lt;/Project&gt;"

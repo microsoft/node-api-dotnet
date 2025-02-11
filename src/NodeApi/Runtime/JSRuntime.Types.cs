@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+namespace Microsoft.JavaScript.NodeApi.Runtime;
+
 using System;
 using System.Runtime.InteropServices;
-
-namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 // Type definitions from Node.JS js_native_api.h and js_native_api_types.h
 public unsafe partial class JSRuntime
@@ -31,7 +31,6 @@ public unsafe partial class JSRuntime
     public record struct napi_escapable_handle_scope(nint Handle);
     public record struct napi_callback_info(nint Handle);
     public record struct napi_deferred(nint Handle);
-    public record struct napi_platform(nint Handle);
 
     //===========================================================================
     // Enum types
@@ -139,17 +138,6 @@ public unsafe partial class JSRuntime
 
         public napi_finalize(napi_finalize.Delegate callback)
             : this(Marshal.GetFunctionPointerForDelegate(callback)) { }
-    }
-
-    public struct napi_error_message_handler
-    {
-        public nint Handle;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void Delegate(byte* message);
-
-        public napi_error_message_handler(napi_error_message_handler.Delegate handler)
-            => Handle = Marshal.GetFunctionPointerForDelegate(handler);
     }
 
     public struct napi_property_descriptor
