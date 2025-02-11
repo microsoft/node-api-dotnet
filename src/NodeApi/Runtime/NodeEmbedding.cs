@@ -111,15 +111,15 @@ public sealed class NodeEmbedding
     static nint LoadDefaultLibNode()
     {
 #if NETFRAMEWORK || NETSTANDARD
-        if (NativeLibrary.TryLoad("libnode", out var handle))
+        if (NativeLibrary.TryLoad("libnode", out nint handle))
             return handle;
 #else
-        if (NativeLibrary.TryLoad("libnode", typeof(NodeEmbedding).Assembly, null, out var handle))
+        if (NativeLibrary.TryLoad("libnode", typeof(NodeEmbedding).Assembly, null, out nint handle))
             return handle;
 #endif
 
 #if NETFRAMEWORK || NETSTANDARD
-        var path = FindFallbackLibNode();
+        string? path = FindFallbackLibNode();
         if (path is not null)
             return NativeLibrary.Load(path);
 #endif
