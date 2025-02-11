@@ -29,7 +29,7 @@ public sealed class NodeEmbeddingPlatform : IDisposable
     /// <param name="settings">Optional platform settings.</param>
     /// <exception cref="InvalidOperationException">A Node.js platform instance has already been
     /// loaded in the current process.</exception>
-    public NodeEmbeddingPlatform(string? libNodePath, NodeEmbeddingPlatformSettings? settings)
+    public NodeEmbeddingPlatform(NodeEmbeddingPlatformSettings? settings)
     {
         if (Current != null)
         {
@@ -37,7 +37,7 @@ public sealed class NodeEmbeddingPlatform : IDisposable
                 "Only one Node.js platform instance per process is allowed.");
         }
         Current = this;
-        Initialize(libNodePath);
+        Initialize(settings?.LibNodePath);
 
         using FunctorRef<node_embedding_platform_configure_callback> functorRef =
             CreatePlatformConfigureFunctorRef(settings?.CreateConfigurePlatformCallback());

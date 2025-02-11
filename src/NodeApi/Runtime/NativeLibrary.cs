@@ -4,6 +4,7 @@
 #if !NET7_0_OR_GREATER
 
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 #if !(NETFRAMEWORK || NETSTANDARD)
 using SysNativeLibrary = System.Runtime.InteropServices.NativeLibrary;
@@ -46,15 +47,19 @@ public static class NativeLibrary
 #if NETFRAMEWORK || NETSTANDARD
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            return LoadLibrary(libraryName);
+            nint handle = LoadLibrary(libraryName);
+            if (handle == 0)
+                throw new DllNotFoundException();
+
+            return handle;
         }
         else
         {
-            var h = dlopen(libraryName, RTLD_LAZY);
-            if (h == 0)
+            nint handle = dlopen(libraryName, RTLD_LAZY);
+            if (handle == 0)
                 throw new DllNotFoundException();
 
-            return h;
+            return handle;
         }
 #else
         return SysNativeLibrary.Load(libraryName);
@@ -104,19 +109,20 @@ public static class NativeLibrary
 #if NETFRAMEWORK || NETSTANDARD
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            return GetProcAddress(handle, name);
+            nint procAddress = GetProcAddress(handle, name);
+            if (procAddress == 0)
+                throw new EntryPointNotFoundException();
+
+            return procAddress;
         }
         else
         {
-            // clear any existing errors
             dlerror();
+            nint procAddress = dlsym(handle, name);
+            if (dlerror() != 0)
+                throw new EntryPointNotFoundException();
 
-            var address = dlsym(handle, name);
-            var error = dlerror();
-            if (error != 0)
-                throw new EntryPointNotFoundException(Marshal.PtrToStringAuto(error));
-
-            return address;
+            return procAddress;
         }
 #else
         return SysNativeLibrary.GetExport(handle, name);
@@ -129,16 +135,13 @@ public static class NativeLibrary
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             procAddress = GetProcAddress(handle, name);
-            return procAddress != default;
+            return procAddress != 0;
         }
         else
         {
-            // clear any existing errors
             dlerror();
-
             procAddress = dlsym(handle, name);
-            var error = dlerror();
-            return error != 0;
+            return dlerror() != 0;
         }
 #else
         return SysNativeLibrary.TryGetExport(handle, name, out procAddress);

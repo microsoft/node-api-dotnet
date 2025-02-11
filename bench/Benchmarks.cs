@@ -83,7 +83,6 @@ public abstract class Benchmarks
     protected void Setup()
     {
         NodeEmbeddingPlatform platform = new(
-            null,
             new NodeEmbeddingPlatformSettings { Args = s_settings });
 
         // This setup avoids using NodejsEmbeddingThreadRuntime so benchmarks can run on

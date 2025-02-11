@@ -24,7 +24,7 @@ public class NodejsEmbeddingTests
 
     // The Node.js platform may only be initialized once per process.
     internal static NodeEmbeddingPlatform NodejsPlatform { get; } =
-        new(null, new NodeEmbeddingPlatformSettings
+        new(new NodeEmbeddingPlatformSettings
         {
             Args = new[] { "node", "--expose-gc" }
         });
