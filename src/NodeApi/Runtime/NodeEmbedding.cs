@@ -43,7 +43,7 @@ public sealed class NodeEmbedding
     /// <returns></returns>
     static string? GetFallbackRuntimeIdentifier()
     {
-        var arch = RuntimeInformation.ProcessArchitecture switch
+        string? arch = RuntimeInformation.ProcessArchitecture switch
         {
             Architecture.X86 => "x86",
             Architecture.X64 => "x64",
@@ -53,13 +53,13 @@ public sealed class NodeEmbedding
         };
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return $"win-{arch}";
+            return arch is not null ? $"win-{arch}" : "win";
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            return $"linux-{arch}";
+            return arch is not null ? $"linux-{arch}" : "linux";
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            return $"osx-{arch}";
+            return arch is not null ? $"osx-{arch}" : "osx";
 
         return null;
     }
@@ -79,10 +79,11 @@ public sealed class NodeEmbedding
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             return name + ".dll";
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             return name + ".dylib";
-        else
-            return name + ".so";
+
+        return name + ".so";
     }
 
     /// <summary>
