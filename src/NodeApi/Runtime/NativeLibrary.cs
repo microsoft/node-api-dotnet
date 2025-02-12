@@ -167,19 +167,29 @@ public static class NativeLibrary
 
     private static nint dlerror()
     {
-        // Some Linux distros / versions have libdl version 2 only.
-        // Mac OS only has the unversioned library.
+        // some operating systems have dlerror in libc, some in libdl, some in libdl.so.2
+        // attempt in that order
         try
         {
-            return dlerror2();
+            return dlerror0();
         }
         catch (DllNotFoundException)
         {
-            return dlerror1();
+            try
+            {
+                return dlerror1();
+            }
+            catch (DllNotFoundException)
+            {
+                return dlerror2();
+            }
         }
     }
 
-    [DllImport("libdl", EntryPoint = "dlerror")]
+    [DllImport("c", EntryPoint = "dlerror")]
+    private static extern nint dlerror0();
+
+    [DllImport("dl", EntryPoint = "dlerror")]
     private static extern nint dlerror1();
 
     [DllImport("libdl.so.2", EntryPoint = "dlerror")]
@@ -187,19 +197,29 @@ public static class NativeLibrary
 
     private static nint dlopen(string? fileName, int flags)
     {
-        // Some Linux distros / versions have libdl version 2 only.
-        // Mac OS only has the unversioned library.
+        // some operating systems have dlopen in libc, some in libdl, some in libdl.so.2
+        // attempt in that order
         try
         {
-            return dlopen2(fileName, flags);
+            return dlopen0(fileName, flags);
         }
         catch (DllNotFoundException)
         {
-            return dlopen1(fileName, flags);
+            try
+            {
+                return dlopen1(fileName, flags);
+            }
+            catch (DllNotFoundException)
+            {
+                return dlopen2(fileName, flags);
+            }
         }
     }
 
-    [DllImport("libdl", EntryPoint = "dlopen")]
+    [DllImport("c", EntryPoint = "dlopen")]
+    private static extern nint dlopen0(string? fileName, int flags);
+
+    [DllImport("dl", EntryPoint = "dlopen")]
     private static extern nint dlopen1(string? fileName, int flags);
 
     [DllImport("libdl.so.2", EntryPoint = "dlopen")]
@@ -207,19 +227,29 @@ public static class NativeLibrary
 
     private static nint dlsym(nint handle, string symbol)
     {
-        // Some Linux distros / versions have libdl version 2 only.
-        // Mac OS only has the unversioned library.
+        // some operating systems have dlsym in libc, some in libdl, some in libdl.so.2
+        // attempt in that order
         try
         {
-            return dlsym2(handle, symbol);
+            return dlsym0(handle, symbol);
         }
         catch (DllNotFoundException)
         {
-            return dlsym1(handle, symbol);
+            try
+            {
+                return dlsym1(handle, symbol);
+            }
+            catch (DllNotFoundException)
+            {
+                return dlsym2(handle, symbol);
+            }
         }
     }
 
-    [DllImport("libdl", EntryPoint = "dlsym")]
+    [DllImport("c", EntryPoint = "dlsym")]
+    private static extern nint dlsym0(nint handle, string symbol);
+
+    [DllImport("dl", EntryPoint = "dlsym")]
     private static extern nint dlsym1(nint handle, string symbol);
 
     [DllImport("libdl.so.2", EntryPoint = "dlsym")]
