@@ -6,7 +6,6 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
