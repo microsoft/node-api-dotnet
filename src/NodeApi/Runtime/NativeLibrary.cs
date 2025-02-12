@@ -185,7 +185,7 @@ public static class NativeLibrary
     [DllImport("libdl.so.2", EntryPoint = "dlerror")]
     private static extern nint dlerror2();
 
-    private static nint dlopen(string fileName, int flags)
+    private static nint dlopen(string? fileName, int flags)
     {
         // Some Linux distros / versions have libdl version 2 only.
         // Mac OS only has the unversioned library.
@@ -200,10 +200,10 @@ public static class NativeLibrary
     }
 
     [DllImport("libdl", EntryPoint = "dlopen")]
-    private static extern nint dlopen1(string fileName, int flags);
+    private static extern nint dlopen1(string? fileName, int flags);
 
     [DllImport("libdl.so.2", EntryPoint = "dlopen")]
-    private static extern nint dlopen2(string fileName, int flags);
+    private static extern nint dlopen2(string? fileName, int flags);
 
     private static nint dlsym(nint handle, string symbol)
     {
