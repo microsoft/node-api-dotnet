@@ -205,25 +205,25 @@ public static class NativeLibrary
     [DllImport("libdl.so.2", EntryPoint = "dlopen")]
     private static extern nint dlopen2(string fileName, int flags);
 
-    private static nint dlsym(nint handle, string name)
+    private static nint dlsym(nint handle, string symbol)
     {
         // Some Linux distros / versions have libdl version 2 only.
         // Mac OS only has the unversioned library.
         try
         {
-            return dlsym2(handle, name);
+            return dlsym2(handle, symbol);
         }
         catch (DllNotFoundException)
         {
-            return dlsym1(handle, name);
+            return dlsym1(handle, symbol);
         }
     }
 
     [DllImport("libdl", EntryPoint = "dlsym")]
-    private static extern nint dlsym1(nint fileName, string flags);
+    private static extern nint dlsym1(nint handle, string symbol);
 
     [DllImport("libdl.so.2", EntryPoint = "dlsym")]
-    private static extern nint dlsym2(nint fileName, string flags);
+    private static extern nint dlsym2(nint handle, string symbol);
 
     private const int RTLD_LAZY = 1;
 
