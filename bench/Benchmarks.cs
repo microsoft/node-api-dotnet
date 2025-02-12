@@ -44,12 +44,6 @@ public abstract class Benchmarks
             .WithOptions(ConfigOptions.JoinSummary));
     }
 
-    private static string LibnodePath { get; } = Path.Combine(
-        GetRepoRootDirectory(),
-        "bin",
-        GetCurrentPlatformRuntimeIdentifier(),
-        "libnode" + GetSharedLibraryExtension());
-
     private NodeEmbeddingRuntime? _runtime;
     private NodeEmbeddingNodeApiScope? _nodeApiScope;
     private JSValue _jsString;
@@ -89,7 +83,6 @@ public abstract class Benchmarks
     protected void Setup()
     {
         NodeEmbeddingPlatform platform = new(
-            LibnodePath,
             new NodeEmbeddingPlatformSettings { Args = s_settings });
 
         // This setup avoids using NodejsEmbeddingThreadRuntime so benchmarks can run on
