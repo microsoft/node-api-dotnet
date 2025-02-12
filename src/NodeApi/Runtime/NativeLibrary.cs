@@ -6,6 +6,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
@@ -146,23 +147,30 @@ public static class NativeLibrary
     [DllImport("kernel32", SetLastError = true)]
     private static extern nint GetProcAddress(nint hModule, string procName);
 
+    private delegate nint DlErrorDelegate();
+    private static DlErrorDelegate? s_dlerror;
+
     private static nint dlerror()
     {
+        // cache dlerror function
+        if (s_dlerror is not null)
+            return s_dlerror();
+
         // some operating systems have dlerror in libc, some in libdl, some in libdl.so.2
         // attempt in that order
         try
         {
             return dlerror0();
         }
-        catch (DllNotFoundException)
+        catch (EntryPointNotFoundException)
         {
             try
             {
-                return dlerror1();
+                return (s_dlerror = dlerror1)();
             }
             catch (DllNotFoundException)
             {
-                return dlerror2();
+                return (s_dlerror = dlerror2)();
             }
         }
     }
@@ -176,23 +184,30 @@ public static class NativeLibrary
     [DllImport("libdl.so.2", EntryPoint = "dlerror")]
     private static extern nint dlerror2();
 
+    private delegate nint DlOpenDelegate(string? fileName, int flags);
+    private static DlOpenDelegate? s_dlopen;
+
     private static nint dlopen(string? fileName, int flags)
     {
+        // cache dlopen function
+        if (s_dlopen is not null)
+            return s_dlopen(fileName, flags);
+
         // some operating systems have dlopen in libc, some in libdl, some in libdl.so.2
         // attempt in that order
         try
         {
             return dlopen0(fileName, flags);
         }
-        catch (DllNotFoundException)
+        catch (EntryPointNotFoundException)
         {
             try
             {
-                return dlopen1(fileName, flags);
+                return (s_dlopen = dlopen1)(fileName, flags);
             }
             catch (DllNotFoundException)
             {
-                return dlopen2(fileName, flags);
+                return (s_dlopen = dlopen2)(fileName, flags);
             }
         }
     }
@@ -206,23 +221,30 @@ public static class NativeLibrary
     [DllImport("libdl.so.2", EntryPoint = "dlopen")]
     private static extern nint dlopen2(string? fileName, int flags);
 
+    private delegate nint DlSymDelegate(nint handle, string symbol);
+    private static DlSymDelegate? s_dlsym;
+
     private static nint dlsym(nint handle, string symbol)
     {
+        // cache dlsym function
+        if (s_dlsym is not null)
+            return s_dlsym(handle, symbol);
+
         // some operating systems have dlsym in libc, some in libdl, some in libdl.so.2
         // attempt in that order
         try
         {
             return dlsym0(handle, symbol);
         }
-        catch (DllNotFoundException)
+        catch (EntryPointNotFoundException)
         {
             try
             {
-                return dlsym1(handle, symbol);
+                return (s_dlsym = dlsym1)(handle, symbol);
             }
             catch (DllNotFoundException)
             {
-                return dlsym2(handle, symbol);
+                return (s_dlsym = dlsym2)(handle, symbol);
             }
         }
     }
