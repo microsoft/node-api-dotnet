@@ -133,7 +133,7 @@ public static class NativeLibrary
         {
             nint procAddress = GetProcAddress(handle, name);
             if (procAddress == 0 && throwOnError)
-                throw new DllNotFoundException(new Win32Exception(Marshal.GetLastWin32Error()).Message);
+                throw new EntryPointNotFoundException(new Win32Exception(Marshal.GetLastWin32Error()).Message);
 
             return procAddress;
         }
