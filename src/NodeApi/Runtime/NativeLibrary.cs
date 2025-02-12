@@ -1,14 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if !NET7_0_OR_GREATER
+#if !NETCOREAPP3_0_OR_GREATER
 
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-#if !(NETFRAMEWORK || NETSTANDARD)
-using SysNativeLibrary = System.Runtime.InteropServices.NativeLibrary;
-#endif
 
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
@@ -44,11 +41,7 @@ public static class NativeLibrary
     /// <returns>The OS handle for the loaded native library.</returns>
     public static nint Load(string libraryPath)
     {
-#if NETFRAMEWORK || NETSTANDARD
         return LoadFromPath(libraryPath, throwOnError: true);
-#else
-        return SysNativeLibrary.Load(libraryName);
-#endif
     }
 
     /// <summary>
@@ -59,12 +52,8 @@ public static class NativeLibrary
     /// <returns><c>true</c> if the native library was loaded successfully; otherwise, <c>false</c>.</returns>
     public static bool TryLoad(string libraryPath, out nint handle)
     {
-#if NETFRAMEWORK || NETSTANDARD
         handle = LoadFromPath(libraryPath, throwOnError: false);
         return handle != 0;
-#else
-        return SysNativeLibrary.TryLoad(libraryName, out handle);
-#endif
     }
 
     static nint LoadFromPath(string libraryPath, bool throwOnError)
@@ -105,21 +94,13 @@ public static class NativeLibrary
     /// <returns>The address of the symbol.</returns>
     public static nint GetExport(nint handle, string name)
     {
-#if NETFRAMEWORK || NETSTANDARD
         return GetSymbol(handle, name, throwOnError: true);
-#else
-        return SysNativeLibrary.GetExport(handle, name);
-#endif
     }
 
     public static bool TryGetExport(nint handle, string name, out nint procAddress)
     {
-#if NETFRAMEWORK || NETSTANDARD
         procAddress = GetSymbol(handle, name, throwOnError: false);
         return procAddress != 0;
-#else
-        return SysNativeLibrary.TryGetExport(handle, name, out procAddress);
-#endif
     }
 
     static nint GetSymbol(nint handle, string name, bool throwOnError)
