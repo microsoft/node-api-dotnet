@@ -108,9 +108,11 @@ installation.)
 
 ## Tracing
 The following environment variables trigger verbose tracing to the console:
- - `NODE_API_TRACE_HOST` - Trace messages about starting the native host and managed host and
+ - `NODE_API_TRACE_HOST=1` - Trace messages about starting the native host and managed host and
  dynanically exporting .NET types from the managed host to JS.
- - `NODE_API_TRACE_RUNTIME` - Trace all calls and callbacks across the JS/.NET boundary.
+   - If that is not enough, also set `COREHOST_TRACE=1` to trace .NET CLR host initialization.
+   Warning: The output is very verbose.
+ - `NODE_API_TRACE_RUNTIME=1` - Trace all calls and callbacks across the JS/.NET boundary.
 Tracing works with both debug and release builds.
 
 ## Check/fix formatting

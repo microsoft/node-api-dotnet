@@ -1,0 +1,13 @@
+{
+  "name": "node-api-dotnet-tests-edgejs",
+  "scripts": {
+    "compile": "tsc"
+  },
+  "dependencies": {
+    "edge-js": "^22.7.0",
+    "node-api-dotnet": "file:../../../out/pkg/node-api-dotnet"
+  },
+  "devDependencies": {
+    "@types/node": "^18.16.14"
+  }
+}

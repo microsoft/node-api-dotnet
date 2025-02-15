@@ -34,35 +34,35 @@ public class JSThreadSafeFunction
 
     // This API may only be called from the main thread.
     public unsafe JSThreadSafeFunction(int maxQueueSize,
-                                int initialThreadCount,
-                                in JSValue asyncResourceName,
-                                in JSValue? jsFunction = null,
-                                in JSObject? asyncResource = null,
-                                JSThreadSafeFinalizeCallback? finalize = null,
-                                object? functionContext = null,
-                                JSThreadSafeCallback? jsCaller = null)
+        int initialThreadCount,
+        in JSValue asyncResourceName,
+        in JSValue? jsFunction = null,
+        in JSObject? asyncResource = null,
+        JSThreadSafeFinalizeCallback? finalize = null,
+        object? functionContext = null,
+        JSThreadSafeCallback? jsCaller = null)
     {
         _runtime = JSValueScope.Current.Runtime;
 
         FunctionData functionData = new(functionContext, finalize, jsCaller);
 
-        // Do not use AllocGCHandle() because we're calling from another thread.
+        // Do not use AllocGCHandle() because the runtime context may not be initialized yet.
         GCHandle functionDataHandle = GCHandle.Alloc(functionData);
 
         napi_status status = _runtime.CreateThreadSafeFunction(
-                                 (napi_env)JSValueScope.Current,
-                                 (napi_value)jsFunction,
-                                 (napi_value)(JSValue?)asyncResource,
-                                 (napi_value)asyncResourceName,
-                                 maxQueueSize,
-                                 initialThreadCount,
-                                 threadFinalizeData: default,
-                                 new napi_finalize(s_finalizeFunctionData),
-                                 (nint)functionDataHandle,
-                                 (jsCaller != null)
-                                     ? new napi_threadsafe_function_call_js(s_customCallJS)
-                                     : new napi_threadsafe_function_call_js(s_defaultCallJS),
-                                 out _tsfn);
+            (napi_env)JSValueScope.Current,
+            (napi_value)jsFunction,
+            (napi_value)(JSValue?)asyncResource,
+            (napi_value)asyncResourceName,
+            maxQueueSize,
+            initialThreadCount,
+            threadFinalizeData: default,
+            new napi_finalize(s_finalizeFunctionData),
+            (nint)functionDataHandle,
+            (jsCaller != null)
+                ? new napi_threadsafe_function_call_js(s_customCallJS)
+                : new napi_threadsafe_function_call_js(s_defaultCallJS),
+            out _tsfn);
         if (status != napi_status.napi_ok)
         {
             functionDataHandle.Free();
@@ -229,10 +229,9 @@ public class JSThreadSafeFunction
             return;
         }
 
+        using JSValueScope scope = new(JSValueScopeType.Callback, env, runtime: null);
         try
         {
-            using JSValueScope scope = new(JSValueScopeType.Callback, env, runtime: null);
-
             object? callbackData = null;
             if (data != default)
             {
@@ -249,7 +248,9 @@ public class JSThreadSafeFunction
         }
         catch (Exception ex)
         {
-            JSError.Fatal(ex.Message);
+            // This will be an unhandled promise rejection, which will either trigger the
+            // process.unhandledRejection event (if a handler is registered) or end the process.
+            JSPromise.Reject(JSError.CreateErrorValueForException(ex, out _));
         }
     }
 
@@ -263,10 +264,9 @@ public class JSThreadSafeFunction
             return;
         }
 
+        using JSValueScope scope = new(JSValueScopeType.Callback, env, runtime: null);
         try
         {
-            using JSValueScope scope = new(JSValueScopeType.Callback, env, runtime: null);
-
             if (data != default)
             {
                 GCHandle dataHandle = GCHandle.FromIntPtr(data);
@@ -297,10 +297,9 @@ public class JSThreadSafeFunction
         }
         catch (Exception ex)
         {
-#if DEBUG
-            Console.Error.WriteLine(ex);
-#endif
-            JSError.Fatal(ex.Message);
+            // This will be an unhandled promise rejection, which will either trigger the
+            // process.unhandledRejection event (if a handler is registered) or end the process.
+            JSPromise.Reject(JSError.CreateErrorValueForException(ex, out _));
         }
     }
 

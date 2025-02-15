@@ -141,11 +141,18 @@ internal static class TestBuilder
             "  <GenerateNodeApiTypeDefinitions>false</GenerateNodeApiTypeDefinitions>\n" +
             "</PropertyGroup>\n";
 
+        // Don't include any C# files from the node_modules directory (if any).
+        string excludeNodeModules = "<ItemGroup>\n" +
+            "  <Compile Remove=\"node_modules\\**\\*.cs\" />\n" +
+            "  <None Remove=\"node_modules\\**\\*.*\" />\n" +
+            "</ItemGroup>\n";
+
         // Auto-generate a simple project file. Almost all project info is inherited from
         // TestCases/Directory.Build.{props,targets}.
         File.WriteAllText(projectFilePath, "<Project Sdk=\"Microsoft.NET.Sdk\">\n" +
             targetFramework +
             (moduleName == "napi-dotnet-init" ? noTypeDefs : string.Empty) +
+            excludeNodeModules +
             "</Project>\n");
 
         return projectFilePath;

@@ -4,6 +4,7 @@
 #pragma warning disable CA1822 // Mark members as static
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -33,7 +34,10 @@ public class NodejsEmbeddingTests
     {
         return NodejsPlatform.CreateThreadRuntime(
             Path.Combine(GetRepoRootDirectory(), "test"),
-            new NodeEmbeddingRuntimeSettings { MainScript = MainScript });
+            new NodeEmbeddingRuntimeSettings
+            {
+                MainScript = MainScript,
+            });
     }
 
     internal static void RunInNodejsEnvironment(Action action)
@@ -95,6 +99,294 @@ public class NodejsEmbeddingTests
 
         nodejs.Dispose();
         Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    private static string GetNormalizedStackTrace(Exception ex)
+    {
+        var stack = (ex.StackTrace ?? "").Replace("\r", "");
+        IEnumerable<string> stackLines = stack.Split('\n');
+        stackLines = stackLines.Where((line) => !line.StartsWith("---"));
+        Assert.True(stackLines.All((line) => line.StartsWith("   at ")));
+        stackLines = stackLines.Select((line) => line.Substring(6));
+        return string.Join("\n", stackLines);
+    }
+
+    private static void ThrowJSError(JSValue message)
+    {
+        var throwJSError = (JSFunction)JSValue.RunScript(
+            "(function throwJSError(msg) { throw new Error(msg); })");
+        throwJSError.CallAsStatic(message);
+    }
+
+    private static async Task ThrowJSAsyncError(JSValue message)
+    {
+        var throwJSAsyncError = (JSFunction)JSValue.RunScript(
+            "(function throwJSAsyncError() { return Promise.reject(new Error('test')); })");
+        var promise = (JSPromise)throwJSAsyncError.CallAsStatic(message);
+        await promise.AsTask();
+    }
+
+    private static JSValue ThrowDotnetException(JSCallbackArgs args)
+    {
+        var message = (string)args[0];
+        throw new ApplicationException(message);
+    }
+
+    [Fact]
+    public void DotnetToJSException()
+    {
+        if (JSSynchronizationContext.Current == null)
+        {
+            using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+            nodejs.Run(DotnetToJSException);
+            nodejs.Dispose();
+            Assert.Equal(0, nodejs.ExitCode);
+            return;
+        }
+
+        try
+        {
+            ThrowJSError("test");
+        }
+        catch (Exception ex)
+        {
+            Assert.Equal("test", ex.Message);
+            var stack = GetNormalizedStackTrace(ex);
+            var stackRegex = $"""
+                ^throwJSError in <anonymous>:line 1
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(ThrowJSError)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(DotnetToJSException)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                """.Replace("\r", "");
+            Assert.Matches(stackRegex, stack);
+        }
+    }
+
+    [Fact]
+    public async Task DotnetToJSAsyncException()
+    {
+        if (JSSynchronizationContext.Current == null)
+        {
+            using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+            await nodejs.RunAsync(DotnetToJSAsyncException);
+            nodejs.Dispose();
+            Assert.Equal(0, nodejs.ExitCode);
+            return;
+        }
+
+        try
+        {
+            await ThrowJSAsyncError("test");
+        }
+        catch (Exception ex)
+        {
+            Assert.Equal("test", ex.Message);
+            var stack = GetNormalizedStackTrace(ex);
+            var stackRegex = $"""
+                ^throwJSAsyncError in <anonymous>:line 1
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(ThrowJSAsyncError)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(DotnetToJSAsyncException)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                """.Replace("\r", "");
+            Assert.Matches(stackRegex, stack);
+        }
+    }
+
+    [Fact]
+    public void DotnetToJSToDotnetException()
+    {
+        if (JSSynchronizationContext.Current == null)
+        {
+            using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+            nodejs.Run(DotnetToJSToDotnetException);
+            nodejs.Dispose();
+            Assert.Equal(0, nodejs.ExitCode);
+            return;
+        }
+
+        JSFunction callDotnet = (JSFunction)JSValue.RunScript(
+            "(function callDotnet(f, msg) { f(msg); })");
+        try
+        {
+            callDotnet.CallAsStatic(new JSFunction(ThrowDotnetException), "test");
+        }
+        catch (Exception ex)
+        {
+            Assert.Equal("test", ex.Message);
+            var stack = GetNormalizedStackTrace(ex);
+            var stackRegex = $"""
+                ^{typeof(NodejsEmbeddingTests).FullName}.{nameof(ThrowDotnetException)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                callDotnet in <anonymous>:line 1
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(DotnetToJSToDotnetException)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                """.Replace("\r", "");
+            Assert.Matches(stackRegex, stack);
+        }
+    }
+
+    [Fact]
+    public void DotnetToJsToDotnetToJSException()
+    {
+        if (JSSynchronizationContext.Current == null)
+        {
+            using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+            nodejs.Run(DotnetToJsToDotnetToJSException);
+            nodejs.Dispose();
+            Assert.Equal(0, nodejs.ExitCode);
+            return;
+        }
+
+        JSFunction callDotnet = (JSFunction)JSValue.RunScript(
+            "(function callDotnet(f, msg) { f(msg); })");
+        try
+        {
+            callDotnet.CallAsStatic(new JSFunction(ThrowJSError), "test");
+        }
+        catch (Exception ex)
+        {
+            Assert.Equal("test", ex.Message);
+            var stack = GetNormalizedStackTrace(ex);
+            var stackRegex = $"""
+                ^throwJSError in <anonymous>:line 1
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(ThrowJSError)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                callDotnet in <anonymous>:line 1
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(DotnetToJsToDotnetToJSException)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                """.Replace("\r", "");
+            Assert.Matches(stackRegex, stack);
+        }
+    }
+
+    [Fact]
+    public void JSToDotnetException()
+    {
+        if (JSSynchronizationContext.Current == null)
+        {
+            using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+            nodejs.Run(JSToDotnetException);
+            nodejs.Dispose();
+            Assert.Equal(0, nodejs.ExitCode);
+            return;
+        }
+
+        JSFunction catchDotnetException = (JSFunction)JSValue.RunScript(
+            "(function catchDotnetException(f, msg) { try { return f(msg); } catch (e) { return e.stack; } })");
+        JSValue result = catchDotnetException.CallAsStatic(new JSFunction(ThrowDotnetException), "test");
+
+        Assert.True(result.IsString());
+        string stack = (string)result;
+        Assert.StartsWith("Error: test\n", stack);
+        stack = stack.Substring(stack.IndexOf('\n') + 1);
+
+        // Note a stack trace obtained from within JS is formatted in the JS style:
+        //  - Four spaces before "at"
+        //  - Source file:line references in parentheses
+        var stackRegex = $"""
+            ^    at {typeof(NodejsEmbeddingTests).FullName}.{nameof(ThrowDotnetException)}\([^)]*\) \(.*{nameof(NodejsEmbeddingTests)}\.cs:\d+\)
+                at catchDotnetException \(<anonymous>:\d+(:\d+)?\)
+            """.Replace("\r", "");
+        Assert.Matches(stackRegex, stack);
+    }
+
+    [Fact]
+    public async Task ThreadSafeFunctionException()
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+
+        string? unhandledErrorStack = null;
+        await nodejs.RunAsync(async () =>
+        {
+            // An exception thrown from a TSFN callback should trigger an unhandled rejection.
+            // (If a handler was not registered, it would end the process.)
+            nodejs.UnhandledPromiseRejection += (_, e) =>
+            {
+                unhandledErrorStack = (string)e.Error["stack"];
+            };
+
+            JSThreadSafeFunction tsfn = new(
+                maxQueueSize: 0,
+                initialThreadCount: 1,
+                asyncResourceName: (JSValue)nameof(NodejsEmbeddingTests));
+
+            await Task.Run(() =>
+            {
+                Assert.Null(JSSynchronizationContext.Current);
+
+                tsfn.BlockingCall(() =>
+                {
+                    ThrowJSError("Test TSFN exception");
+                });
+            });
+
+            tsfn.BlockingCall(() => tsfn.Unref());
+        });
+
+        Assert.NotNull(unhandledErrorStack);
+        Assert.StartsWith("Error: Test TSFN exception\n", unhandledErrorStack);
+        unhandledErrorStack = unhandledErrorStack.Substring(unhandledErrorStack.IndexOf('\n') + 1);
+
+        // A stack trace obtained from the UnhandledPromiseRejection event is formatted in the JS style.
+        var stackRegex = $"""
+            ^    at throwJSError \(<anonymous>:1\)
+                at {typeof(NodejsEmbeddingTests).FullName}.{nameof(ThrowJSError)}\([^)]*\) \(.*{nameof(NodejsEmbeddingTests)}\.cs:\d+\)
+                at {typeof(NodejsEmbeddingTests).FullName}.<>c.<{nameof(ThreadSafeFunctionException)}>.*\([^)]*\) \(.*{nameof(NodejsEmbeddingTests)}\.cs:\d+\)
+            """.Replace("\r", "");
+        Assert.Matches(stackRegex, unhandledErrorStack);
+
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    [Fact]
+    public void ErrorPropagation()
+    {
+        // This is similar to DotnetToJSException() test case above, but tests propagation of the exception outside
+        // the JS runtime thread. When that happens the exception is wrapped by an outer JSException.
+
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+
+        JSException exception = Assert.Throws<JSException>(() =>
+        {
+            nodejs.Run(() => ThrowJSError("test"));
+        });
+
+        Assert.Equal("Exception thrown from JS thread: test", exception.Message);
+        Assert.IsType<JSException>(exception.InnerException);
+
+        exception = (JSException)exception.InnerException;
+        Assert.Equal("test", exception.Message);
+
+        var stack = GetNormalizedStackTrace(exception);
+        var stackRegex = $"""
+                ^throwJSError in <anonymous>:line 1
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(ThrowJSError)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                {typeof(NodejsEmbeddingTests).FullName}.<>c.<{nameof(ErrorPropagation)}>.*\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                """.Replace("\r", "");
+        Assert.Matches(stackRegex, stack);
+    }
+
+    [Fact]
+    public async Task AsyncErrorPropagation()
+    {
+        // This is similar to DotnetToJSAsyncException() test case above, but tests propagation of the exception outside
+        // the JS runtime thread. When that happens the exception is wrapped by an outer JSException.
+
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+
+        JSException exception = await Assert.ThrowsAsync<JSException>(async () =>
+        {
+            await nodejs.RunAsync(async () => await ThrowJSAsyncError("test"));
+        });
+
+        Assert.Equal("Exception thrown from JS thread: test", exception.Message);
+        Assert.IsType<JSException>(exception.InnerException);
+
+        exception = (JSException)exception.InnerException;
+        Assert.Equal("test", exception.Message);
+
+        var stack = GetNormalizedStackTrace(exception);
+        var stackRegex = $"""
+                ^throwJSAsyncError in <anonymous>:line 1
+                {typeof(NodejsEmbeddingTests).FullName}.{nameof(ThrowJSAsyncError)}\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                {typeof(NodejsEmbeddingTests).FullName}.<>c.<<{nameof(AsyncErrorPropagation)}>.*\([^)]*\) in .*{nameof(NodejsEmbeddingTests)}\.cs:line \d+
+                """.Replace("\r", "");
+        Assert.Matches(stackRegex, stack);
     }
 
     [Fact]
@@ -221,42 +513,6 @@ public class NodejsEmbeddingTests
         for (int wait = 10; wait < 1000 && errorMessage == null; wait += 10) Thread.Sleep(10);
 
         Assert.Equal("test", errorMessage);
-    }
-
-    [Fact]
-    public void ErrorPropagation()
-    {
-        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
-
-        JSException exception = Assert.Throws<JSException>(() =>
-        {
-            nodejs.Run(() =>
-            {
-                JSValue.RunScript(
-                    "function throwError() { throw new Error('test'); }\n" +
-                    "throwError();");
-            });
-        });
-
-        Assert.Equal("Exception thrown from JS thread: test", exception.Message);
-        Assert.IsType<JSException>(exception.InnerException);
-
-        exception = (JSException)exception.InnerException;
-        Assert.Equal("test", exception.Message);
-
-        Assert.NotNull(exception.StackTrace);
-        string[] stackLines = exception.StackTrace
-            .Split('\n')
-            .Select((line) => line.Trim())
-            .ToArray();
-
-        // The first line of the stack trace should refer to the JS function that threw.
-        Assert.StartsWith("at throwError ", stackLines[0]);
-
-        // The stack trace should include lines that refer to the .NET method that called JS.
-        Assert.Contains(
-            stackLines,
-            (line) => line.StartsWith($"at {typeof(NodejsEmbeddingTests).FullName}."));
     }
 
     [Fact]

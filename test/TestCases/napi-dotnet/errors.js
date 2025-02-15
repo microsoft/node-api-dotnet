@@ -20,6 +20,7 @@ function catchDotnetError() {
   assert.strictEqual(error.message, 'test');
 
   assert(typeof error.stack === 'string');
+  console.log('catchDotnetError:');
   console.log(error.stack);
   console.log();
 
@@ -56,6 +57,7 @@ function catchJSError() {
   assert.strictEqual(error.message, 'test');
 
   assert(typeof error.stack === 'string');
+  console.log('catchJSError:');
   console.log(error.stack);
   console.log();
 
@@ -85,6 +87,62 @@ function catchJSError() {
 }
 catchJSError();
 
+function catchDotnetToJSToDotnetError() {
+  let error = undefined;
+  try {
+    Errors.throwJSError('test', { throwJSError: (message) => Errors.throwDotnetError(message) });
+  } catch (e) {
+    error = e;
+  }
+
+  assert(error instanceof Error);
+  assert.strictEqual(error.message, 'test');
+
+  assert(typeof error.stack === 'string');
+  console.log('catchDotnetToJSToDotnetError:');
+  console.log(error.stack);
+  console.log();
+
+  const stack = error.stack.split('\n').map((line) => line.trim());
+
+  // The stack should be prefixed with the error type and message.
+  const firstLine = stack.shift();
+  assert.strictEqual(firstLine, 'Error: test');
+
+  // The first line of the stack trace should refer to the .NET method that threw.
+  assert(stack[0].startsWith(`at ${dotnetNamespacePrefix}`));
+  assert(stack[0].includes('Errors.ThrowDotnetError('));
+
+  // Skip over following .NET lines in the stack trace. (Native delegates may include !<BaseAddress>)
+  while (stack[0].startsWith(`at ${dotnetNamespacePrefix}`) ||
+    stack[0].includes('!<')) stack.shift();
+
+  // The first JS line of the stack trace should refer to the JS interface callback method.
+  assert(stack[0].startsWith('at Object.throwJSError'));
+  stack.shift();
+
+  // The next JS line of the stack trace should refer to this JS function.
+  assert(stack[0].startsWith(`at ${catchDotnetToJSToDotnetError.name} `));
+  stack.shift();
+
+  // Skip over following JS lines in the stack trace.
+  while (!stack[0].startsWith(`at ${dotnetNamespacePrefix}`))
+    stack.shift();
+
+  // The .NET stack trace should include the .NET method that called the JS thrower.
+  while (stack.length > 0 && !stack[0].includes('ThrowJSError(')) stack.shift();
+  assert(stack.length > 0);
+
+  // Skip over .NET following lines in the stack trace. (Native delegates may include !<BaseAddress>)
+  while (stack.length > 0 && (stack[0].startsWith(`at ${dotnetNamespacePrefix}`) ||
+    stack[0].includes('!<'))) stack.shift();
+  assert(stack.length > 0);
+
+  // The next JS line of the stack trace should refer to this JS method.
+  assert(stack[0].startsWith(`at ${catchDotnetToJSToDotnetError.name} `));
+}
+catchDotnetToJSToDotnetError();
+
 async function catchAsyncDotnetError() {
   let error = undefined;
   try {
@@ -97,6 +155,7 @@ async function catchAsyncDotnetError() {
   assert.strictEqual(error.message, 'test');
 
   assert(typeof error.stack === 'string');
+  console.log('catchAsyncDotnetError:');
   console.log(error.stack);
   console.log();
 

@@ -2,11 +2,14 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
@@ -57,6 +60,12 @@ public struct JSError
 
     private const string ErrorWrapValue = "4bda9e7e-4913-4dbc-95de-891cbf66598e-errorVal";
     private const string DefaultMessage = "Error in native callback";
+
+    /// <summary>
+    /// Matches source file and line number references in .NET-style stack traces.
+    /// Used for reformatting .NET stack traces in JS style.
+    /// </summary>
+    private static readonly Regex s_dotnetSourceLineRefRegex = new(@" in ([^)]+):line (\d+)$");
 
     public unsafe JSError(
         string? message = null, JSErrorType errorType = JSErrorType.Error, string? code = null)
@@ -126,6 +135,11 @@ public struct JSError
         if (error is null)
             return;
 
+        if (!error.Value.IsError())
+        {
+            throw new ArgumentException("JS value is not an Error.");
+        }
+
         _errorRef = CreateErrorReference(error.Value);
     }
 
@@ -190,7 +204,7 @@ public struct JSError
         }
     }
 
-    private static JSValue CreateErrorValueForException(Exception exception, out string message)
+    internal static JSValue CreateErrorValueForException(Exception exception, out string message)
     {
         message = (exception as TargetInvocationException)?.InnerException?.Message
             ?? exception.Message;
@@ -205,32 +219,48 @@ public struct JSError
         // be available for the stack callback.
         if (JSValueScope.Current.ScopeType != JSValueScopeType.NoContext)
         {
-            // When running on V8, the `Error.captureStackTrace()` function and `Error.stack`
-            // property can be used to add the .NET stack info to the JS error stack.
-            JSValue captureStackTrace = JSValue.Global["Error"]["captureStackTrace"];
-            if (captureStackTrace.IsFunction())
-            {
-                // Capture the stack trace of the .NET exception, which will be combined with
-                // the JS stack trace when requested.
-                JSValue dotnetStack = exception.StackTrace?.Replace("\r", string.Empty)
-                    ?? string.Empty;
+            // Capture the stack trace of the .NET exception, which will be combined with
+            // the JS stack trace when requested.
+            JSValue dotnetStack = exception.StackTrace ?? JSValue.Undefined;
 
-                // Capture the current JS stack trace as an object.
-                // Defer formatting the stack as a string until requested.
-                JSObject jsStack = new();
-                captureStackTrace.Call(default, jsStack);
+            // Capture the current JS stack trace as an object.
+            // Defer formatting the stack as a string until requested.
+            JSObject jsStack = CaptureStackTrace();
 
-                // Override the `stack` property of the JS Error object, and add private
-                // properties that the overridden property getter uses to construct the stack.
-                error.DefineProperties(
-                    JSPropertyDescriptor.AccessorProperty(
-                        "stack", GetErrorStack, setter: null, JSPropertyAttributes.DefaultProperty),
-                    JSPropertyDescriptor.DataProperty("__dotnetStack", dotnetStack),
-                    JSPropertyDescriptor.DataProperty("__jsStack", jsStack));
-            }
+            // Override the `stack` property of the JS Error object, and add private
+            // properties that the overridden property getter uses to construct the stack.
+            // Properties must be configurable in case the error is caught and re-thrown.
+            error.DefineProperties(
+                JSPropertyDescriptor.AccessorProperty(
+                    "stack", GetErrorStack, setter: null, JSPropertyAttributes.Configurable),
+                JSPropertyDescriptor.DataProperty("__dotnetStack", dotnetStack, JSPropertyAttributes.Configurable),
+                JSPropertyDescriptor.DataProperty("__jsStack", jsStack, JSPropertyAttributes.Configurable));
         }
 
         return error;
+    }
+
+    /// <summary>
+    /// Captures the current JS stack on a new JS object.
+    /// </summary>
+    /// <returns>A JS object that has a `stack` property.</returns>
+    /// <remarks>
+    /// If `Error.captureStackTrace()` is not available (when not running on V8),
+    /// the returned object's `stack` property may be undefined.
+    /// </remarks>
+    internal static JSObject CaptureStackTrace()
+    {
+        JSObject jsStack = new();
+
+        // When running on V8, the `Error.captureStackTrace()` function and `Error.stack`
+        // property can be used to add the .NET stack info to the JS error stack.
+        JSValue captureStackTrace = JSValue.Global["Error"]["captureStackTrace"];
+        if (captureStackTrace.IsFunction())
+        {
+            captureStackTrace.Call(default, jsStack);
+        }
+
+        return jsStack;
     }
 
     public readonly void ThrowError()
@@ -313,32 +343,103 @@ public struct JSError
     /// </summary>
     private static JSValue GetErrorStack(JSCallbackArgs args)
     {
-        // Get the error type name and message from the current object.
-        string name = (string)args.ThisArg["constructor"]["name"];
-        string message = (string)args.ThisArg["message"];
+        string name = string.Empty;
+        string message = string.Empty;
+        IEnumerable<string> dotnetStackLines;
+        IEnumerable<string> jsStackLines;
+
+        JSValue error = args.ThisArg;
+        JSValue errorConstructor;
+        try
+        {
+            errorConstructor = error["constructor"];
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error getting combined stack error constructor: {ex}");
+            throw new Exception("Error getting combined stack error constructor: " + ex);
+        }
+
+        try
+        {
+            // Get the error type name and message from the current object.
+            name = (string)errorConstructor["name"];
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error getting combined stack error name: {ex}");
+            throw new Exception("Error getting combined stack error name: " + ex);
+        }
+
+        try
+        {
+            message = (string)args.ThisArg["message"];
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error getting combined stack message: " + ex);
+            throw new Exception("Error getting combined stack message: " + ex);
+        }
 
         // Get the separate .NET and JS stacks that were stashed by `ThrowError()`.
-        string dotnetStack = (string)args.ThisArg["__dotnetStack"];
-        string jsStack = (string)args.ThisArg["__jsStack"]["stack"];
-
-        // The first line is the error type name which was not captured on the private stack object.
-        int firstLineEnd = jsStack.IndexOf('\n');
-        if (firstLineEnd >= 0)
+        try
         {
-            jsStack = jsStack.Substring(firstLineEnd + 1);
+            string dotnetStack = (string)args.ThisArg["__dotnetStack"] ?? string.Empty;
+            dotnetStackLines = dotnetStack.Split('\n');
         }
-        else
+        catch (Exception ex)
         {
-            jsStack = "";
+            Console.WriteLine("Error getting combined stack .NET stack: " + ex);
+            throw new Exception("Error getting combined stack .NET stack: " + ex);
         }
 
-        // Normalize indentation to 4 spaces, as used by JS. (.NET traces indent with 3 spaces.)
-        if (jsStack.StartsWith("    at "))
+        try
         {
-            dotnetStack = dotnetStack.Replace("   at ", "    at ");
+            string jsStack = (string)args.ThisArg["__jsStack"]["stack"] ?? string.Empty;
+            jsStackLines = jsStack.Split('\n');
+
+            // The first line is the error type name which was not captured on the private stack object.
+            if (jsStackLines.Count() > 0)
+            {
+                jsStackLines = jsStackLines.Skip(1);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error getting combined stack JS stack: " + ex);
+            throw new Exception("Error getting combined stack JS stack: " + ex);
         }
 
-        return $"{name}: {message}\n{dotnetStack}{(jsStack.Length > 0 ? '\n' : "")}{jsStack}";
+        string stack = FormatStack(JSException.CleanupStack(dotnetStackLines).Concat(jsStackLines));
+        return $"{name}: {message}\n{stack}";
+    }
+
+    /// <summary>
+    /// Formats a stack trace (which may include .NET frames) in JS style.
+    /// </summary>
+    private static string FormatStack(IEnumerable<string> stackLines)
+    {
+        stackLines = stackLines.Select((line) => line.TrimEnd()).Where((line) => line.Length > 0);
+
+        // Normalize indentation to 4 spaces, as used by Node.js.
+        // (.NET traces indent with 3 spaces.)
+        stackLines = stackLines.Select((line) => line.StartsWith("   at ") ? " " + line : line);
+
+        // Format .NET source file and line number references in the JS style.
+        stackLines = stackLines.Select((line) =>
+        {
+            var match = s_dotnetSourceLineRefRegex.Match(line);
+            if (!match.Success)
+            {
+                return line;
+            }
+
+            string sourceFile = match.Groups[1].Value;
+            string lineNum = match.Groups[2].Value;
+            return line.Substring(0, match.Index) + $" ({sourceFile}:{lineNum})";
+        });
+
+        return string.Join("\n", stackLines);
     }
 
     [DoesNotReturn]

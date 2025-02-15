@@ -52,7 +52,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes no arguments and returns void.
+    /// Creates a new unnamed JS function that takes no arguments and returns void.
     /// </summary>
     public JSFunction(Action callback)
         : this(JSValue.CreateFunction(name: null, (args) => { callback(); return default; }))
@@ -60,7 +60,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes one argument and returns void.
+    /// Creates a new unnamed JS function that takes one argument and returns void.
     /// </summary>
     public JSFunction(Action<JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) => { callback(args[0]); return default; }))
@@ -68,7 +68,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes two arguments and returns void.
+    /// Creates a new unnamed JS function that takes two arguments and returns void.
     /// </summary>
     public JSFunction(Action<JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) =>
@@ -80,7 +80,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes three arguments and returns void.
+    /// Creates a new unnamed JS function that takes three arguments and returns void.
     /// </summary>
     public JSFunction(Action<JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) =>
@@ -92,7 +92,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes four arguments and returns void.
+    /// Creates a new unnamed JS function that takes four arguments and returns void.
     /// </summary>
     public JSFunction(Action<JSValue, JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) =>
@@ -104,7 +104,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes five arguments and returns void.
+    /// Creates a new unnamed JS function that takes five arguments and returns void.
     /// </summary>
     /// <param name="callback"></param>
     public JSFunction(Action<JSValue, JSValue, JSValue, JSValue, JSValue> callback)
@@ -117,7 +117,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes no arguments and returns a value.
+    /// Creates a new unnamed JS function that takes no arguments and returns a value.
     /// </summary>
     /// <param name="callback"></param>
     public JSFunction(Func<JSValue> callback)
@@ -126,7 +126,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes one argument and returns a value.
+    /// Creates a new unnamed JS function that takes one argument and returns a value.
     /// </summary>
     public JSFunction(Func<JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) => callback(args[0])))
@@ -134,7 +134,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes two arguments and returns a value.
+    /// Creates a new unnamed JS function that takes two arguments and returns a value.
     /// </summary>
     public JSFunction(Func<JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) => callback(args[0], args[1])))
@@ -142,7 +142,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes three arguments and returns a value.
+    /// Creates a new unnamed JS function that takes three arguments and returns a value.
     /// </summary>
     public JSFunction(Func<JSValue, JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) => callback(args[0], args[1], args[2])))
@@ -150,7 +150,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes four arguments and returns a value.
+    /// Creates a new unnamed JS function that takes four arguments and returns a value.
     /// </summary>
     public JSFunction(Func<JSValue, JSValue, JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) =>
@@ -159,7 +159,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new unnamed JS function takes five arguments and returns a value.
+    /// Creates a new unnamed JS function that takes five arguments and returns a value.
     /// </summary>
     public JSFunction(Func<JSValue, JSValue, JSValue, JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name: null, (args) =>
@@ -176,7 +176,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes no arguments and returns void.
+    /// Creates a new named JS function that takes no arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action callback)
         : this(JSValue.CreateFunction(name, (args) => { callback(); return default; }))
@@ -184,7 +184,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes one argument and returns void.
+    /// Creates a new named JS function that takes one argument and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) => { callback(args[0]); return default; }))
@@ -192,7 +192,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes two arguments and returns void.
+    /// Creates a new named JS function that takes two arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) =>
@@ -204,7 +204,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes three arguments and returns void.
+    /// Creates a new named JS function that takes three arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) =>
@@ -216,7 +216,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes four arguments and returns void.
+    /// Creates a new named JS function that takes four arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue, JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) =>
@@ -228,7 +228,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes five arguments and returns void.
+    /// Creates a new named JS function that takes five arguments and returns void.
     /// </summary>
     public JSFunction(string name, Action<JSValue, JSValue, JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) =>
@@ -240,7 +240,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes no arguments and returns a value.
+    /// Creates a new named JS function that takes no arguments and returns a value.
     /// </summary>
     public JSFunction(string name, Func<JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) => callback()))
@@ -248,7 +248,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes one argument and returns a value.
+    /// Creates a new named JS function that takes one argument and returns a value.
     /// </summary>
     public JSFunction(string name, Func<JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) => callback(args[0])))
@@ -256,7 +256,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes two arguments and returns a value.
+    /// Creates a new named JS function that takes two arguments and returns a value.
     /// </summary>
     public JSFunction(string name, Func<JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) => callback(args[0], args[1])))
@@ -264,7 +264,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes three arguments and returns a value.
+    /// Creates a new named JS function that takes three arguments and returns a value.
     /// </summary>
     public JSFunction(string name, Func<JSValue, JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) => callback(args[0], args[1], args[2])))
@@ -272,7 +272,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes four arguments and returns a value.
+    /// Creates a new named JS function that takes four arguments and returns a value.
     /// </summary>
     public JSFunction(string name, Func<JSValue, JSValue, JSValue, JSValue, JSValue> callback)
         : this(JSValue.CreateFunction(name, (args) => callback(args[0], args[1], args[2], args[3])))
@@ -280,7 +280,7 @@ public readonly struct JSFunction : IJSValue<JSFunction>
     }
 
     /// <summary>
-    /// Creates a new named JS function takes five arguments and returns a value.
+    /// Creates a new named JS function that takes five arguments and returns a value.
     /// </summary>
     public JSFunction(
         string name, Func<JSValue, JSValue, JSValue, JSValue, JSValue, JSValue> callback)

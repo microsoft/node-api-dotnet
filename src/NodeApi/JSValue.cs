@@ -1258,7 +1258,7 @@ public readonly struct JSValue : IJSValue<JSValue>
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-    internal static unsafe napi_value InvokeJSCallback(
+    private static napi_value InvokeJSCallback(
         napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSCallbackDescriptor>(
@@ -1268,7 +1268,7 @@ public readonly struct JSValue : IJSValue<JSValue>
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-    private static unsafe napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
+    private static napi_value InvokeJSMethod(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
             env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) => new(
@@ -1281,7 +1281,7 @@ public readonly struct JSValue : IJSValue<JSValue>
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-    private static unsafe napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
+    private static napi_value InvokeJSGetter(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
             env, callbackInfo, JSValueScopeType.Callback, (propertyDescriptor) => new(
@@ -1307,7 +1307,7 @@ public readonly struct JSValue : IJSValue<JSValue>
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-    internal static unsafe napi_value InvokeJSCallbackNoContext(
+    private static napi_value InvokeJSCallbackNoContext(
         napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSCallbackDescriptor>(
@@ -1317,7 +1317,7 @@ public readonly struct JSValue : IJSValue<JSValue>
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-    private static unsafe napi_value InvokeJSMethodNoContext(napi_env env, napi_callback_info callbackInfo)
+    private static napi_value InvokeJSMethodNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
             env, callbackInfo, JSValueScopeType.NoContext, (propertyDescriptor) => new(
@@ -1330,7 +1330,7 @@ public readonly struct JSValue : IJSValue<JSValue>
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-    private static unsafe napi_value InvokeJSGetterNoContext(napi_env env, napi_callback_info callbackInfo)
+    private static napi_value InvokeJSGetterNoContext(napi_env env, napi_callback_info callbackInfo)
     {
         return InvokeCallback<JSPropertyDescriptor>(
             env, callbackInfo, JSValueScopeType.NoContext, (propertyDescriptor) => new(
@@ -1353,7 +1353,10 @@ public readonly struct JSValue : IJSValue<JSValue>
                 propertyDescriptor.ModuleContext));
     }
 
-    private static unsafe napi_value InvokeCallback<TDescriptor>(
+    /// <summary>
+    /// Common entry point for JS calling into .NET.
+    /// </summary>
+    private static napi_value InvokeCallback<TDescriptor>(
         napi_env env,
         napi_callback_info callbackInfo,
         JSValueScopeType scopeType,

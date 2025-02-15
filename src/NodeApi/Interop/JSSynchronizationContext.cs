@@ -292,6 +292,8 @@ internal sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
     {
         if (IsDisposed) return;
 
+        // TODO: NonBlockingCall() may return false if the queue was full. Throw in that case?
+        // Or consider switching to BlockingCall()?
         _tsfn.NonBlockingCall(() => callback(state));
     }
 
@@ -305,6 +307,8 @@ internal sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
 
         if (IsDisposed) return;
 
+        // TODO: NonBlockingCall() may return false if the queue was full. Throw in that case?
+        // Or consider switching to BlockingCall()?
         using ManualResetEvent syncEvent = new(false);
         _tsfn.NonBlockingCall(() =>
         {
