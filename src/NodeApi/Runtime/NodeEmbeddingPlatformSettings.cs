@@ -8,6 +8,7 @@ using static NodejsRuntime;
 
 public class NodeEmbeddingPlatformSettings
 {
+    public string? LibNodePath { get; set; }
     public NodeEmbeddingPlatformFlags? PlatformFlags { get; set; }
     public string[]? Args { get; set; }
     public ConfigurePlatformCallback? ConfigurePlatform { get; set; }

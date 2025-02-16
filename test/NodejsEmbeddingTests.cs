@@ -22,11 +22,9 @@ public class NodejsEmbeddingTests
     private static string MainScript { get; } =
         "globalThis.require = require('module').createRequire(process.execPath);\n";
 
-    private static string LibnodePath { get; } = GetLibnodePath();
-
     // The Node.js platform may only be initialized once per process.
     internal static NodeEmbeddingPlatform NodejsPlatform { get; } =
-        new(LibnodePath, new NodeEmbeddingPlatformSettings
+        new(new NodeEmbeddingPlatformSettings
         {
             Args = new[] { "node", "--expose-gc" }
         });

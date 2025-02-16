@@ -77,11 +77,6 @@ public static class TestUtils
         else return ".so";
     }
 
-    public static string GetLibnodePath() =>
-        Path.Combine(
-            Path.GetDirectoryName(GetAssemblyLocation()) ?? string.Empty,
-            "libnode" + GetSharedLibraryExtension());
-
     public static string? LogOutput(
         Process process,
         StreamWriter logWriter)
