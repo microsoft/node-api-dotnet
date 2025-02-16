@@ -475,7 +475,7 @@ public class JSMarshaller
 
         ParameterExpression resultVariable = Expression.Variable(
             constructor.DeclaringType!, "__result");
-        variables = new List<ParameterExpression>(argVariables.Append(resultVariable));
+        variables = [.. argVariables.Append(resultVariable)];
         statements.Add(Expression.Assign(resultVariable,
             Expression.New(constructor, argVariables)));
 

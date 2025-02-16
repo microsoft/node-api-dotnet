@@ -333,7 +333,7 @@ dotnet.load(assemblyName);";
 
     private static Version InferReferenceAssemblyVersionFromPath(string assemblyPath)
     {
-        var pathParts = assemblyPath.Split(
+        List<string> pathParts = assemblyPath.Split(
             Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToList();
 
         // Infer the version from a system reference assembly path such as
@@ -1230,7 +1230,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
             return;
         }
 
-        List<string> namespaceParts = new(type.Namespace?.Split('.') ?? Enumerable.Empty<string>());
+        List<string> namespaceParts = [.. type.Namespace?.Split('.') ?? Enumerable.Empty<string>()];
 
         int namespacePartsCount = namespaceParts.Count;
         Type? declaringType = type.DeclaringType;
