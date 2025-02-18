@@ -178,7 +178,7 @@ public class TracingJSRuntime : JSRuntime
                         valueString = $" {GetValueString(env, functionName)}()";
                     }
                     break;
-            };
+            }
 
             return $"{value.Handle:X16} {valueType.ToString().Substring(5)}{valueString}";
         }

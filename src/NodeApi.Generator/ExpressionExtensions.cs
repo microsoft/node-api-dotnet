@@ -59,9 +59,8 @@ internal static class ExpressionExtensions
                 (variables is null ? FormatType(lambda.ReturnType) + " " + lambda.Name + "(" +
                   string.Join(", ", lambda.Parameters.Select((p) => p.ToCS())) + ")\n" :
                 "(" + string.Join(", ", lambda.Parameters.Select((p) => p.ToCS())) + ") =>\n") +
-                ToCS(lambda.Body, path, new HashSet<string>(
-                    (variables ?? Enumerable.Empty<string>()).Union(
-                        lambda.Parameters.Select((p) => p.Name!)))),
+                ToCS(lambda.Body, path, [.. (variables ?? Enumerable.Empty<string>()).Union(
+                        lambda.Parameters.Select((p) => p.Name!))]),
 
             ParameterExpression parameter =>
                 (parameter.IsByRef && parameter.Name?.StartsWith(OutParameterPrefix) == true) ?
@@ -285,7 +284,7 @@ internal static class ExpressionExtensions
             if (assignment.Left is ParameterExpression variable &&
                 !variables.Contains(variable.Name!))
             {
-                variables = new HashSet<string>(variables.Union(new[] { variable.Name! }));
+                variables = [.. variables.Union(new[] { variable.Name! })];
                 s += FormatType(variable.Type) + " " + s;
             }
         }

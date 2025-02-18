@@ -4,10 +4,12 @@
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 using System;
+using System.IO;
 #if UNMANAGED_DELEGATES
 using System.Runtime.CompilerServices;
 #endif
 using System.Runtime.InteropServices;
+
 using static JSRuntime;
 using static NodejsRuntime;
 
@@ -33,15 +35,108 @@ public sealed class NodeEmbedding
         }
     }
 
-    public static void Initialize(string libNodePath)
+#if NETFRAMEWORK || NETSTANDARD
+
+    /// <summary>
+    /// Discovers the fallback RID of the current platform.
+    /// </summary>
+    /// <returns></returns>
+    static string? GetFallbackRuntimeIdentifier()
     {
-        if (string.IsNullOrEmpty(libNodePath)) throw new ArgumentNullException(nameof(libNodePath));
+        string? arch = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X86 => "x86",
+            Architecture.X64 => "x64",
+            Architecture.Arm => "arm",
+            Architecture.Arm64 => "arm64",
+            _ => null,
+        };
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return arch is not null ? $"win-{arch}" : "win";
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            return arch is not null ? $"linux-{arch}" : "linux";
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            return arch is not null ? $"osx-{arch}" : "osx";
+
+        return null;
+    }
+
+    /// <summary>
+    /// Returns a version of the library name with the OS specific prefix and suffix.
+    /// </summary>
+    /// <param name="name"></param>
+    /// <returns></returns>
+    static string? MapLibraryName(string name)
+    {
+        if (name is null)
+            return null;
+
+        if (Path.HasExtension(name))
+            return name;
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return name + ".dll";
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            return name + ".dylib";
+
+        return name + ".so";
+    }
+
+    /// <summary>
+    /// Scans the runtimes/{rid}/native directory relative to the application base directory for the native library.
+    /// </summary>
+    /// <returns></returns>
+    static string? FindLocalLibNode()
+    {
+        if (GetFallbackRuntimeIdentifier() is string rid)
+            if (MapLibraryName("libnode") is string fileName)
+                if (Path.Combine(AppContext.BaseDirectory, "runtimes", rid, "native", fileName) is string libPath)
+                    if (File.Exists(libPath))
+                        return libPath;
+
+        return null;
+    }
+
+#endif
+
+    /// <summary>
+    /// Attempts to load the libnode library using the discovery logic as appropriate for the platform.
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="DllNotFoundException"></exception>
+    static nint LoadDefaultLibNode()
+    {
+#if NETFRAMEWORK || NETSTANDARD
+        // search local paths that would be provided by LibNode packages
+        string? path = FindLocalLibNode();
+        if (path is not null)
+            if (NativeLibrary.TryLoad(path, out nint handle))
+                return handle;
+#else
+        // search using default dependency context
+        if (NativeLibrary.TryLoad("libnode", typeof(NodeEmbedding).Assembly, null, out nint handle))
+            return handle;
+#endif
+
+        // attempt to load from default OS search paths
+        if (NativeLibrary.TryLoad("libnode", out nint defaultHandle))
+            return defaultHandle;
+
+        throw new DllNotFoundException("The JSRuntime cannot locate the libnode shared library.");
+    }
+
+    public static void Initialize(string? libNodePath)
+    {
         if (s_jsRuntime != null)
         {
             throw new InvalidOperationException(
                 "The JSRuntime can be initialized only once per process.");
         }
-        nint libnodeHandle = NativeLibrary.Load(libNodePath);
+        nint libnodeHandle = libNodePath is null ? LoadDefaultLibNode() : NativeLibrary.Load(libNodePath);
         s_jsRuntime = new NodejsRuntime(libnodeHandle);
     }
 
