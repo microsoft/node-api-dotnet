@@ -46,16 +46,6 @@ extends:
           displayName: Show directory contents
         - script: dotnet nuget list source
           displayName: Show Nuget sources
-        - task: 1ES.PublishNuGet@1
-          displayName: NuGet push
-          inputs:
-            useDotNetTask: true
-            packageParentPath: '$(Pipeline.Workspace)/published-packages'
-            packagesToPush: '$(Pipeline.Workspace)/published-packages/Microsoft.JavaScript.NodeApi.*.nupkg'
-            nuGetFeedType: external
-            publishFeedCredentials: 'Nuget - ms/react-native-public'
-            externalEndpoint: 'Nuget - ms/react-native-public'
-            publishPackageMetadata: true
 
     - stage: ms_react_native_npm_publish
       displayName: npm ms/react-native feed
@@ -86,12 +76,6 @@ extends:
           inputs:
             workingFile: $(Pipeline.Workspace)\published-packages\.npmrc
             customEndpoint: Npm - ms/react-native
-        - task: CmdLine@2
-          displayName: npm publish to react-native feed
-          inputs:
-            script: |
-              cd $(Pipeline.Workspace)\published-packages
-              for %%i in (*.tgz) do npm publish %%i
 
     - stage: nuget_org_publish
       displayName: Nuget nuget.org feed
@@ -119,14 +103,6 @@ extends:
           displayName: 'NuGet SetApiKey (nuget.org)'
         - script: dir /S $(Pipeline.Workspace)\published-packages
           displayName: Show directory contents
-        - script: >
-            nuget.exe push
-            $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg
-            -Source https://api.nuget.org/v3/index.json
-            -SkipDuplicate
-            -NonInteractive
-            -Verbosity Detailed
-          displayName: 'NuGet push (nuget.org)'
 
     - stage: npmjs_com_npm_publish
       displayName: npm npmjs.com feed
