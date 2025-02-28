@@ -3,9 +3,9 @@ name: $(Date:yyyyMMdd).$(Rev:r)
 
 resources:
   pipelines:
-  - pipeline: '_microsoftnode-api-dotnet'
+  - pipeline: 'microsoft_node-api-dotnet_ci'
     project: 'ISS'
-    source: 'microsoft.node-api-dotnet'
+    source: 'microsoft.node-api-dotnet.ci'
     trigger:
       branches:
         include:
@@ -38,7 +38,7 @@ extends:
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: _microsoftnode-api-dotnet
+            pipeline: microsoft_node-api-dotnet_ci
             artifactName: published-packages
             targetPath: $(Pipeline.Workspace)\published-packages
         steps:
@@ -57,7 +57,7 @@ extends:
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: '_microsoftnode-api-dotnet'
+            pipeline: microsoft_node-api-dotnet_ci
             artifactName: 'published-packages'
             targetPath: $(Pipeline.Workspace)\published-packages
         steps:
@@ -87,7 +87,7 @@ extends:
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: '_microsoftnode-api-dotnet'
+            pipeline: microsoft_node-api-dotnet_ci
             artifactName: 'published-packages'
             targetPath: '$(Pipeline.Workspace)/published-packages'
         steps:
@@ -114,7 +114,7 @@ extends:
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: '_microsoftnode-api-dotnet'
+            pipeline: microsoft_node-api-dotnet_ci
             artifactName: 'published-packages'
             targetPath: $(Pipeline.Workspace)\published-packages
 
