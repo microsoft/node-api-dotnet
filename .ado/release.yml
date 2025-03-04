@@ -55,6 +55,7 @@ extends:
             authcertname: 'OGX-JSHost-Auth4'
             signcertname: 'OGX-JSHost-Sign3'
             clientid: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+            domaintenantid: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
             contenttype: npm
             folderlocation: $(Pipeline.Workspace)\published-packages
             owners: 'vmorozov@microsoft.com'
