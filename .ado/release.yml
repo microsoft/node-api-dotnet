@@ -50,7 +50,7 @@ extends:
           displayName: 'ESRP Release to npmjs.com'
           inputs:
             connectedservicename: 'ESRP-JSHost3'
-            usemanagedidentity: true
+            usemanagedidentity: false
             keyvaultname: 'OGX-JSHost-KV'
             authcertname: 'OGX-JSHost-Auth4'
             signcertname: 'OGX-JSHost-Sign3'
