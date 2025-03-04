@@ -43,6 +43,9 @@ extends:
             targetPath: $(Pipeline.Workspace)\published-packages
 
         steps:
+        - script: dir /S $(Pipeline.Workspace)\published-packages
+          displayName: Show directory contents
+
         - task: 'SFP.release-tasks.custom-build-release-task.EsrpRelease@9'
           displayName: 'ESRP Release to npmjs.com'
           inputs:
@@ -52,7 +55,7 @@ extends:
             authcertname: 'OGX-JSHost-Auth4'
             signcertname: 'OGX-JSHost-Sign3'
             clientid: '0a35e01f-eadf-420a-a2bf-def002ba898d'
-            contenttype: Maven
+            contenttype: npm
             folderlocation: $(Pipeline.Workspace)\published-packages
             owners: 'vmorozov@microsoft.com'
             approvers: 'khosany@microsoft.com'
