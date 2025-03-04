@@ -1,19 +1,29 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+# 
+# The Release pipeline to publish NPM and NuGet packages
+# to public ADO feeds and to npmjs.com and Nuget.org feeds.
+#
+
 trigger: none
 name: $(Date:yyyyMMdd).$(Rev:r)
+
 resources:
   pipelines:
-  - pipeline: '_microsoftnode-api-dotnet'
+  - pipeline: 'microsoft_node-api-dotnet_ci'
     project: 'ISS'
-    source: 'microsoft.node-api-dotnet'
+    source: 'microsoft.node-api-dotnet.ci'
     trigger:
       branches:
         include:
         - main
+
   repositories:
   - repository: CustomPipelineTemplates
     type: git
     name: 1ESPipelineTemplates/OfficePipelineTemplates
     ref: refs/tags/release
+
 extends:
   template: v1/Office.Official.PipelineTemplate.yml@CustomPipelineTemplates
   parameters:
@@ -23,26 +33,34 @@ extends:
       os: windows
     customBuildTags:
     - ES365AIMigrationTooling-BulkMigrated-Release
-    stages:
+    sdl:
+      eslint:
+        enableExclusions: true
+        # This repo does not ship any javascript code. But has many test cases for the js engine that fail parsing, have code considered insecure and crash eslint.
+        exclusionPatterns: |
+          '**/*.*'
 
+    stages:
     - stage: ms_react_native_nuget_publish
       displayName: Nuget ms/react-native feed
       jobs:
       - job: ms_react_native_nuget_job
         displayName: Publish Nuget to ms/react-native
-        condition: succeeded()
-        timeoutInMinutes: 0
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: _microsoftnode-api-dotnet
+            pipeline: microsoft_node-api-dotnet_ci
             artifactName: published-packages
             targetPath: $(Pipeline.Workspace)\published-packages
+
+        # Use 1ES.PublishNuGet task to securely publish NuGet packages to ms/react-native-public feed.
         steps:
         - script: dir /S $(Pipeline.Workspace)\published-packages
           displayName: Show directory contents
+
         - script: dotnet nuget list source
           displayName: Show Nuget sources
+
         - task: 1ES.PublishNuGet@1
           displayName: NuGet push
           inputs:
@@ -59,30 +77,36 @@ extends:
       jobs:
       - job: ms_react_native_npm_job
         displayName: Agent job
-        condition: succeeded()
-        timeoutInMinutes: 0
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: '_microsoftnode-api-dotnet'
+            pipeline: microsoft_node-api-dotnet_ci
             artifactName: 'published-packages'
             targetPath: $(Pipeline.Workspace)\published-packages
+
+        # Use the NPM utility to authenticate and publish to ADO ms/react-native feed
         steps:
         - task: NodeTool@0
-          displayName: Use Node 20.x
+          displayName: Use Node 22.x
           inputs:
-            versionSpec: 20.x
+            versionSpec: 22.x
+
         - task: CmdLine@2
           displayName: Setup npmrc file for react-native feed
           inputs:
             script: |
               echo registry=https://pkgs.dev.azure.com/ms/_packaging/react-native/npm/registry/ > $(Pipeline.Workspace)\published-packages\.npmrc
               echo always-auth=true >> $(Pipeline.Workspace)\published-packages\.npmrc
+
         - task: npmAuthenticate@0
           displayName: npm Authenticate .npmrc
           inputs:
             workingFile: $(Pipeline.Workspace)\published-packages\.npmrc
             customEndpoint: Npm - ms/react-native
+
+        - script: dir /S $(Pipeline.Workspace)\published-packages
+          displayName: Show directory contents
+
         - task: CmdLine@2
           displayName: npm publish to react-native feed
           inputs:
@@ -95,14 +119,14 @@ extends:
       jobs:
       - job: nuget_org_job
         displayName: Publish Nuget to nuget.org
-        condition: succeeded()
-        timeoutInMinutes: 0
         templateContext:
           inputs:
           - input: pipelineArtifact
-            pipeline: '_microsoftnode-api-dotnet'
+            pipeline: microsoft_node-api-dotnet_ci
             artifactName: 'published-packages'
             targetPath: '$(Pipeline.Workspace)/published-packages'
+
+        # Take the API Key from the OGX Torus subscription KV storage and use it to publish to Noget.org
         steps:
         - task: AzureKeyVault@2
           inputs:
@@ -110,12 +134,16 @@ extends:
             KeyVaultName: OGX-JSHost-KV
             SecretsFilter: 'OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi'
             RunAsPreJob: true
+
         - task: NuGetToolInstaller@1
           displayName: 'Use NuGet'
+
         - script: 'nuget.exe SetApiKey $(OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi)'
           displayName: 'NuGet SetApiKey (nuget.org)'
+
         - script: dir /S $(Pipeline.Workspace)\published-packages
           displayName: Show directory contents
+
         - script: >
             nuget.exe push
             $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg
@@ -124,3 +152,35 @@ extends:
             -NonInteractive
             -Verbosity Detailed
           displayName: 'NuGet push (nuget.org)'
+
+    - stage: npmjs_com_npm_publish
+      displayName: npm npmjs.com feed
+      jobs:
+      - job: npmjs_com_npm_job
+        displayName: Publish to npmjs.com
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: microsoft_node-api-dotnet_ci
+            artifactName: 'published-packages'
+            targetPath: $(Pipeline.Workspace)\published-packages
+
+        # Use ESRP Release to securely publish to npmjs.com.
+        steps:
+        - script: dir /S $(Pipeline.Workspace)\published-packages
+          displayName: Show directory contents
+
+        - task: 'SFP.release-tasks.custom-build-release-task.EsrpRelease@9'
+          displayName: 'ESRP Release to npmjs.com'
+          inputs:
+            connectedservicename: 'ESRP-JSHost3'
+            usemanagedidentity: false
+            keyvaultname: 'OGX-JSHost-KV'
+            authcertname: 'OGX-JSHost-Auth4'
+            signcertname: 'OGX-JSHost-Sign3'
+            clientid: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+            domaintenantid: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
+            contenttype: npm
+            folderlocation: $(Pipeline.Workspace)\published-packages
+            owners: 'vmorozov@microsoft.com'
+            approvers: 'khosany@microsoft.com'
