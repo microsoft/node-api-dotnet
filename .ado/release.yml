@@ -41,11 +41,11 @@ extends:
           '**/*.*'
 
     stages:
-    - stage: ms_react_native_nuget_publish
-      displayName: Nuget ms/react-native feed
+    - stage: main_release
+      displayName: Publish packages
       jobs:
       - job: ms_react_native_nuget_job
-        displayName: Publish Nuget to ms/react-native
+        displayName: Publish Nuget to ADO ms/react-native-public feed
         templateContext:
           inputs:
           - input: pipelineArtifact
@@ -72,11 +72,8 @@ extends:
             externalEndpoint: 'Nuget - ms/react-native-public'
             publishPackageMetadata: true
 
-    - stage: ms_react_native_npm_publish
-      displayName: npm ms/react-native feed
-      jobs:
       - job: ms_react_native_npm_job
-        displayName: Agent job
+        displayName: Publish NPM to ADO ms/react-native feed
         templateContext:
           inputs:
           - input: pipelineArtifact
@@ -114,9 +111,6 @@ extends:
               cd $(Pipeline.Workspace)\published-packages
               for %%i in (*.tgz) do npm publish %%i
 
-    - stage: nuget_org_publish
-      displayName: Nuget nuget.org feed
-      jobs:
       - job: nuget_org_job
         displayName: Publish Nuget to nuget.org
         templateContext:
@@ -153,9 +147,6 @@ extends:
             -Verbosity Detailed
           displayName: 'NuGet push (nuget.org)'
 
-    - stage: npmjs_com_npm_publish
-      displayName: npm npmjs.com feed
-      jobs:
       - job: npmjs_com_npm_job
         displayName: Publish to npmjs.com
         templateContext:
