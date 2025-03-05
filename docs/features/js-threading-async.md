@@ -4,7 +4,7 @@ JavaScript engines have a single-threaded execution model. That means all access
 data or operations must be performed from the JavaScript thread.
 (It is possible run multiple JavaScript execution threads in a process using
 [Web workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API) or the
-[`NodejsEnvironment`](../reference/dotnet/Microsoft.JavaScript.NodeApi.Runtime/NodejsEnvironment)
+[`NodeEmbeddingRuntime`](../reference/dotnet/Microsoft.JavaScript.NodeApi.Runtime/NodeEmbeddingRuntime)
 class, but the thread affinity rules still apply.)
 
 ## Invalid thread access
