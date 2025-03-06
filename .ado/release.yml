@@ -47,6 +47,8 @@ extends:
       - job: nuget_ms_react_native_public_job
         displayName: NuGet to ADO ms/react-native-public feed
         templateContext:
+          type: releaseJob
+          isProduction: true
           inputs:
           - input: pipelineArtifact
             pipeline: microsoft_node-api-dotnet_ci
@@ -75,6 +77,8 @@ extends:
       - job: npm_ms_react_native_job
         displayName: NPM to ADO ms/react-native feed
         templateContext:
+          type: releaseJob
+          isProduction: true
           inputs:
           - input: pipelineArtifact
             pipeline: microsoft_node-api-dotnet_ci
@@ -114,6 +118,8 @@ extends:
       - job: nuget_org_job
         displayName: NuGet to nuget.org
         templateContext:
+          type: releaseJob
+          isProduction: true
           inputs:
           - input: pipelineArtifact
             pipeline: microsoft_node-api-dotnet_ci
@@ -150,6 +156,8 @@ extends:
       - job: npmjs_com_job
         displayName: NPM to npmjs.com
         templateContext:
+          type: releaseJob
+          isProduction: true
           inputs:
           - input: pipelineArtifact
             pipeline: microsoft_node-api-dotnet_ci
