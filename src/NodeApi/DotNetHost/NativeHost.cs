@@ -347,7 +347,7 @@ internal unsafe partial class NativeHost : IDisposable
                 runtimeConfigPathBytes, initializeParameters: null, out hostContextHandle);
         }
 
-        CheckStatus(status, "Failed to inialize CLR host.");
+        CheckStatus(status, "Failed to initialize CLR host.");
 
         Trace("< NativeHost.InitializeManagedRuntime()");
         return hostContextHandle;
