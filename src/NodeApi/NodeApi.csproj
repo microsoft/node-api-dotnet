@@ -23,6 +23,11 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
+  <ItemGroup Condition=" !$(NetFramework) AND !$(NetStandard) ">
+    <!-- Support ASP.NET runtime in addition to regular .NET runtime in runtimeconfig.json. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup Condition=" $(NetFramework) OR $(NetStandard) ">
     <PackageReference Include="System.Memory" />
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
