@@ -112,7 +112,7 @@ export default defineConfig({
     },
 
     editLink: {
-        pattern: 'https://github.com/microsoft/node-api-dotnet/docs/:path',
+        pattern: 'https://github.com/microsoft/node-api-dotnet/edit/main/docs/:path',
     },
 
     footer: {
