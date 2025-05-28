@@ -98,6 +98,6 @@ For a minimal example of this scenario, see
     ExampleModule.StaticClass.ExampleMethod();
     const exampleObj = new ExampleModule.ExampleClass(...args);
     ```
-    Of course you can access properites, pass arguments to methods, get return values, and so on.
+    Of course you can access properties, pass arguments to methods, get return values, and so on.
     Most types get automatically marshalled between JavaScript and .NET as you'd expect. For
     details, see the [JavaScript / .NET type mappings reference](../reference/js-dotnet-types).
