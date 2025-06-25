@@ -14,7 +14,8 @@ namespace Microsoft.JavaScript.NodeApi.DotNetHost;
 /// Contains definitions and factory methods for lambda expression delegates used in JS marshalling.
 /// </summary>
 /// <remarks>
-/// When constructing a lambda expression, the <see cref="Expression.Lambda()" /> method takes
+/// When constructing a lambda expression, the
+/// <see cref="Expression.Lambda(Expression, ParameterExpression[])" /> method takes
 /// an optional first parameter that is the delegate type of the resulting expression. Any JS
 /// marshalling code in this library should always use this helper class to explicitly supply the
 /// delegate type when constructing a lambda expression.

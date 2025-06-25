@@ -420,8 +420,8 @@ public class TypeExporter
     /// This method does NOT register namespaces for the exported type on the JS "namespaces"
     /// object (if one was passed to the <see cref="TypeExporter" /> constructor). It is
     /// sufficient for explicit marshalling of the exported type using .NET code, but not
-    /// for dynamic access of the .NET type from JS code. Use <see cref="ExportAssemblyTypes()" />
-    /// instead for full namespace export.
+    /// for dynamic access of the .NET type from JS code.
+    /// Use <see cref="ExportAssemblyTypes(Assembly)" /> instead for full namespace export.
     /// </remarks>
     public JSReference ExportType(Type type, bool? deferMembers = null)
     {
@@ -1102,7 +1102,7 @@ public class TypeExporter
     /// </summary>
     /// <param name="args">Type arguments passed as JS values.</param>
     /// <param name="exportConstructedGeneric">A callback that exports a constructed generic
-    /// type to JS and returns the exported JS class object.
+    /// type to JS and returns the exported JS class object.</param>
     /// <returns>A JS value that represents the constructed generic type.</returns>
     private static JSValue MakeGenericType(
         JSCallbackArgs args,

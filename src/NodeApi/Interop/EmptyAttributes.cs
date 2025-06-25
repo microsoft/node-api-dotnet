@@ -1,13 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
+
 #if NETFRAMEWORK || NETSTANDARD
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 
 // This file provides empty definitions for attributes that are not available in .NET Framework.
-
-using System;
 
 namespace System.Diagnostics.CodeAnalysis
 {
@@ -80,6 +80,25 @@ namespace System.Diagnostics
     public sealed class StackTraceHiddenAttribute : Attribute
     {
         public StackTraceHiddenAttribute() {}
+    }
+}
+
+#endif
+
+#if !UNMANAGED_DELEGATES
+
+namespace Microsoft.JavaScript.NodeApi
+{
+    [AttributeUsage(AttributeTargets.Method, Inherited = false)]
+    public sealed class UnmanagedCallersOnlyAttribute : Attribute
+    {
+        public UnmanagedCallersOnlyAttribute()
+        {
+        }
+
+        public string? EntryPoint;
+
+        public Type[]? CallConvs;
     }
 }
 

@@ -1569,7 +1569,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
     /// which causes a problem with NullabilityInfoContext when it tries to detect
     /// whether a type is a value type, because the referenced ValueType type is not
     /// the same as the system ValueType type. This method overrides the nullability
-    /// state for value types, which can never be nullable. (Note Nullable<T> is itself
+    /// state for value types, which can never be nullable. (Note Nullable of T is itself
     /// a non-nullable value type; it is handled by the generator as a special case.)
     /// </summary>
     private static NullabilityInfo FixNullability(NullabilityInfo nullability)

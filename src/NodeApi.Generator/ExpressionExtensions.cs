@@ -22,7 +22,8 @@ internal static class ExpressionExtensions
     /// </summary>
     /// <remarks>
     /// This supports just enough expression types to handle generating C# code for lambda
-    /// expressions constructed by <see cref="Microsoft.JavaScript.NodeApi.DotNetHost.JSMarsaler" />.
+    /// expressions constructed by
+    /// <see cref="Microsoft.JavaScript.NodeApi.DotNetHost.JSMarshaller" />.
     /// </remarks>
     /// <exception cref="NotImplementedException">Thrown if expression includes a node type
     /// for which C# conversion is not implemented.</exception>

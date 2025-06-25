@@ -447,6 +447,7 @@ public class ModuleGenerator : SourceGenerator, ISourceGenerator
     /// <summary>
     /// Orders types by their inheritance hierarchy, so base types are ordered before derived
     /// types, and types with the same base type are in alphabetical order.
+    /// </summary>
     private static int OrderByTypeHierarchy(ITypeSymbol a, ITypeSymbol b)
     {
         static string GetTypeHierarchyPath(ITypeSymbol type)

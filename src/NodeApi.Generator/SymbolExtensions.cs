@@ -92,6 +92,7 @@ internal static class SymbolExtensions
     /// Gets either the actual type (if it is a system type) or a symbolic type
     /// for the type symbol.
     /// </summary>
+    /// <param name="typeSymbol">The type symbol to convert to a Type instance.</param>
     /// <param name="genericTypeParameters">Generic parameters from the containing type,
     /// if the type is a nested type and the containing type is generic.</param>
     /// <param name="buildType">True to force building (AKA emitting) the Type instance; if false
