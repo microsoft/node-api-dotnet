@@ -562,7 +562,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             _loadedAssembliesByName.GetOrAdd(assembly.GetName().Name!, assembly);
         }
 
-        var version = assembly?.GetName().Version?.ToString() ?? "(native library)";
+        string version = assembly?.GetName().Version?.ToString() ?? "(native library)";
         Trace($"< ManagedHost.LoadAssembly() => {assemblyFilePath} {version}");
         return assembly;
     }
