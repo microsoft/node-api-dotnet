@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -49,13 +50,13 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// <summary>
     /// Mapping from assembly file paths to loaded assemblies.
     /// </summary>
-    private readonly Dictionary<string, Assembly> _loadedAssembliesByPath = new();
+    private readonly ConcurrentDictionary<string, Assembly?> _loadedAssembliesByPath = new();
 
     /// <summary>
     /// Mapping from assembly names (not including version or other parts) to
     /// loaded assemblies.
     /// </summary>
-    private readonly Dictionary<string, Assembly> _loadedAssembliesByName = new();
+    private readonly ConcurrentDictionary<string, Assembly> _loadedAssembliesByName = new();
 
     /// <summary>
     /// Tracks names of assemblies that have been exported to JS.
@@ -467,7 +468,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             assembly = LoadAssembly(assemblyNameOrFilePath, allowNativeLibrary: true);
         }
 
-        if (!_exportedAssembliesByName.Contains(assembly.GetName().Name!))
+        if (assembly != null && !_exportedAssembliesByName.Contains(assembly.GetName().Name!))
         {
             _typeExporter.ExportAssemblyTypes(assembly);
             _exportedAssembliesByName.Add(assembly.GetName().Name!);
@@ -525,41 +526,44 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
                 "or the name of a system assembly (without path or DLL extension).");
         }
 
-        Assembly assembly;
-        try
+        Assembly? assembly = _loadedAssembliesByPath.GetOrAdd(assemblyFilePath, _ =>
         {
-#if NETFRAMEWORK || NETSTANDARD
-            // TODO: Load assemblies in a separate appdomain.
-            assembly = Assembly.LoadFrom(assemblyFilePath);
-#else
-            assembly = _loadContext.LoadFromAssemblyPath(assemblyFilePath);
-#endif
-        }
-        catch (BadImageFormatException)
-        {
-            if (!allowNativeLibrary)
+            try
             {
-                throw;
+#if NETFRAMEWORK || NETSTANDARD
+                // TODO: Load assemblies in a separate appdomain.
+                return Assembly.LoadFrom(assemblyFilePath);
+#else
+                return _loadContext.LoadFromAssemblyPath(assemblyFilePath);
+#endif
             }
+            catch (BadImageFormatException)
+            {
+                if (!allowNativeLibrary)
+                {
+                    throw;
+                }
 
-            // This might be a native DLL, not a managed assembly.
-            // Load the native library, which enables it to be auto-resolved by
-            // any later DllImport operations for the same library name.
-            NativeLibrary.Load(assemblyFilePath);
+                // This might be a native DLL, not a managed assembly.
+                // Load the native library, which enables it to be auto-resolved by
+                // any later DllImport operations for the same library name.
+                NativeLibrary.Load(assemblyFilePath);
+                return null;
+            }
+            catch (FileNotFoundException fnfex)
+            {
+                throw new FileNotFoundException(
+                    $"Assembly file not found: {assemblyNameOrFilePath}", fnfex);
+            }
+        });
 
-            Trace($"< ManagedHost.LoadAssembly() => {assemblyFilePath} (native library)");
-            return null!;
-        }
-        catch (FileNotFoundException fnfex)
+        if (assembly != null)
         {
-            throw new FileNotFoundException(
-                $"Assembly file not found: {assemblyNameOrFilePath}", fnfex);
+            _loadedAssembliesByName.GetOrAdd(assembly.GetName().Name!, assembly);
         }
 
-        _loadedAssembliesByPath.Add(assemblyFilePath, assembly);
-        _loadedAssembliesByName.Add(assembly.GetName().Name!, assembly);
-
-        Trace($"< ManagedHost.LoadAssembly() => {assemblyFilePath}, {assembly.GetName().Version}");
+        var version = assembly?.GetName().Version.ToString() ?? "(native library)";
+        Trace($"< ManagedHost.LoadAssembly() => {assemblyFilePath} {version}");
         return assembly;
     }
 
