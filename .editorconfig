@@ -161,6 +161,7 @@ dotnet_diagnostic.CA1835.severity = none
 
 dotnet_diagnostic.IDE0290.severity = none # Use primary constructor
 dotnet_diagnostic.IDE0065.severity = none # Using directives must be placed outside of namespace
+dotnet_diagnostic.IDE0350.severity = none # Lambda expression can be simplified
 
 # Collection initialization can be simplified.
 # This relies on implicit conversions in ways that are sometimes undesirable.
