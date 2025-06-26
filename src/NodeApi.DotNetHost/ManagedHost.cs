@@ -488,7 +488,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         return default;
     }
 
-    private Assembly LoadAssembly(string assemblyNameOrFilePath, bool allowNativeLibrary)
+    private Assembly? LoadAssembly(string assemblyNameOrFilePath, bool allowNativeLibrary)
     {
         Trace($"> ManagedHost.LoadAssembly({assemblyNameOrFilePath})");
 
@@ -562,7 +562,7 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             _loadedAssembliesByName.GetOrAdd(assembly.GetName().Name!, assembly);
         }
 
-        var version = assembly?.GetName().Version.ToString() ?? "(native library)";
+        var version = assembly?.GetName().Version?.ToString() ?? "(native library)";
         Trace($"< ManagedHost.LoadAssembly() => {assemblyFilePath} {version}");
         return assembly;
     }
