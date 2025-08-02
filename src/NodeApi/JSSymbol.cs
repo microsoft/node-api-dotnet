@@ -10,11 +10,9 @@ public readonly struct JSSymbol : IJSValue<JSSymbol>
 {
     private readonly JSValue _value;
 
-    //TODO: [vmoroz] This is a bug. we must never use static variables for JSReference or JSValue
-    private static readonly Lazy<JSReference> s_iteratorSymbol =
-        new(() => new JSReference(JSValue.Global["Symbol"]["iterator"]));
-    private static readonly Lazy<JSReference> s_asyncIteratorSymbol =
-        new(() => new JSReference(JSValue.Global["Symbol"]["asyncIterator"]));
+    // Cached symbol references are thread-local because they must be initialized on each JS thread.
+    [ThreadStatic] private static JSReference? s_iteratorSymbol;
+    [ThreadStatic] private static JSReference? s_asyncIteratorSymbol;
 
     /// <summary>
     /// Implicitly converts a <see cref="JSSymbol" /> to a <see cref="JSValue" />.
@@ -143,14 +141,45 @@ public readonly struct JSSymbol : IJSValue<JSSymbol>
         }
     }
 
+    /// <summary>
+    /// Gets or creates a symbol with the specified name in the global symbol registry.
+    /// </summary>
     public static JSSymbol For(string name)
     {
         return new JSSymbol(JSValue.SymbolFor(name));
     }
 
-    public static JSSymbol Iterator => (JSSymbol)s_iteratorSymbol.Value.GetValue()!;
+    /// <summary>
+    /// Gets a well-known symbol by its name.
+    /// </summary>
+    public static JSSymbol Get(string name)
+    {
+        return (JSSymbol)JSValue.Global["Symbol"][name];
+    }
 
-    public static JSSymbol AsyncIterator => (JSSymbol)s_asyncIteratorSymbol.Value.GetValue()!;
+    private static JSSymbol Get(string name, ref JSReference? symbolReference)
+    {
+        if (symbolReference == null)
+        {
+            JSSymbol symbol = Get(name);
+            symbolReference = new JSReference(symbol);
+            return symbol;
+        }
+        else
+        {
+            return (JSSymbol)symbolReference.GetValue();
+        }
+    }
+
+    /// <summary>
+    /// Gets the well-known symbol for the default iterator.
+    /// </summary>
+    public static JSSymbol Iterator => Get("iterator", ref s_iteratorSymbol);
+
+    /// <summary>
+    /// Gets the well-known symbol for the async iterator.
+    /// </summary>
+    public static JSSymbol AsyncIterator => Get("asyncIterator", ref s_asyncIteratorSymbol);
 
     // TODO: Add static properties for other well-known symbols.
 
