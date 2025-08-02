@@ -3,7 +3,6 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -162,7 +161,7 @@ public readonly struct JSSymbol : IJSValue<JSSymbol>
     {
         if (symbolReference == null)
         {
-            var symbol = Get(name);
+            JSSymbol symbol = Get(name);
             symbolReference = new JSReference(symbol);
             return symbol;
         }
