@@ -47,7 +47,19 @@ public class JSProjectTests
 
         string compileLogFilePath = GetBuildLogFilePath(
             projectName + "-" + moduleName, "projects");
-        string tsConfigFile = "tsconfig." + Path.GetFileNameWithoutExtension(moduleName) + ".json";
+
+        string tsConfigFile = "tsconfig.json";
+        if (IsCurrentTargetFramework(moduleName))
+        {
+            tsConfigFile = $"tsconfig.{moduleName}.json";
+            File.WriteAllText(
+                Path.Combine(ProjectDir(projectName), tsConfigFile),
+                $"{{\n" +
+                $"  \"extends\": \"./tsconfig.json\",\n" +
+                $"  \"include\": [\"{moduleName}.ts\", \"{moduleName}.js\", \"bin/*.js\"]\n" +
+                $"}}");
+        }
+
         BuildTestProjectTypeScript(projectName,
             compileLogFilePath,
             File.Exists(Path.Combine(ProjectDir(projectName), tsConfigFile)) ?
@@ -165,7 +177,7 @@ public class JSProjectTests
         };
 
         logWriter.WriteLine();
-        logWriter.WriteLine("tsc");
+        logWriter.WriteLine("node " + nodeArgs);
 
         Process nodeProcess = Process.Start(nodeStartInfo)!;
         errorOutput = LogOutput(nodeProcess, logWriter);

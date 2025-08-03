@@ -1,11 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <IsDotNet10SdkAvailable Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(MSBuildVersion)', '17.15'))">true</IsDotNet10SdkAvailable>
+    <AotTargetFramework Condition="'$(IsDotNet10SdkAvailable)' != 'true'">net9.0</AotTargetFramework>
+    <AotTargetFramework Condition="'$(IsDotNet10SdkAvailable)' == 'true'">net10.0</AotTargetFramework>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == ''">
     <!-- Exclude netstandard2.0 from target frameworks for tests. -->
-    <TargetFrameworks Condition=" ! $([MSBuild]::IsOsPlatform('Windows')) ">net9.0;net8.0</TargetFrameworks>
-    <TargetFrameworks Condition=" $([MSBuild]::IsOsPlatform('Windows')) ">net9.0;net8.0;net472</TargetFrameworks>
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(IsDotNet10SdkAvailable)' == 'true'">net10.0;$(TargetFrameworks)</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOsPlatform('Windows'))">$(TargetFrameworks);net472</TargetFrameworks>
+  </PropertyGroup>
+  <PropertyGroup>
     <TestTfmsInParallel>false</TestTfmsInParallel>
-
     <RootNamespace>Microsoft.JavaScript.NodeApi.Test</RootNamespace>
     <AssemblyName>Microsoft.JavaScript.NodeApi.Test</AssemblyName>
     <IsPublishable>false</IsPublishable>
@@ -17,6 +24,7 @@
     <None Include="TestCases\**\*.ts" />
     <None Include="TestCases\**\*.js" />
     <Compile Remove="TestCases\**" />
+    <Compile Condition="'$(TargetFramework)' != '$(AotTargetFramework)'" Remove="NativeAotTests.cs" />
   </ItemGroup>
 
   <ItemGroup>
