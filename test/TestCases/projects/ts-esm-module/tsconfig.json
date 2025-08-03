@@ -6,5 +6,5 @@
     "esModuleInterop": true
   },
   "include": ["*.ts"],
-  "exclude": ["net472.ts", "node_modules"]
+  "exclude": ["node_modules"]
 }

@@ -8,5 +8,5 @@
     "esModuleInterop": true
   },
   "include": ["*.js", "bin/*.js"],
-  "exclude": ["net472.js", "node_modules"]
+  "exclude": ["node_modules"]
 }
