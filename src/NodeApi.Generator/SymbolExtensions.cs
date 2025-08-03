@@ -249,21 +249,40 @@ internal static class SymbolExtensions
         return enumBuilder.CreateTypeInfo()!;
     }
 
-    private static TypeAttributes GetTypeAttributes(TypeKind typeKind)
+    private static TypeAttributes GetTypeAttributes(ITypeSymbol typeSymbol)
     {
         TypeAttributes attributes = TypeAttributes.Public;
-        if (typeKind == TypeKind.Interface)
+
+        switch (typeSymbol.TypeKind)
         {
-            attributes |= TypeAttributes.Interface;
+            case TypeKind.Interface:
+                attributes |= TypeAttributes.Interface | TypeAttributes.Abstract;
+                break;
+
+            case TypeKind.Class:
+                if (typeSymbol.IsAbstract || typeSymbol.IsStatic)
+                {
+                    attributes |= TypeAttributes.Abstract;
+                }
+                if (typeSymbol.IsSealed || typeSymbol.IsStatic)
+                {
+                    attributes |= TypeAttributes.Sealed;
+                }
+                break;
+
+            case TypeKind.Struct:
+                attributes |= TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit;
+                break;
+
+            case TypeKind.Delegate:
+                attributes |= TypeAttributes.Sealed;
+                break;
+
+            case TypeKind.Enum:
+                attributes |= TypeAttributes.Abstract;
+                break;
         }
-        else if (typeKind == TypeKind.Delegate)
-        {
-            attributes |= TypeAttributes.Sealed;
-        }
-        if (typeKind != TypeKind.Enum)
-        {
-            attributes |= TypeAttributes.Abstract;
-        }
+
         return attributes;
     }
 
@@ -291,7 +310,7 @@ internal static class SymbolExtensions
         {
             typeBuilder = ModuleBuilder.DefineType(
                 name: typeFullName,
-                GetTypeAttributes(typeSymbol.TypeKind),
+                GetTypeAttributes(typeSymbol),
                 parent: baseType);
 
             if (typeSymbol.TypeParameters.Length > 0)
@@ -347,7 +366,15 @@ internal static class SymbolExtensions
             return thisType;
         }
 
-        return typeBuilder.CreateTypeInfo()!;
+        try
+        {
+            return typeBuilder.CreateTypeInfo()!;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Failed to create type info for type: {typeSymbol.Name}", ex);
+        }
     }
 
     /// <summary>
@@ -390,7 +417,15 @@ internal static class SymbolExtensions
             if (SymbolicTypes.TryGetValue(typeFullName, out Type? type) &&
                 type is TypeBuilder typeBuilder)
             {
-                typeBuilder.CreateTypeInfo();
+                try
+                {
+                    typeBuilder.CreateTypeInfo();
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Failed to create type info for type: {typeSymbol.Name}", ex);
+                }
             }
         }
 
@@ -449,7 +484,10 @@ internal static class SymbolExtensions
         }
 
         foreach (ISymbol memberSymbol in typeSymbol.GetMembers()
-            .Where((m) => m.DeclaredAccessibility == Accessibility.Public))
+            .Where((m) => m.DeclaredAccessibility == Accessibility.Public ||
+                (m.DeclaredAccessibility == Accessibility.Private &&
+                (m is IMethodSymbol ms && ms.ExplicitInterfaceImplementations.Length > 0) ||
+                (m is IPropertySymbol ps && ps.ExplicitInterfaceImplementations.Length > 0))))
         {
             if (memberSymbol is IMethodSymbol constructorSymbol &&
                 constructorSymbol.MethodKind == MethodKind.Constructor)
@@ -458,6 +496,7 @@ internal static class SymbolExtensions
             }
             else if (memberSymbol is IMethodSymbol methodSymbol &&
                 (methodSymbol.MethodKind == MethodKind.Ordinary ||
+                methodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation ||
                 methodSymbol.MethodKind == MethodKind.DelegateInvoke))
             {
                 BuildSymbolicMethod(typeBuilder, methodSymbol, genericTypeParameters);
@@ -476,7 +515,7 @@ internal static class SymbolExtensions
             }
             else if (memberSymbol is INamedTypeSymbol nestedTypeSymbol)
             {
-                TypeAttributes attributes = GetTypeAttributes(nestedTypeSymbol.TypeKind);
+                TypeAttributes attributes = GetTypeAttributes(nestedTypeSymbol);
                 attributes &= ~TypeAttributes.Public;
                 attributes |= TypeAttributes.NestedPublic;
 
@@ -533,9 +572,17 @@ internal static class SymbolExtensions
         Type[]? genericTypeParameters)
     {
         bool isDelegateMethod = typeBuilder.BaseType == typeof(MulticastDelegate);
-        MethodAttributes attributes = MethodAttributes.Public | (methodSymbol.IsStatic ?
-            MethodAttributes.Static : MethodAttributes.Virtual | (isDelegateMethod ?
-            MethodAttributes.HideBySig : MethodAttributes.Abstract));
+        // All nonstatic methods are declared virtual on symbolic types.
+        // This allows any struct/class methods to implement interface methods.
+        MethodAttributes attributes =
+            (methodSymbol.DeclaredAccessibility == Accessibility.Public ?
+                MethodAttributes.Public : MethodAttributes.Private) |
+            (methodSymbol.IsStatic ? MethodAttributes.Static : MethodAttributes.Virtual) |
+            (methodSymbol.IsAbstract ? MethodAttributes.Abstract : default) |
+            (methodSymbol.ExplicitInterfaceImplementations.Length > 0 ?
+                MethodAttributes.Final : default) |
+            (isDelegateMethod ? MethodAttributes.HideBySig : default);
+
         MethodBuilder methodBuilder = typeBuilder.DefineMethod(
             methodSymbol.Name,
             attributes,
@@ -565,10 +612,17 @@ internal static class SymbolExtensions
             methodBuilder.SetImplementationFlags(
                 MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
         }
-        else if (methodSymbol.IsStatic)
+        else if (!methodSymbol.IsAbstract)
         {
-            // Static methods cannot be abstract; emit a minimal body.
+            // Emit a minimal method body.
             methodBuilder.GetILGenerator().Emit(OpCodes.Ret);
+        }
+
+        if (methodSymbol.ExplicitInterfaceImplementations.Length > 0)
+        {
+            MethodInfo interfaceMethod =
+                methodSymbol.ExplicitInterfaceImplementations[0].AsMethodInfo();
+            typeBuilder.DefineMethodOverride(methodBuilder, interfaceMethod);
         }
     }
 
@@ -577,16 +631,21 @@ internal static class SymbolExtensions
         IPropertySymbol propertySymbol,
         Type[]? genericTypeParameters)
     {
+        MethodAttributes attributes = MethodAttributes.SpecialName |
+            (propertySymbol.DeclaredAccessibility == Accessibility.Public ?
+                MethodAttributes.Public : MethodAttributes.Private) |
+            (propertySymbol.IsStatic ? MethodAttributes.Static : MethodAttributes.Virtual) |
+            (propertySymbol.IsAbstract ? MethodAttributes.Abstract : default) |
+            (propertySymbol.IsVirtual ? MethodAttributes.Virtual : default) |
+            (propertySymbol.ExplicitInterfaceImplementations.Length > 0 ?
+                MethodAttributes.Final : default);
+
         PropertyBuilder propertyBuilder = typeBuilder.DefineProperty(
             propertySymbol.Name,
             PropertyAttributes.None,
             propertySymbol.Type.AsType(genericTypeParameters, buildType: false),
             propertySymbol.Parameters.Select(
                 (p) => p.Type.AsType(genericTypeParameters, buildType: false)).ToArray());
-
-        MethodAttributes attributes = MethodAttributes.SpecialName | MethodAttributes.Public |
-            (propertySymbol.IsStatic ? MethodAttributes.Static :
-                MethodAttributes.Abstract | MethodAttributes.Virtual);
 
         if (propertySymbol.GetMethod != null)
         {
@@ -598,8 +657,15 @@ internal static class SymbolExtensions
                 propertySymbol.GetMethod.Parameters.Select(
                     (p) => p.Type.AsType(genericTypeParameters, buildType: false)).ToArray());
             BuildSymbolicParameters(getMethodBuilder, propertySymbol.GetMethod.Parameters);
-            if (propertySymbol.IsStatic) getMethodBuilder.GetILGenerator().Emit(OpCodes.Ret);
+            if (!propertySymbol.IsAbstract) getMethodBuilder.GetILGenerator().Emit(OpCodes.Ret);
             propertyBuilder.SetGetMethod(getMethodBuilder);
+
+            if (propertySymbol.ExplicitInterfaceImplementations.Length > 0)
+            {
+                MethodInfo interfaceGetMethod =
+                    propertySymbol.ExplicitInterfaceImplementations[0].GetMethod!.AsMethodInfo();
+                typeBuilder.DefineMethodOverride(getMethodBuilder, interfaceGetMethod);
+            }
         }
 
         if (propertySymbol.SetMethod != null)
@@ -612,8 +678,15 @@ internal static class SymbolExtensions
                 propertySymbol.SetMethod.Parameters.Select(
                     (p) => p.Type.AsType(genericTypeParameters, buildType: false)).ToArray());
             BuildSymbolicParameters(setMethodBuilder, propertySymbol.SetMethod.Parameters);
-            if (propertySymbol.IsStatic) setMethodBuilder.GetILGenerator().Emit(OpCodes.Ret);
+            if (!propertySymbol.IsAbstract) setMethodBuilder.GetILGenerator().Emit(OpCodes.Ret);
             propertyBuilder.SetSetMethod(setMethodBuilder);
+
+            if (propertySymbol.ExplicitInterfaceImplementations.Length > 0)
+            {
+                MethodInfo interfaceSetMethod =
+                    propertySymbol.ExplicitInterfaceImplementations[0].SetMethod!.AsMethodInfo();
+                typeBuilder.DefineMethodOverride(setMethodBuilder, interfaceSetMethod);
+            }
         }
     }
 

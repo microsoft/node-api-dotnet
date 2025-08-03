@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if NET9_0_OR_GREATER
+#if NET9_0
 
 using System;
 using System.Collections.Generic;

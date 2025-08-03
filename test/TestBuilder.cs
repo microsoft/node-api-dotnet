@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Xunit;
 using static Microsoft.JavaScript.NodeApi.Test.TestUtils;
 
@@ -253,6 +254,14 @@ internal static class TestBuilder
         // that matches the current runtime major version. Roll forward to the latest
         // installed SDK within the same major version.
         string sdkVersion = frameworkVersion.Major + "." + frameworkVersion.Minor + ".100";
+
+        if (RuntimeInformation.FrameworkDescription.Contains("-preview."))
+        {
+            // Append the .NET preview version to the SDK version requested in global.json.
+            sdkVersion += RuntimeInformation.FrameworkDescription.Substring(
+                RuntimeInformation.FrameworkDescription.IndexOf("-preview."));
+        }
+
         string globalJson = $$"""
             {
                 "sdk": {

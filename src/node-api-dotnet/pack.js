@@ -20,7 +20,7 @@ if (!packageName || !configuration || rids.length === 0) {
 
 const assemblyName = 'Microsoft.JavaScript.NodeApi';
 
-const targetFrameworks = ['net9.0', 'net8.0'];
+const targetFrameworks = ['net10.0', 'net9.0', 'net8.0'];
 if (process.platform === 'win32') targetFrameworks.push('net472');
 
 const fs = require('fs');
@@ -169,7 +169,7 @@ function copyFrameworkSpecificBinaries(targetFrameworks, packageStageDir, ...bin
         binFileName.startsWith('System.') &&
         !binFileName.includes('MetadataLoadContext')
       ) return;
-      
+
       // Exclude Microsoft.Bcl.AsyncInterfaces from new platforms
       if (
         tfm.includes('.') &&
