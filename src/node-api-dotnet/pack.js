@@ -20,7 +20,9 @@ if (!packageName || !configuration || rids.length === 0) {
 
 const assemblyName = 'Microsoft.JavaScript.NodeApi';
 
-const targetFrameworks = ['net10.0', 'net9.0', 'net8.0'];
+const targetFrameworks = ['net9.0', 'net8.0'];
+const dotnetGlobalJson = require('../../global.json');
+if (dotnetGlobalJson.sdk.version.startsWith('10.')) targetFrameworks.unshift('net10.0');
 if (process.platform === 'win32') targetFrameworks.push('net472');
 
 const fs = require('fs');

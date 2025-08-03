@@ -5,6 +5,10 @@
         <!-- Test projects support .NET 6 SDK which has C# language version 10. -->
         <LangVersion>10</LangVersion>
 
+        <IsDotNet10SdkAvailable Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(MSBuildVersion)', '17.15'))">true</IsDotNet10SdkAvailable>
+        <AotTargetFramework Condition="'$(IsDotNet10SdkAvailable)' != 'true'">net9.0</AotTargetFramework>
+        <AotTargetFramework Condition="'$(IsDotNet10SdkAvailable)' == 'true'">net10.0</AotTargetFramework>
+
         <Nullable>enable</Nullable>
         <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
         <BaseOutputPath>$(MSBuildThisFileDirectory)../../out/</BaseOutputPath>
@@ -25,7 +29,7 @@
         <WarningsAsErrors>9057</WarningsAsErrors>
     </PropertyGroup>
 
-    <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
+    <PropertyGroup Condition=" '$(TargetFramework)' == '$(AotTargetFramework)' ">
       <PublishAot>true</PublishAot>
       <StripSymbols>true</StripSymbols>
       <PublishNodeModule>true</PublishNodeModule>

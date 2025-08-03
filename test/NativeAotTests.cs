@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if NET9_0
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -107,5 +105,3 @@ public class NativeAotTests
         // Reference the generated type definitions from the C#?
     }
 }
-
-#endif // NET9_0_OR_GREATER

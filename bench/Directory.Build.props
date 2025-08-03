@@ -1,9 +1,13 @@
 <Project>
   <!-- The main purpose of this file is to prevent use of the root Directory.Build.props file,
   because Benchmark.NET does not like the build output paths to be redirected. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == ''">
+    <IsDotNet10SdkAvailable Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(MSBuildVersion)', '17.15'))">true</IsDotNet10SdkAvailable>
+    <TargetFrameworks>net9.0;net8.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(IsDotNet10SdkAvailable)' == 'true'">net10.0;$(TargetFrameworks)</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOsPlatform('Windows'))">$(TargetFrameworks);net472</TargetFrameworks>
+  </PropertyGroup>
   <PropertyGroup>
-    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and ! $([MSBuild]::IsOsPlatform('Windows')) ">net9.0;net8.0</TargetFrameworks>
-    <TargetFrameworks Condition=" '$(TargetFrameworks)' == '' and $([MSBuild]::IsOsPlatform('Windows')) ">net9.0;net8.0;net472</TargetFrameworks>
     <LangVersion>12</LangVersion>
     <Nullable>enable</Nullable>
     <PackRelease>false</PackRelease>
