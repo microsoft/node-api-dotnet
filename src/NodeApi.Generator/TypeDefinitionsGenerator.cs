@@ -218,7 +218,8 @@ dotnet.load(assemblyName);";
         IDictionary<ModuleType, string> modulePaths,
         string? targetFramework = null,
         bool isSystemAssembly = false,
-        bool suppressWarnings = false)
+        bool suppressWarnings = false,
+        IEnumerable<string>? excludePatterns = null)
     {
         if (string.IsNullOrEmpty(assemblyPath))
         {
@@ -282,6 +283,7 @@ dotnet.load(assemblyName);";
                 SuppressWarnings = suppressWarnings,
                 ExportAll = assemblyExportAttribute != null &&
                     GetExportAttributeValue(assemblyExportAttribute),
+                ExcludePatterns = excludePatterns?.ToList() ?? new List<string>(),
             };
 
             generator.LoadAssemblyDocs();
@@ -379,6 +381,8 @@ dotnet.load(assemblyName);";
     public bool ExportAll { get; set; }
 
     public bool SuppressWarnings { get; set; }
+
+    public List<string> ExcludePatterns { get; set; } = new();
 
     public override void ReportDiagnostic(Diagnostic diagnostic)
     {
@@ -1260,8 +1264,23 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         }
     }
 
-    private static bool IsExcluded(MemberInfo member)
+    private bool IsExcluded(MemberInfo member)
     {
+        Type type = member as Type ?? member.DeclaringType!;
+
+        // Check user-provided exclude patterns first
+        if (ExcludePatterns.Count > 0)
+        {
+            string typeFullName = type.FullName ?? type.Name;
+            foreach (string pattern in ExcludePatterns)
+            {
+                if (IsWildcardMatch(typeFullName, pattern))
+                {
+                    return true;
+                }
+            }
+        }
+
         if (member is PropertyInfo property)
         {
             return IsExcluded(property);
@@ -1270,8 +1289,6 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         {
             return IsExcluded(method);
         }
-
-        Type type = member as Type ?? member.DeclaringType!;
 
         if (type.BaseType != null && IsExcluded(type.BaseType))
         {
@@ -1301,14 +1318,41 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         };
     }
 
-    private static bool IsExcluded(PropertyInfo property)
+    /// <summary>
+    /// Checks if a string matches a wildcard pattern. Supports * (any characters) and ? (single character).
+    /// </summary>
+    private static bool IsWildcardMatch(string input, string pattern)
     {
-        if (property.PropertyType.IsPointer)
+        if (string.IsNullOrEmpty(pattern)) return false;
+        if (string.IsNullOrEmpty(input)) return false;
+
+        // Convert wildcard pattern to regex pattern
+        string regexPattern = "^" + Regex.Escape(pattern)
+            .Replace(@"\*", ".*")
+            .Replace(@"\?", ".") + "$";
+
+        return Regex.IsMatch(input, regexPattern, RegexOptions.IgnoreCase);
+    }
+
+    private bool IsExcluded(PropertyInfo property)
+    {
+        Type propertyType;
+        try
+        {
+            propertyType = property.PropertyType;
+        }
+        catch (System.NotSupportedException e)
+        {
+            Console.WriteLine($"Error: Property {property.DeclaringType!.FullName}.{property.Name} could not be analyzed. ({e.GetType().Name})");
+            throw;
+        }
+
+        if (propertyType.IsPointer)
         {
             return true;
         }
 
-        if (IsExcluded(property.PropertyType))
+        if (IsExcluded(propertyType))
         {
             return true;
         }
@@ -1324,11 +1368,22 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
             return true;
         }
 
+        System.Reflection.ParameterInfo[] methodParams;
+        try
+        {
+            methodParams = method.GetParameters();
+        }
+        catch (System.NotSupportedException e)
+        {
+            Console.WriteLine($"Error: Method {method.DeclaringType!.FullName}.{method.Name}() could not be analyzed. ({e.GetType().Name})");
+            throw;
+        }
+
         // Exclude old style Begin/End async methods, as they always have Task-based alternatives.
         if ((method.Name.StartsWith("Begin") &&
             (method as MethodInfo)?.ReturnType.FullName == typeof(IAsyncResult).FullName) ||
-            (method.Name.StartsWith("End") && method.GetParameters().Length == 1 &&
-            method.GetParameters()[0].ParameterType.FullName == typeof(IAsyncResult).FullName))
+            (method.Name.StartsWith("End") && methodParams.Length == 1 &&
+            methodParams[0].ParameterType.FullName == typeof(IAsyncResult).FullName))
         {
             return true;
         }
