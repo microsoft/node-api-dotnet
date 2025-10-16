@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <OutDir>bin</OutDir>    
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <NodeApiJSModuleType>CommonJs</NodeApiJSModuleType>
+
+    <!-- Exclude types from metadata parsing that cause the metadata parser to fail -->
+    <NodeApiExcludeFromMetadata>ABI.*;WinRT.IInspectable+Vftbl*;WinRT.Interop.IUnknownVftbl*</NodeApiExcludeFromMetadata>
+    
+  </PropertyGroup>
+
+  <ItemGroup>
+  <!-- We need to add references to these assemblies so we can complete the type closure so that
+       the generator can find all the types it needs. -->
+    <UserRuntimeAssembly Include="bin\Microsoft.Windows.SDK.NET.dll" />
+    <UserRuntimeAssembly Include="bin\WinRT.Runtime.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="node_modules\**\*.cs" />
+    <EmbeddedResource Remove="node_modules\**\*.cs" />
+    <Compile Include="src\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="$(NodeApiDotnetPackageVersion)" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="$(NodeApiDotnetPackageVersion)" />
+
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.6584" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.250916003" />
+    <PackageReference Include="System.Numerics.Tensors" Version="9.0.10" />
+  </ItemGroup>
+</Project>

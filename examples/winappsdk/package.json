@@ -1,0 +1,6 @@
+{
+  "name": "node-api-dotnet-examples-winappsdk",
+  "dependencies": {
+    "node-api-dotnet": "file:../../out/pkg/node-api-dotnet"
+  }
+}

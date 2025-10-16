@@ -71,6 +71,7 @@
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--packs &quot;$(_NodeApiGeneratorTargetingPacks)&quot;" />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--reference &quot;$(_NodeApiGeneratorAssemblyReferences)&quot;" />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--typedefs &quot;$(TargetDir)$(NodeApiTypeDefinitionsFileName)&quot;" />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--exclude &quot;$(NodeApiExcludeFromMetadata.Replace(';', '%3B'))&quot;" Condition=" '$(NodeApiExcludeFromMetadata)' != '' " />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="$(NodeApiTypeDefinitionsGeneratorOptions)" />
 
     <!-- Run the generator using args from the response file. Note the '@' indicates the response file NOT an MSBuild item-list. -->
@@ -171,6 +172,7 @@
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--packs &quot;$(_NodeApiGeneratorTargetingPacks)&quot;" />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--typedefs &quot;$(_NodeApiGeneratorTypeDefs)&quot;" />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--nowarn" Condition=" '$(NodeApiTypeDefinitionsEnableWarnings)' != 'true' " />
+    <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="--exclude &quot;$(NodeApiExcludeFromMetadata.Replace(';', '%3B'))&quot;" Condition=" '$(NodeApiExcludeFromMetadata)' != '' " />
     <WriteLinesToFile File="$(NodeApiGeneratorResponseFile)" Lines="$(NodeApiTypeDefinitionsGeneratorOptions)" />
 
     <!-- Run the generator using args from the response file. Note the '@' indicates the response file NOT an MSBuild item-list. -->

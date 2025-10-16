@@ -39,6 +39,7 @@ public static class Program
     private static readonly List<string> s_typeDefinitionsPaths = new();
     private static readonly HashSet<int> s_systemAssemblyIndexes = new();
     private static readonly List<TypeDefinitionsGenerator.ModuleType> s_moduleTypes = new();
+    private static readonly List<string> s_excludePatterns = new();
     private static bool s_suppressWarnings;
 
     public static int Main(string[] args)
@@ -56,6 +57,7 @@ public static class Program
                   -t --typedefs   Path to output type definitions file (required)
                   -m --module     Generate JS module(s) alongside typedefs (optional, multiple)
                                   Value: 'commonjs', 'esm', or path to package.json with "type"
+                  -e --exclude    Exclude types matching wildcard patterns from metadata parsing (optional)
                   --nowarn        Suppress warnings
                   -? -h --help    Show this help message
                   @<file>         Read response file for more options
@@ -108,7 +110,8 @@ public static class Program
                 modulePaths,
                 s_targetFramework,
                 isSystemAssembly: s_systemAssemblyIndexes.Contains(i),
-                s_suppressWarnings);
+                s_suppressWarnings,
+                s_excludePatterns);
         }
 
         return 0;
@@ -204,6 +207,11 @@ public static class Program
                                 return false;
                         }
                     }
+                    break;
+
+                case "-e":
+                case "--exclude":
+                    AddItems(s_excludePatterns, args[++i]);
                     break;
 
                 case "--nowarn":
