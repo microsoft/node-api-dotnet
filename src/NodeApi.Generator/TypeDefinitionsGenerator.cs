@@ -1344,7 +1344,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         catch (System.NotSupportedException e)
         {
             Console.WriteLine($"Error: Property {property.DeclaringType!.FullName}.{property.Name} could not be analyzed. ({e.GetType().Name})");
-            throw e;
+            throw;
         }
 
         if (propertyType.IsPointer)
@@ -1367,7 +1367,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         {
             return true;
         }
-        
+
         System.Reflection.ParameterInfo[] methodParams;
         try
         {
@@ -1376,7 +1376,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         catch (System.NotSupportedException e)
         {
             Console.WriteLine($"Error: Method {method.DeclaringType!.FullName}.{method.Name}() could not be analyzed. ({e.GetType().Name})");
-            throw e;
+            throw;
         }
 
         // Exclude old style Begin/End async methods, as they always have Task-based alternatives.
