@@ -329,7 +329,7 @@ internal static class SymbolExtensions
             foreach (AttributeData attribute in typeSymbol.GetAttributes())
             {
                 if (attribute.AttributeClass!.ContainingNamespace.ToString()!.StartsWith(
-                        typeof(JSExportAttribute).Namespace!))
+                        typeof(JSExportAttribute).Namespace!, StringComparison.Ordinal))
                 {
                     Type attributeType = attribute.AttributeClass.AsType();
                     ConstructorInfo constructor = attributeType.GetConstructor(
