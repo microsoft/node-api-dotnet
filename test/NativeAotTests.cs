@@ -17,7 +17,8 @@ public class NativeAotTests
     private static readonly Dictionary<string, string?> s_builtTestModules = new();
 
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases((testCaseName) =>
-        !testCaseName.Contains("/dynamic_") && !testCaseName.StartsWith("projects/"));
+        !testCaseName.Contains("/dynamic_") &&
+        !testCaseName.StartsWith("projects/", StringComparison.Ordinal));
 
     [Theory]
     [MemberData(nameof(TestCases))]

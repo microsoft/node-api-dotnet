@@ -13,9 +13,9 @@ internal static class StringExtensions
 {
     public static bool Contains(this string s, char c) => s.Contains(c.ToString());
 
-    public static bool StartsWith(this string s, char c) => s.StartsWith(c.ToString());
+    public static bool StartsWith(this string s, char c) => s.StartsWith(c.ToString(), StringComparison.Ordinal);
 
-    public static bool EndsWith(this string s, char c) => s.EndsWith(c.ToString());
+    public static bool EndsWith(this string s, char c) => s.EndsWith(c.ToString(), StringComparison.Ordinal);
 }
 
 #endif

@@ -333,7 +333,7 @@ public struct JSError
         }
 
         // Normalize indentation to 4 spaces, as used by JS. (.NET traces indent with 3 spaces.)
-        if (jsStack.StartsWith("    at "))
+        if (jsStack.StartsWith("    at ", StringComparison.Ordinal))
         {
             dotnetStack = dotnetStack.Replace("   at ", "    at ");
         }

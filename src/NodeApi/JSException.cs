@@ -92,7 +92,7 @@ public class JSException : Exception
 
             // Normalize indentation to 3 spaces, as used by .NET.
             // (JS traces indent with 4 spaces.)
-            if (jsStack.StartsWith("    at "))
+            if (jsStack.StartsWith("    at ", StringComparison.Ordinal))
             {
                 jsStack = jsStack.Replace("    at ", "   at ");
             }

@@ -2203,7 +2203,8 @@ public class JSMarshaller
             {
                 statements = new[] { Expression.Default(typeof(ValueTuple)) };
             }
-            else if (genericTypeDefinition?.Name.StartsWith("ValueTuple`") == true)
+            else if (genericTypeDefinition?.Name.StartsWith(
+                "ValueTuple`", StringComparison.Ordinal) == true)
             {
                 /*
                  * new ValueTuple((T1)value[0], (T2)value[1], ...)
@@ -2323,7 +2324,8 @@ public class JSMarshaller
             {
                 statements = BuildFromJSToCollectionClassExpressions(toType, valueParameter);
             }
-            else if (toType.IsGenericType && toType.Name.StartsWith("Tuple`"))
+            else if (toType.IsGenericType &&
+                toType.Name.StartsWith("Tuple`", StringComparison.Ordinal))
             {
                 /*
                  * new Tuple((T1)value[0], (T2)value[1], ...)
@@ -2527,7 +2529,8 @@ public class JSMarshaller
                         typeof(JSValue)),
                 };
             }
-            else if (genericTypeDefinition?.Name.StartsWith("ValueTuple`") == true)
+            else if (genericTypeDefinition?.Name.StartsWith(
+                "ValueTuple`", StringComparison.Ordinal) == true)
             {
                 /*
                  * new JSArray(new JSValue[] { (JSValue)value.Item1, (JSValue)value.Item2... })
@@ -2646,7 +2649,8 @@ public class JSMarshaller
                 statements = BuildToJSFromCollectionClassExpressions(
                     fromType, variables, valueExpression);
             }
-            else if (fromType.IsGenericType && fromType.Name.StartsWith("Tuple`") == true)
+            else if (fromType.IsGenericType &&
+                fromType.Name.StartsWith("Tuple`", StringComparison.Ordinal) == true)
             {
                 /*
                  * new JSArray(new JSValue[] { (JSValue)value.Item1, (JSValue)value.Item2... })
@@ -3673,7 +3677,8 @@ public class JSMarshaller
     private string FullMethodName(MethodInfo method, string? prefix = null)
     {
         string name = method.Name;
-        if (name.StartsWith("get_") || name.StartsWith("set_"))
+        if (name.StartsWith("get_", StringComparison.Ordinal) ||
+            name.StartsWith("set_", StringComparison.Ordinal))
         {
             prefix ??= name.Substring(0, 4);
             name = name.Substring(4);

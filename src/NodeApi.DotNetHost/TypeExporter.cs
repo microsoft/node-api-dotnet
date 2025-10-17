@@ -308,7 +308,8 @@ public class TypeExporter
             targetType == typeof(object) ||
             targetType == typeof(string) ||
             targetType == typeof(Type) ||
-            targetType.Name == nameof(Task) || targetType.Name.StartsWith(nameof(Task) + '`'))
+            targetType.Name == nameof(Task) ||
+            targetType.Name.StartsWith(nameof(Task) + '`', StringComparison.Ordinal))
         {
             TraceDebug($"Target type '{targetType.FormatName()}' not supported for " +
                 $"extension method '{extensionMethodName}'.");
@@ -323,8 +324,9 @@ public class TypeExporter
         else if ((targetType.GetInterface(nameof(System.Collections.IEnumerable)) != null &&
             (targetType.Namespace == typeof(System.Collections.IEnumerable).Namespace ||
             targetType.Namespace == typeof(IEnumerable<>).Namespace)) ||
-            targetType.Name.StartsWith("IAsyncEnumerable`") ||
-            targetType.Name == nameof(Tuple) || targetType.Name.StartsWith(nameof(Tuple) + '`'))
+            targetType.Name.StartsWith("IAsyncEnumerable`", StringComparison.Ordinal) ||
+            targetType.Name == nameof(Tuple) ||
+            targetType.Name.StartsWith(nameof(Tuple) + '`', StringComparison.Ordinal))
         {
             TraceDebug($"Collection target type '{targetType.FormatName()}' not supported for " +
                 $"extension method '{extensionMethodName}'.");
@@ -996,9 +998,11 @@ public class TypeExporter
         if (type.IsPointer ||
             type == typeof(void) ||
             type.Namespace == "System.Reflection" ||
-            (type.Namespace?.StartsWith("System.Collections.") == true && !type.IsGenericType) ||
-            (type.Namespace?.StartsWith("System.Threading.") == true && type != typeof(Task) &&
-            !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))))
+            (type.Namespace?.StartsWith("System.Collections.", StringComparison.Ordinal) == true &&
+                !type.IsGenericType) ||
+            (type.Namespace?.StartsWith("System.Threading.", StringComparison.Ordinal) == true &&
+                type != typeof(Task) &&
+                !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))))
         {
             return false;
         }

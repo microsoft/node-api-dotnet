@@ -21,10 +21,11 @@ public class HostedClrTests
 #if NETFRAMEWORK
     // The .NET Framework host does not yet support multiple instances of a module.
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases((testCaseName) =>
-        !testCaseName.StartsWith("projects/") && !testCaseName.Contains("/multi_instance"));
+        !testCaseName.StartsWith("projects/", StringComparison.Ordinal) &&
+        !testCaseName.Contains("/multi_instance"));
 #else
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases((testCaseName) =>
-        !testCaseName.StartsWith("projects/"));
+        !testCaseName.StartsWith("projects/", StringComparison.Ordinal));
 #endif
 
     [Theory]

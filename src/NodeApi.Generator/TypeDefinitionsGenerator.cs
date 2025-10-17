@@ -375,7 +375,8 @@ dotnet.load(assemblyName);";
         _assembly = assembly;
         _referenceAssemblies = referenceAssemblies;
         _imports = new HashSet<string>();
-        _isSystemAssembly = assembly.GetName().Name!.StartsWith("System.");
+        _isSystemAssembly = assembly.GetName().Name!.StartsWith(
+            "System.", StringComparison.Ordinal);
     }
 
     public bool ExportAll { get; set; }
@@ -1030,7 +1031,8 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         foreach (MethodInfo method in type.GetMethods(
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
         {
-            if (method.IsFinal && method.IsPrivate && method.Name.StartsWith(methodNamePrefix))
+            if (method.IsFinal && method.IsPrivate &&
+                method.Name.StartsWith(methodNamePrefix, StringComparison.Ordinal))
             {
                 return true;
             }
@@ -1137,9 +1139,11 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
              (targetType.Namespace == typeof(System.Collections.IEnumerable).Namespace ||
               targetType.Namespace == typeof(Collection<>).Namespace ||
               targetType.Namespace == typeof(IEnumerable<>).Namespace)) ||
-            targetType.Name.StartsWith("IAsyncEnumerable`") ||
-            targetType.Name == nameof(Tuple) || targetType.Name.StartsWith(nameof(Tuple) + '`') ||
-            targetType.Name == nameof(Task) || targetType.Name.StartsWith(nameof(Task) + '`'))
+            targetType.Name.StartsWith("IAsyncEnumerable`", StringComparison.Ordinal) ||
+            targetType.Name == nameof(Tuple) ||
+            targetType.Name.StartsWith(nameof(Tuple) + '`', StringComparison.Ordinal) ||
+            targetType.Name == nameof(Task) ||
+            targetType.Name.StartsWith(nameof(Task) + '`', StringComparison.Ordinal))
         {
             return false;
         }
@@ -1185,7 +1189,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
                 string modifiers = (isStatic ? "static " : "") +
                     (property.SetMethod == null ? "readonly " : "");
                 string optionalToken = string.Empty;
-                if (propertyType.EndsWith(UndefinedTypeSuffix))
+                if (propertyType.EndsWith(UndefinedTypeSuffix, StringComparison.Ordinal))
                 {
                     propertyType = propertyType.Substring(
                         0, propertyType.Length - UndefinedTypeSuffix.Length);
@@ -1380,9 +1384,10 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         }
 
         // Exclude old style Begin/End async methods, as they always have Task-based alternatives.
-        if ((method.Name.StartsWith("Begin") &&
+        if ((method.Name.StartsWith("Begin", StringComparison.Ordinal) &&
             (method as MethodInfo)?.ReturnType.FullName == typeof(IAsyncResult).FullName) ||
-            (method.Name.StartsWith("End") && methodParams.Length == 1 &&
+            (method.Name.StartsWith("End", StringComparison.Ordinal) &&
+            methodParams.Length == 1 &&
             methodParams[0].ParameterType.FullName == typeof(IAsyncResult).FullName))
         {
             return true;
@@ -1527,13 +1532,13 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         if (parameter.Position < 0 && method != null)
         {
             if (parameter.ParameterType.FullName == typeof(bool).FullName &&
-                parameter.Member.Name.StartsWith("Try") &&
+                parameter.Member.Name.StartsWith("Try", StringComparison.Ordinal) &&
                 method.GetParameters().Count((p) => p.IsOut) == 1)
             {
                 // A method with Try* pattern simply returns the out-value or undefined
                 // instead of an object with the bool and out-value properties.
                 tsType = GetTSType(method.GetParameters().Last());
-                if (!tsType.EndsWith(UndefinedTypeSuffix))
+                if (!tsType.EndsWith(UndefinedTypeSuffix, StringComparison.Ordinal))
                 {
                     tsType += UndefinedTypeSuffix;
                 }
@@ -1549,7 +1554,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
                     {
                         string propertyType = GetTSType(p);
                         string optionalToken = string.Empty;
-                        if (propertyType.EndsWith(UndefinedTypeSuffix))
+                        if (propertyType.EndsWith(UndefinedTypeSuffix, StringComparison.Ordinal))
                         {
                             propertyType = propertyType.Substring(
                                 0, propertyType.Length - UndefinedTypeSuffix.Length);
@@ -1721,7 +1726,8 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
             {
                 tsType = "() => void";
             }
-            else if (type.IsGenericType && type.Name.StartsWith(nameof(Action) + "`"))
+            else if (type.IsGenericType &&
+                type.Name.StartsWith(nameof(Action) + "`", StringComparison.Ordinal))
             {
                 NullabilityInfo[]? typeArgsNullability = nullability?.GenericTypeArguments;
                 string[] parameters = type.GetGenericArguments().Select((t, i) =>
@@ -1729,7 +1735,8 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
                     .ToArray();
                 tsType = $"({string.Join(", ", parameters)}) => void";
             }
-            else if (type.IsGenericType && type.Name.StartsWith("Func`"))
+            else if (type.IsGenericType &&
+                type.Name.StartsWith("Func`", StringComparison.Ordinal))
             {
                 Type[] typeArgs = type.GetGenericArguments();
                 NullabilityInfo[]? typeArgsNullability = nullability?.GenericTypeArguments;
@@ -1742,7 +1749,8 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
                     allowTypeParams);
                 tsType = $"({string.Join(", ", parameters)}) => {returnType}";
             }
-            else if (type.IsGenericType && type.Name.StartsWith("Predicate`"))
+            else if (type.IsGenericType &&
+                type.Name.StartsWith("Predicate`", StringComparison.Ordinal))
             {
                 Type typeArg = type.GetGenericArguments()[0];
                 NullabilityInfo[]? typeArgsNullability = nullability?.GenericTypeArguments;
@@ -1851,7 +1859,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
             {
                 string elementType =
                     GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
-                if (elementType.EndsWith(UndefinedTypeSuffix))
+                if (elementType.EndsWith(UndefinedTypeSuffix, StringComparison.Ordinal))
                 {
                     elementType = $"({elementType})";
                 }
@@ -1862,7 +1870,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
             {
                 string elementType =
                     GetTSType(typeArgs[1], typeArgsNullability?[0], allowTypeParams);
-                if (elementType.EndsWith(UndefinedTypeSuffix))
+                if (elementType.EndsWith(UndefinedTypeSuffix, StringComparison.Ordinal))
                 {
                     elementType = $"({elementType})";
                 }
@@ -1873,7 +1881,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
             {
                 string elementType =
                     GetTSType(typeArgs[0], typeArgsNullability?[0], allowTypeParams);
-                if (elementType.EndsWith(UndefinedTypeSuffix))
+                if (elementType.EndsWith(UndefinedTypeSuffix, StringComparison.Ordinal))
                 {
                     elementType = $"({elementType})";
                 }
@@ -1935,8 +1943,8 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
                 string valueTSType = GetTSType(typeArgs[1], typeArgsNullability?[1], allowTypeParams);
                 tsType = $"[{keyTSType}, {valueTSType}]";
             }
-            else if (typeDefinitionName.StartsWith("System.Tuple`") ||
-                typeDefinitionName.StartsWith("System.ValueTuple`"))
+            else if (typeDefinitionName.StartsWith("System.Tuple`", StringComparison.Ordinal) ||
+                typeDefinitionName.StartsWith("System.ValueTuple`", StringComparison.Ordinal))
             {
                 IEnumerable<string> itemTSTypes = typeArgs.Select((typeArg, index) =>
                     GetTSType(typeArg, typeArgsNullability?[index], allowTypeParams));
@@ -1960,7 +1968,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
 #if !(NETFRAMEWORK || NETSTANDARD)
             !type.IsGenericTypeParameter && !type.IsGenericMethodParameter &&
 #endif
-            !tsType.EndsWith(UndefinedTypeSuffix))
+            !tsType.EndsWith(UndefinedTypeSuffix, StringComparison.Ordinal))
         {
             tsType += UndefinedTypeSuffix;
         }
@@ -2022,7 +2030,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         {
             if (parameter.IsOptional)
             {
-                if (parameterType.EndsWith(UndefinedTypeSuffix))
+                if (parameterType.EndsWith(UndefinedTypeSuffix, StringComparison.Ordinal))
                 {
                     parameterType = parameterType.Substring(
                         0, parameterType.Length - UndefinedTypeSuffix.Length);
@@ -2042,7 +2050,7 @@ type DateTime = Date & { kind?: 'utc' | 'local' | 'unspecified' }
         else if (parameters.Length == 1)
         {
             string parameterType = GetTSType(parameters[0]);
-            if (parameterType.StartsWith("..."))
+            if (parameterType.StartsWith("...", StringComparison.Ordinal))
             {
                 return $"...{TSIdentifier(parameters[0].Name)}: {parameterType.Substring(3)}";
             }
