@@ -251,12 +251,13 @@ public class NodejsEmbeddingTests
             .ToArray();
 
         // The first line of the stack trace should refer to the JS function that threw.
-        Assert.StartsWith("at throwError ", stackLines[0]);
+        Assert.StartsWith("at throwError ", stackLines[0], StringComparison.Ordinal);
 
         // The stack trace should include lines that refer to the .NET method that called JS.
         Assert.Contains(
             stackLines,
-            (line) => line.StartsWith($"at {typeof(NodejsEmbeddingTests).FullName}."));
+            (line) => line.StartsWith(
+                $"at {typeof(NodejsEmbeddingTests).FullName}.", StringComparison.Ordinal));
     }
 
     [Fact]

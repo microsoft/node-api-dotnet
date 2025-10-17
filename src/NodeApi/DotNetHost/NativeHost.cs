@@ -122,7 +122,8 @@ internal unsafe partial class NativeHost : IDisposable
         try
         {
             JSValue exports;
-            if (!targetFramework.Contains('.') && targetFramework.StartsWith("net") &&
+            if (!targetFramework.Contains('.') &&
+                targetFramework.StartsWith("net", StringComparison.Ordinal) &&
                 targetFramework.Length >= 5)
             {
                 // .NET Framework

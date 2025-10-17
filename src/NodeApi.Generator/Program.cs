@@ -417,7 +417,7 @@ public static class Program
             s_targetFramework = s_targetFramework.Substring(0, s_targetFramework.IndexOf('-'));
         }
 
-        if (s_targetFramework.StartsWith("net4"))
+        if (s_targetFramework.StartsWith("net4", StringComparison.Ordinal))
         {
             if (targetingPacks.Count > 0)
             {

@@ -22,7 +22,7 @@ public class JSProjectTests
     private const string DefaultFrameworkTarget = "net8.0";
 
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases(
-        (testCaseName) => testCaseName.StartsWith("projects/") &&
+        (testCaseName) => testCaseName.StartsWith("projects/", StringComparison.Ordinal) &&
             (!testCaseName.Contains("-dynamic") ||
                 IsCurrentTargetFramework(Path.GetFileName(testCaseName))));
 

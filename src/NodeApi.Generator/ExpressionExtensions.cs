@@ -63,7 +63,7 @@ internal static class ExpressionExtensions
                         lambda.Parameters.Select((p) => p.Name!))]),
 
             ParameterExpression parameter =>
-                (parameter.IsByRef && parameter.Name?.StartsWith(OutParameterPrefix) == true) ?
+                (parameter.IsByRef && parameter.Name?.StartsWith(OutParameterPrefix, StringComparison.Ordinal) == true) ?
                     parameter.Name.Substring(OutParameterPrefix.Length) : parameter.Name ?? "_",
 
             BlockExpression block => FormatBlock(block, path, variables),
@@ -128,13 +128,13 @@ internal static class ExpressionExtensions
                         call.Arguments.Take(call.Arguments.Count - 1), path, variables, "[]") +
                         " = " + ToCS(call.Arguments.Last(), path, variables) :
 #if !STRING_AS_SPAN
-                call.Method.Name.StartsWith("get_") ?
+                call.Method.Name.StartsWith("get_", StringComparison.Ordinal) ?
                     (call.Method.IsStatic ?
                         FormatType(call.Method.DeclaringType!) +
                             "." + call.Method.Name.Substring(4):
                         WithParentheses(call.Object!, path, variables) +
                             "." + call.Method.Name.Substring(4)) :
-                call.Method.Name.StartsWith("set_") ?
+                call.Method.Name.StartsWith("set_", StringComparison.Ordinal) ?
                     (call.Method.IsStatic ?
                         FormatType(call.Method.DeclaringType!) +
                             "." + call.Method.Name.Substring(4) :
@@ -142,13 +142,13 @@ internal static class ExpressionExtensions
                             "." + call.Method.Name.Substring(4)) +
                     " = " + ToCS(call.Arguments.Single(), path, variables) :
 #else
-                call.Method.Name.StartsWith("get_") ?
+                call.Method.Name.StartsWith("get_", StringComparison.Ordinal) ?
                     (call.Method.IsStatic ?
                         string.Concat(FormatType(call.Method.DeclaringType!),
                             ".", call.Method.Name.AsSpan(4)) :
                         string.Concat(WithParentheses(call.Object!, path, variables),
                             ".", call.Method.Name.AsSpan(4))) :
-                call.Method.Name.StartsWith("set_") ?
+                call.Method.Name.StartsWith("set_", StringComparison.Ordinal) ?
                     (call.Method.IsStatic ?
                         string.Concat(FormatType(call.Method.DeclaringType!),
                             ".", call.Method.Name.AsSpan(4)) :
@@ -215,7 +215,7 @@ internal static class ExpressionExtensions
 
         if (parameter.IsByRef)
         {
-            if (name.StartsWith(OutParameterPrefix))
+            if (name.StartsWith(OutParameterPrefix, StringComparison.Ordinal))
             {
                 prefix = "out ";
                 name = name.Substring(OutParameterPrefix.Length);

@@ -75,8 +75,9 @@ internal static class TestBuilder
             foreach (string jsFile in Directory.GetFiles(modulePath, "*.js")
               .Concat(Directory.GetFiles(modulePath, "*.ts")))
             {
-                if (jsFile.EndsWith(".d.ts")) continue;
-                else if (jsFile.EndsWith(".js") && File.Exists(Path.ChangeExtension(jsFile, ".ts"))) continue;
+                if (jsFile.EndsWith(".d.ts", StringComparison.Ordinal)) continue;
+                else if (jsFile.EndsWith(".js", StringComparison.Ordinal) &&
+                    File.Exists(Path.ChangeExtension(jsFile, ".ts"))) continue;
                 string testCaseName = Path.GetFileNameWithoutExtension(jsFile);
                 if (filter == null || filter(moduleName + "/" + testCaseName))
                 {
@@ -321,7 +322,7 @@ internal static class TestBuilder
             for (int i = 0; i < logLines.Length; i++)
             {
                 // Scan for a line that looks like a node error or an assertion with filename:#.
-                if (logLines[i].StartsWith("node:") ||
+                if (logLines[i].StartsWith("node:", StringComparison.Ordinal) ||
                     logLines[i].Contains(jsFileName + ":"))
                 {
                     string assertion = string.Join(Environment.NewLine, logLines.Skip(i));
