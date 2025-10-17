@@ -260,7 +260,7 @@ internal static class TestBuilder
         {
             // Append the .NET preview version to the SDK version requested in global.json.
             sdkVersion += RuntimeInformation.FrameworkDescription.Substring(
-                RuntimeInformation.FrameworkDescription.IndexOf("-preview.", StringComparison.Ordinal) +);
+                RuntimeInformation.FrameworkDescription.IndexOf("-preview.", StringComparison.Ordinal));
         }
 
         string globalJson = $$"""
