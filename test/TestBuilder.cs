@@ -297,6 +297,9 @@ internal static class TestBuilder
             WorkingDirectory = Path.GetDirectoryName(logFilePath)!,
         };
 
+        // Globalization data will not be used, even if available
+        startInfo.Environment["DOTNET_SYSTEM_GLOBALIZATION_INVARIANT"] = "true";
+
         foreach (KeyValuePair<string, string> pair in testEnvironmentVariables)
         {
             startInfo.Environment[pair.Key] = pair.Value;
