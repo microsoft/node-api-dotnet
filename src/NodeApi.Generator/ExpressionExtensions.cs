@@ -182,6 +182,9 @@ internal static class ExpressionExtensions
                     FormatArgs(construction.Arguments, path, variables),
 
             NewArrayExpression { NodeType: ExpressionType.NewArrayBounds } newArray =>
+                newArray.Type.GetElementType()!.IsArray ?
+                "new " + FormatType(newArray.Type.GetElementType()!.GetElementType()!) +
+                "[" + ToCS(newArray.Expressions.Single(), path, variables) + "][]" :
                 "new " + FormatType(newArray.Type.GetElementType()!) +
                 "[" + ToCS(newArray.Expressions.Single(), path, variables) + "]",
 
