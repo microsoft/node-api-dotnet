@@ -2153,9 +2153,16 @@ public class JSMarshaller
             Type[]? genericArguments = toType.IsGenericType ?
                 toType.GetGenericArguments() : null;
 
+#if NETFRAMEWORK || NETSTANDARD
+            if (genericTypeDefinition?.FullName == typeof(Memory<>).FullName ||
+                genericTypeDefinition?.FullName == typeof(ReadOnlyMemory<>).FullName)
+            {
+#else
             if (genericTypeDefinition == typeof(Memory<>) ||
                 genericTypeDefinition == typeof(ReadOnlyMemory<>))
             {
+                Expression valueExpression = valueParameter;
+#endif
                 Type elementType = toType.GenericTypeArguments[0];
                 if (!IsTypedArrayType(elementType))
                 {
@@ -2166,10 +2173,21 @@ public class JSMarshaller
                 Type typedArrayType = typeof(JSTypedArray<>).MakeGenericType(elementType);
                 MethodInfo asTypedArray = typedArrayType.GetExplicitConversion(
                     typeof(JSValue), typedArrayType);
-                PropertyInfo memory = typedArrayType.GetInstanceProperty("Memory");
+                PropertyInfo memoryProperty = typedArrayType.GetInstanceProperty("Memory");
+                Expression memoryExpression = Expression.Property(
+                    Expression.Call(asTypedArray, valueParameter), memoryProperty);
+
+#if NETFRAMEWORK || NETSTANDARD
+                // The .NET Framework Memory<> type is different. Convert to object first to avoid
+                // type validation errors when constructing the Expression when building in VS.
+                // (It will be the exact same type at runtime.)
+                memoryExpression = Expression.Convert(
+                    Expression.Convert(memoryExpression, typeof(object)), toType);
+#endif
+
                 statements = new[]
                 {
-                    Expression.Property(Expression.Call(asTypedArray, valueParameter), memory),
+                    memoryExpression,
                 };
             }
             else if (genericTypeDefinition == typeof(KeyValuePair<,>))
@@ -2478,9 +2496,25 @@ public class JSMarshaller
             Type[]? genericArguments = fromType.IsGenericType ?
                 fromType.GetGenericArguments() : null;
 
+#if NETFRAMEWORK || NETSTANDARD
+            if (genericTypeDefinition?.FullName == typeof(Memory<>).FullName ||
+                genericTypeDefinition?.FullName == typeof(ReadOnlyMemory<>).FullName)
+            {
+                // The .NET Framework Memory<> type is different. Convert to object first to avoid
+                // type validation errors when constructing the Expression when building in VS.
+                // (It will be the exact same type at runtime.)
+                genericTypeDefinition =
+                    genericTypeDefinition.FullName == typeof(Memory<>).FullName ?
+                    typeof(Memory<>) : typeof(ReadOnlyMemory<>);
+                fromType = genericTypeDefinition.MakeGenericType(
+                    fromType.GenericTypeArguments);
+                valueExpression = Expression.Convert(
+                    Expression.Convert(valueExpression, typeof(object)), fromType);
+#else
             if (genericTypeDefinition == typeof(Memory<>) ||
                 genericTypeDefinition == typeof(ReadOnlyMemory<>))
             {
+#endif
                 Type elementType = fromType.GenericTypeArguments[0];
                 if (!IsTypedArrayType(elementType))
                 {
@@ -2494,7 +2528,7 @@ public class JSMarshaller
                     typedArrayType, typeof(JSValue));
                 statements = new[]
                 {
-                    Expression.Call(asJSValue, Expression.New(constructor, valueParameter)),
+                    Expression.Call(asJSValue, Expression.New(constructor, valueExpression)),
                 };
             }
             else if (genericTypeDefinition == typeof(KeyValuePair<,>))
