@@ -1,0 +1,27 @@
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  FEED_URL: "https://pkgs.dev.azure.com/ms/react-native/_packaging/react-native-public/nuget/v3/index.json"
+  PACKAGE_ID: "Microsoft.AspNetCore.App.Runtime.linux-x64"
+  PACKAGE_VERSION: "10.0.0"
+
+steps:
+  - task: NuGetAuthenticate@1
+    displayName: "Authenticate to Azure Artifacts"
+
+  - script: |
+      set -e
+      echo "Fetching ${PACKAGE_ID} ${PACKAGE_VERSION} from feed"
+      nuget install ${PACKAGE_ID} \
+        -Version ${PACKAGE_VERSION} \
+        -Source "${FEED_URL}" \
+        -DirectDownload \
+        -NonInteractive \
+        -Verbosity detailed
+    displayName: "Prefetch package into feed"
+    env:
+      NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED: true
