@@ -1,3 +1,10 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+#
+# The pipeline to fetch .Net Nuget packages to the feed
+# https://pkgs.dev.azure.com/ms/react-native/_packaging/react-native-public/nuget/v3/index.json
+#
+
 trigger: none
 pr: none
 
@@ -10,6 +17,9 @@ variables:
   PACKAGE_VERSION: "10.0.0"
 
 steps:
+  - task: NuGetToolInstaller@1
+    displayName: "Install NuGet CLI"
+
   - task: NuGetAuthenticate@1
     displayName: "Authenticate to Azure Artifacts"
 
