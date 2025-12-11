@@ -52,7 +52,7 @@ public readonly partial struct JSArray : IJSValue<JSArray>, IList<JSValue>
     {
     }
 
-    public JSArray(int length) : this(JSValue.CreateArray(length))
+    public JSArray(int length) : this(JSValue.CreateArray((uint)length))
     {
     }
 
