@@ -26,12 +26,21 @@ steps:
   - powershell: |
       $ErrorActionPreference = 'Stop'
       Write-Host "Fetching $env:PACKAGE_ID $env:PACKAGE_VERSION from feed"
-      # Use download to avoid project-compat checks for DotnetPlatform packages
-      nuget download $env:PACKAGE_ID `
-        -Version $env:PACKAGE_VERSION `
-        -Source "$env:FEED_URL" `
-        -NonInteractive `
-        -Verbosity detailed
+
+      # Build flat container URL and download directly via the feed (avoids install compatibility checks)
+      $base = $env:FEED_URL -replace "/index.json$","/"
+      $idLower = $env:PACKAGE_ID.ToLowerInvariant()
+      $nupkgName = "$idLower.$($env:PACKAGE_VERSION).nupkg"
+      $flatUrl = "${base}flat2/$idLower/$($env:PACKAGE_VERSION)/$nupkgName"
+      $outPath = Join-Path $env:Agent_TempDirectory $nupkgName
+
+      # Use bearer token (System.AccessToken) instead of basic
+      $auth = "Bearer $($env:SYSTEM_ACCESSTOKEN)"
+
+      Write-Host "Downloading from $flatUrl"
+      Invoke-WebRequest -Uri $flatUrl -OutFile $outPath -Headers @{ Authorization = $auth }
+      Write-Host "Saved to $outPath"
     displayName: "Prefetch package into feed"
     env:
       NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED: true
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
