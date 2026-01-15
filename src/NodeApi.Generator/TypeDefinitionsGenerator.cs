@@ -242,6 +242,10 @@ dotnet.load(assemblyName);";
             throw new ArgumentNullException(nameof(modulePaths));
         }
 
+        // Provided reference assemblies may be duplicated when they come from multiple
+        // places in a complex dependency tree.
+        referenceAssemblyPaths = referenceAssemblyPaths.Distinct();
+
         // Create a metadata load context that includes a resolver for system assemblies,
         // referenced assemblies, and the target assembly.
         IEnumerable<string> allReferenceAssemblyPaths = MergeSystemReferenceAssemblies(
