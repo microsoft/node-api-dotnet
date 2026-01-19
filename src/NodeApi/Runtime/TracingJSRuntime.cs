@@ -79,7 +79,7 @@ public class TracingJSRuntime : JSRuntime
 
     private string GetValueString(napi_env env, napi_value value)
     {
-        if (_runtime.GetValueStringUtf16(env, value, [], out int length) ==
+        if (_runtime.GetValueStringUtf16(env, value, [], out nuint length) ==
             napi_status.napi_ok)
         {
             string elipses = string.Empty;
@@ -89,11 +89,11 @@ public class TracingJSRuntime : JSRuntime
                 elipses = "...";
             }
 
-            Span<char> chars = stackalloc char[length + 1];
+            Span<char> chars = stackalloc char[(int)length + 1];
             if (_runtime.GetValueStringUtf16(env, value, chars, out _) ==
                 napi_status.napi_ok)
             {
-                return new string(chars.Slice(0, length).ToArray()) + elipses;
+                return new string(chars.Slice(0, (int)length).ToArray()) + elipses;
             }
         }
 
@@ -438,16 +438,16 @@ public class TracingJSRuntime : JSRuntime
         napi_callback_info cbinfo,
         Func<TDescriptor, JSCallbackDescriptor> getCallbackDescriptor)
     {
-        JSCallbackArgs.GetDataAndLength(scope, cbinfo, out object? dataObj, out int length);
+        JSCallbackArgs.GetDataAndLength(scope, cbinfo, out object? dataObj, out nuint length);
         TDescriptor data = (TDescriptor)(dataObj ??
             throw new InvalidOperationException("Callback data is null."));
         JSCallbackDescriptor descriptor = getCallbackDescriptor(data);
 
-        Span<napi_value> argsSpan = stackalloc napi_value[length];
+        Span<napi_value> argsSpan = stackalloc napi_value[(int)length];
         JSCallbackArgs args = new(scope, cbinfo, argsSpan, descriptor.Data);
 
         string[] argsStrings = new string[length];
-        for (int i = 0; i < length; i++)
+        for (int i = 0; i < (int)length; i++)
         {
             argsStrings[i] = Format((napi_env)scope, (napi_value)args[i]);
         }
@@ -899,7 +899,7 @@ public class TracingJSRuntime : JSRuntime
     }
 
     public override napi_status GetValueStringUtf8(
-        napi_env env, napi_value value, Span<byte> buf, out int result)
+        napi_env env, napi_value value, Span<byte> buf, out nuint result)
     {
         // The combined TraceCall() can't be used with Span<T>.
         TraceCall([Format(env, value)]);
@@ -926,7 +926,7 @@ public class TracingJSRuntime : JSRuntime
     }
 
     public override napi_status GetValueStringUtf16(
-        napi_env env, napi_value value, Span<char> buf, out int result)
+        napi_env env, napi_value value, Span<char> buf, out nuint result)
     {
         // The combined TraceCall() can't be used with Span<T>.
         TraceCall([Format(env, value)]);
@@ -972,9 +972,9 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-    public override napi_status GetArrayLength(napi_env env, napi_value value, out int result)
+    public override napi_status GetArrayLength(napi_env env, napi_value value, out uint result)
     {
-        int resultValue = default;
+        uint resultValue = default;
         napi_status status = TraceCall(
             [Format(env, value)],
             () => (_runtime.GetArrayLength(env, value, out resultValue), resultValue.ToString()));
@@ -1087,12 +1087,12 @@ public class TracingJSRuntime : JSRuntime
         out napi_typedarray_type type,
         out nint data,
         out napi_value arraybuffer,
-        out int byte_offset)
+        out nuint byte_offset)
     {
         napi_typedarray_type resultType = default;
         nint resultData = default;
         napi_value resultValue = default;
-        int resultOffset = default;
+        nuint resultOffset = default;
         napi_status status = TraceCall(
             [Format(env, typedarray)],
             () => (_runtime.GetValueTypedArray(
@@ -1119,11 +1119,11 @@ public class TracingJSRuntime : JSRuntime
         napi_value dataview,
         out nint data,
         out napi_value arraybuffer,
-        out int byte_offset)
+        out nuint byte_offset)
     {
         nint resultData = default;
         napi_value resultValue = default;
-        int resultOffset = default;
+        nuint resultOffset = default;
         napi_status status = TraceCall(
             [Format(env, dataview)],
             () => (_runtime.GetValueDataView(
@@ -1374,7 +1374,7 @@ public class TracingJSRuntime : JSRuntime
         return status;
     }
 
-    public override napi_status CreateArray(napi_env env, int length, out napi_value result)
+    public override napi_status CreateArray(napi_env env, uint length, out napi_value result)
     {
         napi_value resultValue = default;
         napi_status status = TraceCall(
@@ -1386,7 +1386,7 @@ public class TracingJSRuntime : JSRuntime
 
     public override napi_status CreateArrayBuffer(
         napi_env env,
-        int byte_length,
+        nuint byte_length,
         out nint data,
         out napi_value result)
     {
@@ -1404,7 +1404,7 @@ public class TracingJSRuntime : JSRuntime
     public override napi_status CreateArrayBuffer(
         napi_env env,
         nint external_data,
-        int byte_length,
+        nuint byte_length,
         napi_finalize finalize_cb,
         nint finalize_hint,
         out napi_value result)
@@ -1429,9 +1429,9 @@ public class TracingJSRuntime : JSRuntime
     public override napi_status CreateTypedArray(
         napi_env env,
         napi_typedarray_type type,
-        int length,
+        nuint length,
         napi_value arraybuffer,
-        int byte_offset,
+        nuint byte_offset,
         out napi_value result)
     {
         napi_value resultValue = default;
@@ -1452,9 +1452,9 @@ public class TracingJSRuntime : JSRuntime
 
     public override napi_status CreateDataView(
         napi_env env,
-        int length,
+        nuint length,
         napi_value arraybuffer,
-        int byte_offset,
+        nuint byte_offset,
         out napi_value result)
     {
         napi_value resultValue = default;
@@ -1747,9 +1747,9 @@ public class TracingJSRuntime : JSRuntime
     }
 
     public override napi_status GetCallbackInfo(
-        napi_env env, napi_callback_info cbinfo, out int argc, out nint data)
+        napi_env env, napi_callback_info cbinfo, out nuint argc, out nint data)
     {
-        int resultCount = default;
+        nuint resultCount = default;
         nint resultData = default;
         napi_status status = TraceCall(
             [Format(cbinfo)],

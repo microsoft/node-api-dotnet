@@ -43,7 +43,7 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     public static explicit operator JSTypedArray<T>(JSValue value)
         => value.CastTo<JSTypedArray<T>>();
 
-    private static int ElementSize { get; } = default(T) switch
+    private static uint ElementSize { get; } = default(T) switch
     {
         sbyte => sizeof(sbyte),
         byte => sizeof(byte),
@@ -98,8 +98,8 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
     /// </summary>
     public JSTypedArray(int length)
     {
-        JSValue arrayBuffer = JSValue.CreateArrayBuffer(length * ElementSize);
-        _value = JSValue.CreateTypedArray(ArrayType, length, arrayBuffer, 0);
+        JSValue arrayBuffer = JSValue.CreateArrayBuffer((uint)length * ElementSize);
+        _value = JSValue.CreateTypedArray(ArrayType, (uint)length, arrayBuffer, 0);
     }
 
     /// <summary>
@@ -119,7 +119,7 @@ public readonly struct JSTypedArray<T> : IJSValue<JSTypedArray<T>>
 
             JSValue arrayBuffer = data.Length > 0 ?
                 JSValue.CreateExternalArrayBuffer(data) : JSValue.CreateArrayBuffer(0);
-            _value = JSValue.CreateTypedArray(ArrayType, data.Length, arrayBuffer, 0);
+            _value = JSValue.CreateTypedArray(ArrayType, (nuint)data.Length, arrayBuffer, 0);
         }
     }
 
