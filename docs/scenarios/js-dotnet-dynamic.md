@@ -81,7 +81,7 @@ For examples of this scenario, see one of these directories in the repo:
     const dotnet = require('node-api-dotnet/net8.0');
     ```
     :::
-   Currently the supported target frameworks are `net472`, `net8.0`, and `net9.0`.
+   Currently the supported target frameworks are `net472`, `net8.0`, `net9.0`, and `net10.0`.
 
 4. Load one or more .NET packages using the generated `.js` files:
     ::: code-group

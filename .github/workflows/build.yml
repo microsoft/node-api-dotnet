@@ -12,12 +12,14 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, macos-latest, ubuntu-latest ]
-        dotnet-version: [ net472, net8.0, net9.0]
+        dotnet-version: [ net472, net8.0, net9.0, net10.0]
         node-version: [ 18.x, 22.x ]
         configuration: [ Release ]
         exclude:
-          # Exclude Node 18.x on .NET < 9, to thin the matrix.
+          # Exclude Node 18.x on .NET < 10, to thin the matrix.
           - dotnet-version: net8.0
+            node-version: 18.x
+          - dotnet-version: net9.0
             node-version: 18.x
           - dotnet-version: net472
             node-version: 18.x
@@ -46,6 +48,11 @@ jobs:
       with:
         dotnet-version: 9.0.x
 
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
@@ -62,7 +69,7 @@ jobs:
     #      limit-access-to-actor: true
 
     - name: Upload build artifacts
-      if: matrix.dotnet-version == 'net9.0' && matrix.node-version == '22.x'
+      if: matrix.dotnet-version == 'net10.0' && matrix.node-version == '22.x'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.os }}-${{ matrix.configuration }}-packages

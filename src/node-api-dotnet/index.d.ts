@@ -27,7 +27,7 @@
  * const dotnet = require('node-api-dotnet/net8.0');
  * ```
  * :::
- * Currently the supported target frameworks are `net472`, `net8.0`, and `net9.0`.
+ * Currently the supported target frameworks are `net472`, `net8.0`, `net9.0`, and `net10.0`.
  * @module node-api-dotnet
  */
 declare module 'node-api-dotnet' {
