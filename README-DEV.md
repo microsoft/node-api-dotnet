@@ -25,7 +25,7 @@ dotnet pack
 ```
 This produces both nuget and npm packages (for the current platform only) in the `out/pkg`
 directory. It uses `Debug` configuration by default, which is slower but allows for
-[debugging](#debugging). Append `-c Relase` to change the configuration.
+[debugging](#debugging). Append `-c Release` to change the configuration.
 
 ## Test
 ```bash
