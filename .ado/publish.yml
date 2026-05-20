@@ -88,6 +88,13 @@ parameters:
         os: windows
       TargetRuntime: win-x64
       DotNetVersion: net10.0
+    - Name: osx_x64_net90
+      Pool:
+        name: Azure Pipelines
+        vmImage: macos-14
+        os: macOS
+      TargetRuntime: osx-x64
+      DotNetVersion: net9.0
     - Name: osx_x64_net100
       Pool:
         name: Azure Pipelines
@@ -95,6 +102,13 @@ parameters:
         os: macOS
       TargetRuntime: osx-x64
       DotNetVersion: net10.0
+    - Name: osx_arm64_net90
+      Pool:
+        name: Azure Pipelines
+        vmImage: macos-14-arm64
+        os: macOS
+      TargetRuntime: osx-arm64
+      DotNetVersion: net9.0
     - Name: osx_arm64_net100
       Pool:
         name: Azure Pipelines
@@ -102,6 +116,13 @@ parameters:
         os: macOS
       TargetRuntime: osx-arm64
       DotNetVersion: net10.0
+    - Name: linux_x64_net90
+      Pool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        image: ubuntu-latest
+        os: linux
+      TargetRuntime: linux-x64
+      DotNetVersion: net9.0
     - Name: linux_x64_net100
       Pool:
         name: Azure-Pipelines-1ESPT-ExDShared
