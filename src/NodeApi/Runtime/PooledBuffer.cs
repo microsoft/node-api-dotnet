@@ -52,11 +52,8 @@ internal struct PooledBuffer : IDisposable
 
     public void Dispose()
     {
-        if (_pool != null)
-        {
-            _pool.Return(Buffer!);
-            _pool = null;
-        }
+        _pool?.Return(Buffer!);
+        _pool = null;
     }
 
 #endif

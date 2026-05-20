@@ -177,10 +177,10 @@ internal static class TestBuilder
     {
         if (GetNoBuild()) return;
 
-        string workingDirectory = Path.GetDirectoryName(logFilePath)!;
+        string workingDirectory = Path.GetDirectoryName(projectFilePath)!;
         if (target != "Publish")
         {
-            WriteCurrentFrameworkGlobalJson(workingDirectory);
+            WriteCurrentFrameworkGlobalJson(workingDirectory, projectFilePath);
         }
 
         using StreamWriter logWriter = new(File.Open(
@@ -213,10 +213,21 @@ internal static class TestBuilder
             WorkingDirectory = workingDirectory,
         };
 
-        if (Environment.Version.Major == 8)
+        // Prevent nested dotnet invocations from inheriting the current host path from the
+        // parent dotnet process, which can cause host/runtime mismatches when SDK selection
+        // rolls forward to a newer major version.
+        if (Environment.Version.Major != 4)
         {
-            // Prevent the launched build from using the same MSBuild SDK that was used to run the test.
-            startInfo.Environment["MSBuildSDKsPath"] = "";
+            startInfo.Environment.Remove("MSBuildSDKsPath");
+            startInfo.Environment.Remove("DOTNET_HOST_PATH");
+            startInfo.Environment.Remove("DOTNET_ROOT");
+            startInfo.Environment.Remove("DOTNET_ROOT(x86)");
+            startInfo.Environment.Remove("DOTNET_ROOT_X86");
+            startInfo.Environment.Remove("DOTNET_ROOT(x64)");
+            startInfo.Environment.Remove("DOTNET_ROOT_X64");
+            startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR");
+            startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_SDKS_DIR");
+            startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_SDKS_VER");
         }
 
         logWriter.WriteLine($"dotnet {startInfo.Arguments}");
@@ -241,7 +252,9 @@ internal static class TestBuilder
         }
     }
 
-    private static void WriteCurrentFrameworkGlobalJson(string workingDirectory)
+    private static void WriteCurrentFrameworkGlobalJson(
+        string workingDirectory,
+        string projectFilePath)
     {
         Version frameworkVersion = Environment.Version;
         if (frameworkVersion.Major == 4)
@@ -272,8 +285,15 @@ internal static class TestBuilder
                 }
             }
             """;
-        string globalJsonFilePath = Path.Combine(workingDirectory, "global.json");
-        File.WriteAllText(globalJsonFilePath, globalJson);
+
+        // SDK resolution for `dotnet build <project-path>` walks from the project directory,
+        // so write global.json both near logs and next to the generated project file.
+        string workingDirGlobalJsonFilePath = Path.Combine(workingDirectory, "global.json");
+        File.WriteAllText(workingDirGlobalJsonFilePath, globalJson);
+
+        string projectDirectory = Path.GetDirectoryName(projectFilePath)!;
+        string projectDirGlobalJsonFilePath = Path.Combine(projectDirectory, "global.json");
+        File.WriteAllText(projectDirGlobalJsonFilePath, globalJson);
     }
 
     public static void RunNodeTestCase(

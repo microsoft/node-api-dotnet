@@ -43,7 +43,7 @@ The `node-api-dotnet-generator` npm package is a standalone command-line tool th
 | Parameter     | Alias | Description |
 |---------------|-------|-------------|
 | `--asssembly` | `-a`  | Required path to the assembly file for which type definitions are to be generated. 
-| `--framework` | `-f`  | Target framework moniker of system assembly dependencies, e.g. `net8.0`. Defaults to the .NET runtime version used when invoking the tool (currently .NET 8).
+| `--framework` | `-f`  | Target framework moniker of system assembly dependencies, e.g. `net10.0`. Defaults to the .NET runtime version used when invoking the tool (currently .NET 10).
 | `--pack`      | `-p`  | Application targeting pack(s) to check when resolving system assembly dependencies. Defaults to `Microsoft.NETCore.App`. May be specified more than once. Add the `Microsoft.AspNetCore.App` targeting pack for an ASP.NET app, or `Microsoft.WindowsDesktop.App` for a Windows desktop app.
 | `--reference` | `-r`  | Path to an assembly that is referenced by the primary assembly. System assemblies are located automatically via the targeting packs and do not need to be specified separately. All other referenced assemblies must be provided. May be specified more than once.
 | `--typedefs`  | `-t`  | Required path to output generated type definitions (`.d.ts`) file.

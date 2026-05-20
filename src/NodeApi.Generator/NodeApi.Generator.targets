@@ -29,7 +29,7 @@
     Resolves NodeApi source-generator (analyzer) assemblies.
     The recommended practice is to build analyzers targeting only .NET Standard 2.0, and place them in a special "analyzers" directory
     in the package where they are found automatically. But this package contains separate targets for .NET Standard 2.0, .NET Framework 4.x,
-    and .NET 6.0 (and later) in the "lib" directory. This task chooses the correct target based on the currnet MSBuild process's .NET version
+    and .NET 8.0 (and later) in the "lib" directory. This task chooses the correct target based on the currnet MSBuild process's .NET version
     (NOT the current target framework), and adds the assemblies to the Analyzer item group.
   -->
   <Target Name="ResolveNodeApiAnalyzer" AfterTargets="ResolvePackageDependenciesForBuild">
