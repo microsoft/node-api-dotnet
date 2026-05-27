@@ -19,20 +19,18 @@ resources:
         - main
 
   repositories:
-  - repository: CustomPipelineTemplates
+  - repository: OfficePipelineTemplates
     type: git
     name: 1ESPipelineTemplates/OfficePipelineTemplates
     ref: refs/tags/release
 
 extends:
-  template: v1/Office.Official.PipelineTemplate.yml@CustomPipelineTemplates
+  template: v1/Office.Official.PipelineTemplate.yml@OfficePipelineTemplates
   parameters:
     pool:
       name: Azure-Pipelines-1ESPT-ExDShared
       vmImage: windows-latest
       os: windows
-    customBuildTags:
-    - ES365AIMigrationTooling-BulkMigrated-Release
     sdl:
       eslint:
         enableExclusions: true
@@ -63,6 +61,20 @@ extends:
         - script: dotnet nuget list source
           displayName: Show Nuget sources
 
+        - task: AzureCLI@2
+          displayName: Override NuGet credentials with Managed Identity
+          inputs:
+            azureSubscription: 'Office-Hermes-Windows-Bot'
+            visibleAzLogin: false
+            scriptType: 'pscore'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              $accessToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
+              # Set the access token as a secret, so it doesn't get leaked in the logs
+              Write-Host "##vso[task.setsecret]$accessToken"
+              # Override the apitoken of the nuget service connection, for the duration of this stage
+              Write-Host "##vso[task.setendpoint id=29e4c04c-ae69-4453-b9f3-bfef7a4c8d32;field=authParameter;key=apitoken]$accessToken"
+
         - task: 1ES.PublishNuGet@1
           displayName: NuGet push
           inputs:
@@ -85,7 +97,10 @@ extends:
             artifactName: 'published-packages'
             targetPath: $(Pipeline.Workspace)\published-packages
 
-        # Use the NPM utility to authenticate and publish to ADO ms/react-native feed
+        # Use the NPM utility to authenticate and publish to ADO ms/react-native feed.
+        # PAT-based auth is no longer permitted, so override the service connection's
+        # token with an AAD access token obtained via Managed Identity, mirroring the
+        # NuGet job above.
         steps:
         - task: NodeTool@0
           displayName: Use Node 22.x
@@ -98,6 +113,20 @@ extends:
             script: |
               echo registry=https://pkgs.dev.azure.com/ms/_packaging/react-native/npm/registry/ > $(Pipeline.Workspace)\published-packages\.npmrc
               echo always-auth=true >> $(Pipeline.Workspace)\published-packages\.npmrc
+
+        - task: AzureCLI@2
+          displayName: Override npm credentials with Managed Identity
+          inputs:
+            azureSubscription: 'Office-Hermes-Windows-Bot'
+            visibleAzLogin: false
+            scriptType: 'pscore'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              $accessToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
+              # Set the access token as a secret, so it doesn't get leaked in the logs
+              Write-Host "##vso[task.setsecret]$accessToken"
+              # Override the apitoken of the npm service connection, for the duration of this stage.
+              Write-Host "##vso[task.setendpoint id=9991cb9c-14ba-4683-9a34-100f96f80607;field=authParameter;key=apitoken]$accessToken"
 
         - task: npmAuthenticate@0
           displayName: npm Authenticate .npmrc
