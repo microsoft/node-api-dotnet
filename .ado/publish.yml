@@ -396,7 +396,7 @@ extends:
                     script: |
                       Rename-Item `
                         -Path "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.node" `
-                        -NewName "Microsoft.JavaScript.NodeApi.dll"
+                        -NewName "Microsoft.JavaScript.NodeApi.node.dll"
 
                 - task: EsrpCodeSigning@6
                   displayName: CodeSign Binaries
@@ -410,6 +410,7 @@ extends:
                     FolderPath: $(Build.SourcesDirectory)/out/bin/Release
                     # Recursively finds files matching these patterns:
                     Pattern: |
+                      NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.node.dll
                       **/Microsoft.JavaScript.NodeApi.dll
                       **/Microsoft.JavaScript.NodeApi.DotNetHost.dll
                       **/Microsoft.JavaScript.NodeApi.Generator.dll
@@ -446,7 +447,7 @@ extends:
                     targetType: inline
                     script: |
                       Rename-Item `
-                        -Path "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.dll" `
+                        -Path "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.node.dll" `
                         -NewName "Microsoft.JavaScript.NodeApi.node"
 
               # Make symbols available through http://symweb.
