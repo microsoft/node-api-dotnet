@@ -386,7 +386,19 @@ extends:
                 displayName: Show RID list
 
               - ${{ if ne(variables.DisableSigning, true) }}:
-                - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
+                # ESRP's PendingAnalysis stage rejects the .node extension, so rename to .dll
+                # for signing and rename back after. The signing task below picks it up via the
+                # **/Microsoft.JavaScript.NodeApi.dll glob.
+                - task: PowerShell@2
+                  displayName: Rename .node to .dll for ESRP signing
+                  inputs:
+                    targetType: inline
+                    script: |
+                      Rename-Item `
+                        -Path "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.node" `
+                        -NewName "Microsoft.JavaScript.NodeApi.dll"
+
+                - task: EsrpCodeSigning@6
                   displayName: CodeSign Binaries
                   inputs:
                     ConnectedServiceName: 'ESRP-JSHost3'
@@ -398,7 +410,6 @@ extends:
                     FolderPath: $(Build.SourcesDirectory)/out/bin/Release
                     # Recursively finds files matching these patterns:
                     Pattern: |
-                      NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.node
                       **/Microsoft.JavaScript.NodeApi.dll
                       **/Microsoft.JavaScript.NodeApi.DotNetHost.dll
                       **/Microsoft.JavaScript.NodeApi.Generator.dll
@@ -429,6 +440,15 @@ extends:
                         }
                       ]
 
+                - task: PowerShell@2
+                  displayName: Rename signed .dll back to .node
+                  inputs:
+                    targetType: inline
+                    script: |
+                      Rename-Item `
+                        -Path "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.dll" `
+                        -NewName "Microsoft.JavaScript.NodeApi.node"
+
               # Make symbols available through http://symweb.
               - task: PublishSymbols@2
                 displayName: Publish symbols
@@ -450,7 +470,7 @@ extends:
                   RuntimeIdentifierList: $(TargetRuntimeList)
 
               - ${{ if ne(variables.DisableSigning, true) }}:
-                - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
+                - task: EsrpCodeSigning@6
                   displayName: CodeSign NuGets
                   inputs:
                     ConnectedServiceName: 'ESRP-JSHost3'
