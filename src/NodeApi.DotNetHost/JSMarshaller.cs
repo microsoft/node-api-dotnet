@@ -2931,9 +2931,9 @@ public class JSMarshaller
          * jsArray.CopyTo(array, 0, (item) => (T)item);
          * return array;
          */
-        ParameterExpression jsArrayVariable = Expression.Parameter(typeof(JSArray), "jsArray");
+        ParameterExpression jsArrayVariable = Expression.Parameter(typeof(JSArray), "jsArray_" + FullTypeName(elementType));
         ParameterExpression arrayVariable = Expression.Parameter(
-            elementType.MakeArrayType(), "array");
+            elementType.MakeArrayType(), "array_" + FullTypeName(elementType));
         variables.Add(jsArrayVariable);
         variables.Add(arrayVariable);
 
@@ -2944,10 +2944,10 @@ public class JSMarshaller
             Expression.Convert(valueVariable, typeof(JSArray), castMethod));
 
         PropertyInfo jsArrayLengthProperty = typeof(JSArray).GetProperty(nameof(JSArray.Length))!;
-        yield return Expression.Assign(
-            arrayVariable,
-            Expression.NewArrayBounds(
-                elementType, Expression.Property(jsArrayVariable, jsArrayLengthProperty)));
+            yield return Expression.Assign(
+                arrayVariable,
+                Expression.NewArrayBounds(
+                    elementType, Expression.Property(jsArrayVariable, jsArrayLengthProperty)));
 
         LambdaExpression fromJSExpression = GetFromJSValueExpression(elementType);
         MethodInfo arrayCopyMethod = typeof(JSArray)
@@ -2974,7 +2974,7 @@ public class JSMarshaller
          * jsArray.CopyFrom(value, 0, (item) => (JSValue)item);
          * return jsArray;
          */
-        ParameterExpression jsArrayVariable = Expression.Variable(typeof(JSArray), "jsArray");
+        ParameterExpression jsArrayVariable = Expression.Variable(typeof(JSArray), "jsArray_" + FullTypeName(elementType));
         variables.Add(jsArrayVariable);
 
         PropertyInfo arrayLengthProperty = typeof(Array).GetProperty(nameof(Array.Length))!;
@@ -3739,8 +3739,13 @@ public class JSMarshaller
     {
         string? ns = type.Namespace;
         string name = type.Name;
-
-        if (type.IsGenericType)
+        if (type.IsArray)
+        {
+            int rank = type.GetArrayRank();
+            string elementTypeName = FullTypeName(type.GetElementType()!);
+            return $"{elementTypeName}_Array{(rank > 1 ? rank.ToString() : "")}";
+        }
+        else if (type.IsGenericType)
         {
             int nameEnd = name.IndexOf('`');
             if (nameEnd >= 0)
