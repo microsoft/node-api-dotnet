@@ -247,13 +247,15 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
 internal sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
 {
     private readonly JSThreadSafeFunction _tsfn;
+    private bool _tsfnFinalized;
 
     public JSTsfnSynchronizationContext()
     {
         _tsfn = new JSThreadSafeFunction(
             maxQueueSize: 0,
             initialThreadCount: 1,
-            asyncResourceName: (JSValue)nameof(JSSynchronizationContext));
+            asyncResourceName: (JSValue)nameof(JSSynchronizationContext),
+            finalize: _ => _tsfnFinalized = true);
 
         // Unref TSFN to indicate that this TSFN is not preventing Node.JS shutdown.
         _tsfn.Unref();
@@ -267,7 +269,15 @@ internal sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
 
         // Destroy TSFN by releasing last thread use count.
         // TSFN is deleted after this point and must not be used.
-        _tsfn.Release();
+        // During environment shutdown, Node.js finalizes the TSFN before the
+        // instance data finalizer disposes this context. Releasing it then
+        // deadlocks the JS thread on Node.js >= 24.14, where the release
+        // re-locks the TSFN mutex already held by the finalization path, and
+        // is a use-after-free on older versions.
+        if (!_tsfnFinalized)
+        {
+            _tsfn.Release();
+        }
     }
 
     /// <summary>
