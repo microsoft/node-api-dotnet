@@ -28,6 +28,10 @@
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.JavaScript.NodeApi.Test" />
+  </ItemGroup>
+
   <Target Name="SetRuntimeConfigValues" BeforeTargets="GenerateBuildRuntimeConfigurationFiles">
     <ItemGroup>
       <RuntimeHostConfigurationOption Include="System.Runtime.InteropServices.EnableConsumingManagedCodeFromNativeHosting" Value="true" />
