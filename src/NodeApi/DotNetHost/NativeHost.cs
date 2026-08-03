@@ -43,12 +43,93 @@ internal unsafe partial class NativeHost : IDisposable
         }
     }
 
+    private static bool s_moduleUnloadPrevented;
+
+    /// <summary>
+    /// Pins this native host module in memory so the OS never unloads it.
+    /// </summary>
+    /// <remarks>
+    /// This native host is compiled with NativeAOT, so it embeds a .NET runtime whose
+    /// per-thread cleanup is registered with the OS via a <c>pthread_key</c> destructor that
+    /// points into this module's own code. Node.js unloads (<c>dlclose</c>) an addon when the
+    /// environment that loaded it is torn down. When a <c>worker_threads</c> Worker loads this
+    /// module and is then terminated, Node unloads the module while the worker's OS thread is
+    /// still alive; the still-registered destructor then points at unmapped memory and the
+    /// process crashes with SIGSEGV as the thread exits (glibc <c>__nptl_deallocate_tsd</c>).
+    /// Keeping the module mapped for the lifetime of the process keeps that destructor valid.
+    /// <para/>
+    /// This only affects Unix (glibc) hosting; on Windows module/thread teardown does not hit
+    /// this issue. The pin is best-effort: any failure is traced but does not block init.
+    /// </remarks>
+    private static unsafe void PreventModuleUnload()
+    {
+        if (s_moduleUnloadPrevented)
+        {
+            return;
+        }
+
+        s_moduleUnloadPrevented = true;
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return;
+        }
+
+        try
+        {
+            // Resolve the file path of this shared library from the address of one of its
+            // own functions, then re-open it with RTLD_NODELETE so it is never unmapped.
+            nint moduleFunction =
+                (nint)(delegate* unmanaged[Cdecl]<napi_env, napi_value, napi_value>)
+                &InitializeModule;
+
+            if (dladdr(moduleFunction, out Dl_info info) != 0 && info.dli_fname != default)
+            {
+                // RTLD_NOLOAD resolves the already-loaded module without loading a new copy;
+                // RTLD_NODELETE keeps it mapped for the process lifetime. The extra (never
+                // released) reference also prevents Node's dlclose from unmapping it.
+                const int RTLD_LAZY = 0x0001;
+                const int RTLD_NOLOAD = 0x0004;
+                const int RTLD_NODELETE = 0x1000;
+                nint handle = dlopen(info.dli_fname, RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
+                Trace($"    Pinned native host module ({(handle != default ? "ok" : "no-op")}).");
+            }
+            else
+            {
+                Trace("    Could not resolve native host module path to pin it.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Trace("    Failed to pin native host module: " + ex);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Dl_info
+    {
+        public nint dli_fname;
+        public nint dli_fbase;
+        public nint dli_sname;
+        public nint dli_saddr;
+    }
+
+    [DllImport("libc.so.6")]
+    private static extern int dladdr(nint addr, out Dl_info info);
+
+    [DllImport("libc.so.6")]
+    private static extern nint dlopen(nint filename, int flags);
+
     [UnmanagedCallersOnly(
         EntryPoint = nameof(napi_register_module_v1),
         CallConvs = new[] { typeof(CallConvCdecl) })]
     public static napi_value InitializeModule(napi_env env, napi_value exports)
     {
         Trace($"> NativeHost.InitializeModule({env.Handle:X8}, {exports.Handle:X8})");
+
+        // Ensure this native module stays loaded for the lifetime of the process. See
+        // PreventModuleUnload() for details on the worker-thread teardown crash this avoids.
+        PreventModuleUnload();
 
         s_jsRuntime ??= new NodejsRuntime();
 
