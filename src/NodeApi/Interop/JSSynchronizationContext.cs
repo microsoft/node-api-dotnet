@@ -2,8 +2,13 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.JavaScript.NodeApi.Runtime;
+using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
+using static Microsoft.JavaScript.NodeApi.Runtime.NodejsRuntime;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
@@ -244,12 +249,17 @@ public abstract class JSSynchronizationContext : SynchronizationContext, IDispos
     }
 }
 
-internal sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
+internal sealed unsafe class JSTsfnSynchronizationContext : JSSynchronizationContext
 {
+    private readonly JSRuntime _runtime;
+    private readonly napi_env _env;
     private readonly JSThreadSafeFunction _tsfn;
+    private GCHandle _cleanupHandle;
 
     public JSTsfnSynchronizationContext()
     {
+        _runtime = JSValueScope.Current.Runtime;
+        _env = (napi_env)JSValueScope.Current;
         _tsfn = new JSThreadSafeFunction(
             maxQueueSize: 0,
             initialThreadCount: 1,
@@ -257,17 +267,65 @@ internal sealed class JSTsfnSynchronizationContext : JSSynchronizationContext
 
         // Unref TSFN to indicate that this TSFN is not preventing Node.JS shutdown.
         _tsfn.Unref();
+
+        // Node runs environment cleanup hooks in reverse registration order. Registering this
+        // after the TSFN ensures it is released before Node closes the TSFN's libuv handle.
+        _cleanupHandle = GCHandle.Alloc(this);
+        napi_status status = _runtime.AddEnvCleanupHook(
+            _env,
+            new napi_cleanup_hook(s_cleanup),
+            (nint)_cleanupHandle);
+        if (status != napi_status.napi_ok)
+        {
+            _cleanupHandle.Free();
+            _tsfn.Release();
+            status.ThrowIfFailed();
+        }
     }
 
     public override void Dispose()
     {
         if (IsDisposed) return;
 
+        if (_cleanupHandle.IsAllocated)
+        {
+            _runtime.RemoveEnvCleanupHook(
+                _env,
+                new napi_cleanup_hook(s_cleanup),
+                (nint)_cleanupHandle).ThrowIfFailed();
+            _cleanupHandle.Free();
+        }
+
         base.Dispose();
 
         // Destroy TSFN by releasing last thread use count.
         // TSFN is deleted after this point and must not be used.
         _tsfn.Release();
+    }
+
+#if !UNMANAGED_DELEGATES
+    private static readonly napi_cleanup_hook.Delegate s_cleanup = Cleanup;
+#else
+    private static readonly unsafe delegate* unmanaged[Cdecl]<nint, void> s_cleanup = &Cleanup;
+#endif
+
+#if UNMANAGED_DELEGATES
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
+    private static unsafe void Cleanup(nint data)
+    {
+        GCHandle cleanupHandle = GCHandle.FromIntPtr(data);
+        JSTsfnSynchronizationContext context =
+            (JSTsfnSynchronizationContext)cleanupHandle.Target!;
+        context._cleanupHandle = default;
+        try
+        {
+            context.Dispose();
+        }
+        finally
+        {
+            cleanupHandle.Free();
+        }
     }
 
     /// <summary>

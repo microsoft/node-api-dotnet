@@ -58,10 +58,9 @@ internal unsafe partial class NativeHost : IDisposable
     /// process crashes with SIGSEGV as the thread exits (glibc <c>__nptl_deallocate_tsd</c>).
     /// Keeping the module mapped for the lifetime of the process keeps that destructor valid.
     /// <para/>
-    /// This is scoped to Linux (glibc), where the crash has been reproduced and the fix
-    /// validated; on Windows module/thread teardown does not hit this issue. (The same
-    /// mechanism may affect macOS, but that is not enabled here pending validation.) The pin
-    /// is best-effort: any failure is traced but does not block init.
+    /// This is scoped to Linux (glibc) and macOS, where the native host can be unloaded before
+    /// the worker thread exits; on Windows module/thread teardown does not hit this issue. The
+    /// pin is best-effort: any failure is traced but does not block init.
     /// </remarks>
     private static unsafe void PreventModuleUnload()
     {
@@ -72,7 +71,8 @@ internal unsafe partial class NativeHost : IDisposable
 
         s_moduleUnloadPrevented = true;
 
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        bool isMacOS = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && !isMacOS)
         {
             return;
         }
@@ -97,9 +97,14 @@ internal unsafe partial class NativeHost : IDisposable
                 // RTLD_NODELETE keeps it mapped for the process lifetime. The extra (never
                 // released) reference also prevents Node's dlclose from unmapping it.
                 const int RTLD_LAZY = 0x0001;
-                const int RTLD_NOLOAD = 0x0004;
-                const int RTLD_NODELETE = 0x1000;
-                nint handle = DlOpen(fileName, RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
+                const int RTLD_NOLOAD_LINUX = 0x0004;
+                const int RTLD_NODELETE_LINUX = 0x1000;
+                const int RTLD_NOLOAD_MACOS = 0x0010;
+                const int RTLD_NODELETE_MACOS = 0x0080;
+                int flags = RTLD_LAZY | (isMacOS ?
+                    RTLD_NOLOAD_MACOS | RTLD_NODELETE_MACOS :
+                    RTLD_NOLOAD_LINUX | RTLD_NODELETE_LINUX);
+                nint handle = DlOpen(fileName, flags);
                 Trace($"    Pinned native host module ({(handle != default ? "ok" : "no-op")}).");
             }
             else
@@ -113,11 +118,15 @@ internal unsafe partial class NativeHost : IDisposable
         }
     }
 
-    // dladdr and dlopen are exported by libc.so.6 on glibc >= 2.34, but by libdl.so.2 on older
-    // glibc (where libc.so.6 does not export them). Try libc first, then fall back to libdl so
-    // the pin works across glibc versions.
+    // dladdr and dlopen are exported by libSystem on macOS. On Linux they are exported by
+    // libc.so.6 on glibc >= 2.34, but by libdl.so.2 on older glibc versions.
     private static int DlAddr(nint addr, out Dl_info info)
     {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return DlAddrLibSystem(addr, out info);
+        }
+
         try
         {
             return DlAddrLibc(addr, out info);
@@ -130,6 +139,11 @@ internal unsafe partial class NativeHost : IDisposable
 
     private static nint DlOpen(nint fileName, int flags)
     {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return DlOpenLibSystem(fileName, flags);
+        }
+
         try
         {
             return DlOpenLibc(fileName, flags);
@@ -160,6 +174,12 @@ internal unsafe partial class NativeHost : IDisposable
 
     [LibraryImport("libdl.so.2", EntryPoint = "dlopen")]
     private static partial nint DlOpenLibdl(nint filename, int flags);
+
+    [LibraryImport("/usr/lib/libSystem.B.dylib", EntryPoint = "dladdr")]
+    private static partial int DlAddrLibSystem(nint addr, out Dl_info info);
+
+    [LibraryImport("/usr/lib/libSystem.B.dylib", EntryPoint = "dlopen")]
+    private static partial nint DlOpenLibSystem(nint filename, int flags);
 
     [UnmanagedCallersOnly(
         EntryPoint = nameof(napi_register_module_v1),
