@@ -58,11 +58,10 @@ internal unsafe partial class NativeHost : IDisposable
     /// process crashes with SIGSEGV as the thread exits (glibc <c>__nptl_deallocate_tsd</c>).
     /// Keeping the module mapped for the lifetime of the process keeps that destructor valid.
     /// <para/>
-    /// This affects Unix hosting (Linux and macOS), which unload modules via <c>dlclose</c> and
-    /// run NativeAOT's per-thread destructors from the dynamic loader; on Windows module/thread
-    /// teardown does not hit this issue. The macOS path mirrors the Linux one but uses that
-    /// platform's <c>RTLD_*</c> flag values and system library. The pin is best-effort: any
-    /// failure is traced but does not block init.
+    /// This is scoped to Linux (glibc), where the crash has been reproduced and the fix
+    /// validated; on Windows module/thread teardown does not hit this issue. (The same
+    /// mechanism may affect macOS, but that is not enabled here pending validation.) The pin
+    /// is best-effort: any failure is traced but does not block init.
     /// </remarks>
     private static unsafe void PreventModuleUnload()
     {
@@ -73,8 +72,7 @@ internal unsafe partial class NativeHost : IDisposable
 
         s_moduleUnloadPrevented = true;
 
-        bool isMacOS = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && !isMacOS)
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             return;
         }
@@ -88,34 +86,20 @@ internal unsafe partial class NativeHost : IDisposable
                 &InitializeModule;
 
             nint fileName = default;
-            if (isMacOS)
+            if (DlAddr(moduleFunction, out Dl_info info) != 0)
             {
-                if (DlAddrMacOS(moduleFunction, out Dl_info info) != 0)
-                {
-                    fileName = info.dli_fname;
-                }
-            }
-            else
-            {
-                if (DlAddrLinux(moduleFunction, out Dl_info info) != 0)
-                {
-                    fileName = info.dli_fname;
-                }
+                fileName = info.dli_fname;
             }
 
             if (fileName != default)
             {
                 // RTLD_NOLOAD resolves the already-loaded module without loading a new copy;
                 // RTLD_NODELETE keeps it mapped for the process lifetime. The extra (never
-                // released) reference also prevents Node's dlclose from unmapping it. The flag
-                // values differ between glibc and macOS/dyld.
+                // released) reference also prevents Node's dlclose from unmapping it.
                 const int RTLD_LAZY = 0x0001;
-                int rtldNoLoad = isMacOS ? 0x0010 : 0x0004;
-                int rtldNoDelete = isMacOS ? 0x0080 : 0x1000;
-                int flags = RTLD_LAZY | rtldNoLoad | rtldNoDelete;
-                nint handle = isMacOS
-                    ? DlOpenMacOS(fileName, flags)
-                    : DlOpenLinux(fileName, flags);
+                const int RTLD_NOLOAD = 0x0004;
+                const int RTLD_NODELETE = 0x1000;
+                nint handle = DlOpen(fileName, RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
                 Trace($"    Pinned native host module ({(handle != default ? "ok" : "no-op")}).");
             }
             else
@@ -129,6 +113,33 @@ internal unsafe partial class NativeHost : IDisposable
         }
     }
 
+    // dladdr and dlopen are exported by libc.so.6 on glibc >= 2.34, but by libdl.so.2 on older
+    // glibc (where libc.so.6 does not export them). Try libc first, then fall back to libdl so
+    // the pin works across glibc versions.
+    private static int DlAddr(nint addr, out Dl_info info)
+    {
+        try
+        {
+            return DlAddrLibc(addr, out info);
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
+        {
+            return DlAddrLibdl(addr, out info);
+        }
+    }
+
+    private static nint DlOpen(nint fileName, int flags)
+    {
+        try
+        {
+            return DlOpenLibc(fileName, flags);
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
+        {
+            return DlOpenLibdl(fileName, flags);
+        }
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct Dl_info
     {
@@ -138,18 +149,17 @@ internal unsafe partial class NativeHost : IDisposable
         public nint dli_saddr;
     }
 
-    // dladdr / dlopen live in libc.so.6 on Linux (glibc) and libSystem on macOS.
     [LibraryImport("libc.so.6", EntryPoint = "dladdr")]
-    private static partial int DlAddrLinux(nint addr, out Dl_info info);
+    private static partial int DlAddrLibc(nint addr, out Dl_info info);
 
-    [LibraryImport("libSystem", EntryPoint = "dladdr")]
-    private static partial int DlAddrMacOS(nint addr, out Dl_info info);
+    [LibraryImport("libdl.so.2", EntryPoint = "dladdr")]
+    private static partial int DlAddrLibdl(nint addr, out Dl_info info);
 
     [LibraryImport("libc.so.6", EntryPoint = "dlopen")]
-    private static partial nint DlOpenLinux(nint filename, int flags);
+    private static partial nint DlOpenLibc(nint filename, int flags);
 
-    [LibraryImport("libSystem", EntryPoint = "dlopen")]
-    private static partial nint DlOpenMacOS(nint filename, int flags);
+    [LibraryImport("libdl.so.2", EntryPoint = "dlopen")]
+    private static partial nint DlOpenLibdl(nint filename, int flags);
 
     [UnmanagedCallersOnly(
         EntryPoint = nameof(napi_register_module_v1),
