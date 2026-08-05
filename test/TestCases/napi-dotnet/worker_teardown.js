@@ -10,6 +10,10 @@
 // NativeHost.PreventModuleUnload() pins the module to prevent that. This test fails (the
 // child node process exits non-zero) if the crash regresses.
 //
+// This validates the hosted host module (Microsoft.JavaScript.NodeApi.node), which is what
+// PreventModuleUnload() pins, so it runs under HostedClrTests only (excluded from
+// NativeAotTests, whose generated module has a separate entry point).
+//
 // The binding is intentionally NOT loaded on the main thread: doing so would keep another
 // module reference alive and mask the unload crash (which is why multi_instance.js cannot
 // cover this case).

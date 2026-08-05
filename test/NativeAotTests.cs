@@ -18,6 +18,12 @@ public class NativeAotTests
 
     public static IEnumerable<object[]> TestCases { get; } = ListTestCases((testCaseName) =>
         !testCaseName.Contains("/dynamic_") &&
+
+        // The worker_teardown case validates NativeHost.PreventModuleUnload(), which only runs
+        // when the hosted host module (Microsoft.JavaScript.NodeApi.node) is loaded. A generated
+        // NativeAOT module has its own entry point that never calls it, so this case is only
+        // meaningful under the hosted CLR host. See HostedClrTests.
+        !testCaseName.Contains("/worker_teardown") &&
         !testCaseName.StartsWith("projects/", StringComparison.Ordinal));
 
     [Theory]
