@@ -87,12 +87,23 @@ internal unsafe partial class NativeHost : IDisposable
                 (nint)(delegate* unmanaged[Cdecl]<napi_env, napi_value, napi_value>)
                 &InitializeModule;
 
-            Dl_info info;
-            int found = isMacOS
-                ? DlAddrMacOS(moduleFunction, out info)
-                : DlAddrLinux(moduleFunction, out info);
+            nint fileName = default;
+            if (isMacOS)
+            {
+                if (DlAddrMacOS(moduleFunction, out Dl_info info) != 0)
+                {
+                    fileName = info.dli_fname;
+                }
+            }
+            else
+            {
+                if (DlAddrLinux(moduleFunction, out Dl_info info) != 0)
+                {
+                    fileName = info.dli_fname;
+                }
+            }
 
-            if (found != 0 && info.dli_fname != default)
+            if (fileName != default)
             {
                 // RTLD_NOLOAD resolves the already-loaded module without loading a new copy;
                 // RTLD_NODELETE keeps it mapped for the process lifetime. The extra (never
@@ -103,8 +114,8 @@ internal unsafe partial class NativeHost : IDisposable
                 int rtldNoDelete = isMacOS ? 0x0080 : 0x1000;
                 int flags = RTLD_LAZY | rtldNoLoad | rtldNoDelete;
                 nint handle = isMacOS
-                    ? DlOpenMacOS(info.dli_fname, flags)
-                    : DlOpenLinux(info.dli_fname, flags);
+                    ? DlOpenMacOS(fileName, flags)
+                    : DlOpenLinux(fileName, flags);
                 Trace($"    Pinned native host module ({(handle != default ? "ok" : "no-op")}).");
             }
             else
