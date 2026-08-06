@@ -258,6 +258,16 @@ extends:
                 ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
                   ONEES_ENFORCED_CODEQL_ENABLED: false
 
+              templateContext:
+                outputs:
+                  # Publish the .trx results and test-case build logs even on failure, for diagnosis.
+                  - output: pipelineArtifact
+                    condition: succeededOrFailed()
+                    artifactName: test-logs-${{ MatrixEntry.Name }}
+                    targetPath: $(Build.StagingDirectory)/test/${{ MatrixEntry.DotNetVersion }}-Release
+                    sbomEnabled: false
+                    isProduction: false
+
               pool: ${{ MatrixEntry.Pool }}
 
               steps:
@@ -302,10 +312,20 @@ extends:
                   displayName: Run tests
                   env:
                     TRACE_NODE_API_HOST: 1
+
+                # Collect per-test-case native build logs next to the .trx for the test-logs artifact.
+                - task: CopyFiles@2
+                  displayName: Stage test-case build logs
+                  condition: succeededOrFailed()
                   continueOnError: true
+                  inputs:
+                    sourceFolder: $(Build.SourcesDirectory)/out/obj/Release/TestCases
+                    contents: '**/*.log'
+                    targetFolder: "$(Build.StagingDirectory)/test/${{ MatrixEntry.DotNetVersion }}-Release/build-logs"
 
                 - task: PublishTestResults@2
                   displayName: Publish test results
+                  condition: succeededOrFailed()
                   inputs:
                     testRunTitle: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
                     testResultsFormat: 'VSTest'
