@@ -260,10 +260,11 @@ extends:
 
               templateContext:
                 outputs:
-                  # Publish the .trx results and test-case build logs even on failure, for diagnosis.
+                  # Publish .trx results + test-case build logs even on failure, for diagnosis.
+                  # -$(System.JobAttempt) keeps the name unique when re-running failed jobs.
                   - output: pipelineArtifact
                     condition: succeededOrFailed()
-                    artifactName: test-logs-${{ MatrixEntry.Name }}
+                    artifactName: test-logs-${{ MatrixEntry.Name }}-$(System.JobAttempt)
                     targetPath: $(Build.StagingDirectory)/test/${{ MatrixEntry.DotNetVersion }}-Release
                     sbomEnabled: false
                     isProduction: false
