@@ -53,13 +53,21 @@ public class GCTests
             Assert.Equal(3 + 5 + 2, JSRuntimeContext.Current.GCHandleCount);
         });
 
-        nodejs.GC();
-
-        nodejs.Run(() =>
+        // JS GC is asynchronous, so pump a bounded number of cycles until the two temporary
+        // handles are released rather than asserting after a single GC.
+        long handleCount = 0;
+        for (int attempt = 0; attempt < 20; attempt++)
         {
-            // After GC, the handle count should have reverted back to the original set.
-            Assert.Equal(3 + 5, JSRuntimeContext.Current.GCHandleCount);
-        });
+            nodejs.GC();
+            nodejs.Run(() => { handleCount = JSRuntimeContext.Current.GCHandleCount; });
+            if (handleCount == 3 + 5)
+            {
+                break;
+            }
+        }
+
+        // After GC, the handle count should have reverted back to the original set.
+        Assert.Equal(3 + 5, handleCount);
     }
 
     [Fact]
@@ -102,12 +110,18 @@ public class GCTests
         // The JS object released its reference to the .NET object, but it hasn't been GC'd yet.
         Assert.Equal(1ul, DotnetClass.Instances);
 
-        // Request a .NET GC, and wait for finalizers (which run on another thread after the GC).
-        System.GC.Collect();
-        System.GC.WaitForPendingFinalizers();
+        // Releasing the .NET object takes more than one GC pass (the first finalizes the JS
+        // wrapper and frees its handle; a later one collects the object) and GC is async across
+        // both runtimes, so pump a bounded number of cycles instead of asserting after one pass.
+        for (int attempt = 0; DotnetClass.Instances != 0 && attempt < 20; attempt++)
+        {
+            nodejs.GC();
+            nodejs.Run(() => { });
+            System.GC.Collect();
+            System.GC.WaitForPendingFinalizers();
+        }
 
-        // Now the .NET object should have been finalized/GC'd, as indicated by the
-        // instance count decremented by the finalizer.
+        // The finalizer should have run, decrementing the instance count.
         Assert.Equal(0ul, DotnetClass.Instances);
     }
 

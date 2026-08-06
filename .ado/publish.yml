@@ -33,13 +33,13 @@ parameters:
     - Name: osx_x64
       Pool:
         name: Azure Pipelines
-        vmImage: macos-14
+        vmImage: macos-15
         os: macOs
       TargetRuntime: osx-x64
     - Name: osx_arm64
       Pool:
         name: Azure Pipelines
-        vmImage: macos-14-arm64
+        vmImage: macos-15-arm64
         os: macOS
       TargetRuntime: osx-arm64
     - Name: linux_x64
@@ -91,28 +91,28 @@ parameters:
     - Name: osx_x64_net90
       Pool:
         name: Azure Pipelines
-        vmImage: macos-14
+        vmImage: macos-15
         os: macOS
       TargetRuntime: osx-x64
       DotNetVersion: net9.0
     - Name: osx_x64_net100
       Pool:
         name: Azure Pipelines
-        vmImage: macos-14
+        vmImage: macos-15
         os: macOS
       TargetRuntime: osx-x64
       DotNetVersion: net10.0
     - Name: osx_arm64_net90
       Pool:
         name: Azure Pipelines
-        vmImage: macos-14-arm64
+        vmImage: macos-15-arm64
         os: macOS
       TargetRuntime: osx-arm64
       DotNetVersion: net9.0
     - Name: osx_arm64_net100
       Pool:
         name: Azure Pipelines
-        vmImage: macos-14-arm64
+        vmImage: macos-15-arm64
         os: macOS
       TargetRuntime: osx-arm64
       DotNetVersion: net10.0
@@ -258,6 +258,17 @@ extends:
                 ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
                   ONEES_ENFORCED_CODEQL_ENABLED: false
 
+              templateContext:
+                outputs:
+                  # Publish .trx results + test-case build logs even on failure, for diagnosis.
+                  # -$(System.JobAttempt) keeps the name unique when re-running failed jobs.
+                  - output: pipelineArtifact
+                    condition: succeededOrFailed()
+                    artifactName: test-logs-${{ MatrixEntry.Name }}-$(System.JobAttempt)
+                    targetPath: $(Build.StagingDirectory)/test/${{ MatrixEntry.DotNetVersion }}-Release
+                    sbomEnabled: false
+                    isProduction: false
+
               pool: ${{ MatrixEntry.Pool }}
 
               steps:
@@ -302,10 +313,20 @@ extends:
                   displayName: Run tests
                   env:
                     TRACE_NODE_API_HOST: 1
+
+                # Collect per-test-case native build logs next to the .trx for the test-logs artifact.
+                - task: CopyFiles@2
+                  displayName: Stage test-case build logs
+                  condition: succeededOrFailed()
                   continueOnError: true
+                  inputs:
+                    sourceFolder: $(Build.SourcesDirectory)/out/obj/Release/TestCases
+                    contents: '**/*.log'
+                    targetFolder: "$(Build.StagingDirectory)/test/${{ MatrixEntry.DotNetVersion }}-Release/build-logs"
 
                 - task: PublishTestResults@2
                   displayName: Publish test results
+                  condition: succeededOrFailed()
                   inputs:
                     testRunTitle: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
                     testResultsFormat: 'VSTest'
