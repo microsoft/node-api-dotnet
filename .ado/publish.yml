@@ -255,6 +255,10 @@ extends:
               displayName: Test ${{ MatrixEntry.TargetRuntime }} ${{ MatrixEntry.DotnetVersion }}
 
               variables:
+                # Route the test `npm install` (test/JSProjectTests.cs) through the ADO feed
+                # instead of registry.npmjs.org for network-isolation compliance.
+                NPM_CONFIG_USERCONFIG: $(Build.SourcesDirectory)/.npmrc
+                NPM_CONFIG_CACHE: $(Agent.TempDirectory)/.npmCache
                 ${{ if and( variables.DisableOsxArm64CodeQL, eq( MatrixEntry.TargetRuntime, 'osx-arm64' )) }}:
                   ONEES_ENFORCED_CODEQL_ENABLED: false
 
