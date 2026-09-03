@@ -3,7 +3,7 @@
 
 using System;
 using System.Diagnostics;
-using Microsoft.JavaScript.NodeApi.Interop;
+using System.Runtime.CompilerServices;
 
 namespace Microsoft.JavaScript.NodeApi;
 
@@ -16,10 +16,10 @@ namespace Microsoft.JavaScript.NodeApi;
 public readonly struct JSPropertyDescriptor
 {
     /// <summary>
-    /// Saves the module context under which the callback was defined, so that multiple .NET
+    /// Saves the module instance holder under which the callback was defined, so that multiple .NET
     /// modules in the same process can register callbacks for module-level functions.
     /// </summary>
-    internal JSModuleContext? ModuleContext { get; init; }
+    internal StrongBox<object?>? ModuleHolder { get; init; }
 
     // Either Name or NameValue should be non-null.
     // NameValue supports non-string property names like symbols.
@@ -49,7 +49,7 @@ public readonly struct JSPropertyDescriptor
         JSPropertyAttributes attributes = JSPropertyAttributes.Default,
         object? data = null)
     {
-        ModuleContext = JSValueScope.Current.ModuleContext;
+        ModuleHolder = JSValueScope.Current.ModuleHolder;
 
         Name = name;
         Method = method;
@@ -72,7 +72,7 @@ public readonly struct JSPropertyDescriptor
         JSPropertyAttributes attributes = JSPropertyAttributes.Default,
         object? data = null)
     {
-        ModuleContext = JSValueScope.Current.ModuleContext;
+        ModuleHolder = JSValueScope.Current.ModuleHolder;
 
         NameValue = name;
         Method = method;

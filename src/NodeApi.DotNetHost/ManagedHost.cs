@@ -34,13 +34,15 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
 #if !(NETFRAMEWORK || NETSTANDARD)
     /// <summary>
-    /// Each instance of a managed host uses a separate assembly load context.
-    /// That way, static data is not shared across multiple host instances.
+    /// Each instance of a managed host uses a separate assembly load context, so static data is not
+    /// shared across host instances. It is not collectible: JSInterfaceMarshaller emits interface
+    /// adapter types with Reflection.Emit, which a collectible load context does not support, so the
+    /// context cannot be unloaded at teardown (only its resolve handlers are unsubscribed).
     /// </summary>
     private readonly AssemblyLoadContext _loadContext = new(name: default);
 #endif
 
-    private JSValueScope? _rootScope;
+    private JSRuntimeContext? _context;
 
     /// <summary>
     /// Component that dynamically exports types from loaded assemblies.
@@ -80,17 +82,6 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
     /// <param name="exports">JS object on which the managed host APIs will be exported.</param>
     public ManagedHost(JSObject exports)
     {
-#if NETFRAMEWORK || NETSTANDARD
-        AppDomain.CurrentDomain.AssemblyResolve += OnResolvingAssembly;
-#else
-        _loadContext.Resolving += OnResolvingAssembly;
-
-        // It shouldn't be necessary to handle resolve events in the default load context.
-        // But TypeBuilder (used by JSInterfaceMarshaller) seems to require it when a nuget
-        // package referenced type is replaced with a system type, as with IAsyncEnumerable.
-        AssemblyLoadContext.Default.Resolving += OnResolvingAssembly;
-#endif
-
         JSValue addListener(JSCallbackArgs args)
         {
             AddListener(eventName: (string)args[0], listener: args[1]);
@@ -143,6 +134,20 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         {
             _exportedAssembliesByName.Add(typeof(Console).Assembly.GetName().Name!);
         }
+
+        // Subscribe the process-wide resolve handlers last, after all fallible construction: a
+        // constructor that throws is never registered for disposal, so leaving them subscribed
+        // would root the failed host.
+#if NETFRAMEWORK || NETSTANDARD
+        AppDomain.CurrentDomain.AssemblyResolve += OnResolvingAssembly;
+#else
+        _loadContext.Resolving += OnResolvingAssembly;
+
+        // It shouldn't be necessary to handle resolve events in the default load context.
+        // But TypeBuilder (used by JSInterfaceMarshaller) seems to require it when a nuget
+        // package referenced type is replaced with a system type, as with IAsyncEnumerable.
+        AssemblyLoadContext.Default.Resolving += OnResolvingAssembly;
+#endif
     }
 
     public static bool IsTracingEnabled { get; } =
@@ -177,10 +182,14 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         napi_env env = new((nint)ulong.Parse(args[0], NumberStyles.HexNumber));
         napi_value exports = new((nint)ulong.Parse(args[1], NumberStyles.HexNumber));
         napi_value* pResult = (napi_value*)(nint)ulong.Parse(args[2], NumberStyles.HexNumber);
+        ManagedHostRegistration* registration = args.Length > 3 ?
+            (ManagedHostRegistration*)(nint)ulong.Parse(args[3], NumberStyles.HexNumber) : null;
 #else
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    public static napi_value InitializeModule(napi_env env, napi_value exports)
+    public static unsafe napi_value InitializeModule(
+        napi_env env, napi_value exports, nint registrationPtr)
     {
+        ManagedHostRegistration* registration = (ManagedHostRegistration*)registrationPtr;
         Trace($"> ManagedHost.InitializeModule({env.Handle:X8})");
         Trace($"    .NET Runtime version: {Environment.Version}");
 #endif
@@ -198,10 +207,20 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
             runtime = new TracingJSRuntime(runtime, trace);
         }
 
-        JSValueScope scope = new(JSValueScopeType.Root, env, runtime);
+        // The managed host registers its context in the environment instance-data block (at the
+        // module slot). When hosted, the native host owns that block and its finalizer signals
+        // environment teardown, so the managed context is a non-owner: it writes its own slot but
+        // does not claim the finalizer, and is disposed via the registration notification below.
+        bool hosted = registration != null;
+        JSRuntimeContext? context = null;
 
         try
         {
+            // Context creation (fallible instance-data registration) and scope creation are inside
+            // the try so a failure returns a JS error instead of escaping this unmanaged entry point.
+            context = new(env, runtime);
+            using JSValueScope scope = JSValueScope.CreateRuntimeScope(env, context);
+
             JSObject exportsObject = (JSObject)new JSValue(exports, scope);
 
             // Save the require() and import() functions that were passed in by the init script.
@@ -219,15 +238,51 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 
             ManagedHost host = new(exportsObject)
             {
-                _rootScope = scope
+                _context = context
             };
+
+            // Dispose the host with its environment: as a disposable annotation on the context, the
+            // host's full Dispose (which unsubscribes the process-wide resolve handlers) runs when
+            // the context is disposed at environment teardown. Mirrors the native host.
+            context.SetDisposableAnnotation(host);
+
+            if (hosted)
+            {
+                // Root the managed host for the environment lifetime and give the native host a
+                // native callback to invoke at teardown (never a JS call -- see OnEnvironmentFinalize).
+                registration->AddonGCHandle = (nint)GCHandle.Alloc(host);
+#if !(NETFRAMEWORK || NETSTANDARD)
+                registration->OnEnvFinalize =
+                    (nint)(delegate* unmanaged[Cdecl]<nint, void>)&OnEnvironmentFinalize;
+#endif
+            }
 
             Trace("< ManagedHost.InitializeModule()");
         }
         catch (Exception ex)
         {
             Trace($"Failed to load CLR managed host module: {ex}");
-            JSError.ThrowError(ex);
+            try
+            {
+                // Throw via the runtime directly: context or scope creation may have failed, and the
+                // disposed context below would make a scope-bound JSError's lazy stack getter unusable.
+                runtime.ThrowError(env, code: null, ex.ToString());
+            }
+            finally
+            {
+                // The module-slot context does not own the instance-data finalizer, so a failed init
+                // must dispose it here; tolerate construction not having completed. Swallow a teardown
+                // failure -- JSRuntimeContext.Dispose rethrows its first cleanup error, which must not
+                // escape this UnmanagedCallersOnly entry point.
+                try
+                {
+                    context?.Dispose();
+                }
+                catch (Exception disposeError)
+                {
+                    Trace($"Failed to dispose context after failed module init: {disposeError}");
+                }
+            }
         }
 
 #if NETFRAMEWORK || NETSTANDARD
@@ -236,6 +291,69 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
 #else
         return exports;
 #endif
+    }
+
+#if !(NETFRAMEWORK || NETSTANDARD)
+    /// <summary>
+    /// Called natively by the native host when the environment is being torn down. Runs during
+    /// environment finalization where calling into JavaScript is forbidden, so it touches only
+    /// managed state.
+    /// </summary>
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void OnEnvironmentFinalize(nint addon) => OnEnvironmentFinalizeCore(addon);
+#else
+    /// <summary>
+    /// Called by the native host (through the default AppDomain) when the environment is being
+    /// torn down. Runs during environment finalization where calling into JavaScript is forbidden,
+    /// so it touches only managed state.
+    /// </summary>
+    public static int OnEnvironmentFinalize(string argument)
+    {
+        OnEnvironmentFinalizeCore((nint)ulong.Parse(argument, NumberStyles.HexNumber));
+        return 0;
+    }
+#endif
+
+    private static void OnEnvironmentFinalizeCore(nint addon)
+    {
+        if (addon == default)
+        {
+            return;
+        }
+
+        GCHandle handle = GCHandle.FromIntPtr(addon);
+        try
+        {
+            (handle.Target as ManagedHost)?.DisposeOnEnvironmentFinalize();
+        }
+        catch (Exception ex)
+        {
+            Trace($"Failed to dispose managed host on environment finalize: {ex}");
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
+    /// <summary>
+    /// Disposes the managed host in response to environment teardown. No JavaScript may be called
+    /// here; disposing the context marks it disposed (so any late cross-thread post becomes a
+    /// no-op), disposes the host (a disposable annotation on the context) so its process-wide
+    /// resolve handlers are unsubscribed, and frees the context's GC handles. The context's
+    /// references are reclaimed by Node as the environment is torn down.
+    /// </summary>
+    private void DisposeOnEnvironmentFinalize()
+    {
+        JSRuntimeContext? context = _context;
+        _context = null;
+        if (context is not null)
+        {
+            // Defer disposal until any open value scope closes -- the notification can arrive while a
+            // managed callback scope is on the stack (managed calling JS calling dispose) -- mirroring
+            // the native host's dispose() hook. With no scope open it disposes immediately.
+            JSValueScope.DisposeRuntimeContextWhenIdle(context);
+        }
     }
 
     /// <summary>
@@ -588,23 +706,49 @@ public sealed class ManagedHost : JSEventEmitter, IDisposable
         }
     }
 
+    private bool _isDisposed;
+
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
+        if (_isDisposed) return;
+        _isDisposed = true;
+
+        try
         {
-            _rootScope?.Dispose();
-            _rootScope = null;
-
+            if (disposing)
+            {
+                try
+                {
+                    // The context disposes this host (a disposable annotation) at teardown, so this
+                    // re-entrant dispose is a guarded no-op; on an explicit dispose it runs the
+                    // context teardown, which can throw.
+                    _context?.Dispose();
+                    _context = null;
+                }
+                finally
+                {
+                    // Unsubscribe the process-wide resolve handlers even if context disposal threw,
+                    // so a torn-down environment's host is not left rooted (a retry no-ops on
+                    // _isDisposed).
 #if NETFRAMEWORK || NETSTANDARD
-            AppDomain.CurrentDomain.AssemblyResolve -= OnResolvingAssembly;
+                    AppDomain.CurrentDomain.AssemblyResolve -= OnResolvingAssembly;
 #else
-            AssemblyLoadContext.Default.Resolving -= OnResolvingAssembly;
-            _loadContext.Resolving -= OnResolvingAssembly;
-            _loadContext.Unload();
-#endif
-        }
+                    AssemblyLoadContext.Default.Resolving -= OnResolvingAssembly;
+                    _loadContext.Resolving -= OnResolvingAssembly;
 
-        base.Dispose(disposing);
+                    // A non-collectible load context cannot be unloaded; only unload one created collectible.
+                    if (_loadContext.IsCollectible)
+                    {
+                        _loadContext.Unload();
+                    }
+#endif
+                }
+            }
+        }
+        finally
+        {
+            base.Dispose(disposing);
+        }
     }
 
 #if NETSTANDARD

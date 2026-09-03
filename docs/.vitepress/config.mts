@@ -18,6 +18,13 @@ export default defineConfig({
     sidebar: [
       { text: 'Overview', link: '/overview' },
       {
+        text: 'Concepts',
+        items: [
+          { text: 'Runtime model', link: '/concepts/runtime-model' },
+          { text: 'Project layers', link: '/NodeApi-Layers' },
+        ]
+      },
+      {
         text: 'Get Started',
         items: [
           {

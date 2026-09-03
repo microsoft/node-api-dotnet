@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Microsoft.JavaScript.NodeApi.Interop;
 using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.DotNetHost.HostFxr;
 using static Microsoft.JavaScript.NodeApi.DotNetHost.MSCorEE;
@@ -28,8 +29,13 @@ internal unsafe partial class NativeHost : IDisposable
     private string? _managedHostPath;
     private ICLRRuntimeHost* _runtimeHost;
     private hostfxr_handle _hostContextHandle;
-    private readonly JSValueScope _hostScope;
     private JSReference? _exports;
+
+    // Filled in by the managed host during initialization via the registration struct: a GCHandle
+    // (owned by the managed runtime) that roots the managed host, and a native callback the native
+    // host invokes at environment teardown. Both are default until a managed host is initialized.
+    private nint _addonGCHandle;
+    private nint _onEnvFinalize;
 
     public static bool IsTracingEnabled { get; } =
         Environment.GetEnvironmentVariable("NODE_API_TRACE_HOST") == "1";
@@ -194,15 +200,22 @@ internal unsafe partial class NativeHost : IDisposable
 
         s_jsRuntime ??= new NodejsRuntime();
 
-        // The native host JSValueScope is not disposed after a successful initialization. It
-        // becomes the parent of callback scopes, allowing the JS runtime instance to be inherited.
-        JSValueScope hostScope = new(JSValueScopeType.NoContext, env, s_jsRuntime);
+        // The native host's context occupies the host instance-data slot, so the initialize()/
+        // dispose() callbacks (dispatched later with no parent scope) recover it via FromEnv.
+        JSRuntimeContext.UseHostContextSlot();
+
         try
         {
-            NativeHost host = new(hostScope);
+            // Context creation (fallible instance-data registration) and scope creation are inside
+            // the try so a failure returns a JS error instead of escaping this unmanaged entry point.
+            // The context outlives the scope -- rooted by its instance-data slot, disposed by that
+            // slot's finalizer (which disposes the NativeHost).
+            JSRuntimeContext context = new(env, s_jsRuntime, new JSInlineSynchronizationContext());
+            using JSValueScope hostScope = JSValueScope.CreateRuntimeScope(env, context);
 
-            // Do not use JSModuleBuilder here because it relies on having a current context.
-            // But the context will be set by the managed host.
+            NativeHost host = new();
+            context.SetDisposableAnnotation(host);
+
             new JSValue(exports, hostScope).DefineProperties(
                 // The package index.js will invoke the initialize method with the path to
                 // the managed host assembly.
@@ -212,8 +225,11 @@ internal unsafe partial class NativeHost : IDisposable
         {
             string message = $"Failed to load CLR native host module: {ex}";
             Trace(message);
-            s_jsRuntime.Throw(env, (napi_value)JSValue.CreateError(null, (JSValue)message));
-            hostScope.Dispose();
+            // Scope-less throw: context or scope creation may have failed, so no scope exists.
+            // Not disposed here: the host-slot context owns the instance-data finalizer that
+            // disposes it at env teardown even if partly initialized -- unlike the managed host's
+            // module-slot context, whose failure path must dispose it.
+            s_jsRuntime.ThrowError(env, code: null, message);
         }
 
         Trace("< NativeHost.InitializeModule()");
@@ -221,9 +237,37 @@ internal unsafe partial class NativeHost : IDisposable
         return exports;
     }
 
-    private NativeHost(JSValueScope hostScope)
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ManagedHostRegistration
     {
-        _hostScope = hostScope;
+        public nint AddonGCHandle;
+        public nint OnEnvFinalize;
+    }
+
+    private void NotifyManagedHostEnvironmentFinalize()
+    {
+        if (_onEnvFinalize != default)
+        {
+            // hostfxr (.NET 5+): the managed host provided a native callback pointer.
+            ((delegate* unmanaged[Cdecl]<nint, void>)_onEnvFinalize)(_addonGCHandle);
+        }
+        else if (_runtimeHost is not null && _addonGCHandle != default && _managedHostPath is not null)
+        {
+            // .NET Framework: invoke the managed finalize through the default AppDomain. This is a
+            // native call into the (still-loaded) CLR, never a JavaScript call.
+            try
+            {
+                _runtimeHost->ExecuteInDefaultAppDomain(
+                    _managedHostPath,
+                    s_managedHostTypeName,
+                    "OnEnvironmentFinalize",
+                    ((ulong)_addonGCHandle).ToString("X8"));
+            }
+            catch (Exception ex)
+            {
+                Trace("Failed to notify managed host on environment finalize: " + ex);
+            }
+        }
     }
 
     /// <summary>
@@ -350,8 +394,10 @@ internal unsafe partial class NativeHost : IDisposable
             napi_value exports = (napi_value)exportsValue;
 
             // The method to be executed must take a single string argument and return a uint.
-            // So, encode the parameters and retval pointer in the argument string.
-            string argument = $"{(ulong)env.Handle:X8},{(ulong)exports.Handle:X8},{(ulong)&exports:X8}";
+            // So, encode the parameters, retval pointer, and registration pointer in the argument.
+            ManagedHostRegistration registration = default;
+            string argument = $"{(ulong)env.Handle:X8},{(ulong)exports.Handle:X8}," +
+                $"{(ulong)&exports:X8},{(ulong)&registration:X8}";
             Trace($"    Calling {s_managedHostTypeName}.{nameof(InitializeModule)}({argument})");
 
             _runtimeHost->ExecuteInDefaultAppDomain(
@@ -359,6 +405,9 @@ internal unsafe partial class NativeHost : IDisposable
                 s_managedHostTypeName,
                 nameof(InitializeModule),
                 argument);
+
+            _addonGCHandle = registration.AddonGCHandle;
+            _onEnvFinalize = registration.OnEnvFinalize;
 
             exportsValue = exports;
             return exportsValue;
@@ -446,23 +495,34 @@ internal unsafe partial class NativeHost : IDisposable
 
         Trace("    Invoking managed host method: " + nameof(InitializeModule));
 
-        // Invoke the managed host initialize method.
-        // (It will define some properties on the exports object passed in.)
-        napi_register_module_v1 initializeModule =
-            Marshal.GetDelegateForFunctionPointer<napi_register_module_v1>(
-                initializeModulePointer);
-
         // Create an "exports" object for the managed host module initialization.
         var exports = JSValue.CreateObject();
         exports.SetProperty("require", require);
         exports.SetProperty("import", import);
 
-        // Define a dispose method implemented by the native host that closes the CLR context.
-        // The managed host proxy will pass through dispose calls to this callback.
+        // Defer disposing the host context until this callback (and any value scope it is nested in)
+        // has closed: dispose() is a native call dispatched through Node-API, so disposing the context
+        // while a scope is open would leave that scope to close its napi handle scope on a disposed
+        // context as it unwinds. Disposing the host context runs the full host teardown via its
+        // disposable annotation -- notifying the managed host and closing the runtime-host channel.
         exports.DefineProperties(new JSPropertyDescriptor(
-            "dispose", (_) => { Dispose(); return default; }));
+            "dispose", (_) =>
+            {
+                JSValueScope.DisposeRuntimeContextWhenIdle(JSValueScope.Current.RuntimeContext);
+                return default;
+            }));
 
-        exports = initializeModule((napi_env)exports.Scope, (napi_value)exports);
+        // Invoke the managed host initialize method. It defines properties on the exports object
+        // and fills in the registration so the native host can keep the managed host alive and
+        // notify it when the environment is torn down.
+        ManagedHostRegistration registration = default;
+        var initializeModule =
+            (delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, napi_value>)
+            initializeModulePointer;
+        exports = initializeModule((napi_env)exports.Scope, (napi_value)exports, (nint)(&registration));
+
+        _addonGCHandle = registration.AddonGCHandle;
+        _onEnvFinalize = registration.OnEnvFinalize;
         return exports;
     }
 
@@ -498,6 +558,37 @@ internal unsafe partial class NativeHost : IDisposable
 
     public void Dispose()
     {
+        // Runs as the host context's disposable annotation when that context is disposed: at env
+        // teardown by its instance-data finalizer, or (deferred to scope close) by the JS dispose() hook.
+        try
+        {
+            NotifyManagedHostEnvironmentFinalize();
+        }
+        finally
+        {
+            // Clear the registration before the fallible CloseRuntimeHost: the notification frees the
+            // addon GCHandle, so a later retry that re-invoked it would pass an already-freed handle
+            // across the unmanaged finalizer boundary.
+            _addonGCHandle = default;
+            _onEnvFinalize = default;
+        }
+
+        CloseRuntimeHost();
+
+        // Both dispose paths now run while the host context is disposed, so JSReference.Dispose
+        // short-circuits and Node reclaims the napi_ref at env teardown; the assignment drops the
+        // managed reference so it can be collected.
+        _exports?.Dispose();
+        _exports = null;
+    }
+
+    private void CloseRuntimeHost()
+    {
+        // Closes this environment's CLR host: the hostfxr context handle (.NET 5+) or the
+        // ICLRRuntimeHost COM reference (.NET Framework). Each environment initializes its own, so
+        // this is per-environment teardown (the underlying shared CLR is not unloaded). Invoked at
+        // environment teardown and by the optional JS dispose() hook; idempotent.
+
         // Close the CLR host context handle, if it's still open.
         if (_hostContextHandle != default)
         {

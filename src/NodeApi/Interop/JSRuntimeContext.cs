@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,12 +23,12 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 /// </summary>
 /// <remarks>
 /// A <see cref="JSRuntimeContext"/> instance is constructed when the .NET Node API managed host is
-/// loaded, and disposed when the host is unloaded. (For AOT there is no "host" component, so each
-/// AOT module has a context that matches the module lifetime.) The context tracks several kinds
-/// of JS references used internally by this assembly, so that the references can be re-used for
-/// the lifetime of the host and disposed when the context is disposed.
+/// loaded, and the hosting infrastructure tears it down when the host is unloaded. (For AOT there
+/// is no "host" component, so each AOT module has a context that matches the module lifetime.) The
+/// context tracks several kinds of JS references used internally by this assembly, so that the
+/// references can be re-used for the lifetime of the host and released during context teardown.
 /// </remarks>
-public sealed class JSRuntimeContext : IDisposable
+public sealed class JSRuntimeContext
 {
     /// <summary>
     /// Name of a global object that may hold context specific to Node API .NET.
@@ -36,8 +37,6 @@ public sealed class JSRuntimeContext : IDisposable
     /// Currently it is only used to pass the require() function to .NET AOT modules.
     /// </remarks>
     public const string GlobalObjectName = "node_api_dotnet";
-
-    private readonly napi_env _env;
 
     // Track JS constructors and instance JS wrappers for exported classes, enabling
     // .NET objects to be automatically wrapped when returned to JS, and re-wrapped as needed
@@ -113,6 +112,39 @@ public sealed class JSRuntimeContext : IDisposable
 
     private readonly ConcurrentDictionary<Type, JSProxy.Handler> _collectionProxyHandlerMap = new();
 
+    // Two buckets so ownership is explicit: DisposableAnnotations are disposed at context teardown;
+    // Annotations are not. Both are lazy and touched only on the JS thread.
+    private Dictionary<Type, object>? _annotations;
+    private Dictionary<Type, IDisposable>? _disposableAnnotations;
+
+    // Module instances disposed at context teardown. Unlike the type-keyed annotations, several
+    // modules share one context, so these are appended rather than keyed by type.
+    private List<IDisposable>? _moduleDisposables;
+
+    // Env instance-data layout: one GCHandle slot per runtime sharing the napi_env. Slot 0 is the
+    // module context (managed host / AOT module / embedding); slot 1 is the native host context.
+    // A runtime reads and writes only its own slot, so it never dereferences the other runtime's
+    // GCHandle (which belongs to a separate GC heap).
+    private const int ModuleContextSlot = 0;
+    private const int HostContextSlot = 1;
+    private const int InstanceDataSlotCount = 2;
+
+    // Written into a slot when its context is disposed, so an env is associated with a runtime
+    // context exactly once: RegisterInstanceData rejects a non-empty slot (a live handle or this
+    // tombstone), and FromEnv/FinalizeInstanceData treat the tombstone as "no live context". A real
+    // GCHandle is never -1.
+    private static readonly nint s_disposedSlot = -1;
+
+    // This runtime's slot in the instance-data block: the module slot by default, or the host slot
+    // once the native host calls UseHostContextSlot() at startup.
+    private static int s_instanceDataSlot = ModuleContextSlot;
+
+    // Runtime v-table used by FromEnv to read env-keyed instance data. NodejsRuntime is stateless,
+    // and wrappers such as TracingJSRuntime delegate instance-data access to it, so any registered
+    // production runtime can read every env. The env check in FromEnv makes an instance-backed
+    // custom runtime fail closed if this field is stale.
+    private static JSRuntime? s_instanceDataRuntime;
+
     internal napi_env EnvironmentHandle
     {
         get
@@ -122,9 +154,29 @@ public sealed class JSRuntimeContext : IDisposable
                 throw new ObjectDisposedException(nameof(JSRuntimeContext));
             }
 
-            return _env;
+            return UncheckedEnvironmentHandle;
         }
     }
+
+    /// <summary>
+    /// Gets the environment handle without checking whether the context is disposed. For use
+    /// only where a checked access is unnecessary, such as capturing the env to release a
+    /// reference on the JS thread (where a disposed context makes the release a safe no-op).
+    /// </summary>
+    internal napi_env UncheckedEnvironmentHandle { get; }
+
+    /// <summary>
+    /// Gets the GCHandle that roots this context and is stored in its env instance-data slot. It is
+    /// freed when the context is disposed at env teardown; finalizers resolve the context via
+    /// <see cref="FromEnv"/> rather than this handle, so freeing it leaves nothing dangling.
+    /// </summary>
+    internal nint ContextHandle { get; }
+
+    /// <summary>
+    /// The managed thread that constructed this context — its environment's JS thread. A runtime
+    /// scope may be entered only on this thread.
+    /// </summary>
+    internal int OwningThreadId { get; }
 
     public static explicit operator napi_env(JSRuntimeContext context)
     {
@@ -132,9 +184,44 @@ public sealed class JSRuntimeContext : IDisposable
         return context.EnvironmentHandle;
     }
 
-    public static explicit operator JSRuntimeContext(napi_env env)
-        => JSValue.GetInstanceData(env) as JSRuntimeContext
-           ?? throw new InvalidCastException("Context is not found in napi_env instance data.");
+    /// <summary>
+    /// Resolves the <see cref="JSRuntimeContext"/> for the calling runtime from a napi_env, via the
+    /// env instance-data block, or null if none is registered. Unlike <see cref="Current"/> this
+    /// does not require a current scope, so callback dispatch can recover the context when no scope
+    /// is on the thread-static stack yet.
+    /// </summary>
+    public static unsafe JSRuntimeContext? FromEnv(napi_env env)
+    {
+        JSRuntime? runtime = s_instanceDataRuntime;
+        if (runtime is null)
+        {
+            return null;
+        }
+
+        runtime.GetInstanceData(env, out nint instanceData).ThrowIfFailed();
+        if (instanceData == default)
+        {
+            return null;
+        }
+
+        nint slotHandle = ((nint*)instanceData)[s_instanceDataSlot];
+        if (slotHandle == default || slotHandle == s_disposedSlot)
+        {
+            return null;
+        }
+
+        // The production runtime lookup is env-keyed, but an instance-backed custom runtime could
+        // return another env's block when the process-wide runtime is stale. Fail closed unless the
+        // resolved context owns the requested env.
+        JSRuntimeContext? context = GCHandle.FromIntPtr(slotHandle).Target as JSRuntimeContext;
+        return context is not null && context.UncheckedEnvironmentHandle == env ? context : null;
+    }
+
+    /// <summary>
+    /// Configures the calling runtime to use the native host's instance-data slot. Called once by
+    /// the native host at startup; every other runtime keeps the default module slot.
+    /// </summary>
+    internal static void UseHostContextSlot() => s_instanceDataSlot = HostContextSlot;
 
     public bool IsDisposed { get; private set; }
 
@@ -147,7 +234,53 @@ public sealed class JSRuntimeContext : IDisposable
 
     public JSRuntime Runtime { get; }
 
-    public JSSynchronizationContext SynchronizationContext { get; }
+    private JSSynchronizationContext? _synchronizationContext;
+
+    /// <summary>
+    /// Gets the synchronization context that marshals callbacks and continuations to the JS thread.
+    /// A default one is created on first access, which must happen while a scope for this context is
+    /// current, because creating it captures the current scope's runtime and environment.
+    /// </summary>
+    public JSSynchronizationContext SynchronizationContext
+    {
+        get
+        {
+            if (_synchronizationContext is not null)
+            {
+                return _synchronizationContext;
+            }
+
+            // Lazy creation captures the CURRENT scope's env/thread, so it must run only while this
+            // context is current -- otherwise it would bind this context to a different environment.
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(JSRuntimeContext));
+            }
+            if (JSValueScope.Current.RuntimeContext != this)
+            {
+                throw new InvalidOperationException(
+                    "The synchronization context must be created while its runtime context is current.");
+            }
+
+            return _synchronizationContext = JSSynchronizationContext.Create();
+        }
+    }
+
+    /// <summary>
+    /// Creates a runtime context for a JS environment. Used by AOT module entry points and other
+    /// embedders that own the environment and therefore create the context rather than resolving
+    /// it from a host.
+    /// </summary>
+    /// <param name="env">The JS environment handle.</param>
+    /// <param name="runtime">The JS runtime interface; defaults to a <see cref="NodejsRuntime"/>.
+    /// </param>
+    /// <param name="synchronizationContext">The synchronization context owned by this context; a
+    /// default one is created when omitted.</param>
+    public static JSRuntimeContext Create(
+        napi_env env,
+        JSRuntime? runtime = null,
+        JSSynchronizationContext? synchronizationContext = null)
+        => new(env, runtime ?? new NodejsRuntime(), synchronizationContext);
 
     internal JSRuntimeContext(
         napi_env env,
@@ -156,10 +289,115 @@ public sealed class JSRuntimeContext : IDisposable
     {
         if (env.IsNull) throw new ArgumentNullException(nameof(env));
 
-        _env = env;
+        UncheckedEnvironmentHandle = env;
         Runtime = runtime;
-        JSValue.SetInstanceData(env, this);
-        SynchronizationContext = synchronizationContext ?? JSSynchronizationContext.Create();
+        OwningThreadId = Environment.CurrentManagedThreadId;
+        ContextHandle = (nint)GCHandle.Alloc(this);
+        try
+        {
+            RegisterInstanceData(env, runtime);
+        }
+        catch
+        {
+            // Registration failed before any caller holds this context to dispose it; free the
+            // rooting handle so a failed construction leaks nothing (the block, if allocated, is
+            // freed by RegisterInstanceData).
+            GCHandle.FromIntPtr(ContextHandle).Free();
+            throw;
+        }
+
+        _synchronizationContext = synchronizationContext;
+    }
+
+    /// <summary>
+    /// Registers this context in the env instance-data block at this runtime's slot, allocating the
+    /// block and attaching the teardown finalizer if this runtime is the first to claim the slot.
+    /// </summary>
+    private unsafe void RegisterInstanceData(napi_env env, JSRuntime runtime)
+    {
+        runtime.GetInstanceData(env, out nint instanceData).ThrowIfFailed();
+        if (instanceData == default)
+        {
+            // One block per env, freed by FinalizeInstanceData when the last context on the env is
+            // disposed at teardown.
+            instanceData = Marshal.AllocHGlobal(IntPtr.Size * InstanceDataSlotCount);
+            for (int i = 0; i < InstanceDataSlotCount; i++)
+            {
+                ((nint*)instanceData)[i] = default;
+            }
+
+            napi_status status = runtime.SetInstanceData(
+                env,
+                instanceData,
+                new napi_finalize(s_finalizeInstanceData),
+                finalizeHint: default);
+            if (status != napi_status.napi_ok)
+            {
+                // Registration failed, so Node never took ownership of the block; free it here.
+                Marshal.FreeHGlobal(instanceData);
+                status.ThrowIfFailed();
+            }
+        }
+        else if (((nint*)instanceData)[s_instanceDataSlot] != default)
+        {
+            // An env is associated with a runtime context exactly once. The slot holds a live
+            // context's handle, or a tombstone after one was disposed; either way a second
+            // association is rejected rather than silently replacing the first.
+            throw new InvalidOperationException(
+                "The environment is already associated with a runtime context.");
+        }
+
+        ((nint*)instanceData)[s_instanceDataSlot] = ContextHandle;
+
+        // Publish the process-wide runtime that FromEnv uses only after registration succeeds, so a
+        // failed GetInstanceData/SetInstanceData or a rejected duplicate slot can't repoint FromEnv at
+        // a runtime that never registered a context on this env.
+        s_instanceDataRuntime = runtime;
+    }
+
+#if !UNMANAGED_DELEGATES
+    private static readonly napi_finalize.Delegate s_finalizeInstanceData = FinalizeInstanceData;
+#else
+    private static readonly unsafe delegate* unmanaged[Cdecl]<napi_env, nint, nint, void>
+        s_finalizeInstanceData = &FinalizeInstanceData;
+#endif
+
+#if UNMANAGED_DELEGATES
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
+    private static unsafe void FinalizeInstanceData(napi_env env, nint data, nint hint)
+    {
+        // Runs during env teardown, where calling into JS is forbidden. Dispose the owning
+        // runtime's context (which clears its slot and frees its rooting GCHandle). Only this
+        // runtime's slot is read, never the other runtime's (whose GCHandle belongs to a separate
+        // GC heap).
+        nint slotHandle = ((nint*)data)[s_instanceDataSlot];
+        if (slotHandle != default && slotHandle != s_disposedSlot)
+        {
+            try
+            {
+                (GCHandle.FromIntPtr(slotHandle).Target as JSRuntimeContext)?.Dispose();
+            }
+            catch
+            {
+                // A finalizer must never throw; teardown continues regardless.
+            }
+        }
+
+        // Free the shared block once no slot holds a live context (each is empty or tombstoned);
+        // disposing a host context cascades synchronously to the other slot. Do not null it out
+        // via napi_set_instance_data: that deletes this very TrackedFinalizer, which Node then
+        // deletes again (double free).
+        for (int i = 0; i < InstanceDataSlotCount; i++)
+        {
+            nint slot = ((nint*)data)[i];
+            if (slot != default && slot != s_disposedSlot)
+            {
+                return;
+            }
+        }
+
+        Marshal.FreeHGlobal(data);
     }
 
     /// <summary>
@@ -695,22 +933,162 @@ public sealed class JSRuntimeContext : IDisposable
         return value;
     }
 
-    public void Dispose()
+    /// <summary>
+    /// Gets a non-owning annotation associated with this context by its type, or null if none.
+    /// </summary>
+    public T? GetAnnotation<T>() where T : class
+        => _annotations != null && _annotations.TryGetValue(typeof(T), out object? value)
+            ? (T)value : null;
+
+    /// <summary>
+    /// Associates a non-owning annotation with this context, keyed by its type. The context never
+    /// disposes it.
+    /// </summary>
+    public void SetAnnotation<T>(T value) where T : class
+    {
+        if (value is null) throw new ArgumentNullException(nameof(value));
+        (_annotations ??= new())[typeof(T)] = value;
+    }
+
+    /// <summary>
+    /// Gets an owning annotation associated with this context by its type, or null if none.
+    /// </summary>
+    public T? GetDisposableAnnotation<T>() where T : class, IDisposable
+        => _disposableAnnotations != null &&
+           _disposableAnnotations.TryGetValue(typeof(T), out IDisposable? value)
+            ? (T)value : null;
+
+    /// <summary>
+    /// Associates an owning annotation with this context, keyed by its type. The context disposes
+    /// it when the context itself is disposed (at environment teardown). Replacing an existing
+    /// annotation of the same type disposes the one being displaced.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The context is already disposed, so the value
+    /// would never be disposed.</exception>
+    public void SetDisposableAnnotation<T>(T value) where T : class, IDisposable
+    {
+        if (value is null) throw new ArgumentNullException(nameof(value));
+        if (IsDisposed) throw new ObjectDisposedException(nameof(JSRuntimeContext));
+
+        _disposableAnnotations ??= new();
+        if (_disposableAnnotations.TryGetValue(typeof(T), out IDisposable? existing) &&
+            !ReferenceEquals(existing, value))
+        {
+            existing.Dispose();
+        }
+
+        _disposableAnnotations[typeof(T)] = value;
+    }
+
+    /// <summary>
+    /// Registers a module instance to be disposed at environment teardown. Unlike
+    /// <see cref="SetDisposableAnnotation{T}"/>, several modules can share one context, so instances
+    /// are appended rather than keyed by type, and each is disposed once.
+    /// </summary>
+    internal void AddModuleDisposable(IDisposable disposable)
+    {
+        if (disposable is null) throw new ArgumentNullException(nameof(disposable));
+        _moduleDisposables ??= new();
+
+        // Dedupe by identity, not Equals: a module class may override equality, but each distinct
+        // instance must be disposed once.
+        foreach (IDisposable existing in _moduleDisposables)
+        {
+            if (ReferenceEquals(existing, disposable))
+            {
+                return;
+            }
+        }
+
+        _moduleDisposables.Add(disposable);
+    }
+
+    internal void Dispose()
     {
         if (IsDisposed) return;
 
+        // Disposal calls thread-affine napi (the sync context's RemoveEnvCleanupHook), so it must
+        // run on the thread that created the context -- where the instance-data finalizer and the
+        // JS dispose functions, the only expected callers, both run.
+        if (OwningThreadId != Environment.CurrentManagedThreadId)
+        {
+            throw new JSInvalidThreadAccessException(
+                currentScope: null,
+                "A runtime context may be disposed only on the thread that created it.");
+        }
+
         IsDisposed = true;
 
-        SynchronizationContext.Dispose();
+        // Run every teardown phase even if an earlier one throws, then release the context root and
+        // rethrow the first failure. A throwing phase must not skip a later phase or the root
+        // release: IsDisposed is already set, so a retry returns immediately and could otherwise
+        // strand module instances, annotations, or the context root and its shared block.
+        ExceptionDispatchInfo? firstFailure = null;
+
+        // Dispose an already-created sync context only; never construct one here. Disposal can run
+        // during env finalization when no scope is current, and creating one then would throw.
+        try { _synchronizationContext?.Dispose(); }
+        catch (Exception ex) { firstFailure ??= ExceptionDispatchInfo.Capture(ex); }
 
 #if !(NETFRAMEWORK || NETSTANDARD)
-        // ConditionalWeakTable<> is not enumerable in .NET Framework.
-        // The JS references will still be released eventually by their finalizers.
-        DisposeReferences(_objectMap.Select((entry) => entry.Value));
+        // ConditionalWeakTable<> is not enumerable in .NET Framework; those references are released
+        // by their finalizers instead.
+        try { DisposeReferences(_objectMap.Select((entry) => entry.Value)); }
+        catch (Exception ex) { firstFailure ??= ExceptionDispatchInfo.Capture(ex); }
 #endif
-        DisposeReferences(_classMap.Values);
-        DisposeReferences(_staticClassMap.Values);
-        DisposeReferences(_structMap.Values);
+        try { DisposeReferences(_classMap.Values); }
+        catch (Exception ex) { firstFailure ??= ExceptionDispatchInfo.Capture(ex); }
+        try { DisposeReferences(_staticClassMap.Values); }
+        catch (Exception ex) { firstFailure ??= ExceptionDispatchInfo.Capture(ex); }
+        try { DisposeReferences(_structMap.Values); }
+        catch (Exception ex) { firstFailure ??= ExceptionDispatchInfo.Capture(ex); }
+
+        // Disposed after IsDisposed is set, so a late cross-thread post is already a no-op. Each item
+        // is guarded so one failure does not skip the rest.
+        if (_moduleDisposables != null)
+        {
+            foreach (IDisposable moduleDisposable in _moduleDisposables)
+            {
+                try { moduleDisposable.Dispose(); }
+                catch (Exception ex) { firstFailure ??= ExceptionDispatchInfo.Capture(ex); }
+            }
+        }
+
+        if (_disposableAnnotations != null)
+        {
+            foreach (IDisposable annotation in _disposableAnnotations.Values)
+            {
+                try { annotation.Dispose(); }
+                catch (Exception ex) { firstFailure ??= ExceptionDispatchInfo.Capture(ex); }
+            }
+        }
+
+        // Release this context's root so it can be collected, even if a phase above threw. The
+        // shared block is freed by FinalizeInstanceData once every context on the env is gone.
+        if (ContextHandle != default)
+        {
+            Runtime.GetInstanceData(UncheckedEnvironmentHandle, out nint instanceData);
+            if (instanceData != default)
+            {
+                unsafe
+                {
+                    // Tombstone the slot (not empty) so the env can never re-associate a new context
+                    // (see RegisterInstanceData). The one-context invariant means the slot still
+                    // holds this context, but stay defensive.
+                    if (((nint*)instanceData)[s_instanceDataSlot] == ContextHandle)
+                    {
+                        ((nint*)instanceData)[s_instanceDataSlot] = s_disposedSlot;
+                    }
+                }
+
+                // Free this context's now-unregistered rooting handle. The slot was tombstoned above,
+                // so no later FromEnv or finalizer can dereference the freed handle.
+                GCHandle.FromIntPtr(ContextHandle).Free();
+            }
+        }
+
+        // Surface the first teardown failure now that every phase has run and the root is released.
+        firstFailure?.Throw();
     }
 
     private static void DisposeReferences(

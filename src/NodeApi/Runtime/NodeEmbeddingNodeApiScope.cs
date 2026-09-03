@@ -4,6 +4,7 @@
 namespace Microsoft.JavaScript.NodeApi.Runtime;
 
 using System;
+using Microsoft.JavaScript.NodeApi.Interop;
 using static JSRuntime;
 using static NodejsRuntime;
 
@@ -19,8 +20,18 @@ public sealed class NodeEmbeddingNodeApiScope : IDisposable
         NodeEmbedding.JSRuntime.EmbeddingRuntimeOpenNodeApiScope(
             runtime.Handle, out _nodeApiScope, out napi_env env)
             .ThrowIfFailed();
-        _valueScope = new JSValueScope(
-            JSValueScopeType.Root, env, NodeEmbedding.JSRuntime);
+        try
+        {
+            JSRuntimeContext context = NodeEmbedding.GetOrCreateContext(env);
+            _valueScope = JSValueScope.CreateRuntimeScope(env, context);
+        }
+        catch
+        {
+            // A throwing constructor cannot be disposed, so close the native scope opened above
+            // before rethrowing, or it would leak for the lifetime of the embedding runtime.
+            NodeEmbedding.JSRuntime.EmbeddingRuntimeCloseNodeApiScope(runtime.Handle, _nodeApiScope);
+            throw;
+        }
     }
 
     /// <summary>
@@ -34,11 +45,14 @@ public sealed class NodeEmbeddingNodeApiScope : IDisposable
     public void Dispose()
     {
         if (IsDisposed) return;
-        IsDisposed = true;
 
+        // Mark disposal only after both closes succeed: the value scope's LIFO/thread check can throw
+        // if a nested scope is still open, and marking first would leave that unretryable and leak the
+        // native Node-API scope.
         _valueScope.Dispose();
         NodeEmbedding.JSRuntime.EmbeddingRuntimeCloseNodeApiScope(
             _runtime.Handle, _nodeApiScope)
             .ThrowIfFailed();
+        IsDisposed = true;
     }
 }

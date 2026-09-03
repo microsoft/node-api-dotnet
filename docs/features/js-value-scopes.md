@@ -7,9 +7,8 @@ A value is only valid within its scope; if the scope is closed (disposed), then 
 access or use the value will throw
 [`JSValueScopeClosedException`](../reference/dotnet/Microsoft.JavaScript.NodeApi/JSValueScopeClosedException).
 
-Values received by a .NET method that is a JS callback are associated with a `Callback`
-[scope type](../reference/dotnet/Microsoft.JavaScript.NodeApi/JSValueScopeType). When the method
-returns, the callback scope is closed and any values in that scope become invalid.
+Values received by a .NET method that is a JS callback belong to the current scope for that call.
+When the method returns, that scope is closed and any values in it become invalid.
 
 ## Nesting and escaping scopes
 
@@ -23,7 +22,7 @@ JSFunction jsFunction = …
 
 foreach (string item in array)
 {
-    using (var nestedScope = new JSValueScope())
+    using (var nestedScope = JSValueScope.CreateHandleScope())
     {
         // Passing a .NET string to JS requires converting it to JSValue.
         // The conversion is implicit; the explicit cast is for illustration.
@@ -44,7 +43,7 @@ public JSValue EscapableScopeExample(JSCallbackArgs args)
 
     foreach (string item in array)
     {
-        using (var escapableScope = new JSValueScope(JSValueScopeType.Escapable))
+        using (var escapableScope = JSValueScope.CreateEscapableScope())
         {
             JSValue result = jsFunction.Call(thisArg: default, (JSValue)item);
             if (!result.IsUndefined())

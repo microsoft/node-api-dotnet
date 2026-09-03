@@ -254,6 +254,7 @@ internal sealed unsafe class JSTsfnSynchronizationContext : JSSynchronizationCon
     private readonly JSRuntime _runtime;
     private readonly napi_env _env;
     private readonly JSThreadSafeFunction _tsfn;
+    private readonly TsfnCallGate _callGate = new();
     private GCHandle _cleanupHandle;
 
     public JSTsfnSynchronizationContext()
@@ -298,6 +299,9 @@ internal sealed unsafe class JSTsfnSynchronizationContext : JSSynchronizationCon
 
         base.Dispose();
 
+        // Wait for admitted native calls before releasing the TSFN.
+        _callGate.Close();
+
         // Destroy TSFN by releasing last thread use count.
         // TSFN is deleted after this point and must not be used.
         _tsfn.Release();
@@ -315,12 +319,17 @@ internal sealed unsafe class JSTsfnSynchronizationContext : JSSynchronizationCon
     private static unsafe void Cleanup(nint data)
     {
         GCHandle cleanupHandle = GCHandle.FromIntPtr(data);
-        JSTsfnSynchronizationContext context =
-            (JSTsfnSynchronizationContext)cleanupHandle.Target!;
-        context._cleanupHandle = default;
         try
         {
+            JSTsfnSynchronizationContext context =
+                (JSTsfnSynchronizationContext)cleanupHandle.Target!;
+            context._cleanupHandle = default;
             context.Dispose();
+        }
+        catch (Exception)
+        {
+            // A cleanup hook must not throw across the native boundary; teardown continues
+            // regardless.
         }
         finally
         {
@@ -348,7 +357,8 @@ internal sealed unsafe class JSTsfnSynchronizationContext : JSSynchronizationCon
 
     public override void Post(SendOrPostCallback callback, object? state)
     {
-        if (IsDisposed) return;
+        using TsfnCallGate.Guard? guard = _callGate.TryEnter();
+        if (guard is null) return;
 
         _tsfn.NonBlockingCall(() => callback(state));
     }
@@ -361,14 +371,21 @@ internal sealed unsafe class JSTsfnSynchronizationContext : JSSynchronizationCon
             return;
         }
 
-        if (IsDisposed) return;
-
         using ManualResetEvent syncEvent = new(false);
-        _tsfn.NonBlockingCall(() =>
         {
-            callback(state);
-            syncEvent.Set();
-        });
+            using TsfnCallGate.Guard? guard = _callGate.TryEnter();
+            if (guard is null) return;
+
+            bool isQueued = _tsfn.NonBlockingCall(() =>
+            {
+                callback(state);
+                syncEvent.Set();
+            });
+
+            if (!isQueued) return;
+        }
+
+        // Do not hold the gate while waiting for a callback on the JS thread.
         syncEvent.WaitOne();
     }
 }
@@ -415,4 +432,40 @@ internal sealed class JSDispatcherSynchronizationContext : JSSynchronizationCont
     public override void OpenAsyncScope() { }
 
     public override void CloseAsyncScope() { }
+}
+
+/// <summary>
+/// A synchronization context that runs work inline when already on the JS thread and drops it
+/// otherwise, without a thread-safe function. Used by the native host, which only ever operates
+/// on the JS thread and must not stand up a TSFN (which would ref the environment and require an
+/// env cleanup hook).
+/// </summary>
+/// <remarks>
+/// Because there is no TSFN to marshal to, work posted from another thread (such as a
+/// <see cref="JSReference"/> finalizer running on the GC thread) is dropped rather than
+/// scheduled. That is safe for the native host: its references are env-lifetime and reclaimed by
+/// Node at teardown, so a dropped off-thread delete never leaves a live reference behind and never
+/// touches a dead environment.
+/// </remarks>
+internal sealed class JSInlineSynchronizationContext : JSSynchronizationContext
+{
+    public override void OpenAsyncScope() { }
+
+    public override void CloseAsyncScope() { }
+
+    public override void Post(SendOrPostCallback callback, object? state)
+    {
+        if (!IsDisposed && Current == this)
+        {
+            callback(state);
+        }
+    }
+
+    public override void Send(SendOrPostCallback callback, object? state)
+    {
+        if (!IsDisposed && Current == this)
+        {
+            callback(state);
+        }
+    }
 }

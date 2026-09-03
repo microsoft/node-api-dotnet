@@ -144,7 +144,7 @@ public abstract class Benchmarks
         _reference = new JSReference(_jsFunction);
     }
 
-    private static JSValueScope NewJSScope() => new(JSValueScopeType.Callback);
+    private static JSValueScope NewJSScope() => JSValueScope.CreateRuntimeScope();
 
     // Benchmarks in the base class run in both CLR and AOT environments.
 

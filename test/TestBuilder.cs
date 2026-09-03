@@ -178,10 +178,10 @@ internal static class TestBuilder
         if (GetNoBuild()) return;
 
         string workingDirectory = Path.GetDirectoryName(projectFilePath)!;
-        if (target != "Publish")
-        {
-            WriteCurrentFrameworkGlobalJson(workingDirectory, projectFilePath);
-        }
+
+        // Pin the SDK per build so a build never inherits a stale per-TFM global.json that another
+        // TFM's host left in the shared test-case directory.
+        WriteCurrentFrameworkGlobalJson(workingDirectory, projectFilePath);
 
         using StreamWriter logWriter = new(File.Open(
             logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
@@ -213,22 +213,19 @@ internal static class TestBuilder
             WorkingDirectory = workingDirectory,
         };
 
-        // Prevent nested dotnet invocations from inheriting the current host path from the
-        // parent dotnet process, which can cause host/runtime mismatches when SDK selection
-        // rolls forward to a newer major version.
-        if (Environment.Version.Major != 4)
-        {
-            startInfo.Environment.Remove("MSBuildSDKsPath");
-            startInfo.Environment.Remove("DOTNET_HOST_PATH");
-            startInfo.Environment.Remove("DOTNET_ROOT");
-            startInfo.Environment.Remove("DOTNET_ROOT(x86)");
-            startInfo.Environment.Remove("DOTNET_ROOT_X86");
-            startInfo.Environment.Remove("DOTNET_ROOT(x64)");
-            startInfo.Environment.Remove("DOTNET_ROOT_X64");
-            startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR");
-            startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_SDKS_DIR");
-            startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_SDKS_VER");
-        }
+        // Nested dotnet invocations must not inherit the parent's host/SDK resolver environment,
+        // or SDK roll-forward to a newer major version causes host/runtime mismatches. A .NET
+        // Framework (net472) test host inherits these from the outer `dotnet test` as well.
+        startInfo.Environment.Remove("MSBuildSDKsPath");
+        startInfo.Environment.Remove("DOTNET_HOST_PATH");
+        startInfo.Environment.Remove("DOTNET_ROOT");
+        startInfo.Environment.Remove("DOTNET_ROOT(x86)");
+        startInfo.Environment.Remove("DOTNET_ROOT_X86");
+        startInfo.Environment.Remove("DOTNET_ROOT(x64)");
+        startInfo.Environment.Remove("DOTNET_ROOT_X64");
+        startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR");
+        startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_SDKS_DIR");
+        startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_SDKS_VER");
 
         logWriter.WriteLine($"dotnet {startInfo.Arguments}");
         logWriter.WriteLine($"CWD={workingDirectory}");
@@ -259,8 +256,10 @@ internal static class TestBuilder
         Version frameworkVersion = Environment.Version;
         if (frameworkVersion.Major == 4)
         {
-            // .NET 4.x is supported at runtime, but not at build time.
-            // So the global.json at the repo root will determine the SDK.
+            // .NET 4.x builds via the repo-root global.json. Delete any per-TFM global.json another
+            // TFM's host left in the shared directories so it does not override that.
+            File.Delete(Path.Combine(workingDirectory, "global.json"));
+            File.Delete(Path.Combine(Path.GetDirectoryName(projectFilePath)!, "global.json"));
             return;
         }
 

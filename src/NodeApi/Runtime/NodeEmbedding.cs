@@ -9,6 +9,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 #endif
 using System.Runtime.InteropServices;
+using Microsoft.JavaScript.NodeApi.Interop;
 
 using static JSRuntime;
 using static NodejsRuntime;
@@ -352,6 +353,31 @@ public sealed class NodeEmbedding
         }
     }
 
+    // The embedding invokes these adapters (and opens Node-API scopes) repeatedly for the same
+    // env; reuse the env's registered context to keep one context per env, instead of leaking a new
+    // context and overwriting the instance-data slot on each call. The instance-data finalizer
+    // disposes the context at env teardown.
+    internal static JSRuntimeContext GetOrCreateContext(napi_env env)
+        => JSRuntimeContext.FromEnv(env) ?? new JSRuntimeContext(env, JSRuntime);
+
+    // Opens the runtime scope for an embedding callback inside a guarded path: context resolution
+    // (instance-data registration) and scope creation are fallible, and every caller is an
+    // UnmanagedCallersOnly adapter, so a failure is reported through the embedding error path
+    // rather than escaping the native boundary. Returns null (with the last error set) on failure.
+    private static JSValueScope? TryEnterRuntimeScope(napi_env env)
+    {
+        try
+        {
+            JSRuntimeContext context = GetOrCreateContext(env);
+            return JSValueScope.CreateRuntimeScope(env, context);
+        }
+        catch (Exception ex)
+        {
+            JSRuntime.EmbeddingSetLastErrorMessage(ex.Message.AsSpan());
+            return null;
+        }
+    }
+
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
@@ -362,16 +388,27 @@ public sealed class NodeEmbedding
         napi_value process,
         napi_value require)
     {
-        using var jsValueScope = new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
+        JSValueScope? jsValueScope = TryEnterRuntimeScope(env);
+        if (jsValueScope is null) return;
         try
         {
-            var callback = (PreloadCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
-            callback(embeddingRuntime, new JSValue(process), new JSValue(require));
+            using (jsValueScope)
+            {
+                try
+                {
+                    var callback = (PreloadCallback)GCHandle.FromIntPtr(cb_data).Target!;
+                    NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
+                    callback(embeddingRuntime, new JSValue(process), new JSValue(require));
+                }
+                catch (Exception ex)
+                {
+                    JSError.ThrowError(ex);
+                }
+            }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            JSError.ThrowError(ex);
+            // A scope-disposal exception must not escape the unmanaged boundary.
         }
     }
 
@@ -386,17 +423,28 @@ public sealed class NodeEmbedding
         napi_value require,
         napi_value run_cjs)
     {
-        using var jsValueScope = new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
+        JSValueScope? jsValueScope = TryEnterRuntimeScope(env);
+        if (jsValueScope is null) return napi_value.Null;
         try
         {
-            var callback = (LoadingCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
-            return (napi_value)callback(
-                embeddingRuntime, new JSValue(process), new JSValue(require), new JSValue(run_cjs));
+            using (jsValueScope)
+            {
+                try
+                {
+                    var callback = (LoadingCallback)GCHandle.FromIntPtr(cb_data).Target!;
+                    NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
+                    return (napi_value)callback(
+                        embeddingRuntime, new JSValue(process), new JSValue(require), new JSValue(run_cjs));
+                }
+                catch (Exception ex)
+                {
+                    JSError.ThrowError(ex);
+                    return napi_value.Null;
+                }
+            }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            JSError.ThrowError(ex);
             return napi_value.Null;
         }
     }
@@ -410,16 +458,27 @@ public sealed class NodeEmbedding
         napi_env env,
         napi_value loading_result)
     {
-        using var jsValueScope = new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
+        JSValueScope? jsValueScope = TryEnterRuntimeScope(env);
+        if (jsValueScope is null) return;
         try
         {
-            var callback = (LoadedCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
-            callback(embeddingRuntime, new JSValue(loading_result));
+            using (jsValueScope)
+            {
+                try
+                {
+                    var callback = (LoadedCallback)GCHandle.FromIntPtr(cb_data).Target!;
+                    NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
+                    callback(embeddingRuntime, new JSValue(loading_result));
+                }
+                catch (Exception ex)
+                {
+                    JSError.ThrowError(ex);
+                }
+            }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            JSError.ThrowError(ex);
+            // A scope-disposal exception must not escape the unmanaged boundary.
         }
     }
 
@@ -433,19 +492,30 @@ public sealed class NodeEmbedding
         nint module_name,
         napi_value exports)
     {
-        using var jsValueScope = new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
+        JSValueScope? jsValueScope = TryEnterRuntimeScope(env);
+        if (jsValueScope is null) return napi_value.Null;
         try
         {
-            var callback = (InitializeModuleCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
-            return (napi_value)callback(
-                embeddingRuntime,
-                Utf8StringArray.PtrToStringUTF8((byte*)module_name),
-                new JSValue(exports));
+            using (jsValueScope)
+            {
+                try
+                {
+                    var callback = (InitializeModuleCallback)GCHandle.FromIntPtr(cb_data).Target!;
+                    NodeEmbeddingRuntime embeddingRuntime = NodeEmbeddingRuntime.FromHandle(runtime);
+                    return (napi_value)callback(
+                        embeddingRuntime,
+                        Utf8StringArray.PtrToStringUTF8((byte*)module_name),
+                        new JSValue(exports));
+                }
+                catch (Exception ex)
+                {
+                    JSError.ThrowError(ex);
+                    return napi_value.Null;
+                }
+            }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            JSError.ThrowError(ex);
             return napi_value.Null;
         }
     }
@@ -501,15 +571,26 @@ public sealed class NodeEmbedding
 #endif
     internal static unsafe void NodeApiRunCallbackAdapter(nint cb_data, napi_env env)
     {
-        using var jsValueScope = new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
+        JSValueScope? jsValueScope = TryEnterRuntimeScope(env);
+        if (jsValueScope is null) return;
         try
         {
-            var callback = (RunNodeApiCallback)GCHandle.FromIntPtr(cb_data).Target!;
-            callback();
+            using (jsValueScope)
+            {
+                try
+                {
+                    var callback = (RunNodeApiCallback)GCHandle.FromIntPtr(cb_data).Target!;
+                    callback();
+                }
+                catch (Exception ex)
+                {
+                    JSError.ThrowError(ex);
+                }
+            }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            JSError.ThrowError(ex);
+            // A scope-disposal exception must not escape the unmanaged boundary.
         }
     }
 }

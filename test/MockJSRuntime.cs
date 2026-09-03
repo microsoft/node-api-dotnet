@@ -83,6 +83,30 @@ internal class MockJSRuntime : JSRuntime
         return napi_ok;
     }
 
+    public override napi_status EscapeHandle(
+        napi_env env,
+        napi_escapable_handle_scope scope,
+        napi_value escapee,
+        out napi_value result)
+    {
+        // Promote the value to the parent scope by mirroring it under a new handle, mimicking
+        // napi_escape_handle returning a new value that is valid in the outer scope.
+        if (!_values.TryGetValue(escapee.Handle, out MockJSValue? mockValue))
+        {
+            result = default;
+            return napi_invalid_arg;
+        }
+
+        nint handle = ++s_handleCounter;
+        _values.Add(handle, new MockJSValue
+        {
+            ValueType = mockValue.ValueType,
+            Value = mockValue.Value,
+        });
+        result = new napi_value(handle);
+        return napi_ok;
+    }
+
     public override napi_status CreateString(
         napi_env env, ReadOnlySpan<char> utf16Str, out napi_value result)
     {
@@ -104,6 +128,10 @@ internal class MockJSRuntime : JSRuntime
         result = new napi_value(handle);
         return napi_ok;
     }
+
+    public override napi_status DefineProperties(
+        napi_env env, napi_value js_object, ReadOnlySpan<napi_property_descriptor> properties)
+        => napi_ok;
 
     public override napi_status GetValueType(
         napi_env env, napi_value value, out napi_valuetype result)

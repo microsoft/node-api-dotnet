@@ -3,6 +3,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Microsoft.JavaScript.NodeApi.Interop;
 
@@ -15,10 +16,10 @@ namespace Microsoft.JavaScript.NodeApi.Interop;
 public readonly struct JSCallbackDescriptor
 {
     /// <summary>
-    /// Saves the module context under which the callback was defined, so that multiple .NET
+    /// Saves the module instance holder under which the callback was defined, so that multiple .NET
     /// modules in the same process can register callbacks for module-level functions.
     /// </summary>
-    internal JSModuleContext? ModuleContext { get; }
+    internal StrongBox<object?>? ModuleHolder { get; }
 
     /// <summary>
     /// Gets the name of the callback, for debugging purposes.
@@ -37,27 +38,27 @@ public readonly struct JSCallbackDescriptor
     public object? Data { get; }
 
     public JSCallbackDescriptor(JSCallback callback, object? data = null)
-        : this(null, callback, data, JSValueScope.Current.ModuleContext)
+        : this(null, callback, data, JSValueScope.Current.ModuleHolder)
     {
     }
 
     public JSCallbackDescriptor(string? name, JSCallback callback, object? data = null)
-        : this(name, callback, data, JSValueScope.Current.ModuleContext)
+        : this(name, callback, data, JSValueScope.Current.ModuleHolder)
     {
     }
 
-    internal JSCallbackDescriptor(JSCallback callback, object? data, JSModuleContext? moduleContext)
-        : this(null, callback, data, moduleContext)
+    internal JSCallbackDescriptor(JSCallback callback, object? data, StrongBox<object?>? moduleHolder)
+        : this(null, callback, data, moduleHolder)
     {
     }
 
     internal JSCallbackDescriptor(
-        string? name, JSCallback callback, object? data, JSModuleContext? moduleContext)
+        string? name, JSCallback callback, object? data, StrongBox<object?>? moduleHolder)
     {
         Name = name;
         Callback = callback ?? throw new ArgumentNullException(nameof(callback));
         Data = data;
-        ModuleContext = moduleContext;
+        ModuleHolder = moduleHolder;
     }
 
     public static implicit operator JSCallbackDescriptor(JSCallback callback) => new(callback);
