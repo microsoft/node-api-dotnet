@@ -30,3 +30,15 @@ stream.on('data', (chunk) => { console.log(chunk.toString()); });
 
 The [`NodeStream`](./dotnet/Microsoft.JavaScript.NodeApi.Interop/NodeStream) class provides the
 .NET `Stream` adapter over a Node.js `Duplex`, `Readable`, or `Writable` stream.
+
+When [building a module using C# Native AOT](../scenarios/js-aot-module), the Node API module needs
+the `require()` function at initialization time to load the `node:stream` module. This must be
+provided via a global variable *before* loading the AOT module itself. 
+
+```JS
+global.node_api_dotnet = { require };
+const Example = require(...);
+
+const stream = Example.getContent();
+stream.on('data', (chunk) => { console.log(chunk.toString()); });
+```
