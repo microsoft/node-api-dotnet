@@ -519,9 +519,9 @@ public unsafe partial class NodejsRuntime
         napi_get_value_string_utf8;
 
     public override napi_status GetValueStringUtf8(
-        napi_env env, napi_value value, Span<byte> buf, out int result)
+        napi_env env, napi_value value, Span<byte> buf, out nuint result)
     {
-        fixed (int* result_ptr = &result)
+        fixed (nuint* result_ptr = &result)
         fixed (byte* buf_ptr = &buf.GetPinnableReference())
         {
             return Import(ref napi_get_value_string_utf8)(
@@ -533,9 +533,9 @@ public unsafe partial class NodejsRuntime
         napi_get_value_string_utf16;
 
     public override napi_status GetValueStringUtf16(
-        napi_env env, napi_value value, Span<char> buf, out int result)
+        napi_env env, napi_value value, Span<char> buf, out nuint result)
     {
-        fixed (int* result_ptr = &result)
+        fixed (nuint* result_ptr = &result)
         fixed (char* buf_ptr = &buf.GetPinnableReference())
         {
             return Import(ref napi_get_value_string_utf16)(
@@ -576,10 +576,10 @@ public unsafe partial class NodejsRuntime
     private delegate* unmanaged[Cdecl]<napi_env, napi_value, nint, napi_status>
         napi_get_array_length;
 
-    public override napi_status GetArrayLength(napi_env env, napi_value value, out int result)
+    public override napi_status GetArrayLength(napi_env env, napi_value value, out uint result)
     {
         result = default;
-        fixed (int* result_ptr = &result)
+        fixed (uint* result_ptr = &result)
         {
             return Import(ref napi_get_array_length)(env, value, (nint)result_ptr);
         }
@@ -918,12 +918,12 @@ public unsafe partial class NodejsRuntime
     private delegate* unmanaged[Cdecl]<napi_env, nuint, nint, napi_status>
         napi_create_array_with_length;
 
-    public override napi_status CreateArray(napi_env env, int length, out napi_value result)
+    public override napi_status CreateArray(napi_env env, uint length, out napi_value result)
     {
         result = default;
         fixed (napi_value* result_ptr = &result)
         {
-            return Import(ref napi_create_array_with_length)(env, (nuint)length, (nint)result_ptr);
+            return Import(ref napi_create_array_with_length)(env, length, (nint)result_ptr);
         }
     }
 
@@ -932,7 +932,7 @@ public unsafe partial class NodejsRuntime
 
     public override napi_status CreateArrayBuffer(
         napi_env env,
-        int byte_length,
+        nuint byte_length,
         out nint data,
         out napi_value result)
     {
@@ -942,7 +942,7 @@ public unsafe partial class NodejsRuntime
         fixed (napi_value* result_ptr = &result)
         {
             return Import(ref napi_create_arraybuffer)(
-                env, (nuint)byte_length, (nint)data_ptr, (nint)result_ptr);
+                env, byte_length, (nint)data_ptr, (nint)result_ptr);
         }
     }
 
@@ -953,7 +953,7 @@ public unsafe partial class NodejsRuntime
     public override napi_status CreateArrayBuffer(
         napi_env env,
         nint external_data,
-        int byte_length,
+        nuint byte_length,
         napi_finalize finalize_cb,
         nint finalize_hint,
         out napi_value result)
@@ -964,7 +964,7 @@ public unsafe partial class NodejsRuntime
             return Import(ref napi_create_external_arraybuffer)(
                 env,
                 external_data,
-                (nuint)byte_length,
+                byte_length,
                 finalize_cb,
                 finalize_hint,
                 (nint)result_ptr);
@@ -986,16 +986,16 @@ public unsafe partial class NodejsRuntime
     public override napi_status CreateTypedArray(
         napi_env env,
         napi_typedarray_type type,
-        int length,
+        nuint length,
         napi_value arraybuffer,
-        int byte_offset,
+        nuint byte_offset,
         out napi_value result)
     {
         result = default;
         fixed (napi_value* result_ptr = &result)
         {
             return Import(ref napi_create_typedarray)(
-                env, type, (nuint)length, arraybuffer, (nuint)byte_offset, (nint)result_ptr);
+                env, type, length, arraybuffer, byte_offset, (nint)result_ptr);
         }
     }
 
@@ -1005,16 +1005,16 @@ public unsafe partial class NodejsRuntime
 
     public override napi_status CreateDataView(
         napi_env env,
-        int length,
+        nuint length,
         napi_value arraybuffer,
-        int byte_offset,
+        nuint byte_offset,
         out napi_value result)
     {
         result = default;
         fixed (napi_value* result_ptr = &result)
         {
             return Import(ref napi_create_dataview)(
-                env, (nuint)length, arraybuffer, (nuint)byte_offset, (nint)result_ptr);
+                env, (nuint)length, arraybuffer, byte_offset, (nint)result_ptr);
         }
     }
 
@@ -1301,12 +1301,12 @@ public unsafe partial class NodejsRuntime
     public override napi_status GetCallbackInfo(
         napi_env env,
         napi_callback_info cbinfo,
-        out int argc,
+        out nuint argc,
         out nint data)
     {
         argc = default;
         data = default;
-        fixed (int* argc_ptr = &argc)
+        fixed (nuint* argc_ptr = &argc)
         fixed (nint* data_ptr = &data)
         {
             return Import(ref napi_get_cb_info)(env, cbinfo, (nint)argc_ptr, default, default, (nint)data_ptr);

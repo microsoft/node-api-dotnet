@@ -130,7 +130,7 @@ public readonly struct JSValue : IJSValue<JSValue>
     public static JSValue CreateArray() => GetCurrentRuntime(out napi_env env)
         .CreateArray(env, out napi_value result).ThrowIfFailed(result);
 
-    public static JSValue CreateArray(int length) => GetCurrentRuntime(out napi_env env)
+    public static JSValue CreateArray(uint length) => GetCurrentRuntime(out napi_env env)
         .CreateArray(env, length, out napi_value result).ThrowIfFailed(result);
 
     public static JSValue CreateNumber(double value) => GetCurrentRuntime(out napi_env env)
@@ -235,7 +235,7 @@ public readonly struct JSValue : IJSValue<JSValue>
             .ThrowIfFailed(result);
     }
 
-    public static JSValue CreateArrayBuffer(int byteLength)
+    public static JSValue CreateArrayBuffer(nuint byteLength)
         => GetCurrentRuntime(out napi_env env)
             .CreateArrayBuffer(env, byteLength, out nint _, out napi_value result)
             .ThrowIfFailed(result);
@@ -243,7 +243,7 @@ public readonly struct JSValue : IJSValue<JSValue>
     public static unsafe JSValue CreateArrayBuffer(ReadOnlySpan<byte> data)
     {
         GetCurrentRuntime(out napi_env env)
-            .CreateArrayBuffer(env, data.Length, out nint buffer, out napi_value result)
+            .CreateArrayBuffer(env, (nuint)data.Length, out nint buffer, out napi_value result)
             .ThrowIfFailed();
         data.CopyTo(new Span<byte>((void*)buffer, data.Length));
         return result;
@@ -256,7 +256,7 @@ public readonly struct JSValue : IJSValue<JSValue>
         return GetCurrentRuntime(out napi_env env).CreateArrayBuffer(
             env,
             (nint)pinnedMemory.Pointer,
-            pinnedMemory.Length,
+            (nuint)pinnedMemory.Length,
             // We pass object to finalize as a hint parameter
             new napi_finalize(s_finalizeGCHandleToPinnedMemory),
             (nint)pinnedMemory.RuntimeContext.AllocGCHandle(pinnedMemory),
@@ -264,13 +264,13 @@ public readonly struct JSValue : IJSValue<JSValue>
             .ThrowIfFailed(result);
     }
 
-    public static JSValue CreateDataView(int length, JSValue arrayBuffer, int byteOffset)
+    public static JSValue CreateDataView(nuint length, JSValue arrayBuffer, nuint byteOffset)
         => GetCurrentRuntime(out napi_env env)
             .CreateDataView(env, length, (napi_value)arrayBuffer, byteOffset, out napi_value result)
             .ThrowIfFailed(result);
 
     public static JSValue CreateTypedArray(
-        JSTypedArrayType type, int length, JSValue arrayBuffer, int byteOffset)
+        JSTypedArrayType type, nuint length, JSValue arrayBuffer, nuint byteOffset)
         => GetCurrentRuntime(out napi_env env).CreateTypedArray(
             env,
             (napi_typedarray_type)type,
@@ -481,34 +481,34 @@ public readonly struct JSValue : IJSValue<JSValue>
         .GetValueBool(env, handle, out bool result).ThrowIfFailed(result);
 
     public int GetValueStringUtf8(Span<byte> buffer)
-        => GetRuntime(out napi_env env, out napi_value handle)
-            .GetValueStringUtf8(env, handle, buffer, out int result)
+        => (int)GetRuntime(out napi_env env, out napi_value handle)
+            .GetValueStringUtf8(env, handle, buffer, out nuint result)
             .ThrowIfFailed(result);
 
     public byte[] GetValueStringUtf8()
     {
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
-        runtime.GetValueStringUtf8(env, handle, [], out int length).ThrowIfFailed();
+        runtime.GetValueStringUtf8(env, handle, [], out nuint length).ThrowIfFailed();
         byte[] result = new byte[length + 1];
         runtime.GetValueStringUtf8(env, handle, new Span<byte>(result), out _).ThrowIfFailed();
         // Remove the zero terminating character
-        Array.Resize(ref result, length);
+        Array.Resize(ref result, (int)length);
         return result;
     }
 
     public unsafe int GetValueStringUtf16(Span<char> buffer)
-        => GetRuntime(out napi_env env, out napi_value handle)
-            .GetValueStringUtf16(env, handle, buffer, out int result)
+        => (int)GetRuntime(out napi_env env, out napi_value handle)
+            .GetValueStringUtf16(env, handle, buffer, out nuint result)
             .ThrowIfFailed(result);
 
     public char[] GetValueStringUtf16AsCharArray()
     {
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
-        runtime.GetValueStringUtf16(env, handle, [], out int length).ThrowIfFailed();
+        runtime.GetValueStringUtf16(env, handle, [], out nuint length).ThrowIfFailed();
         char[] result = new char[length + 1];
         runtime.GetValueStringUtf16(env, handle, new Span<char>(result), out _).ThrowIfFailed();
         // Remove the zero terminating character
-        Array.Resize(ref result, length);
+        Array.Resize(ref result, (int)length);
         return result;
     }
 
@@ -518,8 +518,8 @@ public readonly struct JSValue : IJSValue<JSValue>
         return new string(GetValueStringUtf16AsCharArray());
 #else
         JSRuntime runtime = GetRuntime(out napi_env env, out napi_value handle);
-        runtime.GetValueStringUtf16(env, handle, [], out int length).ThrowIfFailed();
-        return string.Create(length, runtime, (span, runtime) =>
+        runtime.GetValueStringUtf16(env, handle, [], out nuint length).ThrowIfFailed();
+        return string.Create((int)length, runtime, (span, runtime) =>
         {
             fixed (void* ptr = span)
             {
@@ -616,8 +616,8 @@ public readonly struct JSValue : IJSValue<JSValue>
     public bool IsArray() => GetRuntime(out napi_env env, out napi_value handle)
         .IsArray(env, handle, out bool result).ThrowIfFailed(result);
 
-    public int GetArrayLength() => GetRuntime(out napi_env env, out napi_value handle)
-        .GetArrayLength(env, handle, out int result).ThrowIfFailed(result);
+    public int GetArrayLength() => (int)GetRuntime(out napi_env env, out napi_value handle)
+        .GetArrayLength(env, handle, out uint result).ThrowIfFailed(result);
 
     // Internal because JSValue structs all implement IEquatable<JSValue>, which calls this method.
     internal bool StrictEquals(JSValue other) => GetRuntime(out napi_env env, out napi_value handle)
@@ -1362,8 +1362,8 @@ public readonly struct JSValue : IJSValue<JSValue>
         using var scope = new JSValueScope(scopeType, env, runtime: default);
         try
         {
-            JSCallbackArgs.GetDataAndLength(scope, callbackInfo, out object? data, out int length);
-            Span<napi_value> args = stackalloc napi_value[length];
+            JSCallbackArgs.GetDataAndLength(scope, callbackInfo, out object? data, out nuint length);
+            Span<napi_value> args = stackalloc napi_value[(int)length];
             JSCallbackDescriptor descriptor = getCallbackDescriptor((TDescriptor)data!);
             scope.ModuleContext = descriptor.ModuleContext;
             return (napi_value)descriptor.Callback(
