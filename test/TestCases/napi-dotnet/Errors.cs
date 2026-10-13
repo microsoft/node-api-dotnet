@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.JavaScript.NodeApi.TestCases;
@@ -24,10 +25,24 @@ public static class Errors
         await Task.Yield();
         throw new Exception(message);
     }
+
+    public static void WaitAndThrow(
+        int milliseconds, IWorkerTerminationCallbacks workerTerminationCallbacks)
+    {
+        workerTerminationCallbacks.Started();
+        Thread.Sleep(milliseconds);
+        throw new Exception("Worker termination test");
+    }
 }
 
 [JSExport]
 public interface IJSErrors
 {
     void ThrowJSError(string message);
+}
+
+[JSExport]
+public interface IWorkerTerminationCallbacks
+{
+    void Started();
 }

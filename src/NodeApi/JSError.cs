@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.JavaScript.NodeApi.Runtime;
 using static Microsoft.JavaScript.NodeApi.Runtime.JSRuntime;
 
 namespace Microsoft.JavaScript.NodeApi;
@@ -142,7 +143,8 @@ public struct JSError
             }
         }
 
-        _errorRef = CreateErrorReference(CreateErrorValueForException(exception, out _message));
+        _message = GetExceptionMessage(exception);
+        _errorRef = CreateErrorReference(CreateErrorValueForException(exception, _message));
     }
 
     public string Message
@@ -190,11 +192,12 @@ public struct JSError
         }
     }
 
-    private static JSValue CreateErrorValueForException(Exception exception, out string message)
-    {
-        message = (exception as TargetInvocationException)?.InnerException?.Message
+    private static string GetExceptionMessage(Exception exception)
+        => (exception as TargetInvocationException)?.InnerException?.Message
             ?? exception.Message;
 
+    private static JSValue CreateErrorValueForException(Exception exception, string message)
+    {
         // If the exception is a JSException for an error value, use that error value;
         // otherwise construct a new error value from the exception message.
         JSValue error = (exception as JSException)?.Error?.Value ??
@@ -270,17 +273,58 @@ public struct JSError
     /// </remarks>
     public static void ThrowError(Exception exception)
     {
-        // Do not construct a JSError object here, because that would require a runtime context.
-        JSValue error = CreateErrorValueForException(exception, out string message);
+        JSRuntime runtime = JSValue.GetCurrentRuntime(out napi_env env);
 
-        napi_status status = error.Scope.Runtime.Throw(
-            (napi_env)JSValueScope.Current, (napi_value)error);
+        // If an exception is already pending, it will be propagated by Node when this callback
+        // returns. This also covers a terminating environment, where attempting any additional
+        // N-API work while constructing an error can throw out of the native callback boundary.
+        if (HasPendingExceptionOrIsClosing(runtime, env))
+        {
+            return;
+        }
 
-        if (status != napi_status.napi_ok && status != napi_status.napi_pending_exception)
+        string message = GetExceptionMessage(exception);
+        JSValue error;
+        try
+        {
+            // Do not construct a JSError object here, because that would require a runtime context.
+            error = CreateErrorValueForException(exception, message);
+        }
+        catch (JSException)
+        {
+            // Termination may begin after the check above, causing any of the N-API operations used
+            // to construct or augment the JS Error object to fail. Fall back to the direct runtime
+            // error API, which does not require creating or inspecting any JS values.
+            napi_status fallbackStatus = runtime.ThrowError(env, code: null, message);
+            if (fallbackStatus == napi_status.napi_ok ||
+                fallbackStatus == napi_status.napi_pending_exception ||
+                fallbackStatus == napi_status.napi_closing)
+            {
+                return;
+            }
+
+            throw;
+        }
+
+        napi_status status = runtime.Throw(env, (napi_value)error);
+
+        if (status != napi_status.napi_ok &&
+            status != napi_status.napi_pending_exception &&
+            status != napi_status.napi_closing)
         {
             throw new JSException(
                 $"Failed to throw JS Error. Status: {status}\n{message}");
         }
+    }
+
+    private static bool HasPendingExceptionOrIsClosing(JSRuntime runtime, napi_env env)
+    {
+        // Use the raw runtime API instead of IsExceptionPending(), because ThrowIfFailed() would
+        // attempt to construct another JSError while this error-reporting path is already failing.
+        napi_status status = runtime.IsExceptionPending(env, out bool isPending);
+        return (status == napi_status.napi_ok && isPending) ||
+            status == napi_status.napi_pending_exception ||
+            status == napi_status.napi_closing;
     }
 
     public static void ThrowError(string message)
