@@ -17,6 +17,18 @@ trigger:
     include:
     - main
 
+# Monthly keep-alive run so ADO does not disable the pipeline for inactivity.
+# It is not used for real releases and its time is not significant. It also
+# starts release.yml, whose ADO feed jobs fail on the already-published version;
+# that is expected and keeps the release pipeline active too.
+schedules:
+- cron: '0 9 1 * *'
+  displayName: Monthly keep-alive
+  branches:
+    include:
+    - main
+  always: true
+
 parameters:
   # Matrix with target build platforms.
   # x86 versions are not supported by Native AOT.
