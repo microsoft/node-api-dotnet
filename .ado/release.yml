@@ -5,7 +5,10 @@
 # to public ADO feeds and to npmjs.com and Nuget.org feeds.
 #
 
+# Runs only when microsoft.node-api-dotnet.ci completes on main (see resources
+# below); triggers are defined here, not in the ADO pipeline UI.
 trigger: none
+pr: none
 name: $(Date:yyyyMMdd).$(Rev:r)
 
 resources:

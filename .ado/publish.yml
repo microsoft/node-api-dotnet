@@ -7,9 +7,27 @@
 # Name of the run. It is overridden below  with the version of published binaries.
 name: 0.0.$(Date:yyMM.d)$(Rev:rrr)
 
-# This script must never be triggered from YAML settings for security reasons.
+# Triggers are defined here, not in the ADO pipeline UI. This pipeline signs and
+# publishes packages, so it runs only for pushes to main and never for pull
+# requests; PR validation runs in GitHub Actions.
 pr: none
-trigger: none
+trigger:
+  batch: false
+  branches:
+    include:
+    - main
+
+# Monthly keep-alive run so ADO does not disable the pipeline for inactivity.
+# It is not used for real releases and its time is not significant. It also
+# starts release.yml, whose ADO feed jobs fail on the already-published version;
+# that is expected and keeps the release pipeline active too.
+schedules:
+- cron: '0 9 1 * *'
+  displayName: Monthly keep-alive
+  branches:
+    include:
+    - main
+  always: true
 
 parameters:
   # Matrix with target build platforms.
