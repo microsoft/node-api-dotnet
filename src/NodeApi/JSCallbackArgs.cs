@@ -76,7 +76,7 @@ public readonly ref struct JSCallbackArgs
         JSValueScope scope,
         napi_callback_info callbackInfo,
         out object? data,
-        out int length)
+        out nuint length)
     {
         scope.Runtime.GetCallbackInfo((napi_env)scope, callbackInfo, out length, out nint data_ptr)
             .ThrowIfFailed();
