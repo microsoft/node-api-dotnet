@@ -681,7 +681,7 @@ public unsafe partial class NodejsRuntime
         node_embedding_data_release_callback release_init_module_data,
         int module_node_api_version)
     {
-        PooledBuffer moduleNameBuffer = PooledBuffer.FromSpanUtf8(module_name);
+        using PooledBuffer moduleNameBuffer = PooledBuffer.FromSpanUtf8(module_name);
         fixed (byte* moduleNamePtr = moduleNameBuffer)
             return Import(ref node_embedding_runtime_config_add_module)(
                 runtime_config,
