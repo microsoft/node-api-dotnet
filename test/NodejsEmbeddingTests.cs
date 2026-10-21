@@ -4,6 +4,7 @@
 #pragma warning disable CA1822 // Mark members as static
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -286,6 +287,102 @@ public class NodejsEmbeddingTests
                 """);
             Assert.Equal(message, (string)result);
         });
+    }
+
+    private static NodeEmbeddingThreadRuntime CreateRuntimeWithLinkedModule(
+        string mainScript = "")
+    {
+        NodeEmbeddingModuleInfo linkedModule = new()
+        {
+            Name = "test-linked",
+            NodeApiVersion = NodeEmbedding.NodeApiVersion,
+            OnInitialize = (runtime, moduleName, exports) =>
+            {
+                exports.SetProperty("moduleName", moduleName);
+                exports.SetProperty("add", JSValue.CreateFunction(
+                    "add", (args) => (int)args[0] + (int)args[1]));
+                return exports;
+            },
+        };
+
+        // Modules are registered on the runtime thread while it is configured, so dirty the
+        // array pool lazily from there, right before the module name is marshalled.
+        static IEnumerable<NodeEmbeddingModuleInfo> WithGarbageInArrayPool(
+            NodeEmbeddingModuleInfo module)
+        {
+            FillArrayPoolWithGarbage();
+            yield return module;
+        }
+
+        return NodejsPlatform.CreateThreadRuntime(
+            Path.Combine(GetRepoRootDirectory(), "test"),
+            new NodeEmbeddingRuntimeSettings
+            {
+                MainScript = MainScript + mainScript,
+                Modules = WithGarbageInArrayPool(linkedModule),
+            });
+    }
+
+    private static void AssertJSThreadIsUsable(NodeEmbeddingThreadRuntime nodejs)
+    {
+        nodejs.Run(() =>
+        {
+            Assert.Equal(3, (int)JSValue.RunScript("1 + 2"));
+        });
+    }
+
+    [Fact]
+    public void LinkedModuleFromScript()
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateRuntimeWithLinkedModule();
+
+        nodejs.Run(() =>
+        {
+            JSValue linked = JSValue.RunScript("process._linkedBinding('test-linked')");
+            Assert.Equal("test-linked", (string)linked["moduleName"]);
+            Assert.Equal(3, (int)linked.CallMethod("add", 1, 2));
+
+            // The scope that was current before the module was initialized must be restored.
+            Assert.Equal(3, (int)JSValue.RunScript("1 + 2"));
+        });
+
+        AssertJSThreadIsUsable(nodejs);
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    [Fact]
+    public void LinkedModuleFromMainScript()
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateRuntimeWithLinkedModule(
+            "globalThis.linked = process._linkedBinding('test-linked');\n");
+
+        nodejs.Run(() =>
+        {
+            Assert.Equal(3, (int)JSValue.RunScript("globalThis.linked.add(1, 2)"));
+        });
+
+        AssertJSThreadIsUsable(nodejs);
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    [Fact]
+    public async Task LinkedModuleFromESModule()
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateRuntimeWithLinkedModule();
+
+        int result = await nodejs.RunAsync(async () =>
+        {
+            JSValue testModule = await nodejs.ImportAsync(
+                "./test-linked-module.mjs", null, esModule: true);
+            return (int)testModule["result"];
+        });
+        Assert.Equal(3, result);
+
+        AssertJSThreadIsUsable(nodejs);
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
     }
 
     [Fact]
