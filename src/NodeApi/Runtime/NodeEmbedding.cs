@@ -433,7 +433,14 @@ public sealed class NodeEmbedding
         nint module_name,
         napi_value exports)
     {
-        using var jsValueScope = new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
+        // Linked modules are initialized lazily by process._linkedBinding(), so the runtime's
+        // scope is usually current on this thread. Node.js passes a separate napi_env for each
+        // module; nesting a root scope for it would fail or, on dispose, leave the thread
+        // without a current scope. Initialize the module within the runtime's scope instead,
+        // so that its exports share the runtime context and later callbacks into them work.
+        using var jsValueScope = JSValueScope.CurrentOrNull != null
+            ? new JSValueScope(JSValueScopeType.Callback)
+            : new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
         try
         {
             var callback = (InitializeModuleCallback)GCHandle.FromIntPtr(cb_data).Target!;
