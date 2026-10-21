@@ -438,9 +438,14 @@ public sealed class NodeEmbedding
         // module; nesting a root scope for it would fail or, on dispose, leave the thread
         // without a current scope. Initialize the module within the runtime's scope instead,
         // so that its exports share the runtime context and later callbacks into them work.
-        using var jsValueScope = JSValueScope.CurrentOrNull != null
-            ? new JSValueScope(JSValueScopeType.Callback)
-            : new JSValueScope(JSValueScopeType.Root, env, JSRuntime);
+        // A callback scope cannot be nested in a handle scope, so that is used as is.
+        using JSValueScope? jsValueScope = JSValueScope.CurrentOrNull?.ScopeType switch
+        {
+            null => new JSValueScope(JSValueScopeType.Root, env, JSRuntime),
+            JSValueScopeType.Handle or JSValueScopeType.Escapable => null,
+            _ => new JSValueScope(JSValueScopeType.Callback),
+        };
+        napi_env scopeEnv = JSValueScope.Current.UncheckedEnvironmentHandle;
         try
         {
             var callback = (InitializeModuleCallback)GCHandle.FromIntPtr(cb_data).Target!;
@@ -454,6 +459,19 @@ public sealed class NodeEmbedding
         {
             JSError.ThrowError(ex);
             return napi_value.Null;
+        }
+        finally
+        {
+            // Pending exceptions are tracked per napi_env, and Node.js only reports those of the
+            // module's env to the caller of process._linkedBinding().
+            if (scopeEnv != env &&
+                JSRuntime.IsExceptionPending(scopeEnv, out bool isPending) == napi_status.napi_ok &&
+                isPending &&
+                JSRuntime.GetAndClearLastException(scopeEnv, out napi_value error) ==
+                    napi_status.napi_ok)
+            {
+                JSRuntime.Throw(env, error);
+            }
         }
     }
 
