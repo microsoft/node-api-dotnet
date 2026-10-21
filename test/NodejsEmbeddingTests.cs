@@ -290,19 +290,20 @@ public class NodejsEmbeddingTests
     }
 
     private static NodeEmbeddingThreadRuntime CreateRuntimeWithLinkedModule(
-        string mainScript = "")
+        string mainScript = "",
+        NodeEmbedding.InitializeModuleCallback? onInitialize = null)
     {
         NodeEmbeddingModuleInfo linkedModule = new()
         {
             Name = "test-linked",
             NodeApiVersion = NodeEmbedding.NodeApiVersion,
-            OnInitialize = (runtime, moduleName, exports) =>
+            OnInitialize = onInitialize ?? ((runtime, moduleName, exports) =>
             {
                 exports.SetProperty("moduleName", moduleName);
                 exports.SetProperty("add", JSValue.CreateFunction(
                     "add", (args) => (int)args[0] + (int)args[1]));
                 return exports;
-            },
+            }),
         };
 
         // Modules are registered on the runtime thread while it is configured, so dirty the
@@ -379,6 +380,58 @@ public class NodejsEmbeddingTests
             return (int)testModule["result"];
         });
         Assert.Equal(3, result);
+
+        AssertJSThreadIsUsable(nodejs);
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    [Fact]
+    public void LinkedModuleFromHandleScope()
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateRuntimeWithLinkedModule();
+
+        nodejs.Run(() =>
+        {
+            using JSValueScope handleScope = new();
+            Assert.Equal(
+                "test-linked",
+                (string)JSValue.RunScript("process._linkedBinding('test-linked').moduleName"));
+        });
+
+        AssertJSThreadIsUsable(nodejs);
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LinkedModuleInitializationError(bool throwJSError)
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateRuntimeWithLinkedModule(
+            onInitialize: (runtime, moduleName, exports) =>
+            {
+                if (throwJSError)
+                {
+                    JSError.ThrowError("init failed");
+                    return exports;
+                }
+
+                throw new InvalidOperationException("init failed");
+            });
+
+        nodejs.Run(() =>
+        {
+            // The error must reach the caller of process._linkedBinding().
+            JSValue result = JSValue.RunScript("""
+                (() => {
+                    try { process._linkedBinding('test-linked'); } catch (e) { return e.message; }
+                    return 'not thrown';
+                })()
+                """);
+            Assert.Equal("init failed", (string)result);
+        });
 
         AssertJSThreadIsUsable(nodejs);
         nodejs.Dispose();
