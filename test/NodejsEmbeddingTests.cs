@@ -260,6 +260,34 @@ public class NodejsEmbeddingTests
                 $"at {typeof(NodejsEmbeddingTests).FullName}.", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("x")]
+    [InlineData("")]
+    public void ThrowErrorFromCallback(string message)
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+
+        nodejs.Run(() =>
+        {
+            JSValue.Global.SetProperty("throwError", JSValue.CreateFunction("throwError", (args) =>
+            {
+                // Rented buffers that are not zeroed must not leak into the error message.
+                FillArrayPoolWithGarbage();
+                JSError.ThrowError((string)args[0]);
+                return JSValue.Undefined;
+            }));
+            JSValue.Global.SetProperty("message", message);
+
+            JSValue result = JSValue.RunScript("""
+                (() => {
+                    try { throwError(message); } catch (e) { return e.message; }
+                    return 'not thrown';
+                })()
+                """);
+            Assert.Equal(message, (string)result);
+        });
+    }
+
     [Fact]
     public async Task WorkerIsMainThread()
     {
