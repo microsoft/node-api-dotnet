@@ -39,7 +39,7 @@ jobs:
 
     steps:
     - name: Publish test results
-      uses: dorny/test-reporter@3eeb9fc888e82e8be2fb356bbeec2750231672bc # v1
+      uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a # v3.2.0
       with:
         artifact: test-logs-${{ matrix.os }}-${{matrix.dotnet-version}}-node${{matrix.node-version}}-${{matrix.configuration}}
         name: test results (${{ matrix.os }}, ${{matrix.dotnet-version}}, node${{ matrix.node-version }}, ${{ matrix.configuration }})
