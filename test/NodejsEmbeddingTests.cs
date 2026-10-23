@@ -260,6 +260,89 @@ public class NodejsEmbeddingTests
                 $"at {typeof(NodejsEmbeddingTests).FullName}.", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("x")]
+    [InlineData("")]
+    public void ThrowErrorFromCallback(string message)
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+
+        nodejs.Run(() =>
+        {
+            JSValue.Global.SetProperty("throwError", JSValue.CreateFunction("throwError", (args) =>
+            {
+                // Rented buffers that are not zeroed must not leak into the error message.
+                FillArrayPoolWithGarbage();
+                JSError.ThrowError((string)args[0]);
+                return JSValue.Undefined;
+            }));
+            JSValue.Global.SetProperty("message", message);
+
+            JSValue result = JSValue.RunScript("""
+                (() => {
+                    try { throwError(message); } catch (e) { return e.message; }
+                    return 'not thrown';
+                })()
+                """);
+            Assert.Equal(message, (string)result);
+        });
+    }
+
+    [Theory]
+    [InlineData("Error", null)]
+    [InlineData("Error", "ERR_TEST")]
+    [InlineData("TypeError", null)]
+    [InlineData("TypeError", "ERR_TEST")]
+    [InlineData("RangeError", null)]
+    [InlineData("RangeError", "ERR_TEST")]
+    [InlineData("SyntaxError", null)]
+    [InlineData("SyntaxError", "ERR_TEST")]
+    public void ThrowTypedError(string errorType, string? code)
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+
+        nodejs.Run(() =>
+        {
+            JSValue.Global.SetProperty("throwError", JSValue.CreateFunction("throwError", (_) =>
+            {
+                Action<string> throwWithoutCode = errorType switch
+                {
+                    "Error" => JSError.ThrowError,
+                    "TypeError" => JSError.ThrowTypeError,
+                    "RangeError" => JSError.ThrowRangeError,
+                    "SyntaxError" => JSError.ThrowSyntaxError,
+                    _ => throw new ArgumentOutOfRangeException(nameof(errorType)),
+                };
+                Action<string, string> throwWithCode = errorType switch
+                {
+                    "Error" => JSError.ThrowError,
+                    "TypeError" => JSError.ThrowTypeError,
+                    "RangeError" => JSError.ThrowRangeError,
+                    "SyntaxError" => JSError.ThrowSyntaxError,
+                    _ => throw new ArgumentOutOfRangeException(nameof(errorType)),
+                };
+
+                if (code == null) throwWithoutCode("test");
+                else throwWithCode(code, "test");
+                return JSValue.Undefined;
+            }));
+
+            JSValue error = JSValue.RunScript("""
+                (() => {
+                    try { throwError(); } catch (e) { return e; }
+                    return null;
+                })()
+                """);
+            Assert.True(error.IsObject());
+            Assert.Equal(errorType, (string)error["name"]);
+            Assert.True((bool)JSValue.RunScript(
+                $"(e) => e instanceof {errorType}").Call(JSValue.Undefined, error));
+            Assert.Equal("test", (string)error["message"]);
+            if (code == null) Assert.True(error["code"].IsUndefined());
+            else Assert.Equal(code, (string)error["code"]);
+        });
+    }
+
     [Fact]
     public async Task WorkerIsMainThread()
     {

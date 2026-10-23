@@ -47,8 +47,10 @@ internal struct Utf8StringArray : IDisposable
             {
                 Utf8Strings[i] = stringBufferPtr + offset;
                 offset += Encoding.UTF8.GetBytes(
-                    src, strings[i].Length, (byte*)(stringBufferPtr + offset), byteLength - offset)
-                    + 1; // +1 for the string Null-terminator.
+                    src, strings[i].Length, (byte*)(stringBufferPtr + offset), byteLength - offset);
+
+                // Pooled arrays are not zeroed.
+                _stringBuffer[offset++] = 0;
             }
         }
     }
