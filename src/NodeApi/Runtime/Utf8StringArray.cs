@@ -46,9 +46,13 @@ internal struct Utf8StringArray : IDisposable
             fixed (char* src = strings[i])
             {
                 Utf8Strings[i] = stringBufferPtr + offset;
-                offset += Encoding.UTF8.GetBytes(
-                    src, strings[i].Length, (byte*)(stringBufferPtr + offset), byteLength - offset)
-                    + 1; // +1 for the string Null-terminator.
+                int encodedLength = Encoding.UTF8.GetBytes(
+                    src, strings[i].Length, (byte*)(stringBufferPtr + offset), byteLength - offset);
+
+                // Rented pool buffers are not zero-initialized, so write the terminator explicitly
+                // rather than relying on the reserved byte already being zero (#481).
+                *(byte*)(stringBufferPtr + offset + encodedLength) = 0;
+                offset += encodedLength + 1;
             }
         }
     }
