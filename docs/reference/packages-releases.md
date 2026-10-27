@@ -25,13 +25,10 @@ TypeScript type definitions without using MSBuild. See the CLI reference at
 
 ## Releases
 
-Packages are published to nuget and npm automatically, usually around an hour after any PR
-is merged.
-
-The [release pipeline](../../.ado/release.yml) publishes signed CI packages to the public
-ADO feeds and uses ESRP Release v14 for NuGet.org and npmjs.com, with network isolation
-enforced on the release agent. NuGet submissions include only
-`Microsoft.JavaScript.NodeApi.*.nupkg` packages, not symbol packages or npm tarballs.
+The release pipeline automatically publishes NuGet and npm packages to Azure DevOps feeds
+and their respective public registries, NuGet.org and npmjs.com, usually around an hour
+after a PR is merged. Publication to NuGet.org and npmjs.com uses Microsoft's centralized
+ESRP Release process.
 
 While the project is in pre-release phase, there may be occasional breaking API changes between
 versions less than 1.0. Starting with v1.0 (expected late 2024), it will follow
