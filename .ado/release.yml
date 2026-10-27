@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 # 
 # The Release pipeline to publish NPM and NuGet packages
-# to public ADO feeds and to npmjs.com and Nuget.org feeds.
+# to public ADO feeds and, through ESRP Release, to npmjs.com and NuGet.org.
 #
 
 # Runs only when microsoft.node-api-dotnet.ci completes on main (see resources
@@ -41,12 +41,17 @@ extends:
         exclusionPatterns: |
           '**/*.*'
 
+    settings:
+      # ESRP publishes centrally without agent access to public registries.
+      networkIsolationMode: Enforce
+
     stages:
     - stage: main_release
       displayName: Publish packages
       jobs:
       - job: nuget_ms_react_native_public_job
         displayName: NuGet to ADO ms/react-native-public feed
+        condition: eq(1, 0) # TEMP: Run only the NuGet ESRP configuration test.
         templateContext:
           type: releaseJob
           isProduction: true
@@ -91,6 +96,7 @@ extends:
 
       - job: npm_ms_react_native_job
         displayName: NPM to ADO ms/react-native feed
+        condition: eq(1, 0) # TEMP: Run only the NuGet ESRP configuration test.
         templateContext:
           type: releaseJob
           isProduction: true
@@ -158,35 +164,48 @@ extends:
             artifactName: 'published-packages'
             targetPath: '$(Pipeline.Workspace)/published-packages'
 
-        # Take the API Key from the OGX Torus subscription KV storage and use it to publish to Noget.org
+        # CI has already signed the packages; ESRP handles public distribution.
         steps:
-        - task: AzureKeyVault@2
-          inputs:
-            azureSubscription: ESRP-JSHost3
-            KeyVaultName: OGX-JSHost-KV
-            SecretsFilter: 'OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi'
-            RunAsPreJob: true
-
-        - task: NuGetToolInstaller@1
-          displayName: 'Use NuGet'
-
-        - script: 'nuget.exe SetApiKey $(OGX-JSHost-Nuget-org-API-key-Microsoft-JavaScript-NodeApi)'
-          displayName: 'NuGet SetApiKey (nuget.org)'
-
-        - script: dir /S $(Pipeline.Workspace)\published-packages
+        - pwsh: |
+            Get-ChildItem -LiteralPath '$(Pipeline.Workspace)\published-packages' -Recurse -ErrorAction Stop
           displayName: Show directory contents
 
-        - script: >
-            nuget.exe push
-            $(Pipeline.Workspace)\published-packages\Microsoft.JavaScript.NodeApi.*.nupkg
-            -Source https://api.nuget.org/v3/index.json
-            -SkipDuplicate
-            -NonInteractive
-            -Verbosity Detailed
-          displayName: 'NuGet push (nuget.org)'
+        - task: CopyFiles@2
+          displayName: Stage NuGet packages for ESRP Release
+          inputs:
+            SourceFolder: '$(Pipeline.Workspace)\published-packages'
+            Contents: 'Microsoft.JavaScript.NodeApi.*.nupkg'
+            TargetFolder: '$(Agent.TempDirectory)\esrp-nuget\react-native-windows'
+
+        - pwsh: |
+            Get-ChildItem -LiteralPath '$(Agent.TempDirectory)\esrp-nuget\react-native-windows' -Recurse -ErrorAction Stop
+          displayName: Show ESRP submission directory contents
+
+        - task: EsrpRelease@14
+          displayName: ESRP Release configuration test (Maven)
+          inputs:
+            connectedservicename: 'ESRP-JSHost3'
+            usemanagedidentity: false
+            keyvaultname: 'OGX-JSHost-KV'
+            authcertname: 'OGX-JSHost-Auth4'
+            signcertname: 'OGX-JSHost-Sign3'
+            clientid: '0a35e01f-eadf-420a-a2bf-def002ba898d'
+            domaintenantid: 'cdc5aeea-15c5-4db6-b079-fcadd2505dc2'
+            intent: 'PackageDistribution'
+            # TEMP: Maven rejection tests authentication and isolation without publishing.
+            contenttype: 'Maven'
+            organizationname: 'react-native-windows'
+            contentsource: 'Folder'
+            folderlocation: '$(Agent.TempDirectory)\esrp-nuget\react-native-windows'
+            waitforreleasecompletion: true
+            owners: 'vmorozov@microsoft.com'
+            approvers: 'khosany@microsoft.com'
+            serviceendpointurl: 'https://api.esrp.microsoft.com'
+            mainpublisher: 'ESRPRELPACMAN'
 
       - job: npmjs_com_job
         displayName: NPM to npmjs.com
+        condition: eq(1, 0) # TEMP: Run only the NuGet ESRP configuration test.
         templateContext:
           type: releaseJob
           isProduction: true
@@ -201,7 +220,7 @@ extends:
         - script: dir /S $(Pipeline.Workspace)\published-packages
           displayName: Show directory contents
 
-        - task: 'SFP.release-tasks.custom-build-release-task.EsrpRelease@9'
+        - task: 'EsrpRelease@14'
           displayName: 'ESRP Release to npmjs.com'
           inputs:
             connectedservicename: 'ESRP-JSHost3'
