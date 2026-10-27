@@ -172,7 +172,9 @@ extends:
           displayName: Stage NuGet packages for ESRP Release
           inputs:
             SourceFolder: '$(Pipeline.Workspace)\published-packages'
-            Contents: 'Microsoft.JavaScript.NodeApi.*.nupkg'
+            Contents: |
+              Microsoft.JavaScript.NodeApi.*.nupkg
+              Microsoft.JavaScript.NodeApi.*.snupkg
             TargetFolder: '$(Agent.TempDirectory)\esrp-nuget\react-native-windows'
 
         - pwsh: |
