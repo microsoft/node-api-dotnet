@@ -2,6 +2,10 @@
 // Licensed under the MIT License.
 
 using System;
+#if !NETFRAMEWORK
+using System.Buffers;
+#endif
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -140,6 +144,31 @@ public static class TestUtils
         {
             File.Copy(sourceFilePath, targetFilePath, overwrite: true);
         }
+    }
+
+    /// <summary>
+    /// Fills arrays in the shared byte array pool (as seen by the calling thread) with non-zero
+    /// bytes, so that code relying on rented buffers being zeroed fails deterministically.
+    /// </summary>
+    public static void FillArrayPoolWithGarbage()
+    {
+#if !NETFRAMEWORK
+        List<byte[]> rented = new();
+        for (int size = 1; size <= 1024; size *= 2)
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                byte[] array = ArrayPool<byte>.Shared.Rent(size);
+                array.AsSpan().Fill(0xAA);
+                rented.Add(array);
+            }
+        }
+
+        foreach (byte[] array in rented)
+        {
+            ArrayPool<byte>.Shared.Return(array);
+        }
+#endif
     }
 
     public static Task RunInThread(Action action)
