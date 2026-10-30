@@ -68,17 +68,21 @@ internal struct PooledBuffer : IDisposable
     [EditorBrowsable(EditorBrowsableState.Never)]
     public readonly ref byte GetPinnableReference() => ref Span.GetPinnableReference();
 
+    // Native callers may read these buffers as null-terminated C strings. A null string
+    // produces an empty buffer (null pointer); an empty string produces just the terminator.
     public static unsafe PooledBuffer FromStringUtf8(string? value)
     {
-        if (string.IsNullOrEmpty(value))
+        if (value == null)
         {
             return Empty;
         }
 
         int byteLength = Encoding.UTF8.GetByteCount(value);
         PooledBuffer buffer = new(byteLength, byteLength + 1);
-        Encoding.UTF8.GetBytes(value, 0, value!.Length, buffer.Buffer, 0);
+        Encoding.UTF8.GetBytes(value, 0, value.Length, buffer.Buffer, 0);
 
+        // Pooled arrays are not zeroed.
+        buffer.Buffer[byteLength] = 0;
         return buffer;
     }
 
@@ -86,7 +90,9 @@ internal struct PooledBuffer : IDisposable
     {
         if (value.IsEmpty)
         {
-            return Empty;
+            PooledBuffer emptyString = new(0, 1);
+            emptyString.Buffer[0] = 0;
+            return emptyString;
         }
 
         fixed (char* valuePtr = value)
@@ -94,7 +100,10 @@ internal struct PooledBuffer : IDisposable
             int byteLength = Encoding.UTF8.GetByteCount(valuePtr, value.Length);
             PooledBuffer buffer = new(byteLength, byteLength + 1);
             fixed (byte* bufferPtr = buffer.Span)
-                Encoding.UTF8.GetBytes(valuePtr, value.Length, bufferPtr, byteLength + 1);
+                Encoding.UTF8.GetBytes(valuePtr, value.Length, bufferPtr, byteLength);
+
+            // Pooled arrays are not zeroed.
+            buffer.Buffer[byteLength] = 0;
             return buffer;
         }
     }

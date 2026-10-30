@@ -290,22 +290,22 @@ public struct JSError
         => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code, message);
 
     public static void ThrowTypeError(string message)
-        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code: null, message);
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowTypeError(env, code: null, message);
 
     public static void ThrowTypeError(string code, string message)
-        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code, message);
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowTypeError(env, code, message);
 
     public static void ThrowRangeError(string message)
-        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code: null, message);
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowRangeError(env, code: null, message);
 
     public static void ThrowRangeError(string code, string message)
-        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code, message);
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowRangeError(env, code, message);
 
     public static void ThrowSyntaxError(string message)
-        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code: null, message);
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowSyntaxError(env, code: null, message);
 
     public static void ThrowSyntaxError(string code, string message)
-        => JSValue.GetCurrentRuntime(out napi_env env).ThrowError(env, code, message);
+        => JSValue.GetCurrentRuntime(out napi_env env).ThrowSyntaxError(env, code, message);
 
     /// <summary>
     /// Gets a JS error stack trace that also includes a .NET stack trace,
