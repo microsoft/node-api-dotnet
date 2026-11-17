@@ -50,8 +50,9 @@ public sealed class EmbeddingPackageTests : IDisposable
     }
 
     [Fact]
-    public void PackageContainsFrameworkSentinelsAndTransitiveDependencies()
+    public void WindowsPackageContainsFrameworkSentinelsAndTransitiveDependencies()
     {
+        // Windows-only: other platforms omit net472, and this project has no dynamic skip mechanism.
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
 
         string extracted = Path.Combine(_packages, "inspection");

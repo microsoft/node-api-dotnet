@@ -119,3 +119,5 @@ Then attach a JavaScript debugger such as VS Code or Chrome to the inspection UR
 The embedding package emits build warning `NODEAPIEMBED001` for `PlatformTarget=x86` or
 `AnyCPU` with `Prefer32Bit=true`. It does not error because a custom `LibNodePath` may provide
 a 32-bit build. It cannot detect a 32-bit IIS application pool; configure the pool for 64-bit.
+
+For x86 apps supplying their own `LibNodePath`, suppress the warning with `<NoWarn>$(NoWarn);NODEAPIEMBED001</NoWarn>`, including when `TreatWarningsAsErrors` is enabled.

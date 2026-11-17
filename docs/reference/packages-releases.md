@@ -13,10 +13,11 @@ time, and for generating TypeScript type defintions for .NET APIs.
 [`Microsoft.JavaScript.NodeApi.Embedding`](https://www.nuget.org/packages/Microsoft.JavaScript.NodeApi.Embedding/) -
 Embeds Node.js in a .NET application. This metapackage adds no assembly or public APIs; it brings
 `Microsoft.JavaScript.NodeApi` at the matching package version and `Microsoft.JavaScript.LibNode`
-26.0.15 or later. LibNode 26.0.15 (Node.js 26.13.1) is the tested version for this release.
+at the minimum dependency version or later. Each release is built and tested with the LibNode
+version shown as its minimum LibNode dependency (Node.js 26).
 Restore includes six native platforms (Windows/Linux/macOS, x64/arm64), about 280 MB per version.
 For a smaller single-platform restore, reference NodeApi and `Microsoft.JavaScript.LibNode.<rid>`
-separately. See [Embedding Node.js](../scenarios/dotnet-js) for discovery and 64-bit requirements.
+separately. See [Embedding Node.js](../scenarios/dotnet-js) for native library loading and 64-bit requirements.
 
 [`Microsoft.JavaScript.NodeApi.DotNetHost`](https://www.nuget.org/packages/Microsoft.JavaScript.NodeApi.DotNetHost/) -
 Hosts .NET in a Node.js process, the opposite direction from `.Embedding`. Applications that use
