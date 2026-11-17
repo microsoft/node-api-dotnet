@@ -7,7 +7,7 @@ should be.
 
 ## Acquiring the required `libnode` binary
 Reference [`Microsoft.JavaScript.LibNode`](https://www.nuget.org/packages/Microsoft.JavaScript.LibNode).
-It provides `libnode` built from Node.js 26.13.1 with the ABI-stable embedding API, for
+It provides `libnode` built from Node.js 26 with the ABI-stable embedding API, for
 `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, and `osx-arm64`.
 The embedding API is not yet in upstream Node.js and changes between versions; use the LibNode
 version pinned in `Directory.Packages.props`, the only one tested with each release.

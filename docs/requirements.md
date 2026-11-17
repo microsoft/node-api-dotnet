@@ -21,7 +21,7 @@
 ### Embedding (LibNode)
 
 Embedding Node.js in a .NET application uses LibNode rather than an installed Node.js executable.
-LibNode built from Node.js 26.13.1 supports:
+LibNode 26.x, built from Node.js 26, supports:
 
  - Windows x64/arm64, with the Universal C Runtime (UCRT).
  - Linux x64/arm64 with glibc >= 2.35. Alpine Linux and other musl-based distributions are not supported.
