@@ -25,8 +25,7 @@ public partial class App : Application
         Environment.CurrentDirectory = Path.GetDirectoryName(typeof(App).Assembly.Location)!;
 
         string appDir = Path.GetDirectoryName(typeof(App).Assembly.Location)!;
-        string libnodePath = Path.Combine(appDir, "libnode.dll");
-        NodeEmbeddingPlatform nodejsPlatform = new(libnodePath, null);
+        NodeEmbeddingPlatform nodejsPlatform = new(new NodeEmbeddingPlatformSettings());
         Nodejs = nodejsPlatform.CreateThreadRuntime(appDir, new NodeEmbeddingRuntimeSettings
         {
             MainScript =

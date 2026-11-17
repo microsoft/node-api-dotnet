@@ -99,7 +99,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// Enables C# code to construct instances of built-in JS classes, without having to resolve
     /// the constructors every time.
     /// </remarks>
-    private readonly ConcurrentDictionary<(string?, string?), JSReference> _importMap = new();
+    private readonly ConcurrentDictionary<(string?, string?, bool), JSReference> _importMap = new();
 
     /// <summary>
     /// Holds a reference to the synchronous CommonJS require() function.
@@ -607,10 +607,13 @@ public sealed class JSRuntimeContext : IDisposable
     /// <c>require()</c> in JavaScript. Required if <paramref name="property"/> is null.</param>
     /// <param name="property">Name of a property on the module (or global), or null to import
     /// the module object. Required if <paramref name="module"/> is null.</param>
-    /// <param name="esModule">True to import an ES module; false to import a CommonJS module
-    /// (default).</param>
-    /// <returns>The imported value. When importing from an ES module, this is a JS promise
-    /// that resolves to the imported value.</returns>
+    /// <param name="esModule">True to use dynamic <c>import()</c>; false (default) to use
+    /// <c>require()</c>, only when <paramref name="module"/> names a module. When it is null or
+    /// <c>global</c>, this parameter has no effect; the global value is returned directly.
+    /// In Node.js 22.12 and later (including LibNode 26), <c>require()</c> also loads ES modules
+    /// unless their module graph uses top-level await (<c>ERR_REQUIRE_ASYNC_MODULE</c>).</param>
+    /// <returns>The imported value. When dynamically importing a module, this is a JS promise
+    /// that resolves to the module namespace or requested property.</returns>
     /// <exception cref="ArgumentNullException">Both <paramref name="module" /> and
     /// <paramref name="property" /> are null.</exception>
     /// <exception cref="InvalidOperationException">The <see cref="RequireFunction" /> or
@@ -625,7 +628,7 @@ public sealed class JSRuntimeContext : IDisposable
             throw new ArgumentNullException(nameof(property));
         }
 
-        JSReference reference = _importMap.GetOrAdd((module, property), (_) =>
+        JSReference reference = _importMap.GetOrAdd((module, property, esModule), (_) =>
         {
             // TODO: Consider what to do if the imported property is undefined
             // or not a referenceable type.
@@ -672,10 +675,12 @@ public sealed class JSRuntimeContext : IDisposable
     /// <c>require()</c> in JavaScript. Required if <paramref name="property"/> is null.</param>
     /// <param name="property">Name of a property on the module (or global), or null to import
     /// the module object. Required if <paramref name="module"/> is null.</param>
-    /// <param name="esModule">True to import an ES module; false to import a CommonJS module
-    /// (default).</param>
-    /// <returns>A task that results in the imported value. When importing from an ES module,
-    /// the task directly results in the imported value (not a JS promise).</returns>
+    /// <param name="esModule">True to use dynamic <c>import()</c>; false (default) to use
+    /// <c>require()</c>. In Node.js 22.12 and later (including LibNode 26), <c>require()</c> also loads
+    /// ES modules unless their module graph uses top-level await (<c>ERR_REQUIRE_ASYNC_MODULE</c>).</param>
+    /// <returns>A task that results in the imported value. With <paramref name="esModule" />
+    /// true, the task awaits dynamic import and returns the module namespace or requested
+    /// property (not a JS promise).</returns>
     /// <exception cref="ArgumentNullException">Both <paramref name="module" /> and
     /// <paramref name="property" /> are null.</exception>
     /// <exception cref="InvalidOperationException">The <see cref="RequireFunction" /> or

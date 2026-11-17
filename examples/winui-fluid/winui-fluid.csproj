@@ -18,12 +18,12 @@
     <RootNamespace>Microsoft.JavaScript.NodeApi.Examples</RootNamespace>
 
     <!-- App Options -->
-    <Platforms>x86;x64;arm64</Platforms>
+    <Platforms>x64;arm64</Platforms>
     <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
     <Platform Condition=" '$(Platform)' == 'AnyCPU' ">x64</Platform>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishProfile>win10-$(Platform).pubxml</PublishProfile>
-    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="CollabEditBox.xaml" />
@@ -49,7 +49,7 @@
     <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="$(NodeApiDotnetPackageVersion)" />
     <PackageReference Include="Microsoft.JavaScript.NodeApi.DotNetHost" Version="$(NodeApiDotnetPackageVersion)" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 

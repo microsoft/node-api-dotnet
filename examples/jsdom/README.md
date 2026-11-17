@@ -2,8 +2,7 @@
 This project is a C# executable application that uses the JSDOM library
 (https://github.com/jsdom/jsdom) to parse HTML.
 
-Before building and running this project, download or build `libnode.dll` that
-_includes Node API embedding support_.
+`libnode` is restored from NuGet (x64/arm64); no manual download is needed.
 See https://microsoft.github.io/node-api-dotnet/scenarios/dotnet-js.html
 
 | Command                 | Explanation

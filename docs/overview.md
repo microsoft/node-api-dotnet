@@ -22,14 +22,11 @@ Console.WriteLine('Hello from .NET!'); // JS writes to the .NET console API
 
 ### Minimal example - .NET calling JS
 ```C#
-interface IConsole { void Log(string message); }
-
-var nodejs = new NodejsPlatform(libnodePath).CreateEnvironment();
-nodejs.Run(() =>
-{
-    var console = nodejs.Import<IConsole>("global", "console");
-    console.Log("Hello from JS!"); // C# writes to the JS console API
-});
+// C# (references Microsoft.JavaScript.NodeApi + Microsoft.JavaScript.LibNode)
+using NodeEmbeddingPlatform platform = new(new NodeEmbeddingPlatformSettings());
+using NodeEmbeddingThreadRuntime nodejs = platform.CreateThreadRuntime(
+    settings: new NodeEmbeddingRuntimeSettings { MainScript = "" });
+nodejs.Run(() => nodejs.Import("global", "console").CallMethod("log", "Hello from JS!"));
 ```
 
 For more complete example projects, see the

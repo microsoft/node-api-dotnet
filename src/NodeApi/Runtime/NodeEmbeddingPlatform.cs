@@ -25,7 +25,6 @@ public sealed class NodeEmbeddingPlatform : IDisposable
     /// <summary>
     /// Initializes the Node.js platform.
     /// </summary>
-    /// <param name="libnodePath">Path to the `libnode` shared library, including extension.</param>
     /// <param name="settings">Optional platform settings.</param>
     /// <exception cref="InvalidOperationException">A Node.js platform instance has already been
     /// loaded in the current process.</exception>
@@ -78,8 +77,7 @@ public sealed class NodeEmbeddingPlatform : IDisposable
     /// <param name="baseDir">Optional directory that is used as the base directory when resolving
     /// imported modules, and also as the value of the global `__dirname` property. If unspecified,
     /// importing modules is not enabled and `__dirname` is undefined.</param>
-    /// <param name="mainScript">Optional script to run in the environment. (Literal script content,
-    /// not a path to a script file.)</param>
+    /// <param name="settings">Optional runtime settings.</param>
     /// <returns>A new <see cref="NodeEmbeddingThreadRuntime" /> instance.</returns>
     public NodeEmbeddingThreadRuntime CreateThreadRuntime(
         string? baseDir = null,

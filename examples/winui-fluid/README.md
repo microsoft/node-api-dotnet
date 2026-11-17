@@ -6,9 +6,7 @@ Before building and running this project:
  - If necessary, [install tools for WinUI C# development](
 https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/set-up-your-development-environment
 ).
- - Download a build of `libnode.dll` that _includes Node API embedding support_. (Soon this will be
-   available as a nuget package, but for now you can contact us to get a copy.) Place it at
-   `bin\win-x64\libnode.dll` relative to the repo root (not this subdirectory).
+ - `libnode` is restored from NuGet (x64/arm64); no manual download is needed.
 
 | Command                 | Explanation
 |-------------------------|--------------------------------------------------

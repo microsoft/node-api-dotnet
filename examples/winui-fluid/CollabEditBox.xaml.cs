@@ -36,7 +36,7 @@ public sealed partial class CollabEditBox : UserControl
     private IFluidContainer? fluidContainer;
     private bool createdFluidContainer;
     private ISharedString? sharedDocument;
-    private IDictionary<string, (int, int)>? sharedSelections;
+    private SharedSelectionsMap? sharedSelections;
     private string lastDocumentText = "\r";
     private (int, int) lastSelection = (0, 0);
     private IDictionary<string, CollabSelection> selections;
@@ -127,7 +127,7 @@ public sealed partial class CollabEditBox : UserControl
         return this.marshaller.FromJS<ISharedString>(sharedString);
     }
 
-    private IDictionary<string, (int, int)> GetSharedSelections()
+    private SharedSelectionsMap GetSharedSelections()
     {
         JSValue sharedMap = this.fluidContainer!.InitialObjects.GetProperty(
             SelectionsSharedMapName);
@@ -138,17 +138,48 @@ public sealed partial class CollabEditBox : UserControl
            "valueChanged",
            JSValue.CreateFunction("valueChanged", OnSharedMapValueChanged));
 
-        return ((JSMap)sharedMap).AsDictionary<string, (int, int)>(
-            (key) => (string)key,
-            (value) => ((int)((JSArray)value)[0], (int)((JSArray)value)[1]),
-            (key) => (JSValue)key,
-            (value) =>
+        return new SharedSelectionsMap(sharedMap);
+    }
+
+    // Fluid SharedMap is map-like, but is not a native JavaScript Map (JSMap).
+    // All operations run on the Node.js thread; JSInterface retains the JS object.
+    private sealed class SharedSelectionsMap : JSInterface
+    {
+        public SharedSelectionsMap(JSValue value) : base(value) { }
+
+        public void Set(string key, (int, int) selection)
+        {
+            JSArray array = new(2);
+            array[0] = selection.Item1;
+            array[1] = selection.Item2;
+            Value.CallMethod("set", key, array);
+        }
+
+        public void Remove(string key) => Value.CallMethod("delete", key);
+
+        public bool TryGetValue(string key, out (int, int) selection)
+        {
+            JSValue value = Value.CallMethod("get", key);
+            selection = value.IsUndefined() ? default : ReadSelection(value);
+            return !value.IsUndefined();
+        }
+
+        public KeyValuePair<string, (int, int)>[] ToArray()
+        {
+            List<KeyValuePair<string, (int, int)>> entries = new();
+            Value.CallMethod("forEach", JSValue.CreateFunction("selection", (args) =>
             {
-                JSArray array = new(2);
-                array[0] = value.Item1;
-                array[1] = value.Item2;
-                return array;
-            });
+                entries.Add(new((string)args[1], ReadSelection(args[0])));
+                return JSValue.Undefined;
+            }));
+            return entries.ToArray();
+        }
+
+        private static (int, int) ReadSelection(JSValue value)
+        {
+            JSArray array = (JSArray)value;
+            return ((int)array[0], (int)array[1]);
+        }
     }
 
     private Path? AssignCaret()
@@ -201,7 +232,7 @@ public sealed partial class CollabEditBox : UserControl
             this.sharedDocument = GetSharedDocument();
             this.sharedDocument.InsertText(0, text, default);
             this.sharedSelections = GetSharedSelections();
-            this.sharedSelections.Add(this.clientId, (0, 0));
+            this.sharedSelections.Set(this.clientId, (0, 0));
 
             var timeoutToken = new CancellationTokenSource(5000).Token;
             try
@@ -399,7 +430,7 @@ public sealed partial class CollabEditBox : UserControl
             (int, int) selectionRange = (e.SelectionStart, e.SelectionLength);
             this.nodejs.Post(() =>
             {
-                this.sharedSelections![this.clientId] = selectionRange;
+                this.sharedSelections!.Set(this.clientId, selectionRange);
             });
         }
 
