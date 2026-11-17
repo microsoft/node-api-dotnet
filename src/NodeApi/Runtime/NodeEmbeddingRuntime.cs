@@ -111,6 +111,13 @@ public sealed class NodeEmbeddingRuntime : IDisposable
         return result;
     }
 
+    /// <summary>
+    /// Processes ready event-loop work and returns at once, without waiting for more work.
+    /// </summary>
+    /// <returns>True if the event loop is still alive; false otherwise.</returns>
+    /// <remarks>
+    /// To wait for work, use <see cref="RunEventLoopOnce()" /> or <see cref="RunEventLoop()" />.
+    /// </remarks>
     public unsafe bool RunEventLoopNoWait()
     {
         if (IsDisposed) throw new ObjectDisposedException(nameof(NodeEmbeddingRuntime));

@@ -25,7 +25,6 @@ public sealed class NodeEmbeddingPlatform : IDisposable
     /// <summary>
     /// Initializes the Node.js platform.
     /// </summary>
-    /// <param name="libnodePath">Path to the `libnode` shared library, including extension.</param>
     /// <param name="settings">Optional platform settings.</param>
     /// <exception cref="InvalidOperationException">A Node.js platform instance has already been
     /// loaded in the current process.</exception>

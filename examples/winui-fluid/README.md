@@ -6,17 +6,15 @@ Before building and running this project:
  - If necessary, [install tools for WinUI C# development](
 https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/set-up-your-development-environment
 ).
- - Download a build of `libnode.dll` that _includes Node API embedding support_. (Soon this will be
-   available as a nuget package, but for now you can contact us to get a copy.) Place it at
-   `bin\win-x64\libnode.dll` relative to the repo root (not this subdirectory).
+ - `libnode` is restored from NuGet (x64/arm64); no manual download is needed.
 
-| Command                 | Explanation
-|-------------------------|--------------------------------------------------
-| `dotnet pack ../..`     | Build Node API .NET packages.
-| `npm install`           | Install JavaScript packages.
-| `dotnet build`          | Install .NET nuget packages; build example project.
-| `npx tinylicious`       | Start the local fluid development server on port 7070.
-| `dotnet run --no-build` | Run the example project.
+| Command                                                         | Explanation
+|-----------------------------------------------------------------|--------------------------------------------------
+| `dotnet pack ../.. --configuration Release`                     | Build Node API .NET packages.
+| `npm install`                                                   | Install JavaScript packages.
+| `dotnet build --configuration Release -p:Platform=x64`          | Install .NET nuget packages; build example project.
+| `npx tinylicious`                                               | Start the local fluid development server on port 7070.
+| `dotnet run --configuration Release --no-build -p:Platform=x64` | Run the example project.
 
 Launch two or more instances of the app to set up a collaborative editing session. Each instance of
 the application can either host or join a session.

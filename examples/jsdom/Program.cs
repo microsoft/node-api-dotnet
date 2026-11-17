@@ -10,8 +10,7 @@ public static class Program
     public static void Main()
     {
         string appDir = Path.GetDirectoryName(typeof(Program).Assembly.Location)!;
-        string libnodePath = Path.Combine(appDir, "libnode.dll");
-        using NodeEmbeddingPlatform nodejsPlatform = new(libnodePath, null);
+        using NodeEmbeddingPlatform nodejsPlatform = new(new NodeEmbeddingPlatformSettings());
         using NodeEmbeddingThreadRuntime nodejs = nodejsPlatform.CreateThreadRuntime(appDir,
             new NodeEmbeddingRuntimeSettings
             {
