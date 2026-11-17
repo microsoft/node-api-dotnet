@@ -43,9 +43,13 @@ public sealed class EmbeddingPackageTests : IDisposable
 
 #if NET10_0
     [Fact]
-    public void PortableConsumerImportsEsm()
+    public void PortableConsumerImportsEsmRegardlessOfPrefer32Bit()
     {
         string output = BuildConsumer("portable");
+        AssertConsumerRuns(output);
+
+        // Modern .NET ignores Prefer32Bit, so it must still build without NODEAPIEMBED001.
+        output = BuildConsumer("prefer32bit", "AnyCPU", prefer32Bit: true);
         AssertConsumerRuns(output);
     }
 

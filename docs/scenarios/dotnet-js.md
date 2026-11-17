@@ -7,8 +7,8 @@ should be.
 
 ## Acquiring the required `libnode` binary
 Reference [`Microsoft.JavaScript.NodeApi.Embedding`](https://www.nuget.org/packages/Microsoft.JavaScript.NodeApi.Embedding)
-for a single-package setup. It brings `Microsoft.JavaScript.NodeApi` (the same version) and
-`Microsoft.JavaScript.LibNode` (minimum 26.0.15), with no additional .NET API surface.
+for a single-package setup. It depends on `Microsoft.JavaScript.NodeApi` (the matching version as a minimum) and
+`Microsoft.JavaScript.LibNode` (see the package's minimum dependency), with no additional .NET API surface.
 
 ```xml
 <PackageReference Include="Microsoft.JavaScript.NodeApi.Embedding" Version="..." />
@@ -16,8 +16,9 @@ for a single-package setup. It brings `Microsoft.JavaScript.NodeApi` (the same v
 
 LibNode provides `libnode` built from Node.js 26.13.1 with the ABI-stable embedding API, for
 `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, and `osx-arm64`.
-The embedding API is not yet in upstream Node.js and changes between versions; LibNode 26.0.15,
-pinned in `Directory.Packages.props`, is the only version tested with this release.
+The embedding API is not yet in upstream Node.js and changes between versions; use the LibNode
+version pinned in `Directory.Packages.props` (the package's minimum LibNode dependency),
+the only one tested with each release.
 The minimum dependency permits newer servicing versions; those need application testing.
 
 The default restore includes all six platforms (about 280 MB once per LibNode version).
@@ -117,7 +118,7 @@ Then attach a JavaScript debugger such as VS Code or Chrome to the inspection UR
   Do not target x86 or enable `Prefer32Bit`. IIS app pools must also run 64-bit.
 
 The embedding package emits build warning `NODEAPIEMBED001` for `PlatformTarget=x86` or
-`AnyCPU` with `Prefer32Bit=true`. It does not error because a custom `LibNodePath` may provide
+.NET Framework `AnyCPU` with `Prefer32Bit=true`. It does not error because a custom `LibNodePath` may provide
 a 32-bit build. It cannot detect a 32-bit IIS application pool; configure the pool for 64-bit.
 
 For x86 apps supplying their own `LibNodePath`, suppress the warning with `<NoWarn>$(NoWarn);NODEAPIEMBED001</NoWarn>`, including when `TreatWarningsAsErrors` is enabled.
