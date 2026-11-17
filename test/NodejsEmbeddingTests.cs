@@ -4,6 +4,7 @@
 #pragma warning disable CA1822 // Mark members as static
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -48,6 +49,31 @@ public class NodejsEmbeddingTests
         using NodeEmbeddingRuntime runtime = NodeEmbeddingRuntime.Create(NodejsPlatform,
             new NodeEmbeddingRuntimeSettings { MainScript = MainScript });
         runtime.RunEventLoop();
+    }
+
+    [Fact]
+    public void RunEventLoopNoWaitReturnsImmediately()
+    {
+        using NodeEmbeddingRuntime runtime = NodeEmbeddingRuntime.Create(NodejsPlatform,
+            new NodeEmbeddingRuntimeSettings { MainScript = MainScript });
+        using NodeEmbeddingNodeApiScope scope = new(runtime);
+
+        JSValue.RunScript("""
+            globalThis.timerFired = false;
+            setTimeout(() => { globalThis.timerFired = true; }, 3000);
+            """);
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        bool alive = runtime.RunEventLoopNoWait();
+        stopwatch.Stop();
+
+        Assert.True(alive);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(1),
+            $"RunEventLoopNoWait took {stopwatch.Elapsed}.");
+        Assert.False((bool)JSValue.Global["timerFired"]);
+
+        runtime.RunEventLoop();
+        Assert.True((bool)JSValue.Global["timerFired"]);
     }
 
     [Fact]
@@ -162,6 +188,88 @@ public class NodejsEmbeddingTests
                 "./test-module.mjs", null, esModule: true);
             Assert.Equal(JSValueType.Object, testModule.TypeOf());
             Assert.Equal(JSValueType.Function, testModule["test"].TypeOf());
+            Assert.Equal("test", testModule.CallMethod("test"));
+        });
+
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    // Separate runtimes exercise each cache order for both namespaces and named exports.
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, "test")]
+    [InlineData(true, "test")]
+    public async Task ImportEsmViaRequireAndImport(bool importFirst, string? property)
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+
+        await nodejs.RunAsync(async () =>
+        {
+            void RequireModule()
+            {
+                JSValue value = nodejs.Import("./test-module.mjs", property);
+                Assert.False(value.IsPromise());
+                if (property == null)
+                {
+                    Assert.Equal(JSValueType.Object, value.TypeOf());
+                    Assert.Equal("test", value.CallMethod("test"));
+                }
+                else
+                {
+                    Assert.Equal(JSValueType.Function, value.TypeOf());
+                    Assert.Equal("test", value.Call());
+                }
+            }
+
+            async Task ImportModule()
+            {
+                JSValue promise = nodejs.Import("./test-module.mjs", property, esModule: true);
+                Assert.True(promise.IsPromise());
+                JSValue value = await ((JSPromise)promise).AsTask();
+                if (property == null)
+                {
+                    Assert.Equal(JSValueType.Object, value.TypeOf());
+                    Assert.Equal("test", value.CallMethod("test"));
+                }
+                else
+                {
+                    Assert.Equal(JSValueType.Function, value.TypeOf());
+                    Assert.Equal("test", value.Call());
+                }
+            }
+
+            if (importFirst)
+            {
+                await ImportModule();
+                RequireModule();
+            }
+            else
+            {
+                RequireModule();
+                await ImportModule();
+            }
+        });
+
+        nodejs.Dispose();
+        Assert.Equal(0, nodejs.ExitCode);
+    }
+
+    [Fact]
+    public async Task ImportTopLevelAwaitRequiresAsyncImport()
+    {
+        using NodeEmbeddingThreadRuntime nodejs = CreateNodeEmbeddingThreadRuntime();
+
+        await nodejs.RunAsync(async () =>
+        {
+            JSException exception = Assert.Throws<JSException>(
+                () => nodejs.Import("./test-tla-module.mjs"));
+            Assert.NotNull(exception.Error);
+            Assert.Equal("ERR_REQUIRE_ASYNC_MODULE", (string)exception.Error.Value.Value["code"]);
+
+            JSValue testModule = await nodejs.ImportAsync("./test-tla-module.mjs", esModule: true);
+            Assert.Equal(JSValueType.Object, testModule.TypeOf());
             Assert.Equal("test", testModule.CallMethod("test"));
         });
 

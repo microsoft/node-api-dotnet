@@ -99,7 +99,7 @@ public sealed class JSRuntimeContext : IDisposable
     /// Enables C# code to construct instances of built-in JS classes, without having to resolve
     /// the constructors every time.
     /// </remarks>
-    private readonly ConcurrentDictionary<(string?, string?), JSReference> _importMap = new();
+    private readonly ConcurrentDictionary<(string?, string?, bool), JSReference> _importMap = new();
 
     /// <summary>
     /// Holds a reference to the synchronous CommonJS require() function.
@@ -625,7 +625,7 @@ public sealed class JSRuntimeContext : IDisposable
             throw new ArgumentNullException(nameof(property));
         }
 
-        JSReference reference = _importMap.GetOrAdd((module, property), (_) =>
+        JSReference reference = _importMap.GetOrAdd((module, property, esModule), (_) =>
         {
             // TODO: Consider what to do if the imported property is undefined
             // or not a referenceable type.
