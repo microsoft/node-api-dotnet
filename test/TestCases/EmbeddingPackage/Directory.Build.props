@@ -1,0 +1,12 @@
+<Project>
+  <!-- Stop the parent test infrastructure from forcing a RID or adding references. -->
+  <Import Project="../../../out/pkg/version.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <ConsumerLane Condition="'$(ConsumerLane)' == ''">portable</ConsumerLane>
+    <ConsumerRoot>$(MSBuildThisFileDirectory)../../../out/</ConsumerRoot>
+    <OutputPath>$(ConsumerRoot)bin/$(Configuration)/EmbeddingConsumer/$(ConsumerLane)/</OutputPath>
+    <BaseIntermediateOutputPath>$(ConsumerRoot)obj/$(Configuration)/TestCases/EmbeddingConsumer/$(ConsumerLane)/</BaseIntermediateOutputPath>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+</Project>

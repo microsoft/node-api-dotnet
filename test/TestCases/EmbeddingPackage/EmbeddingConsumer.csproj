@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Embedding" VersionOverride="$(NodeApiDotnetPackageVersion)" />
+    <None Update="esm.mjs" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

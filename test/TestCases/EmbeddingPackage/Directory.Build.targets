@@ -1,0 +1,6 @@
+<Project>
+  <!-- Stop the parent targets walk, too; record the SDK's final inferred bitness. -->
+  <Target Name="RecordConsumerBitness" AfterTargets="CoreCompile">
+    <WriteLinesToFile File="$(OutputPath)platform.txt" Lines="$(PlatformTarget)" Overwrite="true" />
+  </Target>
+</Project>

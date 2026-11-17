@@ -6,13 +6,29 @@ should be.
 :::
 
 ## Acquiring the required `libnode` binary
-Reference [`Microsoft.JavaScript.LibNode`](https://www.nuget.org/packages/Microsoft.JavaScript.LibNode).
-It provides `libnode` built from Node.js 26.13.1 with the ABI-stable embedding API, for
+Reference [`Microsoft.JavaScript.NodeApi.Embedding`](https://www.nuget.org/packages/Microsoft.JavaScript.NodeApi.Embedding)
+for a single-package setup. It brings `Microsoft.JavaScript.NodeApi` (the same version) and
+`Microsoft.JavaScript.LibNode` (minimum 26.0.15), with no additional .NET API surface.
+
+```xml
+<PackageReference Include="Microsoft.JavaScript.NodeApi.Embedding" Version="..." />
+```
+
+LibNode provides `libnode` built from Node.js 26.13.1 with the ABI-stable embedding API, for
 `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, and `osx-arm64`.
-The embedding API is not yet in upstream Node.js and changes between versions; use the LibNode
-version pinned in `Directory.Packages.props`, the only one tested with each release.
-To restore a single platform, reference `Microsoft.JavaScript.LibNode.<rid>` instead.
-Also reference `Microsoft.JavaScript.NodeApi` for the .NET APIs.
+The embedding API is not yet in upstream Node.js and changes between versions; LibNode 26.0.15,
+pinned in `Directory.Packages.props`, is the only version tested with this release.
+The minimum dependency permits newer servicing versions; those need application testing.
+
+The default restore includes all six platforms (about 280 MB once per LibNode version).
+Portable output includes all six native libraries; a RID-specific modern .NET build selects one
+for output, but does not reduce restore size. .NET Framework output always includes all six.
+For a lean, single-platform restore, reference `Microsoft.JavaScript.NodeApi` plus
+`Microsoft.JavaScript.LibNode.<rid>` instead of `.Embedding` (for example,
+`Microsoft.JavaScript.LibNode.win-x64`). Existing separate NodeApi + LibNode references also work.
+
+This embeds **Node.js in .NET**; `Microsoft.JavaScript.NodeApi.DotNetHost` instead hosts
+**.NET in Node.js** and is not a replacement for the embedding package.
 See [Embedding (LibNode) requirements](../requirements#embedding-libnode) for OS requirements.
 
 ## Importing JS modules into .NET
@@ -99,3 +115,7 @@ Then attach a JavaScript debugger such as VS Code or Chrome to the inspection UR
 - .NET Framework apps must run 64-bit. Keep the SDK default AnyCPU with `Prefer32Bit` false,
   or set `PlatformTarget` to `x64`/`arm64` or `RuntimeIdentifier` to `win-x64`/`win-arm64`.
   Do not target x86 or enable `Prefer32Bit`. IIS app pools must also run 64-bit.
+
+The embedding package emits build warning `NODEAPIEMBED001` for `PlatformTarget=x86` or
+`AnyCPU` with `Prefer32Bit=true`. It does not error because a custom `LibNodePath` may provide
+a 32-bit build. It cannot detect a 32-bit IIS application pool; configure the pool for 64-bit.
