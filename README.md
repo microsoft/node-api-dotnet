@@ -29,7 +29,8 @@ Console.WriteLine('Hello from .NET!'); // JS writes to the .NET console API
 ```C#
 // C# (references Microsoft.JavaScript.NodeApi + Microsoft.JavaScript.LibNode)
 using NodeEmbeddingPlatform platform = new(new NodeEmbeddingPlatformSettings());
-using NodeEmbeddingThreadRuntime nodejs = platform.CreateThreadRuntime();
+using NodeEmbeddingThreadRuntime nodejs = platform.CreateThreadRuntime(
+    settings: new NodeEmbeddingRuntimeSettings { MainScript = "" });
 nodejs.Run(() => nodejs.Import("global", "console").CallMethod("log", "Hello from JS!"));
 ```
 

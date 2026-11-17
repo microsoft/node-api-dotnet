@@ -207,49 +207,18 @@ public class NodejsEmbeddingTests
 
         await nodejs.RunAsync(async () =>
         {
-            void RequireModule()
+            async Task LoadModule(bool esModule)
             {
-                JSValue value = nodejs.Import("./test-module.mjs", property);
-                Assert.False(value.IsPromise());
-                if (property == null)
-                {
-                    Assert.Equal(JSValueType.Object, value.TypeOf());
-                    Assert.Equal("test", value.CallMethod("test"));
-                }
-                else
-                {
-                    Assert.Equal(JSValueType.Function, value.TypeOf());
-                    Assert.Equal("test", value.Call());
-                }
+                JSValue value = nodejs.Import("./test-module.mjs", property, esModule);
+                Assert.Equal(esModule, value.IsPromise());
+                value = esModule ? await ((JSPromise)value).AsTask() : value;
+                Assert.Equal(
+                    property == null ? JSValueType.Object : JSValueType.Function, value.TypeOf());
+                Assert.Equal("test", property == null ? value.CallMethod("test") : value.Call());
             }
 
-            async Task ImportModule()
-            {
-                JSValue promise = nodejs.Import("./test-module.mjs", property, esModule: true);
-                Assert.True(promise.IsPromise());
-                JSValue value = await ((JSPromise)promise).AsTask();
-                if (property == null)
-                {
-                    Assert.Equal(JSValueType.Object, value.TypeOf());
-                    Assert.Equal("test", value.CallMethod("test"));
-                }
-                else
-                {
-                    Assert.Equal(JSValueType.Function, value.TypeOf());
-                    Assert.Equal("test", value.Call());
-                }
-            }
-
-            if (importFirst)
-            {
-                await ImportModule();
-                RequireModule();
-            }
-            else
-            {
-                RequireModule();
-                await ImportModule();
-            }
+            await LoadModule(esModule: importFirst);
+            await LoadModule(esModule: !importFirst);
         });
 
         nodejs.Dispose();

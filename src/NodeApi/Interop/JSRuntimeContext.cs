@@ -610,8 +610,8 @@ public sealed class JSRuntimeContext : IDisposable
     /// <param name="esModule">True to use dynamic <c>import()</c>; false (default) to use
     /// <c>require()</c>, only when <paramref name="module"/> names a module. When it is null or
     /// <c>global</c>, this parameter has no effect; the global value is returned directly.
-    /// In Node.js 26, <c>require()</c> also loads ES modules unless their
-    /// module graph uses top-level await (<c>ERR_REQUIRE_ASYNC_MODULE</c>).</param>
+    /// In Node.js 22.12 and later (including LibNode 26), <c>require()</c> also loads ES modules
+    /// unless their module graph uses top-level await (<c>ERR_REQUIRE_ASYNC_MODULE</c>).</param>
     /// <returns>The imported value. When dynamically importing a module, this is a JS promise
     /// that resolves to the module namespace or requested property.</returns>
     /// <exception cref="ArgumentNullException">Both <paramref name="module" /> and
@@ -676,8 +676,8 @@ public sealed class JSRuntimeContext : IDisposable
     /// <param name="property">Name of a property on the module (or global), or null to import
     /// the module object. Required if <paramref name="module"/> is null.</param>
     /// <param name="esModule">True to use dynamic <c>import()</c>; false (default) to use
-    /// <c>require()</c>. In Node.js 26, <c>require()</c> also loads ES modules unless their
-    /// module graph uses top-level await (<c>ERR_REQUIRE_ASYNC_MODULE</c>).</param>
+    /// <c>require()</c>. In Node.js 22.12 and later (including LibNode 26), <c>require()</c> also loads
+    /// ES modules unless their module graph uses top-level await (<c>ERR_REQUIRE_ASYNC_MODULE</c>).</param>
     /// <returns>A task that results in the imported value. With <paramref name="esModule" />
     /// true, the task awaits dynamic import and returns the module namespace or requested
     /// property (not a JS promise).</returns>
