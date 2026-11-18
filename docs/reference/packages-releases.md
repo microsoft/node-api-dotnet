@@ -40,10 +40,6 @@ and their respective public registries, NuGet.org and npmjs.com, usually around 
 after a PR is merged. Publication to NuGet.org and npmjs.com uses Microsoft's centralized
 ESRP Release process.
 
-The Embedding package is temporarily excluded from NuGet.org publishing pending ESRP registration.
-To test the registration, manually run the release pipeline with `publishEmbeddingPackage` enabled.
-The package is still built and published to the Azure DevOps feed.
-
 While the project is in pre-release phase, there may be occasional breaking API changes between
 versions less than 1.0. Starting with v1.0 (expected late 2024), it will follow
 [semantic versioning practices](https://semver.org/).
