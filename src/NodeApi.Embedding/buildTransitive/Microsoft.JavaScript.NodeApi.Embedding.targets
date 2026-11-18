@@ -1,0 +1,7 @@
+<Project>
+  <Target Name="WarnNodeApiEmbeddingBitness" AfterTargets="CoreCompile"
+    Condition=" '$(PlatformTarget)' == 'x86' OR ('$(TargetFrameworkIdentifier)' == '.NETFramework' AND '$(PlatformTarget)' == 'AnyCPU' AND '$(Prefer32Bit)' == 'true') ">
+    <Warning Code="NODEAPIEMBED001"
+      Text="libnode has no x86 build; use x64/arm64. A custom NodeEmbeddingPlatformSettings.LibNodePath is required for a 32-bit process." />
+  </Target>
+</Project>

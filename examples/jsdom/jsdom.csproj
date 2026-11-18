@@ -14,7 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.JavaScript.LibNode" Version="$(LibNodePackageVersion)" />
-    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="$(NodeApiDotnetPackageVersion)" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Embedding" Version="$(NodeApiDotnetPackageVersion)" />
   </ItemGroup>
 </Project>

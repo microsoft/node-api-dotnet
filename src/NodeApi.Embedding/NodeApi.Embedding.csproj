@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Microsoft.JavaScript.NodeApi.Embedding</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
+    <Description>Embeds Node.js in .NET apps: brings Microsoft.JavaScript.NodeApi and Microsoft.JavaScript.LibNode (win/linux/osx, x64/arm64).</Description>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeFrameworkSentinel</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../NodeApi/NodeApi.csproj" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.JavaScript.LibNode" PrivateAssets="none" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="buildTransitive/*.targets" Pack="true" PackagePath="buildTransitive/" />
+  </ItemGroup>
+
+  <Target Name="IncludeFrameworkSentinel">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(MSBuildProjectDirectory)/_._" PackagePath="lib/$(TargetFramework)/" />
+    </ItemGroup>
+  </Target>
+</Project>

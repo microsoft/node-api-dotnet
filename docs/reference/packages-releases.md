@@ -10,6 +10,16 @@ code-generation for dynamic marshalling. See the [.NET API reference](../referen
 Contains the MSBuild tasks and supporting assemblies for generating marshalling code at compile
 time, and for generating TypeScript type defintions for .NET APIs.
 
+[`Microsoft.JavaScript.NodeApi.Embedding`](https://www.nuget.org/packages/Microsoft.JavaScript.NodeApi.Embedding/) -
+Embeds Node.js in a .NET application. It has no assembly of its own; it brings in
+`Microsoft.JavaScript.NodeApi` and `Microsoft.JavaScript.LibNode`, which provides the `libnode`
+native library for Windows, Linux, and macOS on x64 and arm64. See
+[Embedding a JS runtime](../scenarios/dotnet-js).
+
+[`Microsoft.JavaScript.NodeApi.DotNetHost`](https://www.nuget.org/packages/Microsoft.JavaScript.NodeApi.DotNetHost/) -
+Hosts .NET in a Node.js process, the opposite direction from `.Embedding`. An application that
+works in both directions can reference both packages, as the WinUI Fluid example does.
+
 ## NPM packages
 
 [`node-api-dotnet`](https://www.npmjs.com/package/node-api-dotnet) - Supports loading .NET
