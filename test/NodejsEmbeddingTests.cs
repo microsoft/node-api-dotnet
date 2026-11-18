@@ -555,14 +555,12 @@ public class NodejsEmbeddingTests
 
         nodejs.Run(() =>
         {
-            // The error must reach the caller of process._linkedBinding().
-            JSValue result = JSValue.RunScript("""
-                (() => {
-                    try { process._linkedBinding('test-linked'); } catch (e) { return e.message; }
-                    return 'not thrown';
-                })()
-                """);
-            Assert.Equal("init failed", (string)result);
+            // The error is moved to the module's env. It does not reach this catch with
+            // LibNode 26 (https://github.com/nodejs/node/pull/67571), but it must not stay
+            // pending on the runtime's env either, or the next call fails.
+            JSValue.RunScript("try { process._linkedBinding('test-linked'); } catch {}");
+
+            Assert.Equal(3, (int)JSValue.RunScript("1 + 2"));
         });
 
         AssertJSThreadIsUsable(nodejs);
