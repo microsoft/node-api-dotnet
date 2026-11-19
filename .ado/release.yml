@@ -1,8 +1,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 # 
-# The Release pipeline to publish symbols and NPM and NuGet packages
-# to public ADO feeds and, through ESRP Release, to npmjs.com and NuGet.org.
+# The Release pipeline to publish NPM and NuGet packages
+# to public ADO feeds and, through ESRP Release, to npmjs.com and NuGet.org,
+# and symbols to the Microsoft symbol server.
 #
 
 # Runs only when microsoft.node-api-dotnet.ci completes on main (see resources
