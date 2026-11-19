@@ -377,6 +377,9 @@ extends:
                   pathtoPublish: $(Build.ArtifactStagingDirectory)
                   artifactName: published-packages
                   targetPath: $(Build.StagingDirectory)/pkg
+                - output: pipelineArtifact
+                  artifactName: published-symbols
+                  targetPath: $(Build.StagingDirectory)/symbols
 
             pool:
               name: Azure-Pipelines-1ESPT-ExDShared
@@ -493,19 +496,17 @@ extends:
                         -Path "$(Build.SourcesDirectory)/out/bin/Release/NodeApi/aot/win-x64/publish/Microsoft.JavaScript.NodeApi.node.dll" `
                         -NewName "Microsoft.JavaScript.NodeApi.node"
 
-              # Make symbols available through http://symweb.
-              - task: PublishSymbols@2
-                displayName: Publish symbols
+              - task: CopyFiles@2
+                displayName: Stage symbols
                 inputs:
-                  IndexSources: false # PublishSymbols does not support GitHub sources
-                  SymbolsFolder: $(Build.SourcesDirectory)/out/bin/Release
-                  SearchPattern: |
+                  SourceFolder: $(Build.SourcesDirectory)/out/bin/Release
+                  Contents: |
                     **/Microsoft.JavaScript.NodeApi.pdb
                     **/win-x64/publish/Microsoft.JavaScript.NodeApi.node.pdb
                     **/Microsoft.JavaScript.NodeApi.DotNetHost.pdb
                     **/Microsoft.JavaScript.NodeApi.Generator.pdb
-                  SymbolServerType: TeamServices
-                  UseNetCoreClientTool: true
+                  TargetFolder: $(Build.StagingDirectory)/symbols
+                  flattenFolders: false
 
               # Do not build or publish assemblies to avoid overriding signed binaries.
               - script: dotnet pack --configuration Release --no-build -p:NoPublish=true

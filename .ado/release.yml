@@ -2,7 +2,8 @@
 # Licensed under the MIT License.
 # 
 # The Release pipeline to publish NPM and NuGet packages
-# to public ADO feeds and, through ESRP Release, to npmjs.com and NuGet.org.
+# to public ADO feeds and, through ESRP Release, to npmjs.com and NuGet.org,
+# and symbols to the Microsoft symbol server.
 #
 
 # Runs only when microsoft.node-api-dotnet.ci completes on main (see resources
@@ -52,9 +53,85 @@ extends:
       networkIsolationMode: Enforce
 
     stages:
-    - stage: main_release
-      displayName: Publish packages
+    - stage: gate
+      displayName: Evaluate release
       jobs:
+      - job: evaluate
+        displayName: Check that the CI run is from main
+        steps:
+        - checkout: none
+
+        # Missing or unresolved CI branches fail closed. The Release branch is logged
+        # only: any Release branch may publish artifacts already built by main CI.
+        - pwsh: |
+            $branch = $env:CI_SOURCE_BRANCH
+            $ciRunName = $env:CI_RUN_NAME
+            $stamp = $env:BUILD_BUILDNUMBER
+            Write-Host "CI run:         $ciRunName (ID: $env:CI_RUN_ID)"
+            Write-Host "CI branch:      $branch"
+            Write-Host "Release branch: $env:RELEASE_SOURCE_BRANCH (informational only)"
+            if ($branch -ceq 'refs/heads/main') {
+              $shouldRelease = 'True'
+              $buildNumber = "Release - $ciRunName - $stamp"
+              Write-Host "Releasing artifacts from main CI."
+            } else {
+              $shouldRelease = 'False'
+              $buildNumber = "Skipped - $ciRunName ($($branch -replace '^refs/heads/', '')) - $stamp"
+              Write-Host "Skipping: only CI runs of main are released; this one is from '$branch'. Nothing is published."
+            }
+            # Build numbers can't contain " ' / : < > \ | ? @ *, exceed 255 characters, or end with '.'.
+            $buildNumber = $buildNumber -replace '["''/:<>\\|?@*]', '_'
+            $buildNumber = $buildNumber.Substring(0, [Math]::Min(255, $buildNumber.Length)).TrimEnd('.')
+            Write-Host "##vso[build.updatebuildnumber]$buildNumber"
+            Write-Host "##vso[task.setvariable variable=shouldRelease;isOutput=true]$shouldRelease"
+          name: gate
+          displayName: Decide whether to release
+          env:
+            CI_SOURCE_BRANCH: $(resources.pipeline.microsoft_node-api-dotnet_ci.sourceBranch)
+            CI_RUN_NAME: $(resources.pipeline.microsoft_node-api-dotnet_ci.runName)
+            CI_RUN_ID: $(resources.pipeline.microsoft_node-api-dotnet_ci.runID)
+            RELEASE_SOURCE_BRANCH: $(Build.SourceBranch)
+            BUILD_BUILDNUMBER: $(Build.BuildNumber)
+
+        - pwsh: Write-Host 'Releasing'
+          displayName: RELEASING - the CI run is from main
+          condition: eq(variables['gate.shouldRelease'], 'True')
+
+        - pwsh: Write-Host 'Skipping'
+          displayName: SKIPPED - the CI run is not from main, nothing is published
+          condition: eq(variables['gate.shouldRelease'], 'False')
+
+    - stage: main_release
+      displayName: Publish packages and symbols
+      dependsOn: gate
+      condition: and(succeeded(), eq(dependencies.gate.outputs['evaluate.gate.shouldRelease'], 'True'))
+      jobs:
+      - job: publish_symbols
+        displayName: Publish symbols
+        timeoutInMinutes: 30
+        templateContext:
+          type: releaseJob
+          isProduction: true
+          inputs:
+          - input: pipelineArtifact
+            pipeline: microsoft_node-api-dotnet_ci
+            artifactName: published-symbols
+            targetPath: $(Pipeline.Workspace)/symbols
+
+        steps:
+        - pwsh: Get-ChildItem -LiteralPath '$(Pipeline.Workspace)/symbols' -Recurse -Filter *.pdb | ForEach-Object FullName
+          displayName: List symbols to publish
+
+        # Make symbols available through http://symweb.
+        - task: PublishSymbols@2
+          displayName: Publish symbols
+          inputs:
+            IndexSources: false # PublishSymbols does not support GitHub sources
+            SymbolsFolder: $(Pipeline.Workspace)/symbols
+            SearchPattern: '**/*.pdb'
+            SymbolServerType: TeamServices
+            UseNetCoreClientTool: true
+
       - job: nuget_ms_react_native_public_job
         displayName: NuGet to ADO ms/react-native-public feed
         templateContext:
