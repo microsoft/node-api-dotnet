@@ -134,11 +134,11 @@ public abstract partial class JSRuntime
     public virtual napi_status GetBigIntWordCount(napi_env env, napi_value value, out nuint result) => throw NS();
     public virtual napi_status GetBigIntWords(napi_env env, napi_value value, out int sign, Span<ulong> words, out nuint result) => throw NS();
     public virtual napi_status GetValueBool(napi_env env, napi_value value, out bool result) => throw NS();
-    public virtual napi_status GetValueStringUtf8(napi_env env, napi_value value, Span<byte> buf, out int result) => throw NS();
-    public virtual napi_status GetValueStringUtf16(napi_env env, napi_value value, Span<char> buf, out int result) => throw NS();
+    public virtual napi_status GetValueStringUtf8(napi_env env, napi_value value, Span<byte> buf, out nuint result) => throw NS();
+    public virtual napi_status GetValueStringUtf16(napi_env env, napi_value value, Span<char> buf, out nuint result) => throw NS();
     public virtual napi_status GetValueDate(napi_env env, napi_value value, out double result) => throw NS();
     public virtual napi_status GetSymbolFor(napi_env env, string name, out napi_value result) => throw NS();
-    public virtual napi_status GetArrayLength(napi_env env, napi_value value, out int result) => throw NS();
+    public virtual napi_status GetArrayLength(napi_env env, napi_value value, out uint result) => throw NS();
     public virtual napi_status GetArrayBufferInfo(
         napi_env env, napi_value value, out nint data, out nuint length) => throw NS();
     public virtual napi_status GetTypedArrayInfo(
@@ -163,13 +163,13 @@ public abstract partial class JSRuntime
         out napi_typedarray_type type,
         out nint data,
         out napi_value arraybuffer,
-        out int byte_offset) => throw NS();
+        out nuint byte_offset) => throw NS();
     public virtual napi_status GetValueDataView(
         napi_env env,
         napi_value dataview,
         out nint data,
         out napi_value arraybuffer,
-        out int byte_offset) => throw NS();
+        out nuint byte_offset) => throw NS();
     public virtual napi_status GetValueExternal(napi_env env, napi_value value, out nint result) => throw NS();
 
     public virtual napi_status StrictEquals(napi_env env, napi_value lhs, napi_value rhs, out bool result) => throw NS();
@@ -195,16 +195,16 @@ public abstract partial class JSRuntime
     public virtual napi_status CreateSymbol(napi_env env, napi_value description, out napi_value result) => throw NS();
     public virtual napi_status CreateObject(napi_env env, out napi_value result) => throw NS();
     public virtual napi_status CreateArray(napi_env env, out napi_value result) => throw NS();
-    public virtual napi_status CreateArray(napi_env env, int length, out napi_value result) => throw NS();
+    public virtual napi_status CreateArray(napi_env env, uint length, out napi_value result) => throw NS();
     public virtual napi_status CreateArrayBuffer(
         napi_env env,
-        int byte_length,
+        nuint byte_length,
         out nint data,
         out napi_value result) => throw NS();
     public virtual napi_status CreateArrayBuffer(
         napi_env env,
         nint external_data,
-        int byte_length,
+        nuint byte_length,
         napi_finalize finalize_cb,
         nint finalize_hint,
         out napi_value result) => throw NS();
@@ -212,15 +212,15 @@ public abstract partial class JSRuntime
     public virtual napi_status CreateTypedArray(
         napi_env env,
         napi_typedarray_type type,
-        int length,
+        nuint length,
         napi_value arraybuffer,
-        int byte_offset,
+        nuint byte_offset,
         out napi_value result) => throw NS();
     public virtual napi_status CreateDataView(
         napi_env env,
-        int length,
+        nuint length,
         napi_value arraybuffer,
-        int byte_offset,
+        nuint byte_offset,
         out napi_value result) => throw NS();
     public virtual napi_status CreateExternal(
         napi_env env,
@@ -290,7 +290,7 @@ public abstract partial class JSRuntime
     public virtual napi_status GetCallbackInfo(
         napi_env env,
         napi_callback_info cbinfo,
-        out int argc,
+        out nuint argc,
         out nint data) => throw NS();
     public virtual napi_status GetCallbackArgs(
         napi_env env,
