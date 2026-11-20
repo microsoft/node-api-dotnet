@@ -235,6 +235,8 @@ public class JSReference : IDisposable
     /// </remarks>
     public void Run(Action<JSValue> action)
     {
+        ThrowIfDisposed();
+
         void GetValueAndRunAction()
         {
             JSValue? value = GetValue();
@@ -271,6 +273,8 @@ public class JSReference : IDisposable
     /// </remarks>
     public T Run<T>(Func<JSValue, T> action)
     {
+        ThrowIfDisposed();
+
         T GetValueAndRunAction()
         {
             JSValue? value = GetValue();

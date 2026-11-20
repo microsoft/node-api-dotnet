@@ -565,7 +565,7 @@ public class TracingJSRuntime : JSRuntime
         nint value = default;
         napi_status status = TraceCall(
             [],
-            () => (_runtime.GetInstanceData(env, out value), Format(value)));
+            () => (_runtime.GetInstanceData(env, out value), FormatAddress(value)));
         result = value;
         return status;
     }
@@ -574,10 +574,13 @@ public class TracingJSRuntime : JSRuntime
         napi_env env, nint data, napi_finalize finalize_cb, nint finalize_hint)
     {
         napi_status status = TraceCall(
-            [Format(data)],
+            [FormatAddress(data)],
             () => _runtime.SetInstanceData(env, data, finalize_cb, finalize_hint));
         return status;
     }
+
+    // Instance data is an opaque native pointer, not a GCHandle, so only its address is formatted.
+    private static string FormatAddress(nint value) => value == 0 ? "null" : $"0x{value:X16}";
 
     #endregion
 

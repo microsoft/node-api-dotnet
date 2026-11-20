@@ -1355,13 +1355,15 @@ public readonly struct JSValue : IJSValue<JSValue>
         {
             // Resolve the context from the env rather than a finalize hint (see FinalizeGCHandle).
             context = JSRuntimeContext.FromEnv(env);
-            if (context != null && !context.IsDisposed)
-            {
-                // TODO: [vmoroz] In future we will be not allowed to run JS in finalizers.
-                // We must remove creation of the scope.
-                using var scope = JSValueScope.CreateRuntimeScope(env, context);
-                ((Action)gcHandle.Target!)();
-            }
+
+            // TODO: [vmoroz] In future we will be not allowed to run JS in finalizers.
+            // We must remove creation of the scope.
+            // Without a live context there is no scope to enter, but the action still runs so its
+            // managed cleanup is not lost.
+            using JSValueScope? scope = context is { IsDisposed: false }
+                ? JSValueScope.CreateRuntimeScope(env, context)
+                : null;
+            ((Action)gcHandle.Target!)();
         }
         catch (Exception)
         {

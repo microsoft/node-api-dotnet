@@ -188,6 +188,25 @@ public class JSReferenceTests
         }
     }
 
+    // A torn-down context's synchronization context skips posted work, so Run must fail up front
+    // instead of silently doing nothing or returning a default value.
+    [Fact]
+    public void RunAfterContextDisposedThrows()
+    {
+        JSRuntimeContext context;
+        JSReference reference;
+        using (JSValueScope scope = TestScope(new JSInlineSynchronizationContext()))
+        {
+            context = scope.RuntimeContext;
+            reference = new JSReference(JSValue.CreateObject());
+        }
+
+        context.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => reference.Run((value) => { }));
+        Assert.Throws<ObjectDisposedException>(() => reference.Run((value) => 1));
+    }
+
     // Explicit Dispose() from a thread with no current scope must not throw. The pre-refactor
     // no-context path asserted thread access and threw JSInvalidThreadAccessException here; every
     // reference is now context-backed, so the delete is posted to the JS thread instead.
