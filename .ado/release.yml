@@ -12,12 +12,6 @@ trigger: none
 pr: none
 name: $(Date:yyyyMMdd).$(Rev:r)
 
-parameters:
-- name: publishEmbeddingPackage
-  displayName: Publish Embedding package to NuGet.org (requires ESRP registration)
-  type: boolean
-  default: false
-
 resources:
   pipelines:
   - pipeline: 'microsoft_node-api-dotnet_ci'
@@ -259,12 +253,6 @@ extends:
               Microsoft.JavaScript.NodeApi.*.nupkg
               Microsoft.JavaScript.NodeApi.*.snupkg
             TargetFolder: '$(Agent.TempDirectory)\esrp-nuget\react-native-windows'
-
-        - ${{ if not(parameters.publishEmbeddingPackage) }}:
-          - pwsh: |
-              Get-ChildItem -LiteralPath '$(Agent.TempDirectory)\esrp-nuget\react-native-windows' -Filter 'Microsoft.JavaScript.NodeApi.Embedding.*' -File -ErrorAction Stop |
-                Remove-Item -Verbose -ErrorAction Stop
-            displayName: Exclude Embedding package pending ESRP registration
 
         - pwsh: |
             Get-ChildItem -LiteralPath '$(Agent.TempDirectory)\esrp-nuget\react-native-windows' -Recurse -ErrorAction Stop
