@@ -89,9 +89,9 @@ public class JSMarshaller
         typeof(JSRuntimeContext).GetStaticProperty(nameof(JSRuntimeContext.Current))
             ?? throw new NotImplementedException("JSRuntimeContext.Current");
 
-    private static readonly PropertyInfo s_moduleContext =
-        typeof(JSModuleContext).GetStaticProperty(nameof(JSModuleContext.Current))
-            ?? throw new NotImplementedException("JSModuleContext.Current");
+    private static readonly PropertyInfo s_currentScope =
+        typeof(JSValueScope).GetStaticProperty(nameof(JSValueScope.Current))
+            ?? throw new NotImplementedException("JSValueScope.Current");
 
     private static readonly PropertyInfo s_valueItem =
         typeof(JSValue).GetIndexer(typeof(string))
@@ -1878,22 +1878,22 @@ public class JSMarshaller
 
         if (type.GetCustomAttributes<JSModuleAttribute>().Any())
         {
-            // For a method on a module class, the .NET object is stored in the module context.
+            // For a method on a module class, the .NET object is the current module instance.
             // `ThisArg` is ignored for module-level methods.
 
             /*
-             * ObjectType? __this = JSRuntimeContext.Current.Module as ObjectType;
+             * ObjectType? __this = JSValueScope.Current.Module as ObjectType;
              * if (__this == null) return JSValue.Undefined;
              */
 
-            PropertyInfo moduleProperty = typeof(JSModuleContext).GetProperty(
-                nameof(JSModuleContext.Module))
-                ?? throw new NotImplementedException("JSModuleContext.Module");
+            PropertyInfo moduleProperty = typeof(JSValueScope).GetProperty(
+                nameof(JSValueScope.Module))
+                ?? throw new NotImplementedException("JSValueScope.Module");
             yield return Expression.Assign(
                 thisVariable,
                 Expression.TypeAs(
                     Expression.Property(
-                        Expression.Property(null, s_moduleContext),
+                        Expression.Property(null, s_currentScope),
                         moduleProperty),
                     type));
             yield return Expression.IfThen(

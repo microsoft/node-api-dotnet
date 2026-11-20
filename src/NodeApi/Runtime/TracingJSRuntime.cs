@@ -377,57 +377,71 @@ public class TracingJSRuntime : JSRuntime
         <napi_env, napi_callback_info, napi_value> s_traceSetterCallback = &TraceSetterCallback;
 #endif
 
+    // Like JSValue.InvokeCallback (which these replace when tracing is on): a callback that can no
+    // longer resolve a context -- for example a retained JS function invoked after its context was
+    // disposed -- is a no-op instead of throwing across the UnmanagedCallersOnly callbacks below.
+    private static napi_value InvokeTraceCallback<TDescriptor>(
+        napi_env env,
+        napi_callback_info cbinfo,
+        Func<TDescriptor, JSCallbackDescriptor> getCallbackDescriptor)
+    {
+        JSValueScope? scope = JSValueScope.TryCreateRuntimeScope(env);
+        if (scope is null)
+        {
+            return napi_value.Null;
+        }
+
+        // TraceCallback reports callback errors as JS exceptions itself; the outer try only keeps a
+        // scope-disposal exception from escaping the UnmanagedCallersOnly boundary.
+        try
+        {
+            using (scope)
+            {
+                return ((TracingJSRuntime)scope.Runtime).TraceCallback<TDescriptor>(
+                    scope, cbinfo, getCallbackDescriptor);
+            }
+        }
+        catch (Exception)
+        {
+            return napi_value.Null;
+        }
+    }
+
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
     private static unsafe napi_value TraceFunctionCallback(napi_env env, napi_callback_info cbinfo)
-    {
-        using var scope = new JSValueScope(JSValueScopeType.Callback);
-        return ((TracingJSRuntime)scope.Runtime).TraceCallback<JSCallbackDescriptor>(
-            scope, cbinfo, (descriptor) => descriptor);
-    }
+        => InvokeTraceCallback<JSCallbackDescriptor>(env, cbinfo, (descriptor) => descriptor);
 
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
     private static unsafe napi_value TraceMethodCallback(napi_env env, napi_callback_info cbinfo)
-    {
-        using var scope = new JSValueScope(JSValueScopeType.Callback);
-        return ((TracingJSRuntime)scope.Runtime).TraceCallback<JSPropertyDescriptor>(
-            scope, cbinfo, (propertyDescriptor) => new(
-                propertyDescriptor.Name,
-                propertyDescriptor.Method!,
-                propertyDescriptor.Data,
-                propertyDescriptor.ModuleContext));
-    }
+        => InvokeTraceCallback<JSPropertyDescriptor>(env, cbinfo, (propertyDescriptor) => new(
+            propertyDescriptor.Name,
+            propertyDescriptor.Method!,
+            propertyDescriptor.Data,
+            propertyDescriptor.ModuleHolder));
 
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
     private static unsafe napi_value TraceGetterCallback(napi_env env, napi_callback_info cbinfo)
-    {
-        using var scope = new JSValueScope(JSValueScopeType.Callback);
-        return ((TracingJSRuntime)scope.Runtime).TraceCallback<JSPropertyDescriptor>(
-            scope, cbinfo, (propertyDescriptor) => new(
-                propertyDescriptor.Name,
-                propertyDescriptor.Getter!,
-                propertyDescriptor.Data,
-                propertyDescriptor.ModuleContext));
-    }
+        => InvokeTraceCallback<JSPropertyDescriptor>(env, cbinfo, (propertyDescriptor) => new(
+            propertyDescriptor.Name,
+            propertyDescriptor.Getter!,
+            propertyDescriptor.Data,
+            propertyDescriptor.ModuleHolder));
 
 #if UNMANAGED_DELEGATES
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
     private static unsafe napi_value TraceSetterCallback(napi_env env, napi_callback_info cbinfo)
-    {
-        using var scope = new JSValueScope(JSValueScopeType.Callback);
-        return ((TracingJSRuntime)scope.Runtime).TraceCallback<JSPropertyDescriptor>(
-            scope, cbinfo, (propertyDescriptor) => new(
-                propertyDescriptor.Name,
-                propertyDescriptor.Setter!,
-                propertyDescriptor.Data,
-                propertyDescriptor.ModuleContext));
-    }
+        => InvokeTraceCallback<JSPropertyDescriptor>(env, cbinfo, (propertyDescriptor) => new(
+            propertyDescriptor.Name,
+            propertyDescriptor.Setter!,
+            propertyDescriptor.Data,
+            propertyDescriptor.ModuleHolder));
 
     /// <summary>
     /// Traces a callback function, method, getter, or setter, including args and return value.
@@ -442,6 +456,9 @@ public class TracingJSRuntime : JSRuntime
         TDescriptor data = (TDescriptor)(dataObj ??
             throw new InvalidOperationException("Callback data is null."));
         JSCallbackDescriptor descriptor = getCallbackDescriptor(data);
+
+        // Mirror InvokeCallback: make the module instance available to module-level members.
+        scope.ModuleHolder = descriptor.ModuleHolder;
 
         Span<napi_value> argsSpan = stackalloc napi_value[length];
         JSCallbackArgs args = new(scope, cbinfo, argsSpan, descriptor.Data);

@@ -30,7 +30,8 @@ public sealed class HermesRuntime : IDisposable
         JSRuntime runtime = HermesApi.Load("hermes.dll");
         using HermesConfig tempConfig = new();
         hermes_create_runtime((hermes_config)tempConfig, out _runtime).ThrowIfFailed();
-        _rootScope = new JSValueScope(JSValueScopeType.Root, (napi_env)this, runtime);
+        JSRuntimeContext context = JSRuntimeContext.Create((napi_env)this, runtime);
+        _rootScope = JSValueScope.CreateRuntimeScope((napi_env)this, context);
         CreatePolyfills();
     }
 
@@ -98,7 +99,7 @@ public sealed class HermesRuntime : IDisposable
     private void CreatePolyfills()
     {
         VerifyElseThrow(JSDispatcherQueue.GetForCurrentThread() == _dispatcherQueue);
-        using var scope = new JSValueScope();
+        using var scope = JSValueScope.CreateHandleScope();
 
         // Add global
         JSValue global = JSValue.Global;
