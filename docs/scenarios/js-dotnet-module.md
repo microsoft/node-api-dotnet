@@ -20,8 +20,8 @@ For a minimal example of this scenario, see
     Afterward you should have the two references in your project file:
     ```xml
     <ItemGroup>
-      <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.*-*" />
-      <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.*-*" />
+      <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.10.*-*" />
+      <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.10.*-*" />
     </ItemGroup>
     ```
 

@@ -29,6 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.JavaScript.NodeApi.DotNetHost" />
     <InternalsVisibleTo Include="Microsoft.JavaScript.NodeApi.Test" />
   </ItemGroup>
 

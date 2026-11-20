@@ -525,7 +525,7 @@ public class NodejsEmbeddingTests
 
         nodejs.Run(() =>
         {
-            using JSValueScope handleScope = new();
+            using JSValueScope handleScope = JSValueScope.CreateHandleScope();
             Assert.Equal(
                 "test-linked",
                 (string)JSValue.RunScript("process._linkedBinding('test-linked').moduleName"));

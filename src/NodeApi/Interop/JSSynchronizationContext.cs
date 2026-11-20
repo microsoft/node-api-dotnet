@@ -443,3 +443,39 @@ internal sealed class JSDispatcherSynchronizationContext : JSSynchronizationCont
 
     public override void CloseAsyncScope() { }
 }
+
+/// <summary>
+/// A synchronization context that runs work inline when already on the JS thread and drops it
+/// otherwise, without a thread-safe function. Used by the native host, which only ever operates
+/// on the JS thread and must not stand up a TSFN (which would ref the environment and require an
+/// env cleanup hook).
+/// </summary>
+/// <remarks>
+/// Because there is no TSFN to marshal to, work posted from another thread (such as a
+/// <see cref="JSReference"/> finalizer running on the GC thread) is dropped rather than
+/// scheduled. That is safe for the native host: its references are env-lifetime and reclaimed by
+/// Node at teardown, so a dropped off-thread delete never leaves a live reference behind and never
+/// touches a dead environment.
+/// </remarks>
+internal sealed class JSInlineSynchronizationContext : JSSynchronizationContext
+{
+    public override void OpenAsyncScope() { }
+
+    public override void CloseAsyncScope() { }
+
+    public override void Post(SendOrPostCallback callback, object? state)
+    {
+        if (!IsDisposed && Current == this)
+        {
+            callback(state);
+        }
+    }
+
+    public override void Send(SendOrPostCallback callback, object? state)
+    {
+        if (!IsDisposed && Current == this)
+        {
+            callback(state);
+        }
+    }
+}

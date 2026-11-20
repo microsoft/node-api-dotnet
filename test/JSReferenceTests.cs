@@ -13,20 +13,28 @@ public class JSReferenceTests
 {
     private readonly MockJSRuntime _mockRuntime = new();
 
-    private JSValueScope TestScope(JSValueScopeType scopeType)
-        => TestScope(scopeType, new MockJSRuntime.SynchronizationContext());
+    private JSValueScope TestScope()
+        => TestScope(new MockJSRuntime.SynchronizationContext());
 
-    private JSValueScope TestScope(
-        JSValueScopeType scopeType, JSSynchronizationContext synchronizationContext)
+    private JSValueScope TestScope(JSSynchronizationContext synchronizationContext)
     {
         napi_env env = new(Environment.CurrentManagedThreadId);
-        return new(scopeType, env, _mockRuntime, synchronizationContext);
+        var context = new JSRuntimeContext(env, _mockRuntime, synchronizationContext);
+        return JSValueScope.CreateRuntimeScope(env, context);
+    }
+
+    private static JSValueScope TestScope(MockJSRuntime runtime)
+    {
+        napi_env env = new(Environment.CurrentManagedThreadId);
+        var context = new JSRuntimeContext(
+            env, runtime, new MockJSRuntime.SynchronizationContext());
+        return JSValueScope.CreateRuntimeScope(env, context);
     }
 
     [Fact]
     public void GetReferenceFromSameScope()
     {
-        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+        using JSValueScope rootScope = TestScope();
 
         JSValue value = JSValue.CreateObject();
         JSReference reference = new(value);
@@ -36,10 +44,10 @@ public class JSReferenceTests
     [Fact]
     public void GetReferenceFromParentScope()
     {
-        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+        using JSValueScope rootScope = TestScope();
 
         JSReference reference;
-        using (JSValueScope handleScope = new(JSValueScopeType.Handle))
+        using (JSValueScope handleScope = JSValueScope.CreateHandleScope())
         {
             JSValue value = JSValue.CreateObject();
             reference = new JSReference(value);
@@ -51,7 +59,7 @@ public class JSReferenceTests
     [Fact]
     public void GetReferenceFromDifferentThread()
     {
-        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+        using JSValueScope rootScope = TestScope();
 
         JSValue value = JSValue.CreateObject();
         JSReference reference = new(value);
@@ -66,7 +74,7 @@ public class JSReferenceTests
     [Fact]
     public void GetReferenceFromDifferentRootScope()
     {
-        using JSValueScope rootScope1 = TestScope(JSValueScopeType.Root);
+        using JSValueScope rootScope1 = TestScope();
 
         JSValue value = JSValue.CreateObject();
         JSReference reference = new(value);
@@ -74,7 +82,8 @@ public class JSReferenceTests
         // Run in a new thread and establish another root scope there.
         TestUtils.RunInThread(() =>
         {
-            using JSValueScope rootScope2 = TestScope(JSValueScopeType.Root);
+            // Separate runtime so rootScope2's env has its own instance data (one context per env).
+            using JSValueScope rootScope2 = JSReferenceTests.TestScope(new MockJSRuntime());
             Assert.Throws<JSInvalidThreadAccessException>(() => reference.GetValue());
         }).Wait();
     }
@@ -82,7 +91,7 @@ public class JSReferenceTests
     [Fact]
     public void GetWeakReferenceUnavailable()
     {
-        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+        using JSValueScope rootScope = TestScope();
 
         JSValue value = JSValue.CreateObject();
         var reference = new JSReference(value, isWeak: true);
@@ -94,7 +103,7 @@ public class JSReferenceTests
     [Fact]
     public void TryGetWeakReferenceValue()
     {
-        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+        using JSValueScope rootScope = TestScope();
 
         JSValue value = JSValue.CreateObject();
         JSReference reference = new(value);
@@ -105,7 +114,7 @@ public class JSReferenceTests
     [Fact]
     public void TryGetWeakReferenceUnavailable()
     {
-        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+        using JSValueScope rootScope = TestScope();
 
         JSValue value = JSValue.CreateObject();
         var reference = new JSReference(value, isWeak: true);
@@ -114,92 +123,14 @@ public class JSReferenceTests
         Assert.False(reference.TryGetValue(out _));
     }
 
-    // A reference created from a NoContext scope (as the native host does) has a null runtime
-    // context, so its finalizer takes the branch that previously asserted thread access. The GC
-    // finalizer runs on a thread with no JS scope, so that assertion threw
-    // JSInvalidThreadAccessException out of the finalizer, which terminates the process (the
-    // reported worker-teardown crash). The finalizer must instead complete without throwing.
-    [Fact]
-    public void FinalizeNoContextReferenceFromDifferentThreadDoesNotThrow()
-    {
-        using JSValueScope noContextScope = TestScope(JSValueScopeType.NoContext);
-
-        JSValue value = JSValue.CreateObject();
-        var reference = new FinalizerTestReference(value);
-
-        // Run on a new thread that has no current scope, simulating the GC finalizer thread.
-        TestUtils.RunInThread(() => reference.SimulateFinalize()).Wait();
-
-        Assert.True(reference.IsDisposed);
-    }
-
-    // A no-context reference finalized off the JS thread cannot be deleted inline (there is no
-    // synchronization context to marshal the delete back to the JS thread). Instead of leaking the
-    // napi_ref until the environment is destroyed, the finalizer defers the deletion, which is then
-    // performed the next time a scope for the same environment is active on its JS thread.
-    [Fact]
-    public void FinalizeNoContextReferenceDefersDeletionUntilNextScope()
-    {
-        napi_env env = new(Environment.CurrentManagedThreadId);
-        using JSValueScope noContextScope = new(
-            JSValueScopeType.NoContext, env, _mockRuntime,
-            new MockJSRuntime.SynchronizationContext());
-
-        JSValue value = JSValue.CreateObject();
-        var reference = new FinalizerTestReference(value);
-        napi_ref handle = reference.Handle;
-        Assert.True(_mockRuntime.HasReference(handle));
-
-        // Simulate the GC finalizer thread: no current scope, so the delete cannot run inline.
-        TestUtils.RunInThread(() => reference.SimulateFinalize()).Wait();
-        Assert.True(reference.IsDisposed);
-
-        // The delete is deferred, not run on the finalizer thread, so the reference still exists.
-        Assert.True(_mockRuntime.HasReference(handle));
-
-        // Entering a scope for the same environment on the JS thread drains the deferred deletion.
-        using (JSValueScope drainScope = new(JSValueScopeType.NoContext))
-        {
-        }
-
-        Assert.False(_mockRuntime.HasReference(handle));
-    }
-
-    // When the environment-scoped scope that owns a deferred no-context deletion is disposed, a
-    // final drain runs so the napi_ref is released even if no further scope is entered.
-    [Fact]
-    public void DisposingScopeDrainsDeferredNoContextDeletion()
-    {
-        napi_env env = new(Environment.CurrentManagedThreadId);
-        napi_ref handle;
-
-        var noContextScope = new JSValueScope(
-            JSValueScopeType.NoContext, env, _mockRuntime,
-            new MockJSRuntime.SynchronizationContext());
-        try
-        {
-            JSValue value = JSValue.CreateObject();
-            var reference = new FinalizerTestReference(value);
-            handle = reference.Handle;
-
-            TestUtils.RunInThread(() => reference.SimulateFinalize()).Wait();
-            Assert.True(_mockRuntime.HasReference(handle));
-        }
-        finally
-        {
-            // Disposing the environment-scoped scope performs the final drain.
-            noContextScope.Dispose();
-        }
-
-        Assert.False(_mockRuntime.HasReference(handle));
-    }
+    // A reference with a runtime context posts its cleanup to the JS thread instead of deleting it
     // inline. The finalizer must never throw when it runs on a thread with no current scope, and
     // the posted delete must actually release the native reference once the JS thread pumps it.
     [Fact]
     public void FinalizeContextReferenceFromDifferentThreadDoesNotThrow()
     {
         var syncContext = new MockJSRuntime.RecordingSynchronizationContext();
-        using JSValueScope rootScope = TestScope(JSValueScopeType.Root, syncContext);
+        using JSValueScope rootScope = TestScope(syncContext);
 
         JSValue value = JSValue.CreateObject();
         var reference = new FinalizerTestReference(value);
@@ -219,20 +150,88 @@ public class JSReferenceTests
         Assert.False(_mockRuntime.HasReference(handle));
     }
 
-    // Explicit disposal (disposing: true) preserves the documented behavior of asserting thread
-    // access for a no-context reference; only the finalizer path is made non-throwing.
-    [Fact]
-    public void DisposeNoContextReferenceFromDifferentThreadThrows()
+    // Both release paths retain native-host references until env teardown when dispatch is unavailable.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InlineContextReferenceReleaseDoesNotDeleteOffThreadOrAfterDispose(bool dispose)
     {
-        using JSValueScope noContextScope = TestScope(JSValueScopeType.NoContext);
+        JSRuntimeContext context;
+        FinalizerTestReference offThreadReference;
+        FinalizerTestReference afterDisposeReference;
+        napi_ref offThreadHandle;
+        napi_ref afterDisposeHandle;
+        using (JSValueScope scope = TestScope(new JSInlineSynchronizationContext()))
+        {
+            context = scope.RuntimeContext;
+            offThreadReference = new FinalizerTestReference(JSValue.CreateObject());
+            afterDisposeReference = new FinalizerTestReference(JSValue.CreateObject());
+            offThreadHandle = offThreadReference.Handle;
+            afterDisposeHandle = afterDisposeReference.Handle;
+
+            TestUtils.RunInThread(() => Release(offThreadReference)).Wait();
+            Assert.True(offThreadReference.IsDisposed);
+            Assert.True(_mockRuntime.HasReference(offThreadHandle));
+        }
+
+        Assert.True(_mockRuntime.HasReference(offThreadHandle));
+        context.Dispose();
+        TestUtils.RunInThread(() => Release(afterDisposeReference)).Wait();
+        Assert.True(afterDisposeReference.IsDisposed);
+        Assert.True(_mockRuntime.HasReference(afterDisposeHandle));
+        Assert.True(_mockRuntime.HasReference(offThreadHandle));
+
+        void Release(FinalizerTestReference reference)
+        {
+            if (dispose) reference.Dispose();
+            else reference.SimulateFinalize();
+        }
+    }
+
+    // A torn-down context's synchronization context skips posted work, so Run must fail up front
+    // instead of silently doing nothing or returning a default value.
+    [Fact]
+    public void RunAfterContextDisposedThrows()
+    {
+        JSRuntimeContext context;
+        JSReference reference;
+        using (JSValueScope scope = TestScope(new JSInlineSynchronizationContext()))
+        {
+            context = scope.RuntimeContext;
+            reference = new JSReference(JSValue.CreateObject());
+        }
+
+        context.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => reference.Run((value) => { }));
+        Assert.Throws<ObjectDisposedException>(() => reference.Run((value) => 1));
+    }
+
+    // Explicit Dispose() from a thread with no current scope must not throw. The pre-refactor
+    // no-context path asserted thread access and threw JSInvalidThreadAccessException here; every
+    // reference is now context-backed, so the delete is posted to the JS thread instead.
+    [Fact]
+    public void DisposeReferenceFromDifferentThreadPostsDelete()
+    {
+        var syncContext = new MockJSRuntime.RecordingSynchronizationContext();
+        using JSValueScope rootScope = TestScope(syncContext);
 
         JSValue value = JSValue.CreateObject();
-        JSReference reference = new(value);
+        var reference = new JSReference(value);
+        napi_ref handle = reference.Handle;
+        Assert.True(_mockRuntime.HasReference(handle));
 
-        TestUtils.RunInThread(() =>
-        {
-            Assert.Throws<JSInvalidThreadAccessException>(() => reference.Dispose());
-        }).Wait();
+        TestUtils.RunInThread(() => reference.Dispose()).Wait();
+
+        Assert.True(reference.IsDisposed);
+
+        // The delete is deferred to the JS thread, not run inline on the disposing thread.
+        Assert.True(_mockRuntime.HasReference(handle));
+        Assert.Equal(1, syncContext.PendingCount);
+
+        // Pumping the sync context runs the posted delete, releasing the native reference.
+        Assert.Equal(1, syncContext.RunPendingCallbacks());
+        Assert.False(_mockRuntime.HasReference(handle));
     }
 
     // The finalizer invokes the virtual Dispose(bool), so a derived override can throw before or
@@ -243,7 +242,7 @@ public class JSReferenceTests
     [Fact]
     public void FinalizerSwallowsExceptionsFromDerivedDisposeOverride()
     {
-        using JSValueScope rootScope = TestScope(JSValueScopeType.Root);
+        using JSValueScope rootScope = TestScope();
 
         CreateAndAbandonThrowingReference();
 
