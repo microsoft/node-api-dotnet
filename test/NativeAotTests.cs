@@ -24,6 +24,11 @@ public class NativeAotTests
         // NativeAOT module has its own entry point that never calls it, so this case is only
         // meaningful under the hosted CLR host. See HostedClrTests.
         !testCaseName.Contains("/worker_teardown") &&
+
+        // This case reproduces termination of the hosted CoreCLR worker used by the
+        // node-api-dotnet package. Terminating a generated NativeAOT module while its unmanaged
+        // callback is still executing has separate fail-fast behavior outside this regression.
+        !testCaseName.Contains("/worker_termination_during_call") &&
         !testCaseName.StartsWith("projects/", StringComparison.Ordinal));
 
     [Theory]
